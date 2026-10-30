@@ -122,9 +122,11 @@ python manage.py runserver 8001
 
 Setelah `php artisan migrate --seed`, tersedia akun:
 
-| Email              | Password   |
-|--------------------|------------|
-| `test@example.com` | `password` |
+| Email               | Password      |
+|---------------------|---------------|
+| `admin@sekolah.com` | `password123` |
+
+Seeder bersifat idempoten, jadi `php artisan db:seed` aman dijalankan ulang.
 
 ## Endpoint API
 
