@@ -1,0 +1,31 @@
+{
+  "name": "school-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000"
+  },
+  "dependencies": {
+    "@adminlte/react": "^0.7.0",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "next": "^16.4.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sweetalert2": "^11.26.25",
+    "tabulator-tables": "^6.7.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/bootstrap": "^5.2.11"
+  },
+  "allowScripts": {
+    "xlsx@0.18.5": true,
+    "jspdf@4.2.1": true,
+    "jspdf-autotable@5.0.9": true
+  }
+}
