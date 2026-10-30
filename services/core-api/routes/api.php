@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Api\ClassesController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
+use App\Http\Controllers\Api\PeriodeController;
+use App\Http\Controllers\Api\KategoriPenilaianController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -51,3 +53,6 @@ Route::prefix('nilai')->group(function () {
     Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
     Route::post('/batch', [NilaiController::class, 'saveBatch']);
 });
+// Master Reference Penilaian
+Route::apiResource('/periodes', PeriodeController::class);
+Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class);
