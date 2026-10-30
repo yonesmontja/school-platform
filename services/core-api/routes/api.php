@@ -54,5 +54,7 @@ Route::prefix('nilai')->group(function () {
     Route::post('/batch', [NilaiController::class, 'saveBatch']);
 });
 // Master Reference Penilaian
-Route::apiResource('/periodes', PeriodeController::class);
-Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('/periodes', PeriodeController::class);
+    Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class);
+});
