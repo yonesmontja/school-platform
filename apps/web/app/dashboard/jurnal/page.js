@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
+import * as XLSX from "xlsx";
 
 const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
@@ -44,6 +45,8 @@ export default function JurnalAnekdotalPage() {
   const [filterKelasFeed, setFilterKelasFeed] = useState("");
   const [journals, setJournals] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
+  const [activeTab, setActiveTab] = useState("linimasa");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     tanggal: todayLocal(),
@@ -243,6 +246,36 @@ export default function JurnalAnekdotalPage() {
     }
   };
 
+  // Pencarian berlaku untuk linimasa dan tabel
+  const filteredJournals = (() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return journals;
+    return journals.filter(j =>
+      [j.siswa?.nama_siswa, j.narasi_kejadian, j.tanggal, j.materi?.nama_materi]
+        .some(v => String(v || "").toLowerCase().includes(q))
+    );
+  })();
+
+  const handleExportExcel = () => {
+    if (filteredJournals.length === 0) return Swal.fire("Kosong", "Tidak ada data untuk diekspor.", "warning");
+    const data = filteredJournals.map(j => ({
+      "Tanggal": j.tanggal,
+      "Siswa": j.siswa?.nama_siswa || j.id_siswa,
+      "Kelas": j.kelas?.nama_kelas || "-",
+      "Materi": j.materi?.nama_materi || "-",
+      "Jenis (MBK)": j.jenis?.kategori_penilaian || "-",
+      "Narasi": j.narasi_kejadian,
+      "Dampak": j.mode_dampak === "BONUS" ? "Intervensi" : "Catatan",
+      "Mode AI": j.ai_mode || "-",
+      "S": j.val_S, "T": j.val_T, "N": j.val_N, "K": j.val_K, "M": j.val_M,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Jurnal");
+    XLSX.writeFile(wb, `Jurnal_Anekdotal_${new Date().getTime()}.xlsx`);
+    Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Excel diunduh", showConfirmButton: false, timer: 2000 });
+  };
+
   const formatTanggal = (str) => {
     if (!str) return "-";
     // Parse sebagai tanggal lokal agar tidak bergeser zona waktu
@@ -401,16 +434,30 @@ export default function JurnalAnekdotalPage() {
         <div className="col-lg-7">
           <div className="card border-0 shadow-sm mb-3">
             <div className="card-body p-3">
-              <div className="row g-2 align-items-center">
-                <div className="col-md-6">
-                  <h5 className="fw-bold text-secondary m-0"><i className="bi bi-clock-history me-2"></i>Linimasa Jurnal</h5>
-                </div>
-                <div className="col-md-6">
-                  <select className="form-select form-select-sm" value={filterKelasFeed} onChange={(e) => setFilterKelasFeed(e.target.value)}>
-                    <option value="">-- Semua Kelas --</option>
-                    {classes.map(c => <option key={c.id_kelas} value={c.id_kelas}>{c.nama_kelas}</option>)}
-                  </select>
-                </div>
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <ul className="nav nav-pills">
+                  <li className="nav-item">
+                    <button type="button" className={`nav-link py-1 ${activeTab === "linimasa" ? "active" : ""}`} onClick={() => setActiveTab("linimasa")}>
+                      <i className="bi bi-clock-history me-1"></i>Linimasa
+                    </button>
+                  </li>
+                  <li className="nav-item">
+                    <button type="button" className={`nav-link py-1 ${activeTab === "tabel" ? "active" : ""}`} onClick={() => setActiveTab("tabel")}>
+                      <i className="bi bi-table me-1"></i>Tabel Analitik
+                    </button>
+                  </li>
+                </ul>
+                <select className="form-select form-select-sm" style={{ maxWidth: '200px' }} value={filterKelasFeed} onChange={(e) => setFilterKelasFeed(e.target.value)}>
+                  <option value="">-- Semua Kelas --</option>
+                  {classes.map(c => <option key={c.id_kelas} value={c.id_kelas}>{c.nama_kelas}</option>)}
+                </select>
+              </div>
+              <div className="d-flex gap-2">
+                <input type="text" className="form-control form-control-sm" placeholder="Cari nama siswa, narasi, materi, atau tanggal..."
+                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <button type="button" className="btn btn-sm btn-success fw-bold text-nowrap" onClick={handleExportExcel}>
+                  <i className="bi bi-file-earmark-excel me-1"></i>Export Excel
+                </button>
               </div>
             </div>
           </div>
@@ -421,16 +468,16 @@ export default function JurnalAnekdotalPage() {
             </div>
           )}
 
-          {!loadingFeed && journals.length === 0 && (
+          {!loadingFeed && filteredJournals.length === 0 && (
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-5 text-muted">
                 <i className="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                <p>Belum ada jurnal untuk filter ini.</p>
+                <p>{journals.length === 0 ? "Belum ada jurnal untuk filter ini." : "Tidak ada jurnal yang cocok dengan pencarian."}</p>
               </div>
             </div>
           )}
 
-          {journals.map(j => (
+          {activeTab === "linimasa" && filteredJournals.map(j => (
             <div key={j.id_jurnal} className={`card border-0 shadow-sm mb-3 border-start border-4 border-${j.mode_dampak === 'BONUS' ? 'danger' : 'secondary'}`}>
               <div className="card-body p-3">
                 <div className="d-flex gap-3">
@@ -489,6 +536,39 @@ export default function JurnalAnekdotalPage() {
               </div>
             </div>
           ))}
+
+          {activeTab === "tabel" && !loadingFeed && filteredJournals.length > 0 && (
+            <div className="card border-0 shadow-sm">
+              <div className="card-body p-3">
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered table-striped align-middle mb-0">
+                    <thead className="table-dark">
+                      <tr>
+                        <th>Tanggal</th><th>Siswa</th><th>Narasi</th>
+                        {STNKM_META.map(m => <th key={m.key} className="text-center" title={m.label}>{m.label.charAt(0)}</th>)}
+                        <th className="text-center">AI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredJournals.map(j => (
+                        <tr key={j.id_jurnal}>
+                          <td className="small text-nowrap">{formatTanggal(j.tanggal)}</td>
+                          <td className="small fw-bold text-primary">{j.siswa?.nama_siswa || j.id_siswa}</td>
+                          <td className="small" title={j.narasi_kejadian}>
+                            {j.narasi_kejadian.length > 80 ? `${j.narasi_kejadian.slice(0, 80)}…` : j.narasi_kejadian}
+                          </td>
+                          {STNKM_META.map(m => (
+                            <td key={m.key} className={`text-center small fw-bold text-${getNilaiColor(j[m.key])}`}>{getNilaiSign(j[m.key])}</td>
+                          ))}
+                          <td className="text-center small">{j.ai_mode || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
