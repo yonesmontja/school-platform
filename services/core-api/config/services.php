@@ -28,6 +28,15 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Cadangan API key Jurnal Anekdotal; key dari halaman Pengaturan diutamakan
+    'ai_services' => [
+        'gemini_key' => env('GEMINI_API_KEY'),
+        'openrouter_key' => env('OPENROUTER_API_KEY'),
+        'claude_key' => env('CLAUDE_API_KEY'),
+        'deepseek_key' => env('DEEPSEEK_API_KEY'),
+        'openkey_key' => env('OPENKEY_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

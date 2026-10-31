@@ -74,6 +74,12 @@ PROMPT;
         return $this->settings ??= SchoolSetting::first();
     }
 
+    // Key dari halaman Pengaturan (terenkripsi di DB) diutamakan; .env hanya cadangan
+    private function apiKey(string $field, string $configKey): ?string
+    {
+        return $this->settings()?->{$field} ?: config("services.ai_services.{$configKey}");
+    }
+
     private function userMessage(string $narasi): string
     {
         // Narasi di-encode JSON agar tanda kutip di dalamnya tidak merusak struktur prompt
@@ -83,9 +89,9 @@ PROMPT;
     // ============ GEMINI ============
     private function analyzeWithGemini(string $narasi): ?array
     {
-        $apiKey = $this->settings()?->api_key_gemini;
+        $apiKey = $this->apiKey('api_key_gemini', 'gemini_key');
         if (!$apiKey) return null;
-        $model = $this->settings()->ai_model_name ?: self::MODEL_GEMINI;
+        $model = $this->settings()?->ai_model_name ?: self::MODEL_GEMINI;
 
         try {
             // API key lewat header, bukan query string, agar tidak tercatat di log URL
@@ -115,7 +121,7 @@ PROMPT;
     // ============ QWEN (via OpenRouter) ============
     private function analyzeWithQwen(string $narasi): ?array
     {
-        $apiKey = $this->settings()?->api_key_qwen;
+        $apiKey = $this->apiKey('api_key_qwen', 'openrouter_key');
         if (!$apiKey) return null;
 
         return $this->analyzeOpenAICompatible(
@@ -127,7 +133,7 @@ PROMPT;
     // ============ DEEPSEEK ============
     private function analyzeWithDeepSeek(string $narasi): ?array
     {
-        $apiKey = $this->settings()?->api_key_deepseek;
+        $apiKey = $this->apiKey('api_key_deepseek', 'deepseek_key');
         if (!$apiKey) return null;
 
         return $this->analyzeOpenAICompatible(
@@ -139,7 +145,7 @@ PROMPT;
     private function analyzeWithOpenKey(string $narasi): ?array
     {
         $s = $this->settings();
-        $apiKey = $s?->api_key_openkey;
+        $apiKey = $this->apiKey('api_key_openkey', 'openkey_key');
         $baseUrl = $s?->openkey_base_url;
         if (!$apiKey || !$baseUrl) return null;
 
@@ -183,7 +189,7 @@ PROMPT;
     // ============ CLAUDE (Anthropic Messages API) ============
     private function analyzeWithClaude(string $narasi): ?array
     {
-        $apiKey = $this->settings()?->api_key_claude;
+        $apiKey = $this->apiKey('api_key_claude', 'claude_key');
         if (!$apiKey) return null;
 
         $schema = [
