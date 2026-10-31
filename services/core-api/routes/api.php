@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
 use App\Http\Controllers\Api\MateriController;
+use App\Http\Controllers\Api\JurnalController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -61,4 +62,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/mbk', MBKController::class)->except(['show']);
     Route::get('/materi/by-context', [MateriController::class, 'byContext']);
     Route::apiResource('/materi', MateriController::class)->except(['show']);
+    // Jurnal Anekdotal
+    Route::prefix('jurnal')->group(function () {
+        Route::get('/', [JurnalController::class, 'index']);
+        Route::post('/analyze', [JurnalController::class, 'analyze']);
+        Route::post('/store', [JurnalController::class, 'store']);
+        Route::delete('/{id}', [JurnalController::class, 'destroy']);
+    });
 });
