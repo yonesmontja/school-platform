@@ -17,6 +17,10 @@ export default function PengaturanSekolahPage() {
   });
   const [ttdPreview, setTtdPreview] = useState(null);
   const fileInputRef = useRef(null);
+  // API key tidak pernah dikirim dari server; input ini hanya untuk key baru
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [hapusApiKey, setHapusApiKey] = useState(false);
 
   const API_URL = 'http://localhost:8000/api';
   const getToken = () => localStorage.getItem('token');
@@ -91,16 +95,27 @@ export default function PengaturanSekolahPage() {
     });
 
     try {
-      await safeFetch(`${API_URL}/settings`, {
+      const result = await safeFetch(`${API_URL}/settings`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${getToken()}`, 
-          Accept: 'application/json' 
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+          Accept: 'application/json'
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          api_key_gemini: apiKeyInput.trim(),
+          hapus_api_key_gemini: hapusApiKey,
+        }),
       });
-      
+
+      if (result.data) {
+        setFormData((prev) => ({ ...prev, has_api_key_gemini: result.data.has_api_key_gemini, ai_model_name: result.data.ai_model_name }));
+      }
+      setApiKeyInput('');
+      setShowApiKey(false);
+      setHapusApiKey(false);
+
       Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Pengaturan Disimpan!', showConfirmButton:false, timer:2000 });
     } catch (err) {
       Swal.fire('Gagal Menyimpan', err.message, 'error');
@@ -181,6 +196,65 @@ export default function PengaturanSekolahPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <hr className="my-4" />
+            <h5 className="fw-bold text-secondary">Integrasi AI (Gemini)</h5>
+
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted d-flex align-items-center gap-2">
+                API Key Gemini
+                {formData.has_api_key_gemini && !hapusApiKey ? (
+                  <span className="badge bg-success"><i className="bi bi-check-circle me-1"></i>Sudah diisi</span>
+                ) : (
+                  <span className="badge bg-secondary">Belum diisi</span>
+                )}
+              </label>
+              <div className="input-group">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  className="form-control"
+                  autoComplete="new-password"
+                  placeholder={formData.has_api_key_gemini ? 'Kosongkan jika tidak ingin mengganti' : 'Tempel API key dari Google AI Studio'}
+                  value={apiKeyInput}
+                  disabled={hapusApiKey}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                />
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setShowApiKey(!showApiKey)} disabled={hapusApiKey} title={showApiKey ? 'Sembunyikan' : 'Tampilkan'}>
+                  <i className={`bi ${showApiKey ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                </button>
+              </div>
+              <div className="form-text">Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.</div>
+              {formData.has_api_key_gemini && (
+                <div className="form-check mt-2">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="hapusApiKey"
+                    checked={hapusApiKey}
+                    onChange={(e) => { setHapusApiKey(e.target.checked); setApiKeyInput(''); }}
+                  />
+                  <label className="form-check-label small text-danger" htmlFor="hapusApiKey">Hapus API key saat disimpan</label>
+                </div>
+              )}
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted">Model AI</label>
+              <input
+                type="text"
+                className="form-control"
+                name="ai_model_name"
+                list="ai-model-options"
+                placeholder="gemini-2.5-flash"
+                value={formData.ai_model_name || ''}
+                onChange={handleInputChange}
+              />
+              <datalist id="ai-model-options">
+                <option value="gemini-2.5-flash" />
+                <option value="gemini-2.5-flash-lite" />
+                <option value="gemini-2.5-pro" />
+              </datalist>
+              <div className="form-text">Pilih dari daftar atau ketik nama model lain. Kosongkan untuk tetap memakai model saat ini.</div>
             </div>
 
           </div>
