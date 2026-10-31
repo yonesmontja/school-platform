@@ -22,14 +22,23 @@ class SchoolSettingController extends Controller
     {
         $setting = SchoolSetting::first();
         
-        $data = $request->except(['ttd_kepsek_base64', 'has_api_key_gemini', 'hapus_api_key_gemini']);
+        $request->validate([
+            'openkey_base_url' => 'nullable|url:https|max:255',
+            'openkey_model_name' => 'nullable|string|max:100',
+            'ai_model_name' => 'nullable|string|max:100',
+        ]);
 
-        // API key tidak pernah dikirim balik ke frontend, jadi field kosong = tidak diubah.
-        // Untuk menghapus key, kirim hapus_api_key_gemini = true.
-        if ($request->boolean('hapus_api_key_gemini')) {
-            $data['api_key_gemini'] = null;
-        } elseif (!$request->filled('api_key_gemini')) {
-            unset($data['api_key_gemini']);
+        $data = $request->except(['ttd_kepsek_base64']);
+        foreach (SchoolSetting::API_KEY_FIELDS as $field) {
+            unset($data["has_{$field}"], $data["hapus_{$field}"]);
+
+            // API key tidak pernah dikirim balik ke frontend, jadi field kosong = tidak diubah.
+            // Untuk menghapus key, kirim hapus_<field> = true (mis. hapus_api_key_claude).
+            if ($request->boolean("hapus_{$field}")) {
+                $data[$field] = null;
+            } elseif (!$request->filled($field)) {
+                unset($data[$field]);
+            }
         }
 
         if (array_key_exists('ai_model_name', $data) && !$request->filled('ai_model_name')) {

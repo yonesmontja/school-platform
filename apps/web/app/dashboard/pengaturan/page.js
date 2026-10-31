@@ -3,6 +3,53 @@
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 
+// Harus sama dengan SchoolSetting::API_KEY_FIELDS di backend
+const AI_PROVIDERS = [
+  { field: 'api_key_gemini', label: 'Google Gemini', placeholder: 'Tempel API key dari Google AI Studio' },
+  { field: 'api_key_claude', label: 'Anthropic Claude', placeholder: 'Tempel API key dari Claude Console' },
+  { field: 'api_key_qwen', label: 'Qwen (via OpenRouter)', placeholder: 'Tempel API key dari OpenRouter' },
+  { field: 'api_key_deepseek', label: 'DeepSeek', placeholder: 'Tempel API key dari DeepSeek Platform' },
+  { field: 'api_key_openkey', label: 'OpenKey (API kustom kompatibel OpenAI)', placeholder: 'Tempel API key endpoint kustom' },
+];
+
+const emptyPerProvider = (value) => Object.fromEntries(AI_PROVIDERS.map((p) => [p.field, value]));
+
+// Input API key: selalu kosong saat dimuat karena key tidak pernah dikirim dari server
+function ApiKeyField({ provider, hasKey, value, onChange, show, onToggleShow, hapus, onToggleHapus }) {
+  return (
+    <div className="col-md-6">
+      <label className="form-label fw-bold small text-muted d-flex align-items-center gap-2">
+        {provider.label}
+        {hasKey && !hapus ? (
+          <span className="badge bg-success"><i className="bi bi-check-circle me-1"></i>Sudah diisi</span>
+        ) : (
+          <span className="badge bg-secondary">Belum diisi</span>
+        )}
+      </label>
+      <div className="input-group">
+        <input
+          type={show ? 'text' : 'password'}
+          className="form-control"
+          autoComplete="new-password"
+          placeholder={hasKey ? 'Kosongkan jika tidak ingin mengganti' : provider.placeholder}
+          value={value}
+          disabled={hapus}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button type="button" className="btn btn-outline-secondary" onClick={onToggleShow} disabled={hapus} title={show ? 'Sembunyikan' : 'Tampilkan'}>
+          <i className={`bi ${show ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+        </button>
+      </div>
+      {hasKey && (
+        <div className="form-check mt-1">
+          <input type="checkbox" className="form-check-input" id={`hapus_${provider.field}`} checked={hapus} onChange={(e) => onToggleHapus(e.target.checked)} />
+          <label className="form-check-label small text-danger" htmlFor={`hapus_${provider.field}`}>Hapus key ini saat disimpan</label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PengaturanSekolahPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,9 +65,9 @@ export default function PengaturanSekolahPage() {
   const [ttdPreview, setTtdPreview] = useState(null);
   const fileInputRef = useRef(null);
   // API key tidak pernah dikirim dari server; input ini hanya untuk key baru
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [hapusApiKey, setHapusApiKey] = useState(false);
+  const [apiKeyInputs, setApiKeyInputs] = useState(emptyPerProvider(''));
+  const [showApiKeys, setShowApiKeys] = useState(emptyPerProvider(false));
+  const [hapusApiKeys, setHapusApiKeys] = useState(emptyPerProvider(false));
 
   const API_URL = 'http://localhost:8000/api';
   const getToken = () => localStorage.getItem('token');
@@ -104,17 +151,26 @@ export default function PengaturanSekolahPage() {
         },
         body: JSON.stringify({
           ...formData,
-          api_key_gemini: apiKeyInput.trim(),
-          hapus_api_key_gemini: hapusApiKey,
+          ...Object.fromEntries(AI_PROVIDERS.flatMap(({ field }) => [
+            [field, apiKeyInputs[field].trim()],
+            [`hapus_${field}`, hapusApiKeys[field]],
+          ])),
         }),
       });
 
       if (result.data) {
-        setFormData((prev) => ({ ...prev, has_api_key_gemini: result.data.has_api_key_gemini, ai_model_name: result.data.ai_model_name }));
+        // Perbarui status "sudah diisi" & model dari respons server
+        setFormData((prev) => ({
+          ...prev,
+          ...Object.fromEntries(AI_PROVIDERS.map(({ field }) => [`has_${field}`, result.data[`has_${field}`]])),
+          ai_model_name: result.data.ai_model_name,
+          openkey_base_url: result.data.openkey_base_url,
+          openkey_model_name: result.data.openkey_model_name,
+        }));
       }
-      setApiKeyInput('');
-      setShowApiKey(false);
-      setHapusApiKey(false);
+      setApiKeyInputs(emptyPerProvider(''));
+      setShowApiKeys(emptyPerProvider(false));
+      setHapusApiKeys(emptyPerProvider(false));
 
       Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Pengaturan Disimpan!', showConfirmButton:false, timer:2000 });
     } catch (err) {
@@ -199,47 +255,55 @@ export default function PengaturanSekolahPage() {
             </div>
 
             <hr className="my-4" />
-            <h5 className="fw-bold text-secondary">Integrasi AI (Gemini)</h5>
+            <h5 className="fw-bold text-secondary mb-0">Integrasi AI</h5>
+            <p className="small text-muted mb-0">
+              Dipakai untuk analisis Jurnal Anekdotal. Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.
+              Jika key provider yang dipilih kosong atau gagal, analisis otomatis memakai Heuristik Lokal.
+            </p>
+
+            {AI_PROVIDERS.map((p) => (
+              <ApiKeyField
+                key={p.field}
+                provider={p}
+                hasKey={!!formData[`has_${p.field}`]}
+                value={apiKeyInputs[p.field]}
+                onChange={(v) => setApiKeyInputs((prev) => ({ ...prev, [p.field]: v }))}
+                show={showApiKeys[p.field]}
+                onToggleShow={() => setShowApiKeys((prev) => ({ ...prev, [p.field]: !prev[p.field] }))}
+                hapus={hapusApiKeys[p.field]}
+                onToggleHapus={(checked) => {
+                  setHapusApiKeys((prev) => ({ ...prev, [p.field]: checked }));
+                  setApiKeyInputs((prev) => ({ ...prev, [p.field]: '' }));
+                }}
+              />
+            ))}
 
             <div className="col-md-6">
-              <label className="form-label fw-bold small text-muted d-flex align-items-center gap-2">
-                API Key Gemini
-                {formData.has_api_key_gemini && !hapusApiKey ? (
-                  <span className="badge bg-success"><i className="bi bi-check-circle me-1"></i>Sudah diisi</span>
-                ) : (
-                  <span className="badge bg-secondary">Belum diisi</span>
-                )}
-              </label>
-              <div className="input-group">
-                <input
-                  type={showApiKey ? 'text' : 'password'}
-                  className="form-control"
-                  autoComplete="new-password"
-                  placeholder={formData.has_api_key_gemini ? 'Kosongkan jika tidak ingin mengganti' : 'Tempel API key dari Google AI Studio'}
-                  value={apiKeyInput}
-                  disabled={hapusApiKey}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                />
-                <button type="button" className="btn btn-outline-secondary" onClick={() => setShowApiKey(!showApiKey)} disabled={hapusApiKey} title={showApiKey ? 'Sembunyikan' : 'Tampilkan'}>
-                  <i className={`bi ${showApiKey ? 'bi-eye-slash' : 'bi-eye'}`}></i>
-                </button>
-              </div>
-              <div className="form-text">Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.</div>
-              {formData.has_api_key_gemini && (
-                <div className="form-check mt-2">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    id="hapusApiKey"
-                    checked={hapusApiKey}
-                    onChange={(e) => { setHapusApiKey(e.target.checked); setApiKeyInput(''); }}
-                  />
-                  <label className="form-check-label small text-danger" htmlFor="hapusApiKey">Hapus API key saat disimpan</label>
-                </div>
-              )}
+              <label className="form-label fw-bold small text-muted">OpenKey: Base URL</label>
+              <input
+                type="url"
+                className="form-control"
+                name="openkey_base_url"
+                placeholder="https://api.contoh.com/v1"
+                value={formData.openkey_base_url || ''}
+                onChange={handleInputChange}
+              />
+              <div className="form-text">Wajib HTTPS. Boleh dengan atau tanpa akhiran /v1.</div>
             </div>
             <div className="col-md-6">
-              <label className="form-label fw-bold small text-muted">Model AI</label>
+              <label className="form-label fw-bold small text-muted">OpenKey: Nama Model</label>
+              <input
+                type="text"
+                className="form-control"
+                name="openkey_model_name"
+                placeholder="gpt-4o-mini"
+                value={formData.openkey_model_name || ''}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted">Model Gemini</label>
               <input
                 type="text"
                 className="form-control"

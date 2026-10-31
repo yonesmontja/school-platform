@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class JurnalController extends Controller
 {
@@ -45,7 +46,8 @@ class JurnalController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'narasi_kejadian' => 'required|string|min:10|max:2000',
-            'ai_mode' => 'nullable|in:GEMINI,HEURISTIK',
+            // LOKAL = nama lain untuk HEURISTIK
+            'ai_mode' => ['nullable', Rule::in([...JurnalAIService::MODES, 'LOKAL'])],
         ]);
 
         if ($validator->fails()) {
@@ -74,7 +76,7 @@ class JurnalController extends Controller
             'id_materi' => 'nullable|exists:master_materi,id_materi',
             'narasi_kejadian' => 'required|string|min:10|max:2000',
             'mode_dampak' => 'required|in:BONUS,PISAH',
-            'ai_mode' => 'nullable|in:GEMINI,HEURISTIK',
+            'ai_mode' => ['nullable', Rule::in(JurnalAIService::MODES)],
             'ai_raw_response' => 'nullable|string|max:10000',
             'val_S' => 'nullable|numeric|between:-5,5',
             'val_T' => 'nullable|numeric|between:-5,5',

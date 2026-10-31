@@ -23,7 +23,17 @@ const todayLocal = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const EMPTY_AI = { val_S: 0, val_T: 0, val_N: 0, val_K: 0, val_M: 0, ai_mode: null, ai_raw_response: null };
+// Harus sama dengan JurnalAIService::MODES di backend
+const AI_MODES = [
+  { value: "HEURISTIK", label: "Heuristik Lokal (Offline)" },
+  { value: "GEMINI", label: "Google Gemini" },
+  { value: "CLAUDE", label: "Anthropic Claude" },
+  { value: "QWEN", label: "Qwen (OpenRouter)" },
+  { value: "DEEPSEEK", label: "DeepSeek" },
+  { value: "OPENKEY", label: "OpenKey (API Kustom)" },
+];
+
+const EMPTY_AI ={ val_S: 0, val_T: 0, val_N: 0, val_K: 0, val_M: 0, ai_mode: null, ai_raw_response: null };
 
 export default function JurnalAnekdotalPage() {
   const [classes, setClasses] = useState([]);
@@ -177,8 +187,9 @@ export default function JurnalAnekdotalPage() {
         ai_raw_response: ai.raw || null,
       });
 
-      if (aiModePilihan === "GEMINI" && ai.mode !== "GEMINI") {
-        Swal.fire("Gemini Tidak Tersedia", "Analisis memakai Heuristik Lokal. Periksa API Key & Model AI di Pengaturan Sekolah.", "info");
+      if (aiModePilihan !== "HEURISTIK" && ai.mode !== aiModePilihan) {
+        const label = AI_MODES.find((m) => m.value === aiModePilihan)?.label || aiModePilihan;
+        Swal.fire(`${label} Tidak Tersedia`, "Analisis memakai Heuristik Lokal. Periksa API Key di Pengaturan Sekolah.", "info");
       } else {
         Swal.fire({ toast: true, position: "top-end", icon: "success", title: `Analisis selesai via ${ai.mode}`, showConfirmButton: false, timer: 2000 });
       }
@@ -343,8 +354,7 @@ export default function JurnalAnekdotalPage() {
                   <h6 className="fw-bold text-secondary mb-2"><i className="bi bi-robot me-2"></i>Analisis AI</h6>
                   <div className="mb-2">
                     <select className="form-select form-select-sm" value={aiModePilihan} onChange={(e) => setAiModePilihan(e.target.value)}>
-                      <option value="HEURISTIK">Heuristik Lokal (Offline)</option>
-                      <option value="GEMINI">Google Gemini (AI)</option>
+                      {AI_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   </div>
                   <button type="button" className="btn btn-info text-white w-100 fw-bold" onClick={handleAnalyze} disabled={analyzing}>
@@ -359,7 +369,7 @@ export default function JurnalAnekdotalPage() {
                     <div className="mt-3 p-3 bg-light rounded border">
                       <div className="small fw-bold text-muted mb-2">
                         Hasil Analisis STNKM
-                        <span className={`badge ms-2 ${aiResult.ai_mode === 'GEMINI' ? 'bg-info text-dark' : 'bg-secondary'}`}>{aiResult.ai_mode}</span>
+                        <span className={`badge ms-2 ${aiResult.ai_mode !== 'HEURISTIK' ? 'bg-info text-dark' : 'bg-secondary'}`}>{aiResult.ai_mode}</span>
                       </div>
                       <div className="d-flex flex-wrap gap-2">
                         {STNKM_META.map(m => (
@@ -437,7 +447,7 @@ export default function JurnalAnekdotalPage() {
                             ? <span className="badge bg-danger ms-2"><i className="bi bi-lightning-charge-fill me-1"></i>Intervensi</span>
                             : <span className="badge bg-secondary ms-2"><i className="bi bi-eye me-1"></i>Catatan</span>
                           }
-                          {j.ai_mode === 'GEMINI' && <span className="badge bg-info text-dark ms-1"><i className="bi bi-robot me-1"></i>AI</span>}
+                          {j.ai_mode && j.ai_mode !== 'HEURISTIK' && <span className="badge bg-info text-dark ms-1"><i className="bi bi-robot me-1"></i>{j.ai_mode}</span>}
                         </h6>
                         <small className="text-muted">
                           {j.kelas?.nama_kelas || "-"} • {formatTanggal(j.tanggal)}
