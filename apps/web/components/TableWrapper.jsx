@@ -54,7 +54,7 @@ export default function TableWrapper({
               {columns
                 .filter((c) => c.field !== "action")
                 .map((col) => (
-                  <li key={col.field}>
+                  <li key={col.field || col.title}>
                     <label
                       className="dropdown-item d-flex align-items-center gap-2"
                       style={{ cursor: "pointer" }}

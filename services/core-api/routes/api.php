@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
+use App\Http\Controllers\Api\MBKController;
+use App\Http\Controllers\Api\MateriController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -55,4 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Master Reference Penilaian
     Route::apiResource('/periodes', PeriodeController::class);
     Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class);
+    // Master MBK & Materi
+    Route::apiResource('/mbk', MBKController::class)->except(['show']);
+    Route::get('/materi/by-context', [MateriController::class, 'byContext']);
+    Route::apiResource('/materi', MateriController::class)->except(['show']);
 });
