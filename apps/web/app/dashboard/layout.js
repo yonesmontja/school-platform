@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [user, setUser] = useState(null);
 
@@ -27,6 +28,15 @@ export default function DashboardLayout({ children }) {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     router.push("/login");
+  };
+
+  // Tandai menu aktif; "/dashboard" harus sama persis agar tidak aktif di semua halaman
+  const navLinkClass = (href) => {
+    const isActive =
+      href === "/dashboard"
+        ? pathname === href
+        : pathname === href || pathname.startsWith(`${href}/`);
+    return isActive ? "nav-link active" : "nav-link";
   };
 
   return (
@@ -91,46 +101,90 @@ export default function DashboardLayout({ children }) {
               data-lte-toggle="treeview"
               role="menu"
             >
+              {/* --- MENU UTAMA --- */}
+              <li className="nav-header">MENU UTAMA</li>
               <li className="nav-item">
-                <a href="/dashboard" className="nav-link">
+                <a href="/dashboard" className={navLinkClass("/dashboard")}>
                   <i className="nav-icon bi bi-speedometer2"></i>
                   <p>Dashboard</p>
                 </a>
               </li>
+
+              {/* --- MASTER DATA --- */}
+              <li className="nav-header">MASTER DATA</li>
               <li className="nav-item">
-                <a href="/dashboard/master-siswa" className="nav-link active">
+                <a href="/dashboard/master-siswa" className={navLinkClass("/dashboard/master-siswa")}>
                   <i className="nav-icon bi bi-people-fill"></i>
                   <p>Master Siswa</p>
                 </a>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/pengaturan" className="nav-link">
-                  <i className="nav-icon bi bi-gear-fill"></i>
-                  <p>Pengaturan Sekolah</p>
-                </a>
-              </li>
-              <li className="nav-item">
-                <a href="/dashboard/master-guru" className="nav-link">
-                  <i className="nav-icon bi bi-gear-fill"></i>
+                <a href="/dashboard/master-guru" className={navLinkClass("/dashboard/master-guru")}>
+                  <i className="nav-icon bi bi-person-video3"></i>
                   <p>Master Guru</p>
                 </a>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-kelas" className="nav-link">
+                <a href="/dashboard/master-kelas" className={navLinkClass("/dashboard/master-kelas")}>
                   <i className="nav-icon bi bi-door-open-fill"></i>
                   <p>Master Kelas</p>
                 </a>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-mapel" className="nav-link">
+                <a href="/dashboard/master-mapel" className={navLinkClass("/dashboard/master-mapel")}>
                   <i className="nav-icon bi bi-book-half"></i>
                   <p>Master Mapel</p>
                 </a>
               </li>
+
+              {/* --- REFERENSI PENILAIAN --- */}
+              <li className="nav-header">REFERENSI PENILAIAN</li>
               <li className="nav-item">
-                <a href="/dashboard/nilai" className="nav-link">
+                <a href="/dashboard/master-periode" className={navLinkClass("/dashboard/master-periode")}>
+                  <i className="nav-icon bi bi-calendar-week"></i>
+                  <p>Master Periode</p>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a href="/dashboard/master-kategori" className={navLinkClass("/dashboard/master-kategori")}>
+                  <i className="nav-icon bi bi-tags"></i>
+                  <p>Master Kategori</p>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a href="/dashboard/master-mbk" className={navLinkClass("/dashboard/master-mbk")}>
+                  <i className="nav-icon bi bi-list-check"></i>
+                  <p>Master MBK</p>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a href="/dashboard/master-materi" className={navLinkClass("/dashboard/master-materi")}>
+                  <i className="nav-icon bi bi-journal-bookmark"></i>
+                  <p>Master Materi</p>
+                </a>
+              </li>
+
+              {/* --- TRANSAKSI --- */}
+              <li className="nav-header">TRANSAKSI</li>
+              <li className="nav-item">
+                <a href="/dashboard/nilai" className={navLinkClass("/dashboard/nilai")}>
                   <i className="nav-icon bi bi-pencil-square"></i>
                   <p>Input Nilai</p>
+                </a>
+              </li>
+              <li className="nav-item">
+                <a href="/dashboard/jurnal" className={navLinkClass("/dashboard/jurnal")}>
+                  <i className="nav-icon bi bi-journal-text"></i>
+                  <p>Jurnal Anekdotal</p>
+                </a>
+              </li>
+
+              {/* --- PENGATURAN --- */}
+              <li className="nav-header">PENGATURAN</li>
+              <li className="nav-item">
+                <a href="/dashboard/pengaturan" className={navLinkClass("/dashboard/pengaturan")}>
+                  <i className="nav-icon bi bi-gear-fill"></i>
+                  <p>Pengaturan Sekolah</p>
                 </a>
               </li>
             </ul>
