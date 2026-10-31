@@ -1,6 +1,6 @@
 # School Platform
 
-Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran), input nilai, pengaturan sekolah, serta ekspor laporan ke PDF/Excel.
+Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), input nilai, jurnal anekdotal dengan analisis STNKM berbasis AI, pengaturan sekolah, serta ekspor laporan ke PDF/Excel.
 
 ## Arsitektur
 
@@ -29,8 +29,11 @@ school-platform/
 - **Autentikasi** — login/logout dengan token Laravel Sanctum
 - **Master Siswa** — CRUD siswa beserta data referensi (agama, suku, pekerjaan, wilayah, orang tua/wali, sekolah asal)
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD
+- **Master Referensi Penilaian** — CRUD periode, kategori penilaian, MBK, dan materi
 - **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch
-- **Pengaturan Sekolah** — profil sekolah dan tanda tangan
+- **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik
+- **Dashboard** — ringkasan statistik (jumlah siswa, guru, kelas, mata pelajaran) dan menu sidebar berkelompok
+- **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
 
 ## Prasyarat
@@ -140,16 +143,25 @@ Base URL: `http://localhost:8000/api`
 | GET    | `/user`                     | Data user yang sedang login         | ✔    |
 | GET    | `/students/master-data`     | Data referensi untuk form siswa     | ✔    |
 | *      | `/students`                 | CRUD siswa (apiResource)            | ✔    |
-| *      | `/teachers`                 | CRUD guru (apiResource)             | –    |
-| *      | `/classes`                  | CRUD kelas (apiResource)            | –    |
-| *      | `/subjects`                 | CRUD mata pelajaran (apiResource)   | –    |
-| GET    | `/settings`                 | Ambil pengaturan sekolah            | –    |
-| POST   | `/settings`                 | Simpan pengaturan sekolah           | –    |
+| *      | `/teachers`                 | CRUD guru (apiResource)             | ✔    |
+| *      | `/classes`                  | CRUD kelas (apiResource)            | ✔    |
+| *      | `/subjects`                 | CRUD mata pelajaran (apiResource)   | ✔    |
+| GET    | `/settings`                 | Ambil pengaturan sekolah            | ✔    |
+| POST   | `/settings`                 | Simpan pengaturan sekolah           | ✔    |
 | GET    | `/signature/{filename}`     | Gambar tanda tangan (proxy CORS)    | –    |
-| GET    | `/nilai/filters`            | Opsi filter input nilai             | –    |
-| GET    | `/nilai/materi`             | Materi berdasarkan konteks filter   | –    |
-| GET    | `/nilai/students`           | Daftar siswa beserta nilainya       | –    |
-| POST   | `/nilai/batch`              | Simpan nilai secara batch           | –    |
+| GET    | `/nilai/filters`            | Opsi filter input nilai             | ✔    |
+| GET    | `/nilai/materi`             | Materi berdasarkan konteks filter   | ✔    |
+| GET    | `/nilai/students`           | Daftar siswa beserta nilainya       | ✔    |
+| POST   | `/nilai/batch`              | Simpan nilai secara batch           | ✔    |
+| *      | `/periodes`                 | CRUD periode (apiResource)          | ✔    |
+| *      | `/kategori-penilaian`       | CRUD kategori penilaian (apiResource) | ✔  |
+| *      | `/mbk`                      | CRUD MBK (tanpa show)               | ✔    |
+| GET    | `/materi/by-context`        | Materi berdasarkan konteks          | ✔    |
+| *      | `/materi`                   | CRUD materi (tanpa show)            | ✔    |
+| GET    | `/jurnal`                   | Daftar jurnal anekdotal             | ✔    |
+| POST   | `/jurnal/analyze`           | Analisis narasi (STNKM) dengan AI   | ✔    |
+| POST   | `/jurnal/store`             | Simpan jurnal                       | ✔    |
+| DELETE | `/jurnal/{id}`              | Hapus jurnal                        | ✔    |
 
 Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`.
 
@@ -163,7 +175,12 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`.
 | `/dashboard/master-guru`  | Master Guru          |
 | `/dashboard/master-kelas` | Master Kelas         |
 | `/dashboard/master-mapel` | Master Mata Pelajaran|
+| `/dashboard/master-periode`  | Master Periode    |
+| `/dashboard/master-kategori` | Master Kategori Penilaian |
+| `/dashboard/master-mbk`   | Master MBK           |
+| `/dashboard/master-materi`| Master Materi        |
 | `/dashboard/nilai`        | Input Nilai          |
+| `/dashboard/jurnal`       | Jurnal Anekdotal     |
 | `/dashboard/pengaturan`   | Pengaturan Sekolah   |
 
 ## Testing
