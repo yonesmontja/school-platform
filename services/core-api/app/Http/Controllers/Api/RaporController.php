@@ -15,8 +15,7 @@ use App\Models\TransJurnal;
 use App\Models\TransNilai;
 use App\Models\TransNilaiP5;
 use App\Models\TransPresensi;
-use App\Services\CatatanWaliAIService;
-use App\Services\WhatsAppService;
+use App\Services\RaporAIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -90,11 +89,11 @@ class RaporController extends Controller
         return response()->json(['success' => true, 'message' => 'Catatan wali kelas disimpan.', 'data' => $catatan]);
     }
 
-    public function generateCatatanWali(Request $request, CatatanWaliAIService $ai)
+    public function generateCatatanWali(Request $request, RaporAIService $ai)
     {
         $request->validate([
             'id_siswa' => 'required|exists:students,id_siswa',
-            'ai_mode' => ['nullable', Rule::in(CatatanWaliAIService::MODES)],
+            'ai_mode' => ['nullable', Rule::in(RaporAIService::MODES)],
         ]);
 
         $siswa = Student::find($request->id_siswa);
@@ -104,21 +103,8 @@ class RaporController extends Controller
             ->map(fn($j) => [...$j->toArray(), 'tanggal' => $j->tanggal?->format('Y-m-d')])
             ->all();
 
-        $hasil = $ai->generate($siswa->nama_siswa, $jurnal, $request->ai_mode ?? 'GEMINI');
+        $hasil = $ai->catatanWali($siswa->nama_siswa, $jurnal, $request->ai_mode ?? 'GEMINI');
 
         return response()->json(['success' => true, 'data' => $hasil['text'], 'mode' => $hasil['mode']]);
-    }
-
-    public function kirimWhatsApp(Request $request, WhatsAppService $wa)
-    {
-        $request->validate([
-            'daftar_pesan' => 'required|array|min:1|max:10',
-            'daftar_pesan.*.target' => 'required|string|max:100',
-            'daftar_pesan.*.message' => 'required|string|max:4000',
-        ]);
-
-        $hasil = $wa->kirim($request->daftar_pesan);
-
-        return response()->json($hasil, $hasil['sent'] ? 200 : 422);
     }
 }

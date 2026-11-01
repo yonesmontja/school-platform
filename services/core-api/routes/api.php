@@ -18,6 +18,9 @@ use App\Http\Controllers\Api\MateriController;
 use App\Http\Controllers\Api\JurnalController;
 use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\RaporController;
+use App\Http\Controllers\Api\WhatsAppController;
+use App\Http\Controllers\Api\PresensiController;
+use App\Http\Controllers\Api\P5Controller;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -73,7 +76,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/data', [RaporController::class, 'data']);
         Route::post('/catatan-wali', [RaporController::class, 'simpanCatatanWali']);
         Route::post('/catatan-wali/generate', [RaporController::class, 'generateCatatanWali']);
-        Route::post('/whatsapp', [RaporController::class, 'kirimWhatsApp']);
+    });
+    // Kirim WhatsApp otomatis (Fonnte) untuk rapor & presensi
+    Route::post('/whatsapp', [WhatsAppController::class, 'kirim']);
+
+    Route::prefix('presensi')->group(function () {
+        Route::get('/', [PresensiController::class, 'index']);
+        Route::post('/batch', [PresensiController::class, 'saveBatch']);
+        Route::delete('/tanggal', [PresensiController::class, 'hapusTanggal']);
+    });
+
+    // Projek P5: projek & target, catatan proses, ekstraksi nilai
+    Route::prefix('p5')->group(function () {
+        Route::get('/', [P5Controller::class, 'index']);
+        Route::post('/proyek', [P5Controller::class, 'storeProyek']);
+        Route::put('/proyek/{id}', [P5Controller::class, 'updateProyek']);
+        Route::delete('/proyek/{id}', [P5Controller::class, 'destroyProyek']);
+        Route::post('/catatan', [P5Controller::class, 'saveCatatan']);
+        Route::post('/catatan/generate', [P5Controller::class, 'generateCatatan']);
+        Route::post('/hitung', [P5Controller::class, 'hitung']);
+        Route::put('/nilai/{id}', [P5Controller::class, 'updateNilai']);
     });
     // Jurnal Anekdotal
     Route::prefix('jurnal')->group(function () {
