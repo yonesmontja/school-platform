@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
 use App\Http\Controllers\Api\MateriController;
 use App\Http\Controllers\Api\JurnalController;
+use App\Http\Controllers\Api\LaporanController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -64,6 +65,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/mbk', MBKController::class)->except(['show']);
     Route::get('/materi/by-context', [MateriController::class, 'byContext']);
     Route::apiResource('/materi', MateriController::class)->except(['show']);
+    // Laporan
+    Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
     // Jurnal Anekdotal
     Route::prefix('jurnal')->group(function () {
         Route::get('/', [JurnalController::class, 'index']);
