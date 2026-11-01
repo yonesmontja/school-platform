@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
+import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 
@@ -66,6 +67,9 @@ const Modal = ({ show, title, icon, onClose, children, footer }) => {
 
 export default function P5Page() {
   const [classes, setClasses] = useState([]);
+  // Guru hanya mengelola P5 kelas binaannya (wali kelas)
+  const { isGuru, bolehKelolaKelas } = useAkses();
+  const kelasTersedia = useMemo(() => classes.filter((k) => bolehKelolaKelas(k.id_kelas)), [classes, bolehKelolaKelas]);
   const [periodes, setPeriodes] = useState([]);
   const [settings, setSettings] = useState(null);
   const [filters, setFilters] = useState({ id_kelas: "", id_periode: "", id_proyek: "" });
@@ -397,8 +401,9 @@ export default function P5Page() {
               <label className="form-label fw-semibold small mb-1">Kelas</label>
               <select className="form-select" value={filters.id_kelas} onChange={(e) => setFilters((f) => ({ ...f, id_kelas: e.target.value }))}>
                 <option value="">— Pilih Kelas —</option>
-                {classes.map((k) => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
+                {kelasTersedia.map((k) => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
               </select>
+              {isGuru && classes.length > 0 && kelasTersedia.length === 0 && <div className="form-text text-danger">Anda belum menjadi wali kelas mana pun.</div>}
             </div>
             <div className="col-12 col-md-6">
               <label className="form-label fw-semibold small mb-1">Projek</label>

@@ -368,6 +368,22 @@ export default function MasterGuruPage() {
                       }
                     />
                   </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold small text-muted">
+                      No. WhatsApp
+                    </label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="08xxxxxxxxxx"
+                      maxLength={20}
+                      value={formData.no_wa || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, no_wa: e.target.value })
+                      }
+                    />
+                    <div className="form-text">Dipakai untuk pengingat jadwal mengajar.</div>
+                  </div>
                   <div className="mb-3 border p-3 rounded bg-light">
                     <label className="form-label fw-bold small text-muted d-block">
                       Tanda Tangan (PNG)

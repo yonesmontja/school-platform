@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
+import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 
@@ -105,6 +106,8 @@ export default function JurnalAnekdotalPage() {
   const [materis, setMateris] = useState([]);
   const [settings, setSettings] = useState(null);
   const [userName, setUserName] = useState("");
+  // Guru mencatat atas namanya sendiri dan hanya mengubah/menghapus jurnal miliknya
+  const { isGuru, idGuru, milikSendiri } = useAkses();
 
   // --- LINIMASA & TABEL ---
   const [filterKelasFeed, setFilterKelasFeed] = useState("");
@@ -173,6 +176,10 @@ export default function JurnalAnekdotalPage() {
     try { setUserName(JSON.parse(localStorage.getItem("user") || "{}")?.name || ""); } catch (e) { /* abaikan */ }
     fetchInitial();
   }, [fetchInitial]);
+
+  useEffect(() => {
+    if (isGuru && idGuru) setFormData((f) => (f.id_guru === idGuru ? f : { ...f, id_guru: idGuru }));
+  }, [isGuru, idGuru, editId]);
 
   // --- SISWA & MATERI SAAT KELAS DIPILIH ---
   useEffect(() => {
@@ -630,12 +637,14 @@ export default function JurnalAnekdotalPage() {
         onClick={() => tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" })}>
         <i className="bi bi-whatsapp"></i>
       </button>
-      <button type="button" className="btn btn-outline-primary" title="Edit" onClick={() => handleEdit(j)}>
-        <i className="bi bi-pencil"></i>
-      </button>
-      <button type="button" className="btn btn-outline-danger" title="Hapus" onClick={() => handleDelete(j)}>
-        <i className="bi bi-trash"></i>
-      </button>
+      {milikSendiri(j.id_guru) && <>
+        <button type="button" className="btn btn-outline-primary" title="Edit" onClick={() => handleEdit(j)}>
+          <i className="bi bi-pencil"></i>
+        </button>
+        <button type="button" className="btn btn-outline-danger" title="Hapus" onClick={() => handleDelete(j)}>
+          <i className="bi bi-trash"></i>
+        </button>
+      </>}
     </div>
   );
 
@@ -702,7 +711,7 @@ export default function JurnalAnekdotalPage() {
                   </div>
                   <div className="col-6">
                     <label className="form-label fw-bold small text-muted mb-1">Guru Pencatat</label>
-                    <select className="form-select form-select-sm" value={formData.id_guru} onChange={(e) => handleInputChange("id_guru", e.target.value)}>
+                    <select className="form-select form-select-sm" value={formData.id_guru} disabled={isGuru} title={isGuru ? "Jurnal dicatat atas nama Anda" : undefined} onChange={(e) => handleInputChange("id_guru", e.target.value)}>
                       <option value="">- Opsional -</option>
                       {teachers.map((t) => <option key={t.id_guru} value={t.id_guru}>{t.nama_guru}</option>)}
                     </select>

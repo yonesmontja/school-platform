@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
+import { bacaUser } from "@/app/lib/akses";
+
+// Data master hanya diubah admin; peran lain melihat tabel tanpa kolom aksi
+const kolomUntukPeran = (columnsDef) =>
+  bacaUser()?.role === "admin" ? columnsDef : columnsDef.filter((c) => c.field !== "action");
 
 export const useTableLogic = (fetchDataFunction, columnsDef, searchFields) => {
   const [data, setData] = useState([]);
@@ -43,7 +48,7 @@ export const useTableLogic = (fetchDataFunction, columnsDef, searchFields) => {
           paginationSize: 10,
           placeholder: "Data tidak ditemukan.",
           cssClass: "table table-sm table-bordered table-hover table-striped",
-          columns: columnsDef,
+          columns: kolomUntukPeran(columnsDef),
         });
 
         tabulatorInstance.current.on("tableBuilt", () => {
@@ -108,7 +113,7 @@ export const useTableLogic = (fetchDataFunction, columnsDef, searchFields) => {
 
   const applyColumnVisibility = (cols) => {
     if (!tabulatorInstance.current) return;
-    columnsDef.forEach((col) => {
+    kolomUntukPeran(columnsDef).forEach((col) => {
       if (cols.includes(col.field))
         tabulatorInstance.current.showColumn(col.field);
       else tabulatorInstance.current.hideColumn(col.field);

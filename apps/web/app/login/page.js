@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '../lib/api';
+import { halamanAwal } from '../lib/akses';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function LoginPage() {
       const data = await login(email, password);
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.data));
-      router.push('/dashboard');
+      router.push(halamanAwal(data.data));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -30,7 +31,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} data-bs-theme="light">
       <div style={styles.card}>
         <h1 style={styles.title}>🏫 School Platform</h1>
         <p style={styles.subtitle}>Masuk ke akun Anda</p>
@@ -39,12 +40,14 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Email</label>
+            <label style={styles.label}>Email / Username / NISN</label>
             <input
-              type="email"
+              type="text"
+              autoComplete="username"
+              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@sekolah.com"
+              placeholder="mis. admin@sekolah.com atau NISN"
               required
               style={styles.input}
             />
@@ -57,6 +60,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
               style={styles.input}
             />
@@ -66,6 +70,7 @@ export default function LoginPage() {
             {loading ? 'Memproses...' : 'Login'}
           </button>
         </form>
+        <p style={styles.hint}>Siswa masuk dengan NISN; orang tua dengan <b>ortu.NISN</b> anak. Lupa password? Hubungi admin sekolah.</p>
       </div>
     </div>
   );
@@ -128,6 +133,14 @@ const styles = {
     fontSize: '16px',
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  hint: {
+    marginTop: '18px',
+    marginBottom: 0,
+    fontSize: '12px',
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 1.5,
   },
   error: {
     background: '#fee',

@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { bacaUser, useAkses } from "@/app/lib/akses";
 
 export default function MasterSiswaPage() {
   const [students, setStudents] = useState([]);
@@ -31,6 +32,9 @@ export default function MasterSiswaPage() {
 
   const tableRef = useRef(null);
   const tabulatorInstance = useRef(null);
+  // Data master hanya diubah admin
+  const { isAdmin, user } = useAkses();
+  const kolomTampil = () => (bacaUser()?.role === "admin" ? COLUMNS_DEF : COLUMNS_DEF.filter((c) => c.field !== "action"));
 
   const API_URL = "http://localhost:8000/api";
   const getToken = () => localStorage.getItem("token");
@@ -221,7 +225,7 @@ export default function MasterSiswaPage() {
           paginationSize: 10,
           placeholder: "Data siswa tidak ditemukan.",
           cssClass: "table table-sm table-bordered table-hover table-striped",
-          columns: COLUMNS_DEF,
+          columns: kolomTampil(),
         });
 
         tabulatorInstance.current.on("tableBuilt", () => {
@@ -284,7 +288,7 @@ export default function MasterSiswaPage() {
 
   const applyColumnVisibility = (cols) => {
     if (!tabulatorInstance.current) return;
-    COLUMNS_DEF.forEach((col) => {
+    kolomTampil().forEach((col) => {
       if (cols.includes(col.field))
         tabulatorInstance.current.showColumn(col.field);
       else tabulatorInstance.current.hideColumn(col.field);
@@ -685,6 +689,7 @@ export default function MasterSiswaPage() {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
         <h3 className="fw-bold text-primary m-0">
           <i className="bi bi-people-fill me-2"></i>Grand Master Data Siswa
+          {user && !isAdmin && <span className="badge text-bg-secondary fw-normal fs-6 ms-2 align-middle"><i className="bi bi-eye me-1"></i>Lihat saja</span>}
         </h3>
         <div className="d-flex gap-2 flex-wrap">
           <div className="dropdown">
@@ -731,12 +736,14 @@ export default function MasterSiswaPage() {
               <i className="bi bi-file-earmark-pdf"></i> PDF
             </button>
           </div>
-          <button
-            className="btn btn-primary fw-bold shadow-sm"
-            onClick={() => openModal()}
-          >
-            <i className="bi bi-person-plus me-2"></i>Tambah Siswa
-          </button>
+          {isAdmin && (
+            <button
+              className="btn btn-primary fw-bold shadow-sm"
+              onClick={() => openModal()}
+            >
+              <i className="bi bi-person-plus me-2"></i>Tambah Siswa
+            </button>
+          )}
         </div>
       </div>
 

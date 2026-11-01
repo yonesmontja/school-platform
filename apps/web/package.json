@@ -9,6 +9,12 @@
   },
   "dependencies": {
     "@adminlte/react": "^0.7.0",
+    "@fullcalendar/core": "^6.1.15",
+    "@fullcalendar/daygrid": "^6.1.15",
+    "@fullcalendar/interaction": "^6.1.15",
+    "@fullcalendar/list": "^6.1.15",
+    "@fullcalendar/react": "^6.1.15",
+    "@fullcalendar/timegrid": "^6.1.15",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.2",
     "chart.js": "^4.5.1",

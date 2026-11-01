@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { bacaUser, halamanAwal } from './lib/akses';
 
 export default function Home() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      router.push('/dashboard');
+      router.push(bacaUser() ? halamanAwal(bacaUser()) : '/dashboard');
     } else {
       router.push('/login');
     }

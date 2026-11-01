@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SIDEBAR_PREF_EVENT, bacaAccordion } from "@/app/lib/sidebarPrefs";
 import ThemeMenu from "@/components/ThemeMenu";
+import { API_URL, AKSES_EVENT, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal } from "@/app/lib/akses";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
+const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
+const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
 
-// Grup menu sidebar; setiap grup bisa dilipat/dibuka
+// Grup menu sidebar staf; setiap grup bisa dilipat/dibuka. Item ber-"peran" hanya tampil untuk peran tsb.
 const MENU_GROUPS = [
   {
     id: "master", label: "Master Data", icon: "bi-database",
@@ -31,6 +34,7 @@ const MENU_GROUPS = [
   {
     id: "transaksi", label: "Transaksi", icon: "bi-lightning-charge",
     items: [
+      { href: "/dashboard/jadwal", label: "Jadwal Pembelajaran", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
       { href: "/dashboard/jurnal", label: "Jurnal Anekdotal", icon: "bi-journal-text" },
       { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
@@ -46,12 +50,21 @@ const MENU_GROUPS = [
     ],
   },
   {
-    id: "pengaturan", label: "Pengaturan", icon: "bi-gear",
+    id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
     items: [
-      { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill" },
+      AKUN_ITEM,
+      { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
+      { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
     ],
   },
 ];
+
+// Portal siswa & orang tua hanya berisi halaman baca miliknya
+const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM] }];
+
+const menuUntuk = (role) => (role === "siswa" || role === "ortu")
+  ? PORTAL_GROUPS
+  : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.peran || it.peran.includes(role)) })).filter((g) => g.items.length);
 
 // Status sidebar disimpan per browser
 const KEY_OPEN = "sidebar_open_groups";
@@ -80,6 +93,7 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState(null);
+  const [siap, setSiap] = useState(false);
 
   // Desktop: sidebar penuh atau mini (ikon saja). HP/tablet: sidebar melayang yang dibuka-tutup.
   const [isDesktop, setIsDesktop] = useState(true);
@@ -98,11 +112,25 @@ export default function DashboardLayout({ children }) {
   const flyoutTimer = useRef(null);
 
   const mini = isDesktop && isMini;
-  const activeGroupId = MENU_GROUPS.find((g) => g.items.some((it) => isActivePath(pathname, it.href)))?.id;
+  const role = user?.role;
+  const isPortal = role === "siswa" || role === "ortu";
+  const homeItem = isPortal ? PORTAL_ITEM : DASHBOARD_ITEM;
+  const menuGroups = useMemo(() => menuUntuk(role), [role]);
+  const activeGroupId = menuGroups.find((g) => g.items.some((it) => isActivePath(pathname, it.href)))?.id;
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (userData) setUser(JSON.parse(userData));
+    if (!localStorage.getItem("token")) { router.replace("/login"); return; }
+    setUser(bacaUser());
+
+    // Segarkan profil akses (peran, kelas binaan, mapel) agar perubahan dari admin langsung berlaku
+    fetch(`${API_URL}/me`, { headers: { Accept: "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` } })
+      .then(async (res) => {
+        if (res.status === 401) { keluar(); router.replace("/login"); return; }
+        if (res.ok) { const d = await res.json(); if (d?.data) simpanUser(d.data); }
+      })
+      .catch(() => { /* API belum siap: pakai profil tersimpan */ });
+    const onAkses = () => setUser(bacaUser());
+    window.addEventListener(AKSES_EVENT, onAkses);
 
     setIsMini(bacaStorage(KEY_MINI, false) === true);
     setAccordion(bacaAccordion());
@@ -122,8 +150,20 @@ export default function DashboardLayout({ children }) {
       mq.removeEventListener("change", onMq);
       window.removeEventListener(SIDEBAR_PREF_EVENT, onPref);
       window.removeEventListener("storage", onPref);
+      window.removeEventListener(AKSES_EVENT, onAkses);
     };
   }, []);
+
+  // Penjaga halaman: arahkan ke halaman awal peran bila halaman ini bukan haknya,
+  // dan paksa ganti password bila akun masih memakai password awal.
+  useEffect(() => {
+    if (!user) return;
+    const wajibGanti = user.wajib_ganti_password && pathname !== "/dashboard/akun";
+    if (wajibGanti || !bolehBuka(user.role, pathname)) {
+      setSiap(false);
+      router.replace(halamanAwal(user));
+    } else setSiap(true);
+  }, [user, pathname]);
 
   // Class body dipakai AdminLTE untuk lebar sidebar (mini) dan sidebar melayang di HP
   useEffect(() => {
@@ -163,14 +203,14 @@ export default function DashboardLayout({ children }) {
   const hasilCari = useMemo(() => {
     const q = normalisasi(query.trim());
     if (!q) return null;
-    const cocokDash = normalisasi(DASHBOARD_ITEM.label).includes(q);
-    const grup = MENU_GROUPS.map((g) => {
+    const cocokDash = normalisasi(homeItem.label).includes(q);
+    const grup = menuGroups.map((g) => {
       const grupCocok = normalisasi(g.label).includes(q);
       return { ...g, items: g.items.filter((it) => grupCocok || normalisasi(it.label).includes(q)) };
     }).filter((g) => g.items.length);
-    const datar = [...(cocokDash ? [DASHBOARD_ITEM] : []), ...grup.flatMap((g) => g.items)];
+    const datar = [...(cocokDash ? [homeItem] : []), ...grup.flatMap((g) => g.items)];
     return { cocokDash, grup, datar };
-  }, [query]);
+  }, [query, menuGroups, homeItem]);
 
   useEffect(() => { setPilihanCari(0); }, [query]);
 
@@ -216,11 +256,13 @@ export default function DashboardLayout({ children }) {
     flyoutTimer.current = setTimeout(() => setFlyout(null), 180);
   };
   const batalTutupFlyout = () => clearTimeout(flyoutTimer.current);
-  const flyoutGroup = flyout ? MENU_GROUPS.find((g) => g.id === flyout.id) : null;
+  const flyoutGroup = flyout ? menuGroups.find((g) => g.id === flyout.id) : null;
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    // Cabut token di server; tetap keluar walau API tidak terjangkau
+    const token = localStorage.getItem("token");
+    if (token) fetch(`${API_URL}/logout`, { method: "POST", headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }).catch(() => {});
+    keluar();
     router.push("/login");
   };
 
@@ -272,10 +314,11 @@ export default function DashboardLayout({ children }) {
             {/* BADGE USER */}
             {user && (
               <li className="nav-item me-3 d-none d-md-block">
-                <div className="badge bg-body-tertiary text-body-emphasis border px-3 py-2 rounded-pill shadow-sm">
+                <Link href="/dashboard/akun" className="badge bg-body-tertiary text-body-emphasis border px-3 py-2 rounded-pill shadow-sm text-decoration-none" title="Akun Saya">
                   <i className="bi bi-person-circle text-primary me-1"></i>
-                  {user.name} ({user.role ? user.role.toUpperCase() : "USER"})
-                </div>
+                  {user.name}
+                  <span className={`badge rounded-pill ms-2 text-bg-${ROLE_WARNA[user.role] || "secondary"}`}>{ROLE_LABEL[user.role] || "Pengguna"}</span>
+                </Link>
               </li>
             )}
             {/* TOMBOL LOGOUT */}
@@ -294,8 +337,8 @@ export default function DashboardLayout({ children }) {
       {/* SIDEBAR KIRI */}
       <aside className={`app-sidebar bg-body-secondary shadow${mini ? " is-mini" : ""}`} data-bs-theme="dark">
         <div className="sidebar-brand">
-          <Link href="/dashboard" className="brand-link">
-            <span className="brand-text fw-light">🏫 EduRapor Admin</span>
+          <Link href={homeItem.href} className="brand-link">
+            <span className="brand-text fw-light">🏫 EduRapor{isPortal ? "" : " Admin"}</span>
           </Link>
         </div>
         <div className="sidebar-wrapper">
@@ -334,7 +377,7 @@ export default function DashboardLayout({ children }) {
               {hasilCari ? (
                 /* --- HASIL PENCARIAN: semua grup yang cocok ditampilkan terbuka --- */
                 <>
-                  {hasilCari.cocokDash && renderItem(DASHBOARD_ITEM, 0)}
+                  {hasilCari.cocokDash && renderItem(homeItem, 0)}
                   {hasilCari.grup.map((group) => (
                     <li key={group.id} className="nav-group is-open is-search">
                       <div className="nav-search-group"><i className={`bi ${group.icon} me-2`}></i><Sorot teks={group.label} kata={query.trim()} /></div>
@@ -349,10 +392,10 @@ export default function DashboardLayout({ children }) {
                 </>
               ) : (
                 <>
-                  {renderItem(DASHBOARD_ITEM, 0)}
+                  {renderItem(homeItem, 0)}
 
                   {/* --- GRUP MENU (bisa dilipat; mode mini memakai menu melayang) --- */}
-                  {MENU_GROUPS.map((group) => {
+                  {menuGroups.map((group) => {
                     const open = !mini && openGroups.includes(group.id);
                     const hasActive = group.id === activeGroupId;
                     return (
@@ -422,7 +465,11 @@ export default function DashboardLayout({ children }) {
       {/* KONTEN UTAMA */}
       <main className="app-main">
         <div className="app-content">
-          <div className="container-fluid">{children}</div>
+          <div className="container-fluid">
+            {siap ? children : (
+              <div className="text-center text-muted py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memeriksa akses...</div>
+            )}
+          </div>
         </div>
       </main>
     </div>

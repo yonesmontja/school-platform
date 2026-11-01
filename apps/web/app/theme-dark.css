@@ -1,0 +1,139 @@
+/* =========================================================================
+   PENYESUAIAN MODE GELAP
+   Banyak halaman lama memakai kelas warna tetap (bg-white, text-dark, table-light, …)
+   dan Tabulator memakai warna putih bawaan. Aturan di bawah memetakannya ke variabel
+   tema Bootstrap agar latar & tulisan selalu kontras di mode terang, gelap, dan otomatis.
+   Dokumen cetak (kertas rapor) sengaja tetap putih karena memakai warna eksplisit sendiri.
+   ========================================================================= */
+
+[data-bs-theme="dark"] .bg-white { background-color: var(--bs-body-bg) !important; }
+[data-bs-theme="dark"] .bg-light { background-color: var(--bs-tertiary-bg) !important; }
+
+/* Tulisan hitam → warna teks utama tema. Dikecualikan bila berada di atas latar terang
+   yang tetap terang di mode gelap (badge kuning/biru muda, tombol warning, dsb.) */
+[data-bs-theme="dark"] .text-dark:not(.bg-warning):not(.bg-info):not(.text-bg-warning):not(.text-bg-info):not(.text-bg-light):not(.btn-warning):not(.btn-info):not(.btn-light),
+[data-bs-theme="dark"] .text-black:not(.bg-warning):not(.bg-info):not(.text-bg-warning):not(.text-bg-info) {
+  color: var(--bs-emphasis-color) !important;
+}
+[data-bs-theme="dark"] .link-dark { color: var(--bs-emphasis-color) !important; }
+
+[data-bs-theme="dark"] .btn-light {
+  --bs-btn-bg: var(--bs-secondary-bg);
+  --bs-btn-color: var(--bs-emphasis-color);
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-bg: var(--bs-tertiary-bg);
+  --bs-btn-hover-color: var(--bs-emphasis-color);
+  --bs-btn-hover-border-color: var(--bs-border-color);
+  --bs-btn-active-bg: var(--bs-tertiary-bg);
+  --bs-btn-active-color: var(--bs-emphasis-color);
+}
+
+/* Varian tabel berwarna tetap → versi "subtle" yang mengikuti tema */
+[data-bs-theme="dark"] .table-light {
+  --bs-table-color: var(--bs-emphasis-color);
+  --bs-table-bg: var(--bs-tertiary-bg);
+  --bs-table-border-color: var(--bs-border-color);
+  --bs-table-striped-bg: var(--bs-secondary-bg);
+  --bs-table-striped-color: var(--bs-emphasis-color);
+  --bs-table-hover-bg: var(--bs-secondary-bg);
+  --bs-table-hover-color: var(--bs-emphasis-color);
+  --bs-table-active-bg: var(--bs-secondary-bg);
+  --bs-table-active-color: var(--bs-emphasis-color);
+}
+[data-bs-theme="dark"] .table-secondary { --bs-table-bg: var(--bs-secondary-bg); --bs-table-color: var(--bs-emphasis-color); --bs-table-border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] .table-primary { --bs-table-bg: var(--bs-primary-bg-subtle); --bs-table-color: var(--bs-primary-text-emphasis); --bs-table-border-color: var(--bs-primary-border-subtle); }
+[data-bs-theme="dark"] .table-success { --bs-table-bg: var(--bs-success-bg-subtle); --bs-table-color: var(--bs-success-text-emphasis); --bs-table-border-color: var(--bs-success-border-subtle); }
+[data-bs-theme="dark"] .table-danger { --bs-table-bg: var(--bs-danger-bg-subtle); --bs-table-color: var(--bs-danger-text-emphasis); --bs-table-border-color: var(--bs-danger-border-subtle); }
+[data-bs-theme="dark"] .table-warning { --bs-table-bg: var(--bs-warning-bg-subtle); --bs-table-color: var(--bs-warning-text-emphasis); --bs-table-border-color: var(--bs-warning-border-subtle); }
+[data-bs-theme="dark"] .table-info { --bs-table-bg: var(--bs-info-bg-subtle); --bs-table-color: var(--bs-info-text-emphasis); --bs-table-border-color: var(--bs-info-border-subtle); }
+[data-bs-theme="dark"] .table-primary,
+[data-bs-theme="dark"] .table-success,
+[data-bs-theme="dark"] .table-danger,
+[data-bs-theme="dark"] .table-warning,
+[data-bs-theme="dark"] .table-info,
+[data-bs-theme="dark"] .table-secondary {
+  --bs-table-striped-bg: var(--bs-table-bg);
+  --bs-table-hover-bg: var(--bs-secondary-bg);
+  --bs-table-hover-color: var(--bs-emphasis-color);
+}
+
+/* Alert dengan latar tetap (mis. alert-light) */
+[data-bs-theme="dark"] .alert-light {
+  --bs-alert-bg: var(--bs-tertiary-bg);
+  --bs-alert-color: var(--bs-emphasis-color);
+  --bs-alert-border-color: var(--bs-border-color);
+}
+
+/* ---- Tabulator (tabel master) ---- */
+[data-bs-theme="dark"] .tabulator,
+[data-bs-theme="dark"] .tabulator.table,
+[data-bs-theme="dark"] .tabulator .tabulator-tableholder .tabulator-table,
+[data-bs-theme="dark"] .tabulator-row,
+[data-bs-theme="dark"] .tabulator.table .tabulator-row {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .tabulator-row.tabulator-row-even,
+[data-bs-theme="dark"] .tabulator.table-striped .tabulator-row:nth-child(even) { background-color: var(--bs-tertiary-bg); }
+[data-bs-theme="dark"] .tabulator-row.tabulator-selectable:hover,
+[data-bs-theme="dark"] .tabulator.table-hover .tabulator-row:hover { background-color: var(--bs-secondary-bg) !important; }
+[data-bs-theme="dark"] .tabulator .tabulator-header,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col,
+[data-bs-theme="dark"] .tabulator.table:not(.thead-light) .tabulator-header,
+[data-bs-theme="dark"] .tabulator.table:not(.thead-light) .tabulator-header .tabulator-col {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-emphasis-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-header-filter input:focus,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title .tabulator-title-editor {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-calcs-holder,
+[data-bs-theme="dark"] .tabulator .tabulator-header .tabulator-calcs-holder .tabulator-row,
+[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-calcs-holder,
+[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-calcs-holder .tabulator-row,
+[data-bs-theme="dark"] .tabulator.table .tabulator-footer .tabulator-calcs-holder,
+[data-bs-theme="dark"] .tabulator.table .tabulator-footer .tabulator-calcs-holder .tabulator-row {
+  background: var(--bs-tertiary-bg) !important;
+  color: var(--bs-body-color) !important;
+  border-color: var(--bs-border-color) !important;
+}
+[data-bs-theme="dark"] .tabulator .tabulator-footer {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-page {
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .tabulator .tabulator-footer .tabulator-page.active { color: var(--app-accent); }
+[data-bs-theme="dark"] .tabulator .tabulator-tableholder .tabulator-placeholder span,
+[data-bs-theme="dark"] .tabulator.table .tabulator-tableholder { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] .tabulator .tabulator-alert .tabulator-alert-msg { background: var(--bs-body-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] .tabulator-cell { border-color: var(--bs-border-color) !important; }
+
+/* ---- SweetAlert2 ---- */
+[data-bs-theme="dark"] .swal2-popup {
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+}
+[data-bs-theme="dark"] .swal2-title,
+[data-bs-theme="dark"] .swal2-html-container { color: var(--bs-emphasis-color); }
+[data-bs-theme="dark"] .swal2-input,
+[data-bs-theme="dark"] .swal2-textarea,
+[data-bs-theme="dark"] .swal2-select {
+  background: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .swal2-timer-progress-bar { background: rgba(255, 255, 255, 0.3); }
+
+/* Dropdown & list-group di dalam kartu */
+[data-bs-theme="dark"] .list-group-item { background-color: var(--bs-body-bg); color: var(--bs-body-color); }

@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
+import { ChartCanvas } from "@/components/dashboard/ChartCard";
+import { renderGrafikStatis } from "@/components/dashboard/chartExport";
 
 const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
@@ -106,34 +108,6 @@ const monthBandPlugin = {
 
 const labelKelasResmi = (nama) => (/^kelas\b/i.test(nama) ? nama : `Kelas ${nama}`);
 
-// Grafik digambar ulang di kanvas tersembunyi berukuran tetap, agar hasil ekspor tajam
-// dan proporsinya sama berapa pun lebar layar pengguna
-const renderGrafikStatis = async (config, lebar, tinggi, skala) => {
-  const { default: Chart } = await import("chart.js/auto");
-  const wadah = document.createElement("div");
-  wadah.style.cssText = `position:fixed;left:-10000px;top:0;width:${lebar}px;height:${tinggi}px;`;
-  const canvas = document.createElement("canvas");
-  canvas.width = lebar;
-  canvas.height = tinggi;
-  wadah.appendChild(canvas);
-  document.body.appendChild(wadah);
-  let chart;
-  try {
-    chart = new Chart(canvas, {
-      ...config,
-      data: { ...config.data, datasets: config.data.datasets.map((d) => ({ ...d, data: [...d.data] })) },
-      options: { ...config.options, responsive: false, maintainAspectRatio: false, animation: false, devicePixelRatio: skala },
-    });
-    const salinan = document.createElement("canvas");
-    salinan.width = canvas.width;
-    salinan.height = canvas.height;
-    salinan.getContext("2d").drawImage(canvas, 0, 0);
-    return salinan;
-  } finally {
-    chart?.destroy();
-    wadah.remove();
-  }
-};
 
 // Latar putih agar PNG hasil unduhan tidak transparan
 const whiteBgPlugin = {
@@ -148,23 +122,10 @@ const whiteBgPlugin = {
   },
 };
 
-// Chart.js dimuat saat dibutuhkan saja agar tidak memperbesar bundle halaman lain
+// Grafik di layar mengikuti tema; latar putih hanya dipakai saat ekspor (renderGrafikStatis)
 const Grafik = ({ config, height }) => {
-  const canvasRef = useRef(null);
-  const chartRef = useRef(null);
-  useEffect(() => {
-    if (!config || !canvasRef.current) return;
-    let batal = false;
-    (async () => {
-      const { default: Chart } = await import("chart.js/auto");
-      if (batal || !canvasRef.current) return;
-      chartRef.current?.destroy();
-      chartRef.current = new Chart(canvasRef.current, config);
-    })();
-    return () => { batal = true; };
-  }, [config]);
-  useEffect(() => () => { chartRef.current?.destroy(); chartRef.current = null; }, []);
-  return <div style={{ position: "relative", height }}><canvas ref={canvasRef}></canvas></div>;
+  const tampil = useMemo(() => (config ? { ...config, plugins: (config.plugins || []).filter((p) => p.id !== "whiteBg") } : null), [config]);
+  return <ChartCanvas config={tampil} height={height} />;
 };
 
 // Tujuh nilai yang dirata-rata: S, T, N, K, M, B.Ind, Math

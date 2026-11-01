@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useAkses } from "@/app/lib/akses";
 
 export default function TableWrapper({
   title,
@@ -16,6 +16,9 @@ export default function TableWrapper({
   onExportCSV,
   onExportPDF,
 }) {
+  const { isAdmin, user } = useAkses();
+  const hanyaLihat = !!user && !isAdmin;
+
   return (
     <div className="container-fluid mt-4 mb-5">
       <style jsx>{`
@@ -37,6 +40,7 @@ export default function TableWrapper({
         <h3 className="fw-bold text-primary m-0">
           <i className={`bi ${icon} me-2`}></i>
           {title}
+          {hanyaLihat && <span className="badge text-bg-secondary fw-normal fs-6 ms-2 align-middle"><i className="bi bi-eye me-1"></i>Lihat saja</span>}
         </h3>
         <div className="d-flex gap-2 flex-wrap">
           <div className="dropdown">
@@ -87,9 +91,11 @@ export default function TableWrapper({
             </button>
           </div>
 
-          <button className="btn btn-primary fw-bold shadow-sm" onClick={onAdd}>
-            <i className="bi bi-plus-lg me-2"></i>Tambah Data
-          </button>
+          {isAdmin && onAdd && (
+            <button className="btn btn-primary fw-bold shadow-sm" onClick={onAdd}>
+              <i className="bi bi-plus-lg me-2"></i>Tambah Data
+            </button>
+          )}
         </div>
       </div>
 

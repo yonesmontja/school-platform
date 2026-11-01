@@ -4,6 +4,8 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tabulator-tables/dist/css/tabulator_bootstrap5.min.css';
 import './globals.css';
 import './dashboard-saas.css';
+import './theme-dark.css';
+import './jadwal.css';
 import Script from 'next/script';
 import { THEME_INIT_SCRIPT } from './lib/themeScript';
 

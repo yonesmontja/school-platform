@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
-import { bacaAccordion, simpanAccordion } from '@/app/lib/sidebarPrefs';
 
 // Harus sama dengan SchoolSetting::API_KEY_FIELDS di backend
 const AI_PROVIDERS = [
@@ -73,15 +72,6 @@ export default function PengaturanSekolahPage() {
   const [apiKeyInputs, setApiKeyInputs] = useState(emptyPerProvider(''));
   const [showApiKeys, setShowApiKeys] = useState(emptyPerProvider(false));
   const [hapusApiKeys, setHapusApiKeys] = useState(emptyPerProvider(false));
-  // Preferensi tampilan per browser, langsung berlaku tanpa tombol simpan
-  const [accordion, setAccordion] = useState(true);
-  useEffect(() => { setAccordion(bacaAccordion()); }, []);
-  const ubahAccordion = (aktif) => {
-    setAccordion(aktif);
-    simpanAccordion(aktif);
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: aktif ? 'Satu grup terbuka sekaligus' : 'Beberapa grup boleh terbuka', showConfirmButton: false, timer: 1800 });
-  };
-
   const API_URL = 'http://localhost:8000/api';
   const getToken = () => localStorage.getItem('token');
 
@@ -202,25 +192,7 @@ export default function PengaturanSekolahPage() {
         <h3 className="fw-bold text-primary m-0">
           <i className="bi bi-gear-fill me-2"></i>Pengaturan Sekolah
         </h3>
-      </div>
-
-      <div className="card border-0 shadow-sm p-4 mb-4">
-        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-          <div>
-            <h5 className="fw-bold text-secondary mb-1"><i className="bi bi-layout-sidebar me-2"></i>Tampilan Sidebar</h5>
-            <p className="small text-muted mb-0">
-              Berlaku untuk browser ini saja dan langsung diterapkan. Tips: tekan <kbd>Ctrl</kbd> + <kbd>K</kbd> atau <kbd>/</kbd> untuk mencari menu,
-              dan tombol <i className="bi bi-list"></i> di kiri atas untuk mode ikon (mini).
-            </p>
-          </div>
-          <div className="form-check form-switch m-0">
-            <input className="form-check-input" type="checkbox" role="switch" id="pref_accordion" checked={accordion} onChange={(e) => ubahAccordion(e.target.checked)} />
-            <label className="form-check-label fw-semibold small" htmlFor="pref_accordion">
-              Mode accordion
-              <span className="d-block fw-normal text-muted">{accordion ? 'Membuka satu grup menutup grup lain' : 'Beberapa grup boleh terbuka bersamaan'}</span>
-            </label>
-          </div>
-        </div>
+        <a href="/dashboard/akun" className="btn btn-outline-secondary btn-sm"><i className="bi bi-person-gear me-1"></i>Preferensi tampilan pribadi ada di Akun Saya</a>
       </div>
 
       <div className="card border-0 shadow-sm p-4">

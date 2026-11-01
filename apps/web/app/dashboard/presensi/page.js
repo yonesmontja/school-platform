@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
+import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 
@@ -66,6 +67,8 @@ const Modal = ({ show, title, icon, headerClass = "bg-success text-white", onClo
 
 export default function PresensiPage() {
   const [classes, setClasses] = useState([]);
+  // Presensi diisi semua guru; menghapus satu tanggal hanya wali kelas & pengelola
+  const { bolehKelolaKelas } = useAkses();
   const [periodes, setPeriodes] = useState([]);
   const [settings, setSettings] = useState(null);
   const [user, setUser] = useState(null);
@@ -415,7 +418,7 @@ export default function PresensiPage() {
                     <button type="button" className="btn btn-sm btn-outline-success" onClick={() => setLembar(Object.fromEntries(data.students.map((s) => [s.id_siswa, "HADIR"])))}>
                       <i className="bi bi-check2-all me-1"></i>Tandai Semua Hadir
                     </button>
-                    {sudahTercatat && (
+                    {sudahTercatat && bolehKelolaKelas(filters.id_kelas) && (
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={handleHapusTanggal}><i className="bi bi-trash me-1"></i>Hapus Tanggal Ini</button>
                     )}
                   </div>
