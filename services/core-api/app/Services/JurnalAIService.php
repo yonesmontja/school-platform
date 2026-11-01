@@ -149,9 +149,13 @@ PROMPT;
         $baseUrl = $s?->openkey_base_url;
         if (!$apiKey || !$baseUrl) return null;
 
-        // Terima base URL dengan atau tanpa akhiran /v1
+        // Terima endpoint lengkap (.../chat/completions), base URL dengan akhiran /v1, atau tanpa keduanya
         $baseUrl = rtrim($baseUrl, '/');
-        $url = str_ends_with($baseUrl, '/v1') ? "{$baseUrl}/chat/completions" : "{$baseUrl}/v1/chat/completions";
+        $url = match (true) {
+            str_ends_with($baseUrl, '/chat/completions') => $baseUrl,
+            str_ends_with($baseUrl, '/v1') => "{$baseUrl}/chat/completions",
+            default => "{$baseUrl}/v1/chat/completions",
+        };
 
         return $this->analyzeOpenAICompatible(
             'OPENKEY', $url, $apiKey, $s->openkey_model_name ?: self::MODEL_OPENKEY, $narasi
