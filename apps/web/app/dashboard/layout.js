@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }) {
@@ -90,9 +91,9 @@ export default function DashboardLayout({ children }) {
         data-bs-theme="dark"
       >
         <div className="sidebar-brand">
-          <a href="/dashboard" className="brand-link">
+          <Link href="/dashboard" className="brand-link">
             <span className="brand-text fw-light">🏫 EduRapor Admin</span>
-          </a>
+          </Link>
         </div>
         <div className="sidebar-wrapper">
           <nav className="mt-2">
@@ -104,88 +105,88 @@ export default function DashboardLayout({ children }) {
               {/* --- MENU UTAMA --- */}
               <li className="nav-header">MENU UTAMA</li>
               <li className="nav-item">
-                <a href="/dashboard" className={navLinkClass("/dashboard")}>
+                <Link href="/dashboard" className={navLinkClass("/dashboard")}>
                   <i className="nav-icon bi bi-speedometer2"></i>
                   <p>Dashboard</p>
-                </a>
+                </Link>
               </li>
 
               {/* --- MASTER DATA --- */}
               <li className="nav-header">MASTER DATA</li>
               <li className="nav-item">
-                <a href="/dashboard/master-siswa" className={navLinkClass("/dashboard/master-siswa")}>
+                <Link href="/dashboard/master-siswa" className={navLinkClass("/dashboard/master-siswa")}>
                   <i className="nav-icon bi bi-people-fill"></i>
                   <p>Master Siswa</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-guru" className={navLinkClass("/dashboard/master-guru")}>
+                <Link href="/dashboard/master-guru" className={navLinkClass("/dashboard/master-guru")}>
                   <i className="nav-icon bi bi-person-video3"></i>
                   <p>Master Guru</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-kelas" className={navLinkClass("/dashboard/master-kelas")}>
+                <Link href="/dashboard/master-kelas" className={navLinkClass("/dashboard/master-kelas")}>
                   <i className="nav-icon bi bi-door-open-fill"></i>
                   <p>Master Kelas</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-mapel" className={navLinkClass("/dashboard/master-mapel")}>
+                <Link href="/dashboard/master-mapel" className={navLinkClass("/dashboard/master-mapel")}>
                   <i className="nav-icon bi bi-book-half"></i>
                   <p>Master Mapel</p>
-                </a>
+                </Link>
               </li>
 
               {/* --- REFERENSI PENILAIAN --- */}
               <li className="nav-header">REFERENSI PENILAIAN</li>
               <li className="nav-item">
-                <a href="/dashboard/master-periode" className={navLinkClass("/dashboard/master-periode")}>
+                <Link href="/dashboard/master-periode" className={navLinkClass("/dashboard/master-periode")}>
                   <i className="nav-icon bi bi-calendar-week"></i>
                   <p>Master Periode</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-kategori" className={navLinkClass("/dashboard/master-kategori")}>
+                <Link href="/dashboard/master-kategori" className={navLinkClass("/dashboard/master-kategori")}>
                   <i className="nav-icon bi bi-tags"></i>
                   <p>Master Kategori</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-mbk" className={navLinkClass("/dashboard/master-mbk")}>
+                <Link href="/dashboard/master-mbk" className={navLinkClass("/dashboard/master-mbk")}>
                   <i className="nav-icon bi bi-list-check"></i>
                   <p>Master MBK</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/master-materi" className={navLinkClass("/dashboard/master-materi")}>
+                <Link href="/dashboard/master-materi" className={navLinkClass("/dashboard/master-materi")}>
                   <i className="nav-icon bi bi-journal-bookmark"></i>
                   <p>Master Materi</p>
-                </a>
+                </Link>
               </li>
 
               {/* --- TRANSAKSI --- */}
               <li className="nav-header">TRANSAKSI</li>
               <li className="nav-item">
-                <a href="/dashboard/nilai" className={navLinkClass("/dashboard/nilai")}>
+                <Link href="/dashboard/nilai" className={navLinkClass("/dashboard/nilai")}>
                   <i className="nav-icon bi bi-pencil-square"></i>
                   <p>Input Nilai</p>
-                </a>
+                </Link>
               </li>
               <li className="nav-item">
-                <a href="/dashboard/jurnal" className={navLinkClass("/dashboard/jurnal")}>
+                <Link href="/dashboard/jurnal" className={navLinkClass("/dashboard/jurnal")}>
                   <i className="nav-icon bi bi-journal-text"></i>
                   <p>Jurnal Anekdotal</p>
-                </a>
+                </Link>
               </li>
 
               {/* --- PENGATURAN --- */}
               <li className="nav-header">PENGATURAN</li>
               <li className="nav-item">
-                <a href="/dashboard/pengaturan" className={navLinkClass("/dashboard/pengaturan")}>
+                <Link href="/dashboard/pengaturan" className={navLinkClass("/dashboard/pengaturan")}>
                   <i className="nav-icon bi bi-gear-fill"></i>
                   <p>Pengaturan Sekolah</p>
-                </a>
+                </Link>
               </li>
             </ul>
           </nav>
