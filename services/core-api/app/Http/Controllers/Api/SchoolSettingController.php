@@ -26,6 +26,9 @@ class SchoolSettingController extends Controller
             'openkey_base_url' => 'nullable|url:https|max:255',
             'openkey_model_name' => 'nullable|string|max:100',
             'ai_model_name' => 'nullable|string|max:100',
+            'no_wa_kepsek' => 'nullable|string|max:30',
+            'id_wa_group_guru' => 'nullable|string|max:100',
+            'status_wa_api' => 'nullable|boolean',
         ]);
 
         $data = $request->except(['ttd_kepsek_base64']);
