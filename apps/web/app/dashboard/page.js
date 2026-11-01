@@ -9,41 +9,69 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ siswa: 0, guru: 0, kelas: 0, mapel: 0 });
+  // "memuat" | "menunggu" (server belum bisa dihubungi, sedang dicoba ulang) | "gagal" | "ok"
+  const [status, setStatus] = useState("memuat");
+  const [percobaan, setPercobaan] = useState(0);
+  const [muatUlang, setMuatUlang] = useState(0);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData || !getToken()) { router.push("/login"); return; }
     setUser(JSON.parse(userData));
 
-    const fetchStats = async () => {
+    let batal = false;
+    let timer = null;
+    const MAX_COBA = 6;
+
+    const fetchStats = async (ke = 1) => {
       const headers = { Authorization: `Bearer ${getToken()}`, Accept: "application/json" };
+      let responses;
       try {
-        const responses = await Promise.all([
-          fetch(`${API_URL}/students`, { headers }),
-          fetch(`${API_URL}/teachers`, { headers }),
-          fetch(`${API_URL}/classes`, { headers }),
-          fetch(`${API_URL}/subjects`, { headers }),
-        ]);
-
-        // Token kedaluwarsa / tidak valid: kembali ke login
-        if (responses.some((res) => res.status === 401)) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          router.push("/login");
-          return;
+        responses = await Promise.all(
+          ["students", "teachers", "classes", "subjects"].map((p) => fetch(`${API_URL}/${p}`, { headers })),
+        );
+      } catch (err) {
+        // Gagal terhubung (mis. server API masih menyala): coba lagi dengan jeda yang makin panjang
+        if (batal) return;
+        if (ke < MAX_COBA) {
+          setStatus("menunggu");
+          setPercobaan(ke);
+          timer = setTimeout(() => fetchStats(ke + 1), Math.min(2000 * ke, 8000));
+        } else {
+          setStatus("gagal");
         }
+        return;
+      }
+      if (batal) return;
 
+      // Token kedaluwarsa / tidak valid: kembali ke login
+      if (responses.some((res) => res.status === 401)) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        router.push("/login");
+        return;
+      }
+
+      try {
         const [sData, tData, cData, mData] = await Promise.all(responses.map((res) => res.json()));
+        if (batal) return;
         setStats({
           siswa: (sData.data || []).length,
           guru: (tData.data || []).length,
           kelas: (cData.data || []).length,
           mapel: (mData.data || []).length,
         });
-      } catch (err) { console.error(err); }
+        setStatus("ok");
+      } catch (err) {
+        if (!batal) setStatus("gagal");
+      }
     };
     fetchStats();
-  }, [router]);
+    return () => { batal = true; clearTimeout(timer); };
+  }, [router, muatUlang]);
+
+  // Tombol "Coba lagi" menjalankan ulang effect di atas
+  const cobaLagi = () => { setStatus("memuat"); setMuatUlang((n) => n + 1); };
 
   const cards = [
     { label: "Total Siswa", value: stats.siswa, icon: "bi-people-fill", color: "primary", link: "/dashboard/master-siswa" },
@@ -60,6 +88,20 @@ export default function DashboardPage() {
         </h3>
         <p className="text-muted">Sistem Informasi Akademik & Analitik STNKM</p>
       </div>
+
+      {status === "menunggu" && (
+        <div className="alert alert-info d-flex align-items-center gap-2 py-2">
+          <span className="spinner-border spinner-border-sm"></span>
+          <span>Server API belum bisa dihubungi, mungkin masih menyala. Mencoba lagi otomatis (percobaan {percobaan})...</span>
+        </div>
+      )}
+      {status === "gagal" && (
+        <div className="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2">
+          <i className="bi bi-wifi-off"></i>
+          <span className="me-auto">Tidak dapat terhubung ke server API (http://localhost:8000). Pastikan container <code>school_core_api</code> berjalan.</span>
+          <button type="button" className="btn btn-sm btn-warning" onClick={cobaLagi}><i className="bi bi-arrow-clockwise me-1"></i>Coba lagi</button>
+        </div>
+      )}
 
       <div className="row g-3 mb-4">
         {cards.map((c) => (
