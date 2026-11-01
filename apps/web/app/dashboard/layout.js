@@ -179,6 +179,12 @@ export default function DashboardLayout({ children }) {
                   <p>Jurnal Anekdotal</p>
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link href="/dashboard/import-excel" className={navLinkClass("/dashboard/import-excel")}>
+                  <i className="nav-icon bi bi-file-earmark-arrow-up"></i>
+                  <p>Import Excel</p>
+                </Link>
+              </li>
 
               {/* --- PENGATURAN --- */}
               <li className="nav-header">PENGATURAN</li>
