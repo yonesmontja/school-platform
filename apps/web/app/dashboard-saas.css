@@ -1,0 +1,184 @@
+/* =========================================================================
+   DASBOR ANALITIK (gaya SaaS)
+   ========================================================================= */
+.dash-root .min-w-0, .dash-card .min-w-0 { min-width: 0; }
+
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 1.35rem 1.5rem;
+  border-radius: 1.1rem;
+  background: linear-gradient(120deg, var(--app-accent), var(--app-accent-2));
+  color: #fff;
+  box-shadow: 0 14px 34px -18px rgba(var(--app-accent-rgb), 0.9);
+}
+.dash-hero::after {
+  content: "";
+  position: absolute;
+  right: -60px;
+  top: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 70%);
+  pointer-events: none;
+}
+.dash-hero-date { font-size: 0.78rem; opacity: 0.85; }
+.dash-hero-title { margin: 0.15rem 0; font-weight: 800; font-size: 1.45rem; }
+.dash-hero-sub { font-size: 0.85rem; opacity: 0.9; }
+.dash-hero .btn-light { position: relative; z-index: 1; background: rgba(255, 255, 255, 0.92); border: 0; color: #212529; }
+.dash-hero .wave { display: inline-block; animation: dashWave 2.2s ease-in-out 1; transform-origin: 70% 70%; }
+
+.dash-filter,
+.dash-stat,
+.dash-metric,
+.dash-preview {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--bs-border-color-translucent);
+  border-radius: 1rem;
+  background: var(--bs-body-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* --- KPI --- */
+.dash-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.25s var(--sb-ease), box-shadow 0.25s ease;
+}
+.dash-stat:hover,
+.dash-metric:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.35); }
+.dash-stat-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  font-size: 1.15rem;
+}
+.dash-stat-value { font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+.dash-stat-label { font-size: 0.78rem; font-weight: 600; color: var(--bs-secondary-color); }
+.dash-stat-hint { font-size: 0.68rem; color: var(--bs-secondary-color); opacity: 0.8; }
+
+.dash-metric { transition: transform 0.25s var(--sb-ease), box-shadow 0.25s ease; }
+.dash-metric-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.dash-metric-value { font-size: 2rem; font-weight: 800; line-height: 1.15; margin: 0.25rem 0; }
+.dash-delta { margin-bottom: 0.55rem; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+.dash-delta.is-up { background: rgba(16, 185, 129, 0.14); color: #059669; }
+.dash-delta.is-down { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.dash-spark { display: block; width: 100%; height: 38px; margin-top: 0.25rem; }
+.dash-progress { height: 6px; border-radius: 999px; margin-top: 0.3rem; }
+.dash-progress .progress-bar { background: linear-gradient(90deg, var(--app-accent), var(--app-accent-2)); }
+
+.dash-dim { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; font-size: 0.78rem; }
+.dash-dim-key { width: 1rem; font-weight: 800; }
+.dash-dim-bar { flex: 1 1 auto; height: 6px; border-radius: 999px; background: var(--bs-secondary-bg); overflow: hidden; }
+.dash-dim-bar > div { height: 100%; border-radius: 999px; transition: width 0.6s var(--sb-ease); }
+.dash-dim-val { width: 2.4rem; text-align: right; font-weight: 600; }
+.dash-chip { display: inline-flex; gap: 0.35rem; padding: 0.25rem 0.6rem; border: 1px solid var(--bs-border-color-translucent); border-radius: 999px; font-size: 0.8rem; background: var(--bs-tertiary-bg); }
+
+/* --- Kartu grafik --- */
+.dash-card {
+  border-radius: 1rem;
+  border-color: var(--bs-border-color-translucent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.25s ease;
+}
+.dash-card:hover { box-shadow: 0 12px 28px -18px rgba(0, 0, 0, 0.4); }
+.dash-card.card-outline { border-top-width: 3px; }
+.dash-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.dash-card.is-collapsed .dash-card-header { border-bottom-color: transparent; }
+.dash-card-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.65rem;
+  font-size: 1rem;
+}
+.dash-card-title { float: none; margin: 0; font-size: 0.95rem; font-weight: 700; }
+.dash-card-subtitle { font-size: 0.74rem; color: var(--bs-secondary-color); }
+.btn-tool-dash {
+  --bs-btn-padding-x: 0.45rem;
+  --bs-btn-padding-y: 0.2rem;
+  border: 0;
+  border-radius: 0.5rem;
+  color: var(--bs-secondary-color);
+}
+.btn-tool-dash:hover,
+.btn-tool-dash[aria-expanded="true"] { background: var(--bs-secondary-bg); color: var(--bs-emphasis-color); }
+.btn-tool-dash.dropdown-toggle::after { display: none; }
+
+/* Lipat/buka kartu dengan animasi tinggi */
+.dash-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.4s var(--sb-ease); }
+.dash-collapse-inner { min-height: 0; overflow: hidden; }
+.dash-card.is-collapsed .dash-collapse { grid-template-rows: 0fr; }
+.dash-collapse-icon { display: inline-block; transition: transform 0.35s var(--sb-ease); }
+.dash-card.is-collapsed .dash-collapse-icon { transform: rotate(180deg); }
+
+.dash-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 0.8rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.dash-add-card {
+  min-height: 160px;
+  padding: 1.5rem;
+  border: 2px dashed var(--bs-border-color);
+  border-radius: 1rem;
+  background: transparent;
+  color: var(--bs-secondary-color);
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+.dash-add-card:hover { border-color: var(--app-accent); color: var(--app-accent); background: rgba(var(--app-accent-rgb), 0.05); }
+
+/* --- Tab segmen EWS --- */
+.dash-segment { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem; border-radius: 0.75rem; background: var(--bs-secondary-bg); }
+.dash-segment button { padding: 0.3rem 0.75rem; border: 0; border-radius: 0.55rem; background: transparent; color: var(--bs-secondary-color); font-size: 0.8rem; font-weight: 600; transition: background-color 0.2s ease, color 0.2s ease; }
+.dash-segment button.active { background: var(--bs-body-bg); color: var(--bs-emphasis-color); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.dash-segment-count { margin-left: 0.2rem; padding: 0 0.4rem; border-radius: 999px; background: rgba(var(--app-accent-rgb), 0.15); color: var(--app-accent); font-size: 0.7rem; }
+.dash-table thead th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--bs-secondary-color); white-space: nowrap; }
+
+/* --- Pembuat grafik kustom --- */
+.dash-type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+.dash-type { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.5rem 0.25rem; border: 1px solid var(--bs-border-color); border-radius: 0.65rem; background: var(--bs-body-bg); color: var(--bs-secondary-color); font-size: 0.7rem; transition: all 0.2s ease; }
+.dash-type i { font-size: 1.1rem; }
+.dash-type:hover { border-color: var(--app-accent); color: var(--app-accent); }
+.dash-type.active { border-color: var(--app-accent); background: rgba(var(--app-accent-rgb), 0.1); color: var(--app-accent); font-weight: 600; }
+.dash-metric-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 0.65rem; }
+.dash-metric-opt { display: flex; align-items: center; padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--bs-border-color-translucent); font-size: 0.8rem; cursor: pointer; }
+.dash-metric-opt:last-child { border-bottom: 0; }
+.dash-metric-opt.active { background: rgba(var(--app-accent-rgb), 0.08); }
+.dash-preview { height: 100%; background: var(--bs-tertiary-bg); }
+
+/* --- Panel pengaturan --- */
+.dash-offcanvas { width: 380px !important; max-width: 92vw; }
+.dash-set-section { margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--bs-border-color-translucent); }
+.dash-set-title { margin-bottom: 0.6rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.dash-set-list .list-group-item { background: transparent; }
+
+.dash-spin { display: inline-block; animation: dashSpin 0.9s linear infinite; }
+@keyframes dashSpin { to { transform: rotate(360deg); } }
+@keyframes dashWave { 0%, 100% { transform: rotate(0); } 20%, 60% { transform: rotate(14deg); } 40%, 80% { transform: rotate(-8deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-collapse, .dash-collapse-icon, .dash-stat, .dash-metric, .dash-dim-bar > div, .dash-hero .wave { transition: none !important; animation: none !important; }
+}
