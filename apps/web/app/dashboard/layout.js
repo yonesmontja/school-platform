@@ -180,6 +180,18 @@ export default function DashboardLayout({ children }) {
                 </Link>
               </li>
               <li className="nav-item">
+                <Link href="/dashboard/presensi" className={navLinkClass("/dashboard/presensi")}>
+                  <i className="nav-icon bi bi-calendar-check"></i>
+                  <p>Presensi</p>
+                </Link>
+              </li>
+              <li className="nav-item">
+                <Link href="/dashboard/p5" className={navLinkClass("/dashboard/p5")}>
+                  <i className="nav-icon bi bi-stars"></i>
+                  <p>Projek P5</p>
+                </Link>
+              </li>
+              <li className="nav-item">
                 <Link href="/dashboard/import-excel" className={navLinkClass("/dashboard/import-excel")}>
                   <i className="nav-icon bi bi-file-earmark-arrow-up"></i>
                   <p>Import Excel</p>

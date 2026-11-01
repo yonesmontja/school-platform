@@ -619,7 +619,7 @@ export default function CetakRaporPage() {
     }
     setWaLoading(true);
     try {
-      const res = await postJSON(`${API_URL}/rapor/whatsapp`, { daftar_pesan: antrean });
+      const res = await postJSON(`${API_URL}/whatsapp`, { daftar_pesan: antrean });
       Swal.fire({ toast: true, position: "top-end", icon: "success", title: `${res.count} pesan terkirim otomatis via API!`, showConfirmButton: false, timer: 3000 });
     } catch (err) { Swal.fire("Belum Terkirim", err.message, "warning"); }
     finally { setWaLoading(false); }
