@@ -47,7 +47,13 @@ services:
       - ../apps/web:/app
       - /app/node_modules
       - /app/.next
-
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: school_cloudflared_quick
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://web:3000
+    depends_on:
+      - web
   ai-engine:
     build: ../services/ai-engine
     container_name: school_ai_engine
