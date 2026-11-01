@@ -11,6 +11,7 @@
     "@adminlte/react": "^0.7.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.2",
+    "chart.js": "^4.5.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "next": "^16.4.2",
