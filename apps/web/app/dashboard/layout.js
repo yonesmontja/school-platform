@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SIDEBAR_PREF_EVENT, bacaAccordion } from "@/app/lib/sidebarPrefs";
+import ThemeMenu from "@/components/ThemeMenu";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 
@@ -242,7 +243,7 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="app-wrapper">
       {/* NAVBAR ATAS */}
-      <nav className="app-header navbar navbar-expand bg-white shadow-sm mb-4">
+      <nav className="app-header navbar navbar-expand bg-body shadow-sm mb-4">
         <div className="container-fluid">
           <ul className="navbar-nav">
             <li className="nav-item">
@@ -257,17 +258,21 @@ export default function DashboardLayout({ children }) {
               </button>
             </li>
             <li className="nav-item d-none d-md-block">
-              <span className="nav-link fw-bold text-dark">
+              <span className="nav-link fw-bold text-body-emphasis">
                 <i className="bi bi-mortarboard-fill text-primary me-2"></i>
                 Sistem Informasi Akademik & Analitik STNKM
               </span>
             </li>
           </ul>
           <ul className="navbar-nav ms-auto align-items-center">
+            {/* TAMPILAN: TEMA & WARNA AKSEN */}
+            <li className="nav-item me-2">
+              <ThemeMenu />
+            </li>
             {/* BADGE USER */}
             {user && (
               <li className="nav-item me-3 d-none d-md-block">
-                <div className="badge bg-light text-dark border px-3 py-2 rounded-pill shadow-sm">
+                <div className="badge bg-body-tertiary text-body-emphasis border px-3 py-2 rounded-pill shadow-sm">
                   <i className="bi bi-person-circle text-primary me-1"></i>
                   {user.name} ({user.role ? user.role.toUpperCase() : "USER"})
                 </div>

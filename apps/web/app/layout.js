@@ -3,7 +3,9 @@ import '@adminlte/react/css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'tabulator-tables/dist/css/tabulator_bootstrap5.min.css';
 import './globals.css';
+import './dashboard-saas.css';
 import Script from 'next/script';
+import { THEME_INIT_SCRIPT } from './lib/themeScript';
 
 export const metadata = {
   title: 'EduRapor - School Platform',
@@ -12,7 +14,11 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="id">
+    // data-bs-theme & data-accent diisi skrip tema sebelum halaman tampil
+    <html lang="id" data-bs-theme="light" data-accent="biru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="layout-fixed sidebar-expand-lg bg-body-tertiary">
         {children}
         {/* Script Bootstrap JS untuk dropdown, modal, dll */}

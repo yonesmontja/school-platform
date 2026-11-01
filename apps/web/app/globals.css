@@ -518,3 +518,115 @@
     transition: none !important;
   }
 }
+
+/* =========================================================================
+   WARNA AKSEN APLIKASI (dipilih pengguna; atribut data-accent di <html>)
+   ========================================================================= */
+:root[data-accent="biru"]   { --app-accent: #3b82f6; --app-accent-rgb: 59, 130, 246;  --app-accent-2: #6366f1; }
+:root[data-accent="indigo"] { --app-accent: #6366f1; --app-accent-rgb: 99, 102, 241;  --app-accent-2: #8b5cf6; }
+:root[data-accent="ungu"]   { --app-accent: #8b5cf6; --app-accent-rgb: 139, 92, 246;  --app-accent-2: #d946ef; }
+:root[data-accent="hijau"]  { --app-accent: #10b981; --app-accent-rgb: 16, 185, 129;  --app-accent-2: #14b8a6; }
+:root[data-accent="teal"]   { --app-accent: #0d9488; --app-accent-rgb: 13, 148, 136;  --app-accent-2: #0ea5e9; }
+:root[data-accent="oranye"] { --app-accent: #f97316; --app-accent-rgb: 249, 115, 22;  --app-accent-2: #f59e0b; }
+:root[data-accent="rose"]   { --app-accent: #e11d48; --app-accent-rgb: 225, 29, 72;   --app-accent-2: #f43f5e; }
+
+:root[data-accent],
+:root[data-accent][data-bs-theme="dark"] {
+  --bs-primary: var(--app-accent);
+  --bs-primary-rgb: var(--app-accent-rgb);
+  --bs-link-color: var(--app-accent);
+  --bs-link-color-rgb: var(--app-accent-rgb);
+  --bs-link-hover-color: color-mix(in srgb, var(--app-accent) 80%, #000);
+  --sb-accent-1: var(--app-accent);
+  --sb-accent-2: var(--app-accent-2);
+}
+
+:root[data-accent] .card-primary,
+:root[data-accent] .bg-primary,
+:root[data-accent] .text-bg-primary {
+  --lte-card-variant-bg: var(--app-accent);
+  --lte-card-variant-bg-rgb: var(--app-accent-rgb);
+}
+
+:root[data-accent] .btn-primary {
+  --bs-btn-bg: var(--app-accent);
+  --bs-btn-border-color: var(--app-accent);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-accent) 85%, #000);
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--app-accent) 80%, #000);
+  --bs-btn-active-bg: color-mix(in srgb, var(--app-accent) 75%, #000);
+  --bs-btn-active-border-color: color-mix(in srgb, var(--app-accent) 70%, #000);
+  --bs-btn-disabled-bg: var(--app-accent);
+  --bs-btn-disabled-border-color: var(--app-accent);
+  --bs-btn-focus-shadow-rgb: var(--app-accent-rgb);
+}
+
+:root[data-accent] .btn-outline-primary {
+  --bs-btn-color: var(--app-accent);
+  --bs-btn-border-color: var(--app-accent);
+  --bs-btn-hover-bg: var(--app-accent);
+  --bs-btn-hover-border-color: var(--app-accent);
+  --bs-btn-active-bg: var(--app-accent);
+  --bs-btn-active-border-color: var(--app-accent);
+  --bs-btn-disabled-color: var(--app-accent);
+  --bs-btn-disabled-border-color: var(--app-accent);
+  --bs-btn-focus-shadow-rgb: var(--app-accent-rgb);
+}
+
+:root[data-accent] .form-check-input:checked {
+  background-color: var(--app-accent);
+  border-color: var(--app-accent);
+}
+
+:root[data-accent] .form-control:focus,
+:root[data-accent] .form-select:focus,
+:root[data-accent] .form-check-input:focus {
+  border-color: rgba(var(--app-accent-rgb), 0.6);
+  box-shadow: 0 0 0 0.2rem rgba(var(--app-accent-rgb), 0.2);
+}
+
+:root[data-accent] .nav-tabs .nav-link.active,
+:root[data-accent] .nav-pills .nav-link.active {
+  --bs-nav-pills-link-active-bg: var(--app-accent);
+}
+
+:root[data-accent] .page-link {
+  --bs-pagination-active-bg: var(--app-accent);
+  --bs-pagination-active-border-color: var(--app-accent);
+}
+
+/* Navbar mengikuti tema (sebelumnya selalu putih) */
+.app-header.navbar {
+  background-color: var(--bs-body-bg) !important;
+}
+
+/* --- Panel Tampilan di navbar (mode & aksen) --- */
+.theme-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 1050;
+  width: 260px;
+  padding: 0.85rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.9rem;
+  background: var(--bs-body-bg);
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.35);
+  animation: sbFlyoutIn 0.22s var(--sb-ease) both;
+}
+
+.theme-swatch {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s var(--sb-ease), box-shadow 0.2s ease;
+}
+
+.theme-swatch:hover {
+  transform: scale(1.1);
+}
+
+.theme-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--bs-body-bg), 0 0 0 4px var(--bs-emphasis-color);
+}
