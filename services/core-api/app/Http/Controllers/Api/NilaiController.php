@@ -11,16 +11,19 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\TransNilai;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class NilaiController extends Controller
 {
+    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori'];
+
     public function getFilters()
     {
         return response()->json([
-            'periodes' => MasterPeriode::orderByDesc('tahun_ajaran')->get(),
+            'periodes' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(),
             'classes' => Classes::orderBy('nama_kelas')->get(),
-            'subjects' => Subject::orderBy('nama_mapel')->get(),
+            'subjects' => Subject::with('guru')->orderBy('nama_mapel')->get(),
             'mbks' => MasterMBK::orderBy('kategori_penilaian')->get(),
         ]);
     }
@@ -28,111 +31,166 @@ class NilaiController extends Controller
     public function getMateriByContext(Request $request)
     {
         $query = MasterMateri::with('kategori');
-        
-        if ($request->filled('id_kelas')) $query->where('id_kelas', $request->id_kelas);
+
         if ($request->filled('id_mapel')) $query->where('id_mapel', $request->id_mapel);
-        if ($request->filled('id_periode')) $query->where('id_periode', $request->id_periode);
-        
+        // Materi tanpa kelas/periode berlaku umum untuk semua kelas/periode
+        foreach (['id_kelas', 'id_periode'] as $kolom) {
+            if ($request->filled($kolom)) {
+                $query->where(fn($q) => $q->where($kolom, $request->$kolom)->orWhereNull($kolom));
+            }
+        }
+
         return response()->json(['data' => $query->orderBy('nama_materi')->get()]);
     }
 
+    /**
+     * Riwayat nilai satu kelas pada satu periode.
+     */
+    public function index(Request $request)
+    {
+        $request->validate([
+            'id_kelas' => 'required|exists:classes,id_kelas',
+            'id_periode' => 'required|exists:master_periode,id_periode',
+        ]);
+
+        $data = TransNilai::with(self::RELASI)
+            ->where('id_kelas', $request->id_kelas)
+            ->where('id_periode', $request->id_periode)
+            ->orderByDesc('tanggal')
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Lembar nilai: seluruh siswa kelas beserta nilai yang sudah tercatat untuk kombinasi penilaian ini.
+     */
     public function getStudentsWithNilai(Request $request)
     {
         $request->validate([
             'id_kelas' => 'required|exists:classes,id_kelas',
-            'id_materi' => 'required|exists:master_materi,id_materi',
+            'id_mapel' => 'required|exists:subjects,id_mapel',
             'id_periode' => 'required|exists:master_periode,id_periode',
-            'tanggal' => 'required|date',
+            'id_jenis' => 'required|exists:master_mbk,id_jenis',
+            'id_materi' => 'required|exists:master_materi,id_materi',
         ]);
 
         $students = Student::where('id_kelas', $request->id_kelas)
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
-        $existingNilai = TransNilai::where('id_materi', $request->id_materi)
-            ->where('id_periode', $request->id_periode)
-            ->where('tanggal', $request->tanggal)
-            ->pluck('nilai', 'id_siswa');
+        $existing = $this->queryPenilaian($request->only(['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi']))
+            ->whereIn('id_siswa', $students->pluck('id_siswa'))
+            ->get()
+            ->keyBy('id_siswa');
 
         return response()->json([
             'students' => $students->map(fn($s) => [
                 'id_siswa' => $s->id_siswa,
                 'nisn' => $s->nisn,
                 'nama_siswa' => $s->nama_siswa,
-                'nilai' => isset($existingNilai[$s->id_siswa]) ? (float)$existingNilai[$s->id_siswa] : null,
-            ])
+                'id_nilai' => $existing[$s->id_siswa]->id_nilai ?? null,
+                'nilai' => isset($existing[$s->id_siswa]) ? (float) $existing[$s->id_siswa]->nilai : null,
+                'tanggal' => $existing[$s->id_siswa]->tanggal ?? null,
+            ]),
         ]);
     }
 
+    /**
+     * Simpan lembar nilai. Satu siswa memiliki satu nilai per kombinasi
+     * kelas + mapel + periode + jenis + materi; menyimpan ulang memperbarui nilai & tanggalnya.
+     */
     public function saveBatch(Request $request)
     {
         $request->validate([
-            'records' => 'required|array',
-            'records.*.id_siswa' => 'required|exists:students,id_siswa',
-            'records.*.id_mapel' => 'required|exists:subjects,id_mapel',
-            'records.*.id_periode' => 'required|exists:master_periode,id_periode',
-            'records.*.id_jenis' => 'required|exists:master_mbk,id_jenis',
-            'records.*.id_materi' => 'required|exists:master_materi,id_materi',
-            'records.*.id_kelas' => 'required|exists:classes,id_kelas',
+            'id_kelas' => 'required|exists:classes,id_kelas',
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_periode' => 'required|exists:master_periode,id_periode',
+            'id_jenis' => 'required|exists:master_mbk,id_jenis',
+            'id_materi' => 'required|exists:master_materi,id_materi',
+            'tanggal' => 'required|date',
+            'records' => 'required|array|min:1',
+            'records.*.id_siswa' => 'required|distinct|exists:students,id_siswa',
             'records.*.nilai' => 'required|numeric|between:0,100',
-            'records.*.tanggal' => 'required|date',
         ]);
 
-        $guruId = $request->user()->username ?? 'UNKNOWN';
+        $meta = $request->only(['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi']);
+
+        $idSiswa = collect($request->records)->pluck('id_siswa');
+        $bukanAnggota = $idSiswa->diff(Student::where('id_kelas', $meta['id_kelas'])->whereIn('id_siswa', $idSiswa)->pluck('id_siswa'));
+        if ($bukanAnggota->isNotEmpty()) {
+            return response()->json(['message' => 'Ada siswa yang bukan anggota kelas ini.'], 422);
+        }
+
+        $mbk = MasterMBK::find($meta['id_jenis']);
+        $materi = MasterMateri::find($meta['id_materi']);
+        // Belum ada relasi users → teachers, jadi pengisi dicatat dengan nama akun
+        $pengisi = Str::limit($request->user()->name ?? 'UNKNOWN', 50, '');
+
+        $existing = $this->queryPenilaian($meta)->whereIn('id_siswa', $idSiswa)->get()->keyBy('id_siswa');
         $saved = 0; $updated = 0;
 
-        foreach ($request->records as $rec) {
-            $mbk = MasterMBK::find($rec['id_jenis']);
-            $materi = MasterMateri::find($rec['id_materi']);
-            if (!$mbk || !$materi) continue;
+        DB::transaction(function () use ($request, $meta, $mbk, $materi, $pengisi, $existing, &$saved, &$updated) {
+            foreach ($request->records as $rec) {
+                $nilai = (float) $rec['nilai'];
 
-            $nilaiMentah = (float)$rec['nilai'];
-
-            // MESIN KALKULASI STNKM: Nilai × Matriks MBK × Matriks Materi
-            $poin_S = round($nilaiMentah * $mbk->mat_S * $materi->mat_S, 2);
-            $poin_T = round($nilaiMentah * $mbk->mat_T * $materi->mat_T, 2);
-            $poin_N = round($nilaiMentah * $mbk->mat_N * $materi->mat_N, 2);
-            $poin_K = round($nilaiMentah * $mbk->mat_K * $materi->mat_K, 2);
-            $poin_M = round($nilaiMentah * $mbk->mat_M * $materi->mat_M, 2);
-
-            $existing = TransNilai::where('id_siswa', $rec['id_siswa'])
-                ->where('id_materi', $rec['id_materi'])
-                ->where('id_periode', $rec['id_periode'])
-                ->where('tanggal', $rec['tanggal'])
-                ->first();
-
-            if ($existing) {
-                $existing->update([
-                    'nilai' => $nilaiMentah,
-                    'poin_S' => $poin_S, 'poin_T' => $poin_T, 'poin_N' => $poin_N,
-                    'poin_K' => $poin_K, 'poin_M' => $poin_M,
-                    'id_jenis' => $rec['id_jenis'],
-                    'id_guru' => $guruId,
-                ]);
-                $updated++;
-            } else {
-                TransNilai::create([
-                    'id_nilai' => 'NIL-' . Str::uuid(),
-                    'tanggal' => $rec['tanggal'],
-                    'id_siswa' => $rec['id_siswa'],
-                    'id_mapel' => $rec['id_mapel'],
-                    'id_guru' => $guruId,
-                    'id_periode' => $rec['id_periode'],
-                    'id_jenis' => $rec['id_jenis'],
-                    'id_materi' => $rec['id_materi'],
-                    'id_kelas' => $rec['id_kelas'],
-                    'nilai' => $nilaiMentah,
-                    'poin_S' => $poin_S, 'poin_T' => $poin_T, 'poin_N' => $poin_N,
-                    'poin_K' => $poin_K, 'poin_M' => $poin_M,
+                $data = [
+                    'tanggal' => $request->tanggal,
+                    'nilai' => $nilai,
+                    'id_guru' => $pengisi,
                     'metode_stnkm' => 'OTOMATIS',
-                ]);
-                $saved++;
+                    ...$this->hitungStnkm($nilai, $mbk, $materi),
+                ];
+
+                if ($row = $existing[$rec['id_siswa']] ?? null) {
+                    $row->update($data);
+                    $updated++;
+                } else {
+                    TransNilai::create([
+                        'id_nilai' => 'NIL-' . Str::uuid(),
+                        'id_siswa' => $rec['id_siswa'],
+                        ...$meta,
+                        ...$data,
+                    ]);
+                    $saved++;
+                }
             }
-        }
+        });
 
         return response()->json([
             'success' => true,
             'message' => "Nilai disimpan. Baru: {$saved}, Diperbarui: {$updated}.",
+            'saved' => $saved,
+            'updated' => $updated,
         ]);
+    }
+
+    public function destroy($id)
+    {
+        TransNilai::findOrFail($id)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Data nilai berhasil dihapus.']);
+    }
+
+    private function queryPenilaian(array $meta)
+    {
+        return TransNilai::where('id_kelas', $meta['id_kelas'])
+            ->where('id_mapel', $meta['id_mapel'])
+            ->where('id_periode', $meta['id_periode'])
+            ->where('id_jenis', $meta['id_jenis'])
+            ->where('id_materi', $meta['id_materi']);
+    }
+
+    /**
+     * MESIN KALKULASI STNKM: Nilai × Matriks MBK × Matriks Materi
+     */
+    private function hitungStnkm(float $nilai, MasterMBK $mbk, MasterMateri $materi): array
+    {
+        $poin = [];
+        foreach (['S', 'T', 'N', 'K', 'M'] as $d) {
+            $poin["poin_{$d}"] = round($nilai * $mbk->{"mat_{$d}"} * $materi->{"mat_{$d}"}, 2);
+        }
+        return $poin;
     }
 }

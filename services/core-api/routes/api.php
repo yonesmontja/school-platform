@@ -50,10 +50,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/classes', ClassesController::class);
     Route::apiResource('/subjects', SubjectController::class);
     Route::prefix('nilai')->group(function () {
+        Route::get('/', [NilaiController::class, 'index']);
         Route::get('/filters', [NilaiController::class, 'getFilters']);
         Route::get('/materi', [NilaiController::class, 'getMateriByContext']);
         Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
         Route::post('/batch', [NilaiController::class, 'saveBatch']);
+        Route::delete('/{id}', [NilaiController::class, 'destroy']);
     });
     // Master Reference Penilaian
     Route::apiResource('/periodes', PeriodeController::class);
