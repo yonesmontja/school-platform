@@ -100,6 +100,7 @@ class NilaiController extends Controller
     /**
      * Simpan lembar nilai. Satu siswa memiliki satu nilai per kombinasi
      * kelas + mapel + periode + jenis + materi; menyimpan ulang memperbarui nilai & tanggalnya.
+     * Metode MANUAL (import Excel) memakai poin STNKM dari file apa adanya.
      */
     public function saveBatch(Request $request)
     {
@@ -110,9 +111,15 @@ class NilaiController extends Controller
             'id_jenis' => 'required|exists:master_mbk,id_jenis',
             'id_materi' => 'required|exists:master_materi,id_materi',
             'tanggal' => 'required|date',
+            'metode_stnkm' => 'nullable|in:OTOMATIS,MANUAL',
             'records' => 'required|array|min:1',
             'records.*.id_siswa' => 'required|distinct|exists:students,id_siswa',
             'records.*.nilai' => 'required|numeric|between:0,100',
+            'records.*.poin_S' => 'nullable|numeric',
+            'records.*.poin_T' => 'nullable|numeric',
+            'records.*.poin_N' => 'nullable|numeric',
+            'records.*.poin_K' => 'nullable|numeric',
+            'records.*.poin_M' => 'nullable|numeric',
         ]);
 
         $meta = $request->only(['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi']);
@@ -123,6 +130,7 @@ class NilaiController extends Controller
             return response()->json(['message' => 'Ada siswa yang bukan anggota kelas ini.'], 422);
         }
 
+        $metode = $request->input('metode_stnkm', 'OTOMATIS');
         $mbk = MasterMBK::find($meta['id_jenis']);
         $materi = MasterMateri::find($meta['id_materi']);
         // Belum ada relasi users → teachers, jadi pengisi dicatat dengan nama akun
@@ -131,7 +139,7 @@ class NilaiController extends Controller
         $existing = $this->queryPenilaian($meta)->whereIn('id_siswa', $idSiswa)->get()->keyBy('id_siswa');
         $saved = 0; $updated = 0;
 
-        DB::transaction(function () use ($request, $meta, $mbk, $materi, $pengisi, $existing, &$saved, &$updated) {
+        DB::transaction(function () use ($request, $meta, $metode, $mbk, $materi, $pengisi, $existing, &$saved, &$updated) {
             foreach ($request->records as $rec) {
                 $nilai = (float) $rec['nilai'];
 
@@ -139,8 +147,8 @@ class NilaiController extends Controller
                     'tanggal' => $request->tanggal,
                     'nilai' => $nilai,
                     'id_guru' => $pengisi,
-                    'metode_stnkm' => 'OTOMATIS',
-                    ...$this->hitungStnkm($nilai, $mbk, $materi),
+                    'metode_stnkm' => $metode,
+                    ...($metode === 'MANUAL' ? $this->poinManual($rec) : $this->hitungStnkm($nilai, $mbk, $materi)),
                 ];
 
                 if ($row = $existing[$rec['id_siswa']] ?? null) {
@@ -180,6 +188,15 @@ class NilaiController extends Controller
             ->where('id_periode', $meta['id_periode'])
             ->where('id_jenis', $meta['id_jenis'])
             ->where('id_materi', $meta['id_materi']);
+    }
+
+    private function poinManual(array $rec): array
+    {
+        $poin = [];
+        foreach (['S', 'T', 'N', 'K', 'M'] as $d) {
+            $poin["poin_{$d}"] = round((float) ($rec["poin_{$d}"] ?? 0), 2);
+        }
+        return $poin;
     }
 
     /**

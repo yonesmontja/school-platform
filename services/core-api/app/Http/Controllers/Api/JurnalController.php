@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Student;
 use App\Models\TransJurnal;
 use App\Services\JurnalAIService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -203,6 +205,55 @@ class JurnalController extends Controller
             'message' => 'Jurnal berhasil diperbarui',
             'data' => $jurnal->load(self::RELASI),
         ]);
+    }
+
+    /**
+     * Import massal dari Excel. Skor STNKM diambil dari file apa adanya (tanpa analisis AI).
+     */
+    public function importBatch(Request $request)
+    {
+        $request->validate([
+            'id_jenis' => 'nullable|exists:master_mbk,id_jenis',
+            'mode_dampak' => 'required|in:BONUS,PISAH',
+            'records' => 'required|array|min:1|max:1000',
+            'records.*.id_siswa' => 'required|exists:students,id_siswa',
+            'records.*.tanggal' => 'required|date',
+            'records.*.narasi_kejadian' => 'required|string|max:2000',
+            'records.*.val_S' => 'nullable|numeric|between:-5,5',
+            'records.*.val_T' => 'nullable|numeric|between:-5,5',
+            'records.*.val_N' => 'nullable|numeric|between:-5,5',
+            'records.*.val_K' => 'nullable|numeric|between:-5,5',
+            'records.*.val_M' => 'nullable|numeric|between:-5,5',
+        ]);
+
+        $kelasSiswa = Student::whereIn('id_siswa', collect($request->records)->pluck('id_siswa'))->pluck('id_kelas', 'id_siswa');
+        $tanpaKelas = collect($request->records)->pluck('id_siswa')->unique()->filter(fn($id) => empty($kelasSiswa[$id]));
+        if ($tanpaKelas->isNotEmpty()) {
+            return response()->json(['message' => 'Siswa belum memiliki kelas: ' . $tanpaKelas->implode(', ')], 422);
+        }
+
+        DB::transaction(function () use ($request, $kelasSiswa) {
+            foreach ($request->records as $rec) {
+                TransJurnal::create([
+                    'id_jurnal' => 'JRN-' . Str::uuid(),
+                    'tanggal' => $rec['tanggal'],
+                    'id_siswa' => $rec['id_siswa'],
+                    'id_kelas' => $kelasSiswa[$rec['id_siswa']],
+                    'id_jenis' => $request->id_jenis,
+                    'narasi_kejadian' => $rec['narasi_kejadian'],
+                    'mode_dampak' => $request->mode_dampak,
+                    'val_S' => $rec['val_S'] ?? 0,
+                    'val_T' => $rec['val_T'] ?? 0,
+                    'val_N' => $rec['val_N'] ?? 0,
+                    'val_K' => $rec['val_K'] ?? 0,
+                    'val_M' => $rec['val_M'] ?? 0,
+                    'ai_mode' => 'HEURISTIK',
+                ]);
+            }
+        });
+
+        $jumlah = count($request->records);
+        return response()->json(['success' => true, 'message' => "{$jumlah} jurnal berhasil diimpor.", 'saved' => $jumlah], 201);
     }
 
     public function destroy($id)
