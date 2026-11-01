@@ -8,7 +8,8 @@ class Subject extends Model {
     protected $primaryKey = 'id_mapel';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $fillable = ['id_mapel', 'nama_mapel', 'kelompok', 'id_guru'];
+    protected $fillable = ['id_mapel', 'nama_mapel', 'kelompok', 'kkm', 'id_guru'];
+    protected $casts = ['kkm' => 'integer'];
 
     public function guru(): BelongsTo {
         return $this->belongsTo(Teacher::class, 'id_guru', 'id_guru');

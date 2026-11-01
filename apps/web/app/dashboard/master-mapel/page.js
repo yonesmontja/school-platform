@@ -81,6 +81,15 @@ export default function MasterMapelPage() {
           : "-",
     },
     {
+      title: "KKM",
+      field: "kkm",
+      width: 90,
+      headerHozAlign: "center",
+      hozAlign: "center",
+      formatter: (cell) =>
+        `<span class="badge text-bg-secondary">${cell.getValue() ?? 75}</span>`,
+    },
+    {
       title: "Guru Pengampu",
       field: "guru.nama_guru",
       width: 250,
@@ -147,6 +156,7 @@ export default function MasterMapelPage() {
       Kode: row.id_mapel,
       "Nama Mapel": row.nama_mapel,
       Kelompok: row.kelompok || "-",
+      KKM: row.kkm ?? 75,
       Guru: row.guru?.nama_guru || "-",
     }));
     if (data.length === 0)
@@ -170,6 +180,7 @@ export default function MasterMapelPage() {
       Kode: row.id_mapel,
       "Nama Mapel": row.nama_mapel,
       Kelompok: row.kelompok || "-",
+      KKM: row.kkm ?? 75,
       Guru: row.guru?.nama_guru || "-",
     }));
     if (data.length === 0)
@@ -197,6 +208,7 @@ export default function MasterMapelPage() {
       Kode: row.id_mapel,
       "Nama Mata Pelajaran": row.nama_mapel,
       Kelompok: row.kelompok || "-",
+      KKM: row.kkm ?? 75,
       "Guru Pengampu": row.guru?.nama_guru || "-",
     }));
     if (data.length === 0)
@@ -354,6 +366,22 @@ export default function MasterMapelPage() {
                       value={formData.kelompok || ""}
                       onChange={(e) =>
                         setFormData({ ...formData, kelompok: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold small text-muted">
+                      KKM (Kriteria Ketuntasan Minimal)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="form-control"
+                      placeholder="75"
+                      value={formData.kkm ?? ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, kkm: e.target.value })
                       }
                     />
                   </div>
