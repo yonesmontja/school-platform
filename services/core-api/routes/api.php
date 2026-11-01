@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\RaporController;
 use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\P5Controller;
+use App\Http\Controllers\Api\DashboardController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -69,6 +70,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('/mbk', MBKController::class)->except(['show']);
     Route::get('/materi/by-context', [MateriController::class, 'byContext']);
     Route::apiResource('/materi', MateriController::class)->except(['show']);
+    // Dasbor analitik
+    Route::get('/dashboard', [DashboardController::class, 'index']);
     // Laporan
     Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
 
