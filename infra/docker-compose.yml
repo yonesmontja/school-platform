@@ -31,6 +31,8 @@ services:
       - "8000:8000"
     volumes:
       - ../services/core-api:/var/www/html
+      # vendor di volume Docker: membaca ribuan file vendor lewat bind mount Windows membuat tiap request ~4 detik
+      - core_api_vendor:/var/www/html/vendor
 
   web:
     build: ../apps/web
@@ -59,3 +61,4 @@ services:
 
 volumes:
   pgdata:
+  core_api_vendor:
