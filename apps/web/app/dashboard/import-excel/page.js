@@ -189,7 +189,22 @@ export default function ImportExcelPage() {
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
     ws["!cols"] = header.map((h) => ({ wch: h === "narasi_kejadian" ? 50 : h === "nama_siswa" ? 28 : 14 }));
     XLSX.utils.book_append_sheet(wb, ws, "Format_Data");
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Petunjuk"], ...petunjuk.map((p) => [p]), [], ["Kolom id_siswa wajib sesuai data Master Siswa. Jangan ubah baris judul."]]), "Petunjuk");
+
+    // Sheet referensi: guru menyalin ID & nama siswa dari sini ke Format_Data
+    const namaKelasById = new Map(ref.classes.map((k) => [k.id_kelas, k.nama_kelas]));
+    const daftarSiswa = (siswaKelas.length ? siswaKelas : ref.students.slice().sort((a, b) =>
+      String(namaKelasById.get(a.id_kelas) || "").localeCompare(String(namaKelasById.get(b.id_kelas) || ""), "id", { numeric: true })
+      || a.nama_siswa.localeCompare(b.nama_siswa, "id")));
+    const wsSiswa = XLSX.utils.aoa_to_sheet([
+      ["ID Siswa (Gunakan ini)", "NISN", "Nama Lengkap Siswa", "Kelas"],
+      ...daftarSiswa.map((s) => [s.id_siswa, s.nisn || "", s.nama_siswa, namaKelasById.get(s.id_kelas) || "-"]),
+    ]);
+    wsSiswa["!cols"] = [{ wch: 24 }, { wch: 14 }, { wch: 36 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsSiswa, "Data Siswa");
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Petunjuk"], ...petunjuk.map((p) => [p]), [],
+      ["Salin ID Siswa dan Nama dari sheet 'Data Siswa' ke kolom id_siswa dan nama_siswa di sheet 'Format_Data'."],
+      ["Yang dibaca saat import hanya sheet 'Format_Data'. Jangan ubah baris judul."]]), "Petunjuk");
     const suffix = isNilai ? `Nilai_${metode}` : "Jurnal";
     XLSX.writeFile(wb, `Template_${suffix}${kelasTerpilih ? `_${kelasTerpilih.nama_kelas.replace(/\s+/g, "_")}` : ""}.xlsx`);
   };
@@ -208,8 +223,12 @@ export default function ImportExcelPage() {
         // Tanpa cellDates: sel tanggal dibaca sebagai serial Excel, karena konversi ke Date bisa mundur sehari akibat zona waktu.
         // raw: teks CSV tidak ditebak tipenya (SheetJS membaca "07/10/2026" sebagai format AS, 10 Juli).
         const wb = XLSX.read(new Uint8Array(ev.target.result), { type: "array", raw: true });
-        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
-        if (json.length === 0) { resetFile(); return Swal.fire("Kosong", "Sheet pertama tidak memiliki data.", "warning"); }
+        // Baca sheet Format_Data; tanpa itu, sheet pertama selain sheet referensi template
+        const namaSheet = wb.SheetNames.find((n) => normKey(n) === "formatdata")
+          || wb.SheetNames.find((n) => !["datasiswa", "petunjuk"].includes(normKey(n)))
+          || wb.SheetNames[0];
+        const json = XLSX.utils.sheet_to_json(wb.Sheets[namaSheet], { defval: "" });
+        if (json.length === 0) { resetFile(); return Swal.fire("Kosong", `Sheet "${namaSheet}" tidak memiliki data.`, "warning"); }
 
         // Petakan kolom file ke kolom yang dikenal
         const keys = Object.keys(json[0]);
@@ -498,7 +517,9 @@ export default function ImportExcelPage() {
                 <div className="flex-fill">
                   <div className="fw-semibold small">Unduh template</div>
                   <small className="text-muted d-block mb-2">
-                    {siswaKelas.length ? `Berisi ${siswaKelas.length} siswa ${kelasTerpilih?.nama_kelas}.` : "Pilih kelas agar template langsung berisi daftar siswa."}
+                    {siswaKelas.length
+                      ? `Berisi ${siswaKelas.length} siswa ${kelasTerpilih?.nama_kelas}, plus sheet Data Siswa untuk disalin.`
+                      : "Sheet Data Siswa berisi semua siswa untuk disalin. Pilih kelas agar template langsung terisi."}
                   </small>
                   <button type="button" className="btn btn-sm btn-outline-success" onClick={handleDownloadTemplate}>
                     <i className="bi bi-download me-1"></i>Unduh Template
@@ -509,7 +530,7 @@ export default function ImportExcelPage() {
                 <span className="badge rounded-circle text-bg-primary align-self-start" style={{ width: 28, height: 28, lineHeight: "20px" }}>2</span>
                 <div className="flex-fill">
                   <div className="fw-semibold small">Isi lalu unggah</div>
-                  <small className="text-muted d-block mb-2">Format .xlsx, .xls, atau .csv — maks. {MAX_FILE_MB} MB. Sheet pertama yang dibaca.</small>
+                  <small className="text-muted d-block mb-2">Format .xlsx, .xls, atau .csv — maks. {MAX_FILE_MB} MB. Yang dibaca sheet Format_Data.</small>
                   <input ref={fileInputRef} type="file" className="form-control form-control-sm" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
                 </div>
               </div>
