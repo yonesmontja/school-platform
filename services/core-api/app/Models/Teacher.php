@@ -16,7 +16,7 @@ class Teacher extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id_guru', 'nama_guru', 'nip_nik', 'ttd_guru_url'
+        'id_guru', 'nama_guru', 'nip_nik', 'no_wa', 'ttd_guru_url'
     ];
 
     public function classes(): HasMany

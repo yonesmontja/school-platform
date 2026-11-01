@@ -100,6 +100,7 @@ class PresensiController extends Controller
             'id_kelas' => 'required|exists:classes,id_kelas',
             'tanggal' => 'required|date',
         ]);
+        abort_unless($request->user()->bolehKelolaKelas($request->id_kelas), 403, 'Presensi satu tanggal hanya dapat dihapus oleh wali kelas, kepala sekolah, atau admin.');
 
         $jumlah = TransPresensi::where('id_kelas', $request->id_kelas)->whereDate('tanggal', $request->tanggal)->delete();
 

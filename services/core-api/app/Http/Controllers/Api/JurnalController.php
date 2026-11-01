@@ -132,8 +132,8 @@ class JurnalController extends Controller
             'tanggal' => $request->tanggal,
             'id_siswa' => $request->id_siswa,
             'id_kelas' => $request->id_kelas,
-            // Belum ada relasi users → teachers, jadi guru dipilih dari form (opsional)
-            'id_guru' => $request->id_guru,
+            // Akun guru selalu tercatat sebagai pengamat; admin/kepsek boleh memilih guru dari form
+            'id_guru' => $request->user()->isGuru() ? $request->user()->id_guru : $request->id_guru,
             'id_jenis' => $request->id_jenis,
             'id_materi' => $request->id_materi,
             'narasi_kejadian' => $request->narasi_kejadian,
@@ -178,6 +178,7 @@ class JurnalController extends Controller
     public function update(Request $request, $id)
     {
         $jurnal = TransJurnal::findOrFail($id);
+        $this->cekPemilik($request, $jurnal);
 
         $validator = Validator::make($request->all(), $this->rules());
 
@@ -240,6 +241,7 @@ class JurnalController extends Controller
                     'id_siswa' => $rec['id_siswa'],
                     'id_kelas' => $kelasSiswa[$rec['id_siswa']],
                     'id_jenis' => $request->id_jenis,
+                    'id_guru' => $request->user()->isGuru() ? $request->user()->id_guru : null,
                     'narasi_kejadian' => $rec['narasi_kejadian'],
                     'mode_dampak' => $request->mode_dampak,
                     'val_S' => $rec['val_S'] ?? 0,
@@ -256,13 +258,21 @@ class JurnalController extends Controller
         return response()->json(['success' => true, 'message' => "{$jumlah} jurnal berhasil diimpor.", 'saved' => $jumlah], 201);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $jurnal = TransJurnal::findOrFail($id);
+        $this->cekPemilik($request, $jurnal);
 
         $this->hapusFileLampiran($jurnal->lampiran_url);
 
         $jurnal->delete();
         return response()->json(['message' => 'Jurnal berhasil dihapus']);
+    }
+
+    // Guru hanya boleh mengubah/menghapus jurnal yang ia tulis sendiri
+    private function cekPemilik(Request $request, TransJurnal $jurnal): void
+    {
+        $user = $request->user();
+        abort_if($user->isGuru() && $jurnal->id_guru !== $user->id_guru, 403, 'Anda hanya dapat mengubah atau menghapus jurnal yang Anda tulis.');
     }
 }

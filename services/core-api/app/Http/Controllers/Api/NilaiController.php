@@ -18,12 +18,16 @@ class NilaiController extends Controller
 {
     private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori'];
 
-    public function getFilters()
+    public function getFilters(Request $request)
     {
+        $user = $request->user();
         return response()->json([
             'periodes' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(),
             'classes' => Classes::orderBy('nama_kelas')->get(),
-            'subjects' => Subject::with('guru')->orderBy('nama_mapel')->get(),
+            // Guru hanya melihat mapel yang diampunya
+            'subjects' => Subject::with('guru')
+                ->when($user->isGuru(), fn($q) => $q->whereIn('id_mapel', $user->mapelDiampu()))
+                ->orderBy('nama_mapel')->get(),
             'mbks' => MasterMBK::orderBy('kategori_penilaian')->get(),
         ]);
     }
@@ -53,8 +57,10 @@ class NilaiController extends Controller
             'id_periode' => 'required|exists:master_periode,id_periode',
         ]);
 
+        $user = $request->user();
         $data = TransNilai::with(self::RELASI)
             ->where('id_kelas', $request->id_kelas)
+            ->when($user->isGuru(), fn($q) => $q->whereIn('id_mapel', $user->mapelDiampu()))
             ->where('id_periode', $request->id_periode)
             ->orderByDesc('tanggal')
             ->orderByDesc('updated_at')
@@ -75,6 +81,7 @@ class NilaiController extends Controller
             'id_jenis' => 'required|exists:master_mbk,id_jenis',
             'id_materi' => 'required|exists:master_materi,id_materi',
         ]);
+        $this->cekMapel($request, $request->id_mapel);
 
         $students = Student::where('id_kelas', $request->id_kelas)
             ->orderBy('nama_siswa')
@@ -122,6 +129,7 @@ class NilaiController extends Controller
             'records.*.poin_M' => 'nullable|numeric',
         ]);
 
+        $this->cekMapel($request, $request->id_mapel);
         $meta = $request->only(['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi']);
 
         $idSiswa = collect($request->records)->pluck('id_siswa');
@@ -174,11 +182,18 @@ class NilaiController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        TransNilai::findOrFail($id)->delete();
+        $nilai = TransNilai::findOrFail($id);
+        $this->cekMapel($request, $nilai->id_mapel);
+        $nilai->delete();
 
         return response()->json(['success' => true, 'message' => 'Data nilai berhasil dihapus.']);
+    }
+
+    private function cekMapel(Request $request, ?string $idMapel): void
+    {
+        abort_unless($request->user()->bolehNilaiMapel($idMapel), 403, 'Anda hanya dapat mengelola nilai mata pelajaran yang Anda ampu.');
     }
 
     private function queryPenilaian(array $meta)

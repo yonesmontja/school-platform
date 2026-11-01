@@ -32,11 +32,23 @@ class RaporController extends Controller
             'id_kelas' => 'required|exists:classes,id_kelas',
             'id_periode' => 'required|exists:master_periode,id_periode',
         ]);
-        $idKelas = $request->id_kelas;
-        $idPeriode = $request->id_periode;
+        // Guru hanya boleh membuka rapor kelas binaannya (wali kelas)
+        if (!$request->user()->bolehKelolaKelas($request->id_kelas)) {
+            return response()->json(['message' => 'Rapor hanya dapat dibuka oleh wali kelas, kepala sekolah, atau admin.'], 403);
+        }
 
+        return response()->json(self::kumpulkanData($request->id_kelas, $request->id_periode));
+    }
+
+    /**
+     * Data rapor satu kelas & periode. Bila $hanyaSiswa diisi (portal siswa/ortu), data dibatasi
+     * pada siswa tersebut agar data siswa lain tidak ikut terkirim.
+     */
+    public static function kumpulkanData(string $idKelas, string $idPeriode, ?array $hanyaSiswa = null): array
+    {
         $students = Student::with(['agama:id_agama,nama_agama', 'ortu', 'wali'])
             ->where('id_kelas', $idKelas)
+            ->when($hanyaSiswa !== null, fn($q) => $q->whereIn('id_siswa', $hanyaSiswa))
             ->orderBy('nama_siswa')
             ->get();
         $idSiswa = $students->pluck('id_siswa');
@@ -47,7 +59,7 @@ class RaporController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        return response()->json([
+        return [
             'kelas' => $kelas = Classes::find($idKelas),
             // Terpisah dari kelas: relasi waliKelas akan menimpa kolom wali_kelas saat di-serialize
             'wali_kelas' => $kelas?->waliKelas()->first(['id_guru', 'nama_guru', 'nip_nik']),
@@ -58,6 +70,7 @@ class RaporController extends Controller
             'nilai' => TransNilai::with('materi:id_materi,nama_materi')
                 ->where('id_kelas', $idKelas)
                 ->where('id_periode', $idPeriode)
+                ->whereIn('id_siswa', $idSiswa)
                 ->get(['id_nilai', 'id_siswa', 'id_mapel', 'id_materi', 'tanggal', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']),
             // Jurnal belum punya kolom periode; seluruh jurnal siswa kelas ini dipakai, sama seperti GAS
             'jurnal' => TransJurnal::whereIn('id_siswa', $idSiswa)
@@ -65,12 +78,19 @@ class RaporController extends Controller
                 ->get(['id_jurnal', 'id_siswa', 'tanggal', 'mode_dampak', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']),
             'presensi' => TransPresensi::where('id_kelas', $idKelas)
                 ->where('id_periode', $idPeriode)
+                ->whereIn('id_siswa', $idSiswa)
                 ->get(['id_siswa', 'tanggal', 'status_kehadiran']),
             'catatan_wali' => TransCatatanWali::whereIn('id_siswa', $idSiswa)->where('id_periode', $idPeriode)->get(),
             'proyek' => $proyek,
-            'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),
-            'catatan_p5' => TransCatatanP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->get(['id_proyek', 'id_siswa', 'catatan_proses']),
-        ]);
+            'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),
+            'catatan_p5' => TransCatatanP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'catatan_proses']),
+        ];
+    }
+
+    private function cekWaliSiswa(Request $request, string $idSiswa): void
+    {
+        $idKelas = Student::whereKey($idSiswa)->value('id_kelas');
+        abort_unless($request->user()->bolehKelolaKelas($idKelas), 403, 'Catatan wali hanya dapat diubah oleh wali kelas siswa ini, kepala sekolah, atau admin.');
     }
 
     public function simpanCatatanWali(Request $request)
@@ -80,6 +100,7 @@ class RaporController extends Controller
             'id_periode' => 'required|exists:master_periode,id_periode',
             'catatan_final' => 'required|string|max:2000',
         ]);
+        $this->cekWaliSiswa($request, $request->id_siswa);
 
         $catatan = TransCatatanWali::firstOrNew(['id_siswa' => $request->id_siswa, 'id_periode' => $request->id_periode]);
         $catatan->id_catatan_wali ??= 'CWL-' . Str::uuid();
@@ -95,6 +116,7 @@ class RaporController extends Controller
             'id_siswa' => 'required|exists:students,id_siswa',
             'ai_mode' => ['nullable', Rule::in(RaporAIService::MODES)],
         ]);
+        $this->cekWaliSiswa($request, $request->id_siswa);
 
         $siswa = Student::find($request->id_siswa);
         $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)

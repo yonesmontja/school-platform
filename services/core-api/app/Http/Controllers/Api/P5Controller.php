@@ -32,6 +32,7 @@ class P5Controller extends Controller
             'id_kelas' => 'required|exists:classes,id_kelas',
             'id_periode' => 'required|exists:master_periode,id_periode',
         ]);
+        $this->cekKelas($request, $request->id_kelas);
 
         $proyek = MasterProyek::with(['targets' => fn($q) => $q->orderBy('dimensi')->orderBy('created_at')])
             ->where('id_kelas', $request->id_kelas)
@@ -72,6 +73,7 @@ class P5Controller extends Controller
     public function storeProyek(Request $request)
     {
         $request->validate($this->rulesProyek());
+        $this->cekKelas($request, $request->id_kelas);
 
         $proyek = DB::transaction(function () use ($request) {
             $proyek = MasterProyek::create([
@@ -89,6 +91,8 @@ class P5Controller extends Controller
     {
         $proyek = MasterProyek::findOrFail($id);
         $request->validate($this->rulesProyek());
+        $this->cekKelas($request, $proyek->id_kelas);
+        $this->cekKelas($request, $request->id_kelas);
 
         DB::transaction(function () use ($request, $proyek) {
             $proyek->update($request->only(['judul_proyek', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode']));
@@ -98,10 +102,12 @@ class P5Controller extends Controller
         return response()->json(['success' => true, 'message' => 'Projek P5 diperbarui.', 'data' => $proyek->load('targets')]);
     }
 
-    public function destroyProyek($id)
+    public function destroyProyek(Request $request, $id)
     {
+        $proyek = MasterProyek::findOrFail($id);
+        $this->cekKelas($request, $proyek->id_kelas);
         // Target, nilai, dan catatan P5 ikut terhapus (cascade)
-        MasterProyek::findOrFail($id)->delete();
+        $proyek->delete();
 
         return response()->json(['success' => true, 'message' => 'Projek P5 beserta target, nilai, dan catatannya dihapus.']);
     }
@@ -153,6 +159,7 @@ class P5Controller extends Controller
         ]);
 
         $proyek = MasterProyek::find($request->id_proyek);
+        $this->cekKelas($request, $proyek->id_kelas);
         $idSiswa = collect($request->records)->pluck('id_siswa');
         $anggota = Student::where('id_kelas', $proyek->id_kelas)->whereIn('id_siswa', $idSiswa)->pluck('id_siswa');
         if ($idSiswa->diff($anggota)->isNotEmpty()) {
@@ -202,6 +209,7 @@ class P5Controller extends Controller
 
         $siswa = Student::find($request->id_siswa);
         $proyek = MasterProyek::find($request->id_proyek);
+        $this->cekKelas($request, $proyek->id_kelas);
         $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)->orderBy('tanggal')->get(['narasi_kejadian'])->toArray();
 
         $hasil = $ai->catatanP5($siswa->nama_siswa, $proyek->judul_proyek, $proyek->deskripsi_proyek, $request->draf, $jurnal, $request->ai_mode ?? 'GEMINI');
@@ -220,6 +228,7 @@ class P5Controller extends Controller
         $request->validate(['id_proyek' => 'required|exists:master_proyek,id_proyek']);
 
         $proyek = MasterProyek::with('targets')->find($request->id_proyek);
+        $this->cekKelas($request, $proyek->id_kelas);
         if ($proyek->targets->isEmpty()) {
             return response()->json(['message' => 'Projek ini belum memiliki target P5.'], 422);
         }
@@ -284,9 +293,16 @@ class P5Controller extends Controller
     {
         $request->validate(['predikat' => 'required|in:SB,BSH,MB,BB']);
         $nilai = TransNilaiP5::findOrFail($id);
+        $this->cekKelas($request, $nilai->id_kelas);
         $nilai->update(['predikat' => $request->predikat]);
 
         return response()->json(['success' => true, 'message' => 'Predikat diperbarui.', 'data' => $nilai]);
+    }
+
+    // Guru hanya mengelola P5 kelas binaannya (wali kelas)
+    private function cekKelas(Request $request, ?string $idKelas): void
+    {
+        abort_unless($request->user()->bolehKelolaKelas($idKelas), 403, 'P5 kelas ini hanya dapat dikelola oleh wali kelasnya, kepala sekolah, atau admin.');
     }
 
     // "poin_K, poin_M" atau "K,M" → ['poin_K', 'poin_M']

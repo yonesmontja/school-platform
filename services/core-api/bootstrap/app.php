@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Bawaan Laravel mengarahkan tamu ke route('login') yang tidak ada di API ini (→ error 500).
         // Request API cukup dijawab 401 JSON; halaman login ada di frontend Next.js.
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : url('/'));
+        // role:admin,kepsek → hanya peran tersebut; role (tanpa argumen) → semua peran asalkan akun aktif
+        $middleware->alias(['role' => \App\Http\Middleware\EnsureRole::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

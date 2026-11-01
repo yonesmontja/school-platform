@@ -18,6 +18,7 @@ class TeacherController extends Controller
     {
         $request->validate([
             'nama_guru' => 'required|string|max:255',
+            'no_wa' => 'nullable|string|max:20',
         ]);
 
         $data = $request->except('ttd_guru_base64');
@@ -41,6 +42,7 @@ class TeacherController extends Controller
     public function update(Request $request, $id)
     {
         $teacher = Teacher::findOrFail($id);
+        $request->validate(['no_wa' => 'nullable|string|max:20']);
         $data = $request->except('ttd_guru_base64');
 
         // Handle Upload TTD Baru

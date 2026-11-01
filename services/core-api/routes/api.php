@@ -22,13 +22,23 @@ use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\P5Controller;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\JadwalController;
+use App\Http\Controllers\Api\RuanganController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\PortalController;
+
+/*
+| Peran: admin, kepsek, guru (staf) · siswa, ortu (portal baca).
+| Middleware 'role' menolak akun nonaktif; 'role:a,b' membatasi ke peran tertentu.
+| Batasan data per guru (mapel diampu, kelas binaan, data milik sendiri) dicek di controller.
+*/
+
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {
-    $path = storage_path('app/public/signatures/' . $filename);
+    $path = storage_path('app/public/signatures/' . basename($filename));
 
     if (!File::exists($path)) {
         abort(404, 'File tanda tangan tidak ditemukan di server.');
@@ -42,71 +52,117 @@ Route::get('/signature/{filename}', function ($filename) {
     return $response;
 });
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+Route::middleware(['auth:sanctum', 'role'])->group(function () {
+    // ===== SEMUA PERAN =====
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/user', [AuthController::class, 'me']);
+    Route::post('/akun/password', [AuthController::class, 'gantiPassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
-
-    Route::get('/students/master-data', [StudentController::class, 'getMasterData']);
-    Route::apiResource('/students', StudentController::class);
     Route::get('/settings', [SchoolSettingController::class, 'show']);
-    Route::post('/settings', [SchoolSettingController::class, 'update']);
-    Route::apiResource('/teachers', TeacherController::class);
-    Route::apiResource('/classes', ClassesController::class);
-    Route::apiResource('/subjects', SubjectController::class);
-    Route::prefix('nilai')->group(function () {
-        Route::get('/', [NilaiController::class, 'index']);
-        Route::get('/filters', [NilaiController::class, 'getFilters']);
-        Route::get('/materi', [NilaiController::class, 'getMateriByContext']);
-        Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
-        Route::post('/batch', [NilaiController::class, 'saveBatch']);
-        Route::delete('/{id}', [NilaiController::class, 'destroy']);
-    });
-    // Master Reference Penilaian
-    Route::apiResource('/periodes', PeriodeController::class);
-    Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class);
-    // Master MBK & Materi
-    Route::apiResource('/mbk', MBKController::class)->except(['show']);
-    Route::get('/materi/by-context', [MateriController::class, 'byContext']);
-    Route::apiResource('/materi', MateriController::class)->except(['show']);
-    // Dasbor analitik
-    Route::get('/dashboard', [DashboardController::class, 'index']);
-    // Laporan
-    Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
 
-    Route::prefix('rapor')->group(function () {
-        Route::get('/data', [RaporController::class, 'data']);
-        Route::post('/catatan-wali', [RaporController::class, 'simpanCatatanWali']);
-        Route::post('/catatan-wali/generate', [RaporController::class, 'generateCatatanWali']);
-    });
-    // Kirim WhatsApp otomatis (Fonnte) untuk rapor & presensi
-    Route::post('/whatsapp', [WhatsAppController::class, 'kirim']);
-
-    Route::prefix('presensi')->group(function () {
-        Route::get('/', [PresensiController::class, 'index']);
-        Route::post('/batch', [PresensiController::class, 'saveBatch']);
-        Route::delete('/tanggal', [PresensiController::class, 'hapusTanggal']);
+    // ===== PORTAL SISWA & ORANG TUA =====
+    Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {
+        Route::get('/anak', [PortalController::class, 'anak']);
+        Route::get('/rapor', [PortalController::class, 'rapor']);
     });
 
-    // Projek P5: projek & target, catatan proses, ekstraksi nilai
-    Route::prefix('p5')->group(function () {
-        Route::get('/', [P5Controller::class, 'index']);
-        Route::post('/proyek', [P5Controller::class, 'storeProyek']);
-        Route::put('/proyek/{id}', [P5Controller::class, 'updateProyek']);
-        Route::delete('/proyek/{id}', [P5Controller::class, 'destroyProyek']);
-        Route::post('/catatan', [P5Controller::class, 'saveCatatan']);
-        Route::post('/catatan/generate', [P5Controller::class, 'generateCatatan']);
-        Route::post('/hitung', [P5Controller::class, 'hitung']);
-        Route::put('/nilai/{id}', [P5Controller::class, 'updateNilai']);
+    // ===== KHUSUS ADMIN: master data inti, pengaturan sistem, akun pengguna =====
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/settings', [SchoolSettingController::class, 'update']);
+
+        Route::apiResource('/students', StudentController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/teachers', TeacherController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/classes', ClassesController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/subjects', SubjectController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/periodes', PeriodeController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/mbk', MBKController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/materi', MateriController::class)->only(['store', 'update', 'destroy']);
+
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::post('/users/generate', [UserController::class, 'generate']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+        Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
     });
-    // Jurnal Anekdotal
-    Route::prefix('jurnal')->group(function () {
-        Route::get('/', [JurnalController::class, 'index']);
-        Route::post('/analyze', [JurnalController::class, 'analyze']);
-        Route::post('/store', [JurnalController::class, 'store']);
-        Route::post('/import', [JurnalController::class, 'importBatch']);
-        Route::put('/{id}', [JurnalController::class, 'update']);
-        Route::delete('/{id}', [JurnalController::class, 'destroy']);
+
+    // ===== STAF (ADMIN, KEPSEK, GURU) =====
+    Route::middleware('role:admin,kepsek,guru')->group(function () {
+        // Master data: baca untuk semua staf (dropdown & halaman master kepsek)
+        Route::get('/students/master-data', [StudentController::class, 'getMasterData']);
+        Route::apiResource('/students', StudentController::class)->only(['index']);
+        Route::apiResource('/teachers', TeacherController::class)->only(['index']);
+        Route::apiResource('/classes', ClassesController::class)->only(['index']);
+        Route::apiResource('/subjects', SubjectController::class)->only(['index']);
+        Route::apiResource('/periodes', PeriodeController::class)->only(['index']);
+        Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['index']);
+        Route::get('/mbk', [MBKController::class, 'index']);
+        Route::get('/materi/by-context', [MateriController::class, 'byContext']);
+        Route::get('/materi', [MateriController::class, 'index']);
+
+        // Nilai: guru dibatasi ke mapel yang diampu (dicek di controller)
+        Route::prefix('nilai')->group(function () {
+            Route::get('/', [NilaiController::class, 'index']);
+            Route::get('/filters', [NilaiController::class, 'getFilters']);
+            Route::get('/materi', [NilaiController::class, 'getMateriByContext']);
+            Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
+            Route::post('/batch', [NilaiController::class, 'saveBatch']);
+            Route::delete('/{id}', [NilaiController::class, 'destroy']);
+        });
+
+        // Jurnal: semua kelas; guru hanya mengubah/menghapus catatan miliknya
+        Route::prefix('jurnal')->group(function () {
+            Route::get('/', [JurnalController::class, 'index']);
+            Route::post('/analyze', [JurnalController::class, 'analyze']);
+            Route::post('/store', [JurnalController::class, 'store']);
+            Route::post('/import', [JurnalController::class, 'importBatch']);
+            Route::put('/{id}', [JurnalController::class, 'update']);
+            Route::delete('/{id}', [JurnalController::class, 'destroy']);
+        });
+
+        Route::prefix('presensi')->group(function () {
+            Route::get('/', [PresensiController::class, 'index']);
+            Route::post('/batch', [PresensiController::class, 'saveBatch']);
+            Route::delete('/tanggal', [PresensiController::class, 'hapusTanggal']);
+        });
+
+        // P5 & rapor: guru hanya kelas binaan (wali kelas)
+        Route::prefix('p5')->group(function () {
+            Route::get('/', [P5Controller::class, 'index']);
+            Route::post('/proyek', [P5Controller::class, 'storeProyek']);
+            Route::put('/proyek/{id}', [P5Controller::class, 'updateProyek']);
+            Route::delete('/proyek/{id}', [P5Controller::class, 'destroyProyek']);
+            Route::post('/catatan', [P5Controller::class, 'saveCatatan']);
+            Route::post('/catatan/generate', [P5Controller::class, 'generateCatatan']);
+            Route::post('/hitung', [P5Controller::class, 'hitung']);
+            Route::put('/nilai/{id}', [P5Controller::class, 'updateNilai']);
+        });
+        Route::prefix('rapor')->group(function () {
+            Route::get('/data', [RaporController::class, 'data']);
+            Route::post('/catatan-wali', [RaporController::class, 'simpanCatatanWali']);
+            Route::post('/catatan-wali/generate', [RaporController::class, 'generateCatatanWali']);
+        });
+
+        // Jadwal: guru membuat & mengubah jadwal miliknya sendiri
+        Route::prefix('jadwal')->group(function () {
+            Route::get('/', [JadwalController::class, 'index']);
+            Route::get('/referensi', [JadwalController::class, 'referensi']);
+            Route::post('/', [JadwalController::class, 'store']);
+            Route::put('/{id}', [JadwalController::class, 'update']);
+            Route::patch('/{id}/geser', [JadwalController::class, 'geser']);
+            Route::patch('/{id}/status', [JadwalController::class, 'status']);
+            Route::delete('/{id}', [JadwalController::class, 'destroy']);
+        });
+        Route::get('/ruangan', [RuanganController::class, 'index']);
+
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
+        Route::post('/whatsapp', [WhatsAppController::class, 'kirim']);
+    });
+
+    // ===== PENGELOLA AKADEMIK (ADMIN & KEPSEK) =====
+    Route::middleware('role:admin,kepsek')->group(function () {
+        Route::apiResource('/ruangan', RuanganController::class)->only(['store', 'update', 'destroy']);
     });
 });
