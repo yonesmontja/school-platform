@@ -21,7 +21,7 @@ class MateriController extends Controller
 
     public function byContext(Request $request)
     {
-        $query = MasterMateri::with('kategori');
+        $query = MasterMateri::with(['kategori', 'mapel']);
 
         if ($request->filled('id_kelas')) $query->where('id_kelas', $request->id_kelas);
         if ($request->filled('id_mapel')) $query->where('id_mapel', $request->id_mapel);

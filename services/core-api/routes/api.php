@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [JurnalController::class, 'index']);
         Route::post('/analyze', [JurnalController::class, 'analyze']);
         Route::post('/store', [JurnalController::class, 'store']);
+        Route::put('/{id}', [JurnalController::class, 'update']);
         Route::delete('/{id}', [JurnalController::class, 'destroy']);
     });
 });

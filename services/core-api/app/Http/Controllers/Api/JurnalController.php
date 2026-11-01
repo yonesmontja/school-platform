@@ -22,6 +22,9 @@ class JurnalController extends Controller
     ];
     private const LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024;
 
+    // ortu/wali untuk nomor WA, materi.mapel untuk label di halaman jurnal
+    private const RELASI = ['siswa.ortu', 'siswa.wali', 'kelas', 'guru', 'jenis', 'materi.mapel'];
+
     protected JurnalAIService $aiService;
 
     public function __construct(JurnalAIService $aiService)
@@ -31,7 +34,7 @@ class JurnalController extends Controller
 
     public function index(Request $request)
     {
-        $query = TransJurnal::with(['siswa', 'kelas', 'guru', 'jenis', 'materi']);
+        $query = TransJurnal::with(self::RELASI);
 
         if ($request->filled('id_kelas')) {
             $query->where('id_kelas', $request->id_kelas);
@@ -65,9 +68,9 @@ class JurnalController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    private function rules(): array
     {
-        $validator = Validator::make($request->all(), [
+        return [
             'tanggal' => 'required|date',
             'id_siswa' => 'required|exists:students,id_siswa',
             'id_kelas' => 'required|exists:classes,id_kelas',
@@ -84,37 +87,46 @@ class JurnalController extends Controller
             'val_K' => 'nullable|numeric|between:-5,5',
             'val_M' => 'nullable|numeric|between:-5,5',
             'lampiran_base64' => 'nullable|string',
-        ]);
+            'hapus_lampiran' => 'nullable|boolean',
+        ];
+    }
 
-        if ($validator->fails()) {
-            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+    /**
+     * Simpan lampiran base64 ke storage. Mengembalikan [url, null] atau [null, pesan error].
+     */
+    private function simpanLampiran(string $lampiranBase64): array
+    {
+        // Buang header "data:...;base64," jika ada; tipe asli dicek dari isi file
+        $base64 = preg_replace('/^data:[^;]*;base64,/', '', $lampiranBase64);
+        $decoded = base64_decode($base64, true);
+
+        if ($decoded === false || $decoded === '') {
+            return [null, 'Lampiran tidak valid.'];
+        }
+        if (strlen($decoded) > self::LAMPIRAN_MAX_BYTES) {
+            return [null, 'Ukuran lampiran maksimal 5MB.'];
         }
 
-        $lampiranUrl = null;
-        if ($request->filled('lampiran_base64')) {
-            // Buang header "data:...;base64," jika ada; tipe asli dicek dari isi file
-            $base64 = preg_replace('/^data:[^;]*;base64,/', '', $request->lampiran_base64);
-            $decoded = base64_decode($base64, true);
-
-            if ($decoded === false || $decoded === '') {
-                return response()->json(['message' => 'Lampiran tidak valid.'], 422);
-            }
-            if (strlen($decoded) > self::LAMPIRAN_MAX_BYTES) {
-                return response()->json(['message' => 'Ukuran lampiran maksimal 5MB.'], 422);
-            }
-
-            $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($decoded);
-            if (!isset(self::LAMPIRAN_MIME[$mime])) {
-                return response()->json(['message' => 'Lampiran harus berupa gambar (JPG/PNG/WEBP) atau PDF.'], 422);
-            }
-
-            $fileName = 'jurnal_' . Str::random(16) . '.' . self::LAMPIRAN_MIME[$mime];
-            Storage::disk('public')->put('jurnal/' . $fileName, $decoded);
-            $lampiranUrl = '/storage/jurnal/' . $fileName;
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($decoded);
+        if (!isset(self::LAMPIRAN_MIME[$mime])) {
+            return [null, 'Lampiran harus berupa gambar (JPG/PNG/WEBP) atau PDF.'];
         }
 
-        $jurnal = TransJurnal::create([
-            'id_jurnal' => 'JRN-' . Str::uuid(),
+        $fileName = 'jurnal_' . Str::random(16) . '.' . self::LAMPIRAN_MIME[$mime];
+        Storage::disk('public')->put('jurnal/' . $fileName, $decoded);
+        return ['/storage/jurnal/' . $fileName, null];
+    }
+
+    private function hapusFileLampiran(?string $lampiranUrl): void
+    {
+        if ($lampiranUrl) {
+            Storage::disk('public')->delete(Str::after($lampiranUrl, '/storage/'));
+        }
+    }
+
+    private function dataJurnal(Request $request): array
+    {
+        return [
             'tanggal' => $request->tanggal,
             'id_siswa' => $request->id_siswa,
             'id_kelas' => $request->id_kelas,
@@ -123,7 +135,6 @@ class JurnalController extends Controller
             'id_jenis' => $request->id_jenis,
             'id_materi' => $request->id_materi,
             'narasi_kejadian' => $request->narasi_kejadian,
-            'lampiran_url' => $lampiranUrl,
             'mode_dampak' => $request->mode_dampak,
             'val_S' => $request->val_S ?? 0,
             'val_T' => $request->val_T ?? 0,
@@ -132,24 +143,73 @@ class JurnalController extends Controller
             'val_M' => $request->val_M ?? 0,
             'ai_mode' => $request->ai_mode ?? 'HEURISTIK',
             'ai_raw_response' => $request->ai_raw_response,
+        ];
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), $this->rules());
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $lampiranUrl = null;
+        if ($request->filled('lampiran_base64')) {
+            [$lampiranUrl, $error] = $this->simpanLampiran($request->lampiran_base64);
+            if ($error) return response()->json(['message' => $error], 422);
+        }
+
+        $jurnal = TransJurnal::create([
+            'id_jurnal' => 'JRN-' . Str::uuid(),
+            ...$this->dataJurnal($request),
+            'lampiran_url' => $lampiranUrl,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Jurnal berhasil disimpan',
-            'data' => $jurnal->load(['siswa', 'kelas']),
+            'data' => $jurnal->load(self::RELASI),
         ], 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $jurnal = TransJurnal::findOrFail($id);
+
+        $validator = Validator::make($request->all(), $this->rules());
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validasi gagal', 'errors' => $validator->errors()], 422);
+        }
+
+        $data = $this->dataJurnal($request);
+
+        // Lampiran baru menggantikan yang lama; tanpa lampiran baru, yang lama dipertahankan kecuali diminta hapus
+        if ($request->filled('lampiran_base64')) {
+            [$lampiranUrl, $error] = $this->simpanLampiran($request->lampiran_base64);
+            if ($error) return response()->json(['message' => $error], 422);
+            $this->hapusFileLampiran($jurnal->lampiran_url);
+            $data['lampiran_url'] = $lampiranUrl;
+        } elseif ($request->boolean('hapus_lampiran')) {
+            $this->hapusFileLampiran($jurnal->lampiran_url);
+            $data['lampiran_url'] = null;
+        }
+
+        $jurnal->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jurnal berhasil diperbarui',
+            'data' => $jurnal->load(self::RELASI),
+        ]);
     }
 
     public function destroy($id)
     {
         $jurnal = TransJurnal::findOrFail($id);
 
-        // Hapus lampiran jika ada
-        if ($jurnal->lampiran_url) {
-            $path = Str::after($jurnal->lampiran_url, '/storage/');
-            Storage::disk('public')->delete($path);
-        }
+        $this->hapusFileLampiran($jurnal->lampiran_url);
 
         $jurnal->delete();
         return response()->json(['message' => 'Jurnal berhasil dihapus']);
