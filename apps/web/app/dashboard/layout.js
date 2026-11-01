@@ -194,6 +194,12 @@ export default function DashboardLayout({ children }) {
                   <p>Laporan STNKM</p>
                 </Link>
               </li>
+              <li className="nav-item">
+                <Link href="/dashboard/rapor" className={navLinkClass("/dashboard/rapor")}>
+                  <i className="nav-icon bi bi-file-earmark-richtext"></i>
+                  <p>Cetak Rapor</p>
+                </Link>
+              </li>
 
               {/* --- PENGATURAN --- */}
               <li className="nav-header">PENGATURAN</li>

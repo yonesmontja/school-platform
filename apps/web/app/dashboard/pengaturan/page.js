@@ -12,7 +12,11 @@ const AI_PROVIDERS = [
   { field: 'api_key_openkey', label: 'OpenKey (API kustom kompatibel OpenAI)', placeholder: 'Tempel API key endpoint kustom' },
 ];
 
-const emptyPerProvider = (value) => Object.fromEntries(AI_PROVIDERS.map((p) => [p.field, value]));
+// Token WhatsApp diperlakukan sama seperti API key (terenkripsi, tidak dikirim balik)
+const WA_TOKEN = { field: 'wa_api_token', label: 'Token Fonnte', placeholder: 'Tempel token device dari dashboard Fonnte' };
+const SECRET_FIELDS = [...AI_PROVIDERS, WA_TOKEN];
+
+const emptyPerProvider = (value) => Object.fromEntries(SECRET_FIELDS.map((p) => [p.field, value]));
 
 // Input API key: selalu kosong saat dimuat karena key tidak pernah dikirim dari server
 function ApiKeyField({ provider, hasKey, value, onChange, show, onToggleShow, hapus, onToggleHapus }) {
@@ -151,7 +155,7 @@ export default function PengaturanSekolahPage() {
         },
         body: JSON.stringify({
           ...formData,
-          ...Object.fromEntries(AI_PROVIDERS.flatMap(({ field }) => [
+          ...Object.fromEntries(SECRET_FIELDS.flatMap(({ field }) => [
             [field, apiKeyInputs[field].trim()],
             [`hapus_${field}`, hapusApiKeys[field]],
           ])),
@@ -162,7 +166,8 @@ export default function PengaturanSekolahPage() {
         // Perbarui status "sudah diisi" & model dari respons server
         setFormData((prev) => ({
           ...prev,
-          ...Object.fromEntries(AI_PROVIDERS.map(({ field }) => [`has_${field}`, result.data[`has_${field}`]])),
+          ...Object.fromEntries(SECRET_FIELDS.map(({ field }) => [`has_${field}`, result.data[`has_${field}`]])),
+          status_wa_api: result.data.status_wa_api,
           ai_model_name: result.data.ai_model_name,
           openkey_base_url: result.data.openkey_base_url,
           openkey_model_name: result.data.openkey_model_name,
@@ -257,8 +262,8 @@ export default function PengaturanSekolahPage() {
             <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Integrasi AI</h5>
             <p className="small text-muted mb-0">
-              Dipakai untuk analisis Jurnal Anekdotal. Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.
-              Jika key provider yang dipilih kosong atau gagal, analisis otomatis memakai Heuristik Lokal.
+              Dipakai untuk analisis Jurnal Anekdotal dan Catatan Wali Kelas di rapor. Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.
+              Jika key provider yang dipilih kosong atau gagal, sistem otomatis memakai mode lokal.
             </p>
 
             {AI_PROVIDERS.map((p) => (
@@ -319,6 +324,43 @@ export default function PengaturanSekolahPage() {
                 <option value="gemini-2.5-pro" />
               </datalist>
               <div className="form-text">Pilih dari daftar atau ketik nama model lain. Kosongkan untuk tetap memakai model saat ini.</div>
+            </div>
+
+            <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Integrasi WhatsApp</h5>
+            <p className="small text-muted mb-0">
+              Dipakai untuk mengirim ringkasan rapor. Tombol WA manual selalu tersedia; kirim otomatis lewat gateway Fonnte hanya berjalan jika diaktifkan dan token diisi.
+            </p>
+
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted">Nomor WA Kepala Sekolah</label>
+              <input type="tel" className="form-control" name="no_wa_kepsek" placeholder="08xxxxxxxxxx" value={formData.no_wa_kepsek || ''} onChange={handleInputChange} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted">ID Grup WA Guru</label>
+              <input type="text" className="form-control" name="id_wa_group_guru" placeholder="120363xxxxxxxxxx@g.us" value={formData.id_wa_group_guru || ''} onChange={handleInputChange} />
+              <div className="form-text">Hanya untuk kirim otomatis; ID grup bisa dilihat di dashboard Fonnte.</div>
+            </div>
+
+            <ApiKeyField
+              provider={WA_TOKEN}
+              hasKey={!!formData.has_wa_api_token}
+              value={apiKeyInputs.wa_api_token}
+              onChange={(v) => setApiKeyInputs((prev) => ({ ...prev, wa_api_token: v }))}
+              show={showApiKeys.wa_api_token}
+              onToggleShow={() => setShowApiKeys((prev) => ({ ...prev, wa_api_token: !prev.wa_api_token }))}
+              hapus={hapusApiKeys.wa_api_token}
+              onToggleHapus={(checked) => {
+                setHapusApiKeys((prev) => ({ ...prev, wa_api_token: checked }));
+                setApiKeyInputs((prev) => ({ ...prev, wa_api_token: '' }));
+              }}
+            />
+            <div className="col-md-6 d-flex align-items-center">
+              <div className="form-check form-switch mt-md-4">
+                <input className="form-check-input" type="checkbox" id="status_wa_api" checked={!!formData.status_wa_api}
+                  onChange={(e) => setFormData({ ...formData, status_wa_api: e.target.checked })} />
+                <label className="form-check-label fw-bold small" htmlFor="status_wa_api">Aktifkan kirim otomatis via Fonnte</label>
+              </div>
             </div>
 
           </div>
