@@ -4,11 +4,11 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 import {
   DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, urlTtd, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5,
 } from "@/components/rapor/raporDokumen";
+import { API_URL } from "@/app/lib/config";
 
 // Modal sederhana berbasis state agar tidak bergantung pada JS Bootstrap
 const Modal = ({ show, title, icon, headerClass = "bg-primary text-white", size = "modal-lg", onClose, children, footer }) => {

@@ -5,8 +5,8 @@ import * as XLSX from "xlsx";
 import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 
 const MATRIX_LABELS = [
@@ -173,7 +173,7 @@ export default function MasterMateriPage() {
     try {
       const fileName = imageUrl.split("/").pop();
       const response = await fetch(
-        `http://localhost:8000/api/signature/${fileName}`,
+        `${API_URL}/signature/${fileName}`,
       );
       if (!response.ok) return null;
       const blob = await response.blob();

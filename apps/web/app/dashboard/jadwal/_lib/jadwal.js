@@ -1,7 +1,7 @@
+import { API_ORIGIN, API_URL } from "@/app/lib/config";
+export { API_ORIGIN, API_URL };
 // Utilitas modul Jadwal: format waktu lokal, warna, pesan WhatsApp, dan target STNKM sesi.
 
-export const API_URL = "http://localhost:8000/api";
-export const API_ORIGIN = "http://localhost:8000";
 
 export const WARNA_JADWAL = ["#3f51b5", "#039be5", "#33b679", "#0b8043", "#f6bf26", "#f4511e", "#e67c73", "#d50000", "#8e24aa", "#7986cb", "#616161", "#795548"];
 export const PALET_GURU = ["#3f51b5", "#e67c73", "#33b679", "#f4511e", "#8e24aa", "#039be5", "#f6bf26", "#0b8043", "#d81b60", "#7986cb", "#795548", "#616161"];

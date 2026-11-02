@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { API_URL } from "@/app/lib/config";
+export { API_URL };
 
 // Peran: admin, kepsek, guru (staf) · siswa, ortu (portal). Backend tetap memeriksa ulang setiap aksi;
 // pembatasan di sini hanya agar menu & tombol yang tidak berlaku tidak ditampilkan.
-export const API_URL = "http://localhost:8000/api";
 export const AKSES_EVENT = "akses-berubah";
 
 export const ROLE_LABEL = {

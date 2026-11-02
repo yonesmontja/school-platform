@@ -1,5 +1,5 @@
+import { API_URL } from "@/app/lib/config";
 // app/lib/api.js
-const API_URL = 'http://localhost:8000/api';
 
 // login: email, username, atau NISN
 export async function login(login, password) {

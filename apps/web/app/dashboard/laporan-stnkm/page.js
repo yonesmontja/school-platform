@@ -7,8 +7,8 @@ import jsPDF from "jspdf";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
 import { renderGrafikStatis } from "@/components/dashboard/chartExport";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 
 const DIMENSI = [

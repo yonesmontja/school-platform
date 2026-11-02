@@ -3,8 +3,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 
 const MAX_FILE_MB = 10;

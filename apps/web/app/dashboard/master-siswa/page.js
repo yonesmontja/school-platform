@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { bacaUser, useAkses } from "@/app/lib/akses";
+import { API_URL } from "@/app/lib/config";
 
 export default function MasterSiswaPage() {
   const [students, setStudents] = useState([]);
@@ -36,7 +37,6 @@ export default function MasterSiswaPage() {
   const { isAdmin, user } = useAkses();
   const kolomTampil = () => (bacaUser()?.role === "admin" ? COLUMNS_DEF : COLUMNS_DEF.filter((c) => c.field !== "action"));
 
-  const API_URL = "http://localhost:8000/api";
   const getToken = () => localStorage.getItem("token");
 
   // Definisi Kolom Tabulator
@@ -325,7 +325,7 @@ export default function MasterSiswaPage() {
       const fileName = imageUrl.split("/").pop();
 
       // Panggil route proxy yang baru kita buat di Laravel
-      const proxyUrl = `http://localhost:8000/api/signature/${fileName}`;
+      const proxyUrl = `${API_URL}/signature/${fileName}`;
 
       console.log("Sedang memuat TTD dari:", proxyUrl); // Untuk debugging
 

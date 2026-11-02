@@ -11,8 +11,8 @@ import {
   buatKonteks, fmt, grafikDistribusi, grafikJenis, grafikKehadiran, grafikKorelasi, grafikMapel,
   grafikProgres, grafikRadar, hitungEWS, hitungKPI, hitungKustom,
 } from "./_lib/analitik";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 const KEY_PREFS = "dashboard_prefs_v1";
 const EWS_PER_PAGE = 8;

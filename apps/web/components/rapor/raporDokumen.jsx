@@ -1,8 +1,8 @@
 "use client";
 // Mesin kalkulasi & komponen dokumen rapor, dipakai halaman Cetak Rapor dan Portal Siswa/Orang Tua
 import { Fragment } from "react";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 
 export const DIMENSI = [
   { key: "S", label: "Skill", nama: "keterampilan praktik", color: "primary" },

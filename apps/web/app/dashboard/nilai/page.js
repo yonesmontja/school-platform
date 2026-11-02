@@ -5,8 +5,8 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
+import { API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
 
 const DEFAULT_KKM = 75;

@@ -4,9 +4,8 @@ import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
+import { API_ORIGIN, API_URL } from "@/app/lib/config";
 
-const API_URL = "http://localhost:8000/api";
-const FILE_BASE_URL = "http://localhost:8000";
 const getToken = () => localStorage.getItem("token");
 
 const STNKM_META = [
@@ -764,7 +763,7 @@ export default function JurnalAnekdotalPage() {
                   <label className="form-label fw-bold small text-muted mb-1"><i className="bi bi-paperclip me-1"></i>Bukti Foto / Dokumen (Opsional)</label>
                   {lampiranLama && !hapusLampiran && !filePreview && (
                     <div className="border rounded p-2 mb-2 bg-body-tertiary d-flex justify-content-between align-items-center gap-2">
-                      <a href={`${FILE_BASE_URL}${lampiranLama}`} target="_blank" rel="noreferrer" className="small text-truncate">
+                      <a href={`${API_ORIGIN}${lampiranLama}`} target="_blank" rel="noreferrer" className="small text-truncate">
                         <i className={`bi ${isImage(lampiranLama) ? "bi-image" : "bi-file-earmark-pdf"} me-1`}></i>Lampiran saat ini
                       </a>
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setHapusLampiran(true)} title="Hapus lampiran">
@@ -980,15 +979,15 @@ export default function JurnalAnekdotalPage() {
                     <p className="mt-2 mb-2" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{j.narasi_kejadian}</p>
 
                     {j.lampiran_url && isImage(j.lampiran_url) && (
-                      <a href={`${FILE_BASE_URL}${j.lampiran_url}`} target="_blank" rel="noreferrer" className="d-inline-block mb-2">
-                        <img src={`${FILE_BASE_URL}${j.lampiran_url}`} alt="Lampiran bukti" className="rounded border shadow-sm"
+                      <a href={`${API_ORIGIN}${j.lampiran_url}`} target="_blank" rel="noreferrer" className="d-inline-block mb-2">
+                        <img src={`${API_ORIGIN}${j.lampiran_url}`} alt="Lampiran bukti" className="rounded border shadow-sm"
                           style={{ maxHeight: 250, maxWidth: "100%", objectFit: "cover" }}
                           onError={(e) => { e.currentTarget.style.display = "none"; }} />
                       </a>
                     )}
                     {j.lampiran_url && !isImage(j.lampiran_url) && (
                       <div className="mb-2">
-                        <a href={`${FILE_BASE_URL}${j.lampiran_url}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
+                        <a href={`${API_ORIGIN}${j.lampiran_url}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
                           <i className="bi bi-paperclip me-1"></i>Lihat Dokumen Bukti
                         </a>
                       </div>

@@ -38,7 +38,8 @@ services:
     build: ../apps/web
     container_name: school_web
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      # Browser memanggil /api di domain web; Next.js meneruskannya ke core-api lewat jaringan Docker
+      API_INTERNAL_URL: http://core-api:8000
     depends_on:
       - core-api
     ports:

@@ -94,7 +94,7 @@ school-platform/
 
 5. Buka aplikasi:
    - Web: http://localhost:3000
-   - API: http://localhost:8000/api
+   - API: http://localhost:8000/api (langsung), atau http://localhost:3000/api lewat proxy web
    - AI Engine health check: http://localhost:8001/api/health/
 
 ## Menjalankan secara lokal (tanpa Docker)
@@ -119,7 +119,11 @@ npm install
 npm run dev                 # http://localhost:3000
 ```
 
-> URL API saat ini di-hardcode di [apps/web/app/lib/api.js](apps/web/app/lib/api.js) (`http://localhost:8000/api`).
+> Browser memanggil API lewat `/api` di domain web; Next.js meneruskan `/api/*` dan `/storage/*` ke core-api
+> ([apps/web/next.config.mjs](apps/web/next.config.mjs)). Karena itu aplikasi tetap berjalan lewat tunnel, domain sekolah,
+> atau HP guru tanpa membuka port API. Alamat core-api dari sisi server diatur dengan `API_INTERNAL_URL`
+> (bawaan `http://localhost:8000`; di Docker `http://core-api:8000`). Isi `NEXT_PUBLIC_API_URL` hanya bila API
+> sengaja dipasang di domain lain ([apps/web/app/lib/config.js](apps/web/app/lib/config.js)).
 
 ### AI Engine (Django)
 
@@ -143,7 +147,7 @@ Seeder bersifat idempoten, jadi `php artisan db:seed` aman dijalankan ulang.
 
 ## Endpoint API
 
-Base URL: `http://localhost:8000/api`
+Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/api` langsung
 
 | Method | Endpoint | Keterangan | Peran | Auth |
 |---|---|---|---|---|
