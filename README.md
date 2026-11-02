@@ -1,6 +1,6 @@
 # School Platform
 
-Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), input nilai, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, projek P5, cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, serta ekspor laporan ke PDF/Excel.
+Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), jadwal pembelajaran, input nilai dengan remedial, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, projek P5, cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, manajemen pengguna berbasis peran, portal siswa/orang tua, serta ekspor laporan ke PDF/Excel.
 
 ## Arsitektur
 
@@ -21,16 +21,20 @@ school-platform/
 | `web`       | Next.js                           | 3000  |
 | `core-api`  | Laravel + Sanctum (token auth)    | 8000  |
 | `ai-engine` | Django + Django REST Framework    | 8001  |
+| `cloudflared` | Cloudflare quick tunnel ke `web` (URL publik sementara) | –  |
 | `db`        | PostgreSQL 16                     | 5432  |
 | `redis`     | Redis 7                           | 6379  |
 
 ## Fitur
 
-- **Autentikasi** — login/logout dengan token Laravel Sanctum
+- **Autentikasi & Peran** — login/logout dengan token Laravel Sanctum (login dibatasi throttle), ganti password di halaman Akun Saya, akun nonaktif ditolak. Lima peran: `admin`, `kepsek`, `guru` (staf) serta `siswa`, `ortu` (portal baca). Guru dibatasi ke mapel yang diampu, kelas binaan, dan data miliknya
+- **Manajemen Pengguna** — admin membuat/mengubah/menghapus akun, membuat akun massal (generate), dan reset password
+- **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak dan rapor miliknya (read-only)
+- **Jadwal Pembelajaran** — kalender (FullCalendar) dengan geser-jadwal (drag), ubah status, dan master ruangan (kelola oleh admin/kepsek)
 - **Master Siswa** — CRUD siswa beserta data referensi (agama, suku, pekerjaan, wilayah, orang tua/wali, sekolah asal)
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD; mata pelajaran memiliki KKM per mapel
 - **Master Referensi Penilaian** — CRUD periode, kategori penilaian, MBK, dan materi
-- **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch, dilengkapi analitik kelas dan riwayat nilai
+- **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch (nilai bertanggal), dilengkapi analitik kelas dan riwayat nilai; mode remedial dengan rencana tindak lanjut per siswa
 - **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa)
 - **Presensi** — input kehadiran siswa per tanggal secara batch
@@ -129,7 +133,7 @@ python manage.py runserver 8001
 
 ## Akun default
 
-Setelah `php artisan migrate --seed`, tersedia akun:
+Setelah `php artisan migrate --seed`, tersedia akun admin (akun peran lain dibuat admin lewat Manajemen Pengguna):
 
 | Email               | Password      |
 |---------------------|---------------|
@@ -141,56 +145,63 @@ Seeder bersifat idempoten, jadi `php artisan db:seed` aman dijalankan ulang.
 
 Base URL: `http://localhost:8000/api`
 
-| Method | Endpoint                    | Keterangan                          | Auth |
-|--------|-----------------------------|-------------------------------------|------|
-| POST   | `/register`                 | Registrasi user                     | –    |
-| POST   | `/login`                    | Login, mengembalikan token          | –    |
-| POST   | `/logout`                   | Logout                              | ✔    |
-| GET    | `/user`                     | Data user yang sedang login         | ✔    |
-| GET    | `/students/master-data`     | Data referensi untuk form siswa     | ✔    |
-| *      | `/students`                 | CRUD siswa (apiResource)            | ✔    |
-| *      | `/teachers`                 | CRUD guru (apiResource)             | ✔    |
-| *      | `/classes`                  | CRUD kelas (apiResource)            | ✔    |
-| *      | `/subjects`                 | CRUD mata pelajaran (apiResource)   | ✔    |
-| GET    | `/settings`                 | Ambil pengaturan sekolah            | ✔    |
-| POST   | `/settings`                 | Simpan pengaturan sekolah           | ✔    |
-| GET    | `/dashboard`                | Data dasbor analitik                | ✔    |
-| GET    | `/signature/{filename}`     | Gambar tanda tangan (proxy CORS)    | –    |
-| GET    | `/nilai/filters`            | Opsi filter input nilai             | ✔    |
-| GET    | `/nilai/materi`             | Materi berdasarkan konteks filter   | ✔    |
-| GET    | `/nilai/students`           | Daftar siswa beserta nilainya       | ✔    |
-| GET    | `/nilai`                    | Daftar nilai                        | ✔    |
-| POST   | `/nilai/batch`              | Simpan nilai secara batch           | ✔    |
-| DELETE | `/nilai/{id}`               | Hapus nilai                         | ✔    |
-| *      | `/periodes`                 | CRUD periode (apiResource)          | ✔    |
-| *      | `/kategori-penilaian`       | CRUD kategori penilaian (apiResource) | ✔  |
-| *      | `/mbk`                      | CRUD MBK (tanpa show)               | ✔    |
-| GET    | `/materi/by-context`        | Materi berdasarkan konteks          | ✔    |
-| *      | `/materi`                   | CRUD materi (tanpa show)            | ✔    |
-| GET    | `/jurnal`                   | Daftar jurnal anekdotal             | ✔    |
-| POST   | `/jurnal/analyze`           | Analisis narasi (STNKM) dengan AI   | ✔    |
-| POST   | `/jurnal/store`             | Simpan jurnal                       | ✔    |
-| POST   | `/jurnal/import`            | Impor jurnal massal (Excel)         | ✔    |
-| PUT    | `/jurnal/{id}`              | Ubah jurnal                         | ✔    |
-| DELETE | `/jurnal/{id}`              | Hapus jurnal                        | ✔    |
-| GET    | `/laporan/stnkm`            | Data laporan STNKM                  | ✔    |
-| GET    | `/rapor/data`               | Data rapor siswa                    | ✔    |
-| POST   | `/rapor/catatan-wali`       | Simpan catatan wali kelas           | ✔    |
-| POST   | `/rapor/catatan-wali/generate` | Buat catatan wali dengan AI      | ✔    |
-| POST   | `/whatsapp`                 | Kirim WhatsApp (Fonnte)             | ✔    |
-| GET    | `/presensi`                 | Daftar presensi                     | ✔    |
-| POST   | `/presensi/batch`           | Simpan presensi secara batch        | ✔    |
-| DELETE | `/presensi/tanggal`         | Hapus presensi per tanggal          | ✔    |
-| GET    | `/p5`                       | Data projek P5                      | ✔    |
-| POST   | `/p5/proyek`                | Tambah projek P5                    | ✔    |
-| PUT    | `/p5/proyek/{id}`           | Ubah projek P5                      | ✔    |
-| DELETE | `/p5/proyek/{id}`           | Hapus projek P5                     | ✔    |
-| POST   | `/p5/catatan`               | Simpan catatan proses P5            | ✔    |
-| POST   | `/p5/catatan/generate`      | Buat catatan P5 dengan AI           | ✔    |
-| POST   | `/p5/hitung`                | Ekstraksi nilai P5                  | ✔    |
-| PUT    | `/p5/nilai/{id}`            | Ubah nilai P5                       | ✔    |
+| Method | Endpoint | Keterangan | Peran | Auth |
+|---|---|---|---|---|
+| POST | `/login` | Login (throttle 20/menit), mengembalikan token | – | – |
+| GET | `/signature/{filename}` | Gambar tanda tangan (proxy CORS) | – | – |
+| GET | `/me`, `/user` | Data user yang sedang login | semua peran | ✔ |
+| POST | `/akun/password` | Ganti password sendiri | semua peran | ✔ |
+| POST | `/logout` | Logout | semua peran | ✔ |
+| GET | `/settings` | Ambil pengaturan sekolah | semua peran | ✔ |
+| GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
+| GET | `/portal/rapor` | Rapor anak (portal) | siswa, ortu | ✔ |
+| POST | `/settings` | Simpan pengaturan sekolah | admin | ✔ |
+| POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk, /materi` | Tambah/ubah/hapus data master | admin | ✔ |
+| GET/POST/PUT/DELETE | `/users, /users/{id}` | Kelola akun pengguna | admin | ✔ |
+| POST | `/users/generate` | Buat akun massal | admin | ✔ |
+| POST | `/users/{id}/reset-password` | Reset password pengguna | admin | ✔ |
+| GET | `/students/master-data` | Data referensi untuk form siswa | staf | ✔ |
+| GET | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk, /materi` | Daftar data master | staf | ✔ |
+| GET | `/materi/by-context` | Materi berdasarkan konteks | staf | ✔ |
+| GET | `/dashboard` | Data dasbor analitik | staf | ✔ |
+| GET | `/nilai/filters` | Opsi filter input nilai | staf | ✔ |
+| GET | `/nilai/materi` | Materi berdasarkan konteks filter | staf | ✔ |
+| GET | `/nilai/students` | Daftar siswa beserta nilainya | staf | ✔ |
+| GET | `/nilai` | Daftar nilai | staf | ✔ |
+| GET | `/nilai/remedial` | Daftar siswa remedial | staf | ✔ |
+| POST | `/nilai/batch` | Simpan nilai secara batch | staf | ✔ |
+| DELETE | `/nilai/{id}` | Hapus nilai | staf | ✔ |
+| POST | `/remedial` | Tambah rencana tindak lanjut remedial | staf | ✔ |
+| PUT/DELETE | `/remedial/{id}` | Ubah/hapus rencana remedial | staf | ✔ |
+| GET | `/jurnal` | Daftar jurnal anekdotal | staf | ✔ |
+| POST | `/jurnal/analyze` | Analisis narasi (STNKM) dengan AI | staf | ✔ |
+| POST | `/jurnal/store` | Simpan jurnal | staf | ✔ |
+| POST | `/jurnal/import` | Impor jurnal massal (Excel) | staf | ✔ |
+| PUT/DELETE | `/jurnal/{id}` | Ubah/hapus jurnal (guru: milik sendiri) | staf | ✔ |
+| GET | `/presensi` | Daftar presensi | staf | ✔ |
+| POST | `/presensi/batch` | Simpan presensi secara batch | staf | ✔ |
+| DELETE | `/presensi/tanggal` | Hapus presensi per tanggal | staf | ✔ |
+| GET | `/p5` | Data projek P5 | staf | ✔ |
+| POST | `/p5/proyek` | Tambah projek P5 | staf | ✔ |
+| PUT/DELETE | `/p5/proyek/{id}` | Ubah/hapus projek P5 | staf | ✔ |
+| POST | `/p5/catatan` | Simpan catatan proses P5 | staf | ✔ |
+| POST | `/p5/catatan/generate` | Buat catatan P5 dengan AI | staf | ✔ |
+| POST | `/p5/hitung` | Ekstraksi nilai P5 | staf | ✔ |
+| PUT | `/p5/nilai/{id}` | Ubah nilai P5 | staf | ✔ |
+| GET | `/rapor/data` | Data rapor siswa | staf | ✔ |
+| POST | `/rapor/catatan-wali` | Simpan catatan wali kelas | staf | ✔ |
+| POST | `/rapor/catatan-wali/generate` | Buat catatan wali dengan AI | staf | ✔ |
+| GET | `/laporan/stnkm` | Data laporan STNKM | staf | ✔ |
+| POST | `/whatsapp` | Kirim WhatsApp (Fonnte) | staf | ✔ |
+| GET | `/jadwal, /jadwal/referensi` | Daftar jadwal & data referensi | staf | ✔ |
+| POST | `/jadwal` | Tambah jadwal | staf | ✔ |
+| PUT/DELETE | `/jadwal/{id}` | Ubah/hapus jadwal | staf | ✔ |
+| PATCH | `/jadwal/{id}/geser` | Geser jadwal (tanggal/jam) | staf | ✔ |
+| PATCH | `/jadwal/{id}/status` | Ubah status jadwal | staf | ✔ |
+| GET | `/ruangan` | Daftar ruangan | staf | ✔ |
+| POST/PUT/DELETE | `/ruangan, /ruangan/{id}` | Kelola ruangan | admin, kepsek | ✔ |
 
-Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`.
+Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom Peran: *staf* = `admin`, `kepsek`, `guru`; endpoint `/register` sudah dihapus (akun dibuat admin lewat `/users`).
 
 ## Halaman Web
 
@@ -206,14 +217,18 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`.
 | `/dashboard/master-kategori` | Master Kategori Penilaian |
 | `/dashboard/master-mbk`   | Master MBK           |
 | `/dashboard/master-materi`| Master Materi        |
-| `/dashboard/nilai`        | Input Nilai          |
+| `/dashboard/jadwal`       | Jadwal Pembelajaran  |
+| `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
 | `/dashboard/jurnal`       | Jurnal Anekdotal     |
 | `/dashboard/presensi`     | Presensi             |
 | `/dashboard/p5`           | Projek P5            |
 | `/dashboard/import-excel` | Import Excel         |
 | `/dashboard/laporan-stnkm`| Laporan STNKM        |
 | `/dashboard/rapor`        | Cetak Rapor          |
-| `/dashboard/pengaturan`   | Pengaturan Sekolah   |
+| `/dashboard/akun`         | Akun Saya            |
+| `/dashboard/pengguna`     | Manajemen Pengguna (admin) |
+| `/dashboard/pengaturan`   | Pengaturan Sekolah (admin) |
+| `/dashboard/portal`       | Portal Siswa/Orang Tua |
 
 ## Testing
 
