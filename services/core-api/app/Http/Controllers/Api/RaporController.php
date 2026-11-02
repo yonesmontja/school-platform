@@ -67,7 +67,7 @@ class RaporController extends Controller
             'settings' => SchoolSetting::first(),
             'students' => $students,
             'subjects' => Subject::orderBy('kelompok')->orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'kelompok', 'kkm']),
-            'nilai' => TransNilai::with('materi:id_materi,nama_materi')
+            'nilai' => TransNilai::efektif()->with('materi:id_materi,nama_materi')
                 ->where('id_kelas', $idKelas)
                 ->where('id_periode', $idPeriode)
                 ->whereIn('id_siswa', $idSiswa)

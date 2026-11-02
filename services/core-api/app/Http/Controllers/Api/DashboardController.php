@@ -37,7 +37,7 @@ class DashboardController extends Controller
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas']);
 
-        $nilai = TransNilai::where('id_periode', $request->id_periode)
+        $nilai = TransNilai::efektif()->where('id_periode', $request->id_periode)
             ->when($idKelas, fn($q) => $q->where('id_kelas', $idKelas))
             ->orderBy('tanggal')
             ->get(['id_siswa', 'id_kelas', 'id_mapel', 'id_jenis', 'tanggal', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']);

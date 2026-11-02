@@ -28,7 +28,7 @@ class LaporanController extends Controller
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
-        $nilai = TransNilai::where('id_kelas', $request->id_kelas)
+        $nilai = TransNilai::efektif()->where('id_kelas', $request->id_kelas)
             ->where('id_periode', $request->id_periode)
             ->orderBy('tanggal')
             ->get(['id_siswa', 'id_mapel', 'tanggal', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']);

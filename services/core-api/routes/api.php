@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Api\ClassesController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
+use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
@@ -107,8 +108,16 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/filters', [NilaiController::class, 'getFilters']);
             Route::get('/materi', [NilaiController::class, 'getMateriByContext']);
             Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
+            Route::get('/remedial', [NilaiController::class, 'getRemedial']);
             Route::post('/batch', [NilaiController::class, 'saveBatch']);
             Route::delete('/{id}', [NilaiController::class, 'destroy']);
+        });
+
+        // Rencana tindak lanjut remedial: hak akses mengikuti mapel nilai (dicek di controller)
+        Route::prefix('remedial')->group(function () {
+            Route::post('/', [RemedialController::class, 'store']);
+            Route::put('/{id}', [RemedialController::class, 'update']);
+            Route::delete('/{id}', [RemedialController::class, 'destroy']);
         });
 
         // Jurnal: semua kelas; guru hanya mengubah/menghapus catatan miliknya

@@ -238,7 +238,7 @@ class P5Controller extends Controller
             return response()->json(['message' => 'Tidak ada siswa di kelas projek ini.'], 422);
         }
 
-        $nilai = TransNilai::where('id_kelas', $proyek->id_kelas)
+        $nilai = TransNilai::efektif()->where('id_kelas', $proyek->id_kelas)
             ->where('id_periode', $proyek->id_periode)
             ->whereIn('id_siswa', $siswa)
             ->get(['id_siswa', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M'])
