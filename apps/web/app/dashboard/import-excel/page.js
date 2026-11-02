@@ -25,6 +25,7 @@ const COLUMN_ALIASES = {
   nilai: ["nilai", "skor"],
   rata: ["ratarata", "rata2", "rerata", "nilai"],
   tanggal: ["tanggal", "tgl"],
+  tipe: ["tipe", "tipenilai"],
   narasi: ["narasikejadian", "narasi", "catatan"],
   ...Object.fromEntries(DIMENSI.map((d) => [d, [d.toLowerCase(), `poin${d.toLowerCase()}`, `val${d.toLowerCase()}`]])),
 };
@@ -93,6 +94,7 @@ export default function ImportExcelPage() {
   const [hanyaBermasalah, setHanyaBermasalah] = useState(false);
   const [previewPage, setPreviewPage] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [rencanaRemedial, setRencanaRemedial] = useState([]);
   const fileInputRef = useRef(null);
 
   const safeFetch = async (url, opts = {}) => {
@@ -161,9 +163,38 @@ export default function ImportExcelPage() {
   const metaLengkap = isNilai
     ? ["id_kelas", "id_mapel", "id_periode", "id_jenis", "id_materi", "tanggal"].every((k) => meta[k])
     : true;
+  const metaPenilaian = ["id_kelas", "id_mapel", "id_periode", "id_jenis", "id_materi"].every((k) => meta[k]);
+
+  // Rencana tindak lanjut pada penilaian terpilih, untuk mencocokkan baris REMEDIAL sebelum disimpan
+  useEffect(() => {
+    if (!isNilai || !metaPenilaian) { setRencanaRemedial([]); return; }
+    let batal = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: meta.id_jenis, id_materi: meta.id_materi });
+        const data = await safeFetch(`${API_URL}/nilai/remedial?${params}`, { headers: authHeader() });
+        if (!batal) setRencanaRemedial(data.data || []);
+      } catch (err) { if (!batal) setRencanaRemedial([]); }
+    })();
+    return () => { batal = true; };
+  }, [isNilai, metaPenilaian, meta.id_kelas, meta.id_mapel, meta.id_periode, meta.id_jenis, meta.id_materi]);
+
+  // Sama dengan server: rencana terbuka paling awal; bila semua selesai, rencana selesai terakhir (nilai remedial diperbarui)
+  const rencanaBySiswa = useMemo(() => {
+    const map = new Map();
+    const urut = rencanaRemedial.slice().sort((a, b) =>
+      (a.status === b.status ? 0 : a.status === "DIRENCANAKAN" ? -1 : 1)
+      || (a.status === "DIRENCANAKAN"
+        ? String(a.tanggal_rencana).localeCompare(String(b.tanggal_rencana))
+        : String(b.tanggal_selesai || "").localeCompare(String(a.tanggal_selesai || ""))));
+    urut.forEach((r) => { if (!map.has(String(r.id_siswa))) map.set(String(r.id_siswa), r); });
+    return map;
+  }, [rencanaRemedial]);
+  const rencanaTerbuka = useMemo(() => [...rencanaBySiswa.values()].filter((r) => r.status === "DIRENCANAKAN"), [rencanaBySiswa]);
 
   // --- TEMPLATE ---
-  const handleDownloadTemplate = () => {
+  // remedial = true: hanya siswa dengan rencana tindak lanjut terbuka, kolom tipe sudah berisi REMEDIAL
+  const handleDownloadTemplate = (remedial = false) => {
     // Bila kelas dipilih, template langsung berisi daftar siswanya
     const siswa = siswaKelas.length ? siswaKelas : [
       { id_siswa: "SIS-0001", nama_siswa: "Contoh Siswa A" },
@@ -171,14 +202,29 @@ export default function ImportExcelPage() {
     ];
     let header, rows, petunjuk;
 
-    if (isNilai && metode === "OTOMATIS") {
-      header = ["id_siswa", "nama_siswa", "nilai"];
-      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, ""]);
-      petunjuk = ["Isi kolom nilai (0-100). Kosongkan bila siswa tidak dinilai.", "Poin STNKM dihitung sistem dari matriks Jenis Penilaian x Materi."];
+    const petunjukTipe = "Kolom tipe (opsional): kosong/NORMAL = nilai reguler; REMEDIAL = nilai remedial bagi siswa yang sudah punya rencana tindak lanjut pada penilaian ini.";
+    if (remedial) {
+      const info = ["nilai_asal", "tindak_lanjut", "tanggal_rencana"];
+      const isian = metode === "OTOMATIS" ? ["nilai"] : [...DIMENSI, "Rata-rata"];
+      header = ["id_siswa", "nama_siswa", ...info, ...isian, "tipe"];
+      rows = rencanaTerbuka.map((r) => [
+        r.id_siswa, r.siswa?.nama_siswa || r.id_siswa, Number(r.nilai_asal?.nilai), r.opsi_tindakan, String(r.tanggal_rencana).slice(0, 10),
+        ...isian.map(() => ""), "REMEDIAL",
+      ]);
+      petunjuk = [
+        "Template ini berisi siswa yang sedang menjalani remedial pada penilaian terpilih.",
+        `Isi kolom ${metode === "OTOMATIS" ? "nilai (0-100)" : "poin S, T, N, K, M dan/atau Rata-rata"} dengan hasil remedial. Kosongkan bila siswa belum mengikuti remedial.`,
+        "Kolom nilai_asal, tindak_lanjut dan tanggal_rencana hanya informasi; tidak dibaca saat import.",
+        "Tanggal pada parameter import dicatat sebagai tanggal pelaksanaan remedial. Rencana siswa otomatis berstatus Selesai.",
+      ];
+    } else if (isNilai && metode === "OTOMATIS") {
+      header = ["id_siswa", "nama_siswa", "nilai", "tipe"];
+      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, "", ""]);
+      petunjuk = ["Isi kolom nilai (0-100). Kosongkan bila siswa tidak dinilai.", "Poin STNKM dihitung sistem dari matriks Jenis Penilaian x Materi.", petunjukTipe];
     } else if (isNilai) {
-      header = ["id_siswa", "nama_siswa", ...DIMENSI, "Rata-rata"];
-      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, "", "", "", "", "", ""]);
-      petunjuk = ["Isi poin S, T, N, K, M apa adanya; poin disimpan tanpa dihitung ulang.", "Rata-rata (0-100) menjadi nilai siswa. Bila kosong, dihitung dari rata-rata S-M."];
+      header = ["id_siswa", "nama_siswa", ...DIMENSI, "Rata-rata", "tipe"];
+      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, "", "", "", "", "", "", ""]);
+      petunjuk = ["Isi poin S, T, N, K, M apa adanya; poin disimpan tanpa dihitung ulang.", "Rata-rata (0-100) menjadi nilai siswa. Bila kosong, dihitung dari rata-rata S-M.", petunjukTipe];
     } else {
       header = ["id_siswa", "nama_siswa", "tanggal", "narasi_kejadian", ...DIMENSI.map((d) => `val_${d}`)];
       rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, todayLocal(), "", 0, 0, 0, 0, 0]);
@@ -187,7 +233,7 @@ export default function ImportExcelPage() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-    ws["!cols"] = header.map((h) => ({ wch: h === "narasi_kejadian" ? 50 : h === "nama_siswa" ? 28 : 14 }));
+    ws["!cols"] = header.map((h) => ({ wch: h === "narasi_kejadian" ? 50 : h === "nama_siswa" || h === "tindak_lanjut" ? 28 : 14 }));
     XLSX.utils.book_append_sheet(wb, ws, "Format_Data");
 
     // Sheet referensi: guru menyalin ID & nama siswa dari sini ke Format_Data
@@ -205,7 +251,7 @@ export default function ImportExcelPage() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Petunjuk"], ...petunjuk.map((p) => [p]), [],
       ["Salin ID Siswa dan Nama dari sheet 'Data Siswa' ke kolom id_siswa dan nama_siswa di sheet 'Format_Data'."],
       ["Yang dibaca saat import hanya sheet 'Format_Data'. Jangan ubah baris judul."]]), "Petunjuk");
-    const suffix = isNilai ? `Nilai_${metode}` : "Jurnal";
+    const suffix = remedial ? `Remedial_${metode}` : isNilai ? `Nilai_${metode}` : "Jurnal";
     XLSX.writeFile(wb, `Template_${suffix}${kelasTerpilih ? `_${kelasTerpilih.nama_kelas.replace(/\s+/g, "_")}` : ""}.xlsx`);
   };
 
@@ -293,9 +339,25 @@ export default function ImportExcelPage() {
           else out.nilai = rata;
           DIMENSI.forEach((d) => { out[`poin_${d}`] = poin[d] ?? 0; });
         }
+        // Kolom tipe opsional: REMEDIAL menautkan nilai ke rencana tindak lanjut siswa; kosong = reguler
+        const rawTipe = normKey(get("tipe") ?? "");
+        if (["remedial", "rem", "r"].includes(rawTipe)) out.tipe = "REMEDIAL";
+        else if (["", "normal", "reguler", "regular", "n"].includes(rawTipe)) out.tipe = "NORMAL";
+        else errors.push("Tipe harus NORMAL atau REMEDIAL");
+        out.tipe_info = out.tipe === "NORMAL" ? "Reguler" : "Remedial";
+        if (out.tipe === "REMEDIAL" && siswa) {
+          // Dicocokkan di sini agar baris yang tidak punya rencana dilewati, bukan menggagalkan seluruh import
+          const rencana = rencanaBySiswa.get(idSiswa);
+          if (!metaPenilaian) errors.push("Lengkapi parameter penilaian untuk mencocokkan rencana remedial");
+          else if (!rencana) errors.push("Belum punya rencana tindak lanjut pada penilaian ini");
+          else out.tipe_info = rencana.status === "SELESAI"
+            ? `Remedial · perbarui nilai ${Number(rencana.nilai_remedial?.nilai ?? 0)}`
+            : `Remedial · ${rencana.opsi_tindakan}`;
+        }
         if (idSiswa && !skips.length) {
-          if (seen.has(idSiswa)) errors.push("Siswa ganda di file");
-          seen.add(idSiswa);
+          const kunci = `${out.tipe}|${idSiswa}`;
+          if (seen.has(kunci)) errors.push("Siswa ganda di file");
+          seen.add(kunci);
         }
       } else {
         const rawTgl = get("tanggal"), narasi = String(get("narasi") ?? "").trim();
@@ -317,7 +379,7 @@ export default function ImportExcelPage() {
       const status = skips.length ? "skip" : errors.length ? "error" : "ok";
       return { ...out, status, pesan: status === "skip" ? skips.join(", ") : errors.join(", ") };
     });
-  }, [rawRows, colMap, siswaById, isNilai, metode, meta.id_kelas]);
+  }, [rawRows, colMap, siswaById, isNilai, metode, meta.id_kelas, rencanaBySiswa, metaPenilaian]);
 
   const ringkasan = useMemo(() => ({
     total: validated.length,
@@ -343,7 +405,7 @@ export default function ImportExcelPage() {
     const konfirmasi = await Swal.fire({
       title: `Simpan ${siap.length} ${isNilai ? "nilai" : "jurnal"}?`,
       html: isNilai
-        ? `Nilai yang sudah ada untuk siswa, materi, dan jenis penilaian yang sama akan <b>diperbarui</b>.${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`
+        ? `Nilai reguler yang sudah ada untuk siswa, materi, jenis penilaian, dan tanggal yang sama akan <b>diperbarui</b>; tanggal berbeda disimpan sebagai penilaian baru.${siap.some((r) => r.tipe === "REMEDIAL") ? `<br>${siap.filter((r) => r.tipe === "REMEDIAL").length} nilai remedial akan menuntaskan rencana tindak lanjut siswanya.` : ""}${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`
         : `Setiap baris disimpan sebagai jurnal baru.${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`,
       icon: "question", showCancelButton: true, confirmButtonText: "Ya, simpan", cancelButtonText: "Batal",
     });
@@ -359,7 +421,7 @@ export default function ImportExcelPage() {
             id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode,
             id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal, metode_stnkm: metode,
             records: siap.map((r) => ({
-              id_siswa: r.id_siswa, nilai: r.nilai,
+              id_siswa: r.id_siswa, nilai: r.nilai, tipe_nilai: r.tipe,
               ...(metode === "MANUAL" && Object.fromEntries(DIMENSI.map((d) => [`poin_${d}`, r[`poin_${d}`]]))),
             })),
           }),
@@ -411,7 +473,8 @@ export default function ImportExcelPage() {
   );
 
   const previewColumns = isNilai
-    ? (metode === "OTOMATIS" ? [{ key: "nilai", label: "Nilai" }] : [...DIMENSI.map((d) => ({ key: `poin_${d}`, label: d })), { key: "nilai", label: "Rata-rata" }])
+    ? [...(metode === "OTOMATIS" ? [{ key: "nilai", label: "Nilai" }] : [...DIMENSI.map((d) => ({ key: `poin_${d}`, label: d })), { key: "nilai", label: "Rata-rata" }]),
+      ...(colMap.tipe ? [{ key: "tipe_info", label: "Tipe" }] : [])]
     : [{ key: "tanggal", label: "Tanggal" }, { key: "narasi", label: "Narasi Kejadian", wide: true }, ...DIMENSI.map((d) => ({ key: `val_${d}`, label: d }))];
 
   if (loadingRef) {
@@ -521,9 +584,23 @@ export default function ImportExcelPage() {
                       ? `Berisi ${siswaKelas.length} siswa ${kelasTerpilih?.nama_kelas}, plus sheet Data Siswa untuk disalin.`
                       : "Sheet Data Siswa berisi semua siswa untuk disalin. Pilih kelas agar template langsung terisi."}
                   </small>
-                  <button type="button" className="btn btn-sm btn-outline-success" onClick={handleDownloadTemplate}>
-                    <i className="bi bi-download me-1"></i>Unduh Template
-                  </button>
+                  <div className="d-flex flex-wrap gap-2">
+                    <button type="button" className="btn btn-sm btn-outline-success" onClick={() => handleDownloadTemplate()}>
+                      <i className="bi bi-download me-1"></i>Unduh Template
+                    </button>
+                    {isNilai && (
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleDownloadTemplate(true)}
+                        disabled={!metaPenilaian || rencanaTerbuka.length === 0}
+                        title={!metaPenilaian ? "Lengkapi parameter penilaian terlebih dahulu" : rencanaTerbuka.length === 0 ? "Tidak ada siswa yang sedang remedial pada penilaian ini" : ""}>
+                        <i className="bi bi-life-preserver me-1"></i>Template Remedial{metaPenilaian && ` (${rencanaTerbuka.length})`}
+                      </button>
+                    )}
+                  </div>
+                  {isNilai && metaPenilaian && rencanaTerbuka.length > 0 && (
+                    <small className="text-danger-emphasis d-block mt-1">
+                      <i className="bi bi-info-circle me-1"></i>{rencanaTerbuka.length} siswa sedang remedial pada penilaian ini.
+                    </small>
+                  )}
                 </div>
               </div>
               <div className="d-flex gap-3">

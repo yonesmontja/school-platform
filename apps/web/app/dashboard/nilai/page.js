@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
+import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
 
 const API_URL = "http://localhost:8000/api";
 const getToken = () => localStorage.getItem("token");
@@ -18,6 +19,14 @@ const FILTER_FIELDS = [
   { key: "id_periode", label: "Periode Akademik", icon: "bi-calendar3" },
   { key: "id_jenis", label: "Jenis Penilaian", icon: "bi-tag" },
   { key: "id_materi", label: "Topik / Materi", icon: "bi-list-check" },
+  // Tanggal berbeda = penilaian berbeda (mis. ulangan harian minggu 1 dan minggu 2 untuk materi yang sama)
+  { key: "tanggal", label: "Tanggal Penilaian", icon: "bi-calendar-event" },
+];
+
+// Reguler: penilaian biasa. Remedial: nilai perbaikan bagi siswa yang punya rencana tindak lanjut.
+const TIPE_PENILAIAN = [
+  { key: "NORMAL", label: "Reguler", icon: "bi-pencil-square" },
+  { key: "REMEDIAL", label: "Remedial", icon: "bi-life-preserver" },
 ];
 
 const KATEGORI = [
@@ -33,7 +42,7 @@ const todayLocal = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-const emptyFilters = () => ({ id_kelas: "", id_mapel: "", id_periode: "", id_jenis: "", id_materi: "", tanggal: todayLocal() });
+const emptyFilters = () => ({ id_kelas: "", id_mapel: "", id_periode: "", id_jenis: "", id_materi: "", tanggal: todayLocal(), tipe: "NORMAL" });
 
 const formatTanggal = (str) => {
   if (!str) return "-";
@@ -85,6 +94,21 @@ const StatusBadge = ({ nilai, kkm }) => {
   );
 };
 
+// Status tindak lanjut sebuah nilai: rencana yang sedang berjalan / sudah selesai beserta nilai remedialnya
+const RencanaBadge = ({ rencana, kkm }) => {
+  const st = STATUS_RENCANA[rencana.status] || STATUS_RENCANA.DIRENCANAKAN;
+  const rem = rencana.nilai_remedial;
+  return (
+    <div className="d-flex flex-column align-items-center gap-1">
+      <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.ikon} me-1`}></i>{st.label}</span>
+      <small className="text-muted lh-sm text-center">
+        {rencana.opsi_tindakan} · {formatTanggal(rencana.tanggal_rencana)}
+        {rem && <> · nilai <b className={Number(rem.nilai) >= kkm ? "text-success" : "text-danger"}>{formatAngka(Number(rem.nilai))}</b></>}
+      </small>
+    </div>
+  );
+};
+
 export default function InputNilaiPage() {
   const router = useRouter();
 
@@ -99,6 +123,8 @@ export default function InputNilaiPage() {
   const [loadingSheet, setLoadingSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [tanggalTersedia, setTanggalTersedia] = useState([]);
+  const [tindakLanjut, setTindakLanjut] = useState(null); // target ModalTindakLanjut
   const filterCardRef = useRef(null);
 
   // --- RIWAYAT ---
@@ -130,16 +156,22 @@ export default function InputNilaiPage() {
   const periodeTerpilih = options.periodes.find((p) => p.id_periode === filters.id_periode);
   const kkm = kkmMapel(mapelTerpilih);
   const filterLengkap = FILTER_FIELDS.every((f) => filters[f.key]);
+  const modeRemedial = filters.tipe === "REMEDIAL";
+  // Hanya lembar reguler yang dibuka per tanggal; di lembar remedial tanggal = tanggal pelaksanaan saat disimpan
+  const tanggalLembar = modeRemedial ? "" : filters.tanggal;
 
-  const rows = useMemo(() => students.map((s) => {
+  // Baris lembar mode lain (sebelum data mode baru selesai dimuat) tidak ditampilkan
+  const rows = useMemo(() => students.filter((s) => s.tipe === filters.tipe).map((s) => {
     const nilai = parseNilai(s.inputNilai);
     const awal = s.nilai === null ? "" : s.nilai;
     return { ...s, parsed: nilai, berubah: nilai !== awal };
-  }), [students]);
+  }), [students, filters.tipe]);
 
   const jumlahBerubah = rows.filter((r) => r.berubah).length;
   const adaTidakValid = rows.some((r) => r.parsed === null);
-  const jumlahTercatat = students.filter((s) => s.id_nilai).length;
+  const jumlahTercatat = rows.filter((s) => s.id_nilai).length;
+  // Nilai tersimpan di bawah KKM yang belum punya rencana tindak lanjut
+  const perluTindakLanjut = modeRemedial ? [] : rows.filter((r) => r.id_nilai && !r.berubah && r.nilai < kkm && !r.rencana);
 
   // --- FETCH ---
   useEffect(() => {
@@ -176,19 +208,37 @@ export default function InputNilaiPage() {
     return () => { batal = true; };
   }, [filters.id_kelas, filters.id_mapel, filters.id_periode]);
 
+  // Lembar reguler: baris per siswa (key = id_siswa). Lembar remedial: baris per rencana tindak lanjut (key = id_rencana),
+  // nilai yang diisi adalah nilai remedialnya.
   const fetchStudents = useCallback(async () => {
-    if (!FILTER_FIELDS.every((f) => filters[f.key])) { setStudents([]); return; }
+    if (!FILTER_FIELDS.every((f) => filters[f.key])) { setStudents([]); setTanggalTersedia([]); return; }
     setLoadingSheet(true);
     try {
       const params = new URLSearchParams({
         id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
         id_jenis: filters.id_jenis, id_materi: filters.id_materi,
       });
-      const data = await safeFetch(`${API_URL}/nilai/students?${params}`, { headers: authHeader() });
-      setStudents((data.students || []).map((s) => ({ ...s, inputNilai: s.nilai ?? "" })));
+      if (filters.tipe === "REMEDIAL") {
+        const data = await safeFetch(`${API_URL}/nilai/remedial?${params}`, { headers: authHeader() });
+        setStudents((data.data || []).map((r) => {
+          const rem = r.nilai_remedial;
+          return {
+            tipe: "REMEDIAL", key: r.id_rencana, id_siswa: r.id_siswa, nisn: r.siswa?.nisn, nama_siswa: r.siswa?.nama_siswa || r.id_siswa,
+            rencana: r, nilaiAsal: r.nilai_asal,
+            id_nilai: rem?.id_nilai || null, nilai: rem ? Number(rem.nilai) : null, tanggal: rem?.tanggal?.slice(0, 10) || null,
+            inputNilai: rem ? Number(rem.nilai) : "",
+          };
+        }));
+        setTanggalTersedia([]);
+      } else {
+        params.set("tanggal", tanggalLembar);
+        const data = await safeFetch(`${API_URL}/nilai/students?${params}`, { headers: authHeader() });
+        setStudents((data.students || []).map((s) => ({ ...s, tipe: "NORMAL", key: s.id_siswa, inputNilai: s.nilai ?? "" })));
+        setTanggalTersedia(data.tanggal_tersedia || []);
+      }
     } catch (err) { Swal.fire("Error", err.message, "error"); }
     finally { setLoadingSheet(false); }
-  }, [filters.id_kelas, filters.id_mapel, filters.id_periode, filters.id_jenis, filters.id_materi]);
+  }, [filters.id_kelas, filters.id_mapel, filters.id_periode, filters.id_jenis, filters.id_materi, tanggalLembar, filters.tipe]);
 
   useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
@@ -240,8 +290,8 @@ export default function InputNilaiPage() {
   };
 
   const ubahFilter = async (patch) => {
-    // Tanggal tidak memuat ulang lembar nilai, jadi perubahan aman dipertahankan
-    const memuatUlang = Object.keys(patch).some((k) => k !== "tanggal");
+    // Lembar reguler bergantung pada tanggal; di lembar remedial tanggal hanya menjadi tanggal pelaksanaan
+    const memuatUlang = Object.keys(patch).some((k) => k !== "tanggal" || filters.tipe === "NORMAL");
     if (memuatUlang && !(await konfirmasiBuangPerubahan())) return;
     // Mengganti parameter berarti membuka lembar lain, bukan lagi penilaian yang sedang diedit
     if (memuatUlang) setEditId(null);
@@ -249,8 +299,16 @@ export default function InputNilaiPage() {
   };
 
   // --- LEMBAR NILAI ---
-  const handleInput = (id_siswa, val) => {
-    setStudents((prev) => prev.map((s) => (s.id_siswa === id_siswa ? { ...s, inputNilai: val } : s)));
+  const handleInput = (key, val) => {
+    setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputNilai: val } : s)));
+  };
+
+  const bukaTindakLanjut = (items, kkmTarget = kkm) => setTindakLanjut({ mode: "baru", items, kkm: kkmTarget });
+  const ubahTindakLanjut = (rencana, item, kkmTarget = kkm) => setTindakLanjut({ mode: "ubah", rencana, item, kkm: kkmTarget });
+  const selesaiTindakLanjut = () => {
+    setTindakLanjut(null);
+    fetchStudents();
+    fetchRiwayat();
   };
 
   // Enter / panah bawah pindah ke siswa berikutnya, panah atas ke sebelumnya
@@ -282,7 +340,7 @@ export default function InputNilaiPage() {
 
   const cancelEdit = () => {
     setEditId(null);
-    setFilters((f) => ({ ...f, id_materi: "", tanggal: todayLocal() }));
+    setFilters((f) => ({ ...f, id_materi: "", tanggal: todayLocal(), tipe: "NORMAL" }));
   };
 
   const handleSave = async (e) => {
@@ -290,8 +348,13 @@ export default function InputNilaiPage() {
     if (!filters.tanggal) return Swal.fire("Perhatian", "Tanggal penilaian wajib diisi.", "warning");
     if (adaTidakValid) return Swal.fire("Nilai Tidak Valid", "Periksa kembali isian bertanda merah. Nilai harus berupa angka 0 – 100.", "warning");
 
-    const records = rows.filter((r) => typeof r.parsed === "number").map((r) => ({ id_siswa: r.id_siswa, nilai: r.parsed }));
-    if (records.length === 0) return Swal.fire("Kosong", "Isi minimal satu nilai siswa.", "warning");
+    // Remedial hanya mengirim baris yang diubah, agar tanggal nilai remedial lain tidak ikut tergeser
+    const records = rows
+      .filter((r) => typeof r.parsed === "number" && (!modeRemedial || r.berubah))
+      .map((r) => ({ id_siswa: r.id_siswa, nilai: r.parsed, ...(modeRemedial && { id_rencana: r.key }) }));
+    if (records.length === 0) {
+      return Swal.fire("Kosong", modeRemedial ? "Belum ada nilai remedial yang diisi atau diubah." : "Isi minimal satu nilai siswa.", "warning");
+    }
 
     const dikosongkan = rows.filter((r) => r.parsed === "" && r.id_nilai).length;
     if (dikosongkan > 0) {
@@ -310,10 +373,18 @@ export default function InputNilaiPage() {
         headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify({
           id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
-          id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, records,
+          id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, tipe_nilai: filters.tipe, records,
         }),
       });
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: data.message, showConfirmButton: false, timer: 2500 });
+      if (data.perlu_tindak_lanjut > 0) {
+        Swal.fire({
+          icon: "info", title: data.message,
+          html: `<b>${data.perlu_tindak_lanjut}</b> siswa ${modeRemedial ? "masih" : ""} di bawah KKM ${kkm}. Atur rencana tindak lanjutnya lewat tombol <b>Tindak Lanjut</b> pada lembar nilai${modeRemedial ? " reguler atau riwayat" : ""}.`,
+          confirmButtonText: "Mengerti",
+        });
+      } else {
+        Swal.fire({ toast: true, position: "top-end", icon: "success", title: data.message, showConfirmButton: false, timer: 2500 });
+      }
       if (editId) setEditId(null);
       await Promise.all([fetchStudents(), fetchRiwayat()]);
     } catch (err) { Swal.fire("Gagal Menyimpan", err.message, "error"); }
@@ -327,6 +398,7 @@ export default function InputNilaiPage() {
     setFilters({
       id_kelas: r.id_kelas, id_mapel: r.id_mapel, id_periode: r.id_periode,
       id_jenis: r.id_jenis, id_materi: r.id_materi, tanggal: String(r.tanggal).slice(0, 10),
+      tipe: r.tipe_nilai === "REMEDIAL" ? "REMEDIAL" : "NORMAL",
     });
     filterCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -334,7 +406,7 @@ export default function InputNilaiPage() {
   const handleDelete = async (r) => {
     const res = await Swal.fire({
       title: "Hapus nilai ini?",
-      html: `<b>${r.siswa?.nama_siswa || r.id_siswa}</b> — ${r.mapel?.nama_mapel || ""}, ${r.materi?.nama_materi || ""} (nilai ${formatAngka(Number(r.nilai))}).<br>Data yang dihapus tidak dapat dikembalikan.`,
+      html: `<b>${r.siswa?.nama_siswa || r.id_siswa}</b> — ${r.mapel?.nama_mapel || ""}, ${r.materi?.nama_materi || ""} (nilai ${formatAngka(Number(r.nilai))}).<br>${r.rencana ? "Rencana tindak lanjutnya ikut terhapus. " : ""}${r.tipe_nilai === "REMEDIAL" ? "Rencana remedialnya kembali berstatus Dalam Remedial. " : ""}Data yang dihapus tidak dapat dikembalikan.`,
       icon: "warning", showCancelButton: true,
       confirmButtonText: "Ya, hapus", cancelButtonText: "Batal", confirmButtonColor: "#dc3545",
     });
@@ -346,7 +418,7 @@ export default function InputNilaiPage() {
       fetchRiwayat();
       if (students.some((s) => s.id_nilai === r.id_nilai)) {
         // Pertahankan isian lain; siswa ini kembali berstatus belum dinilai
-        setStudents((prev) => prev.map((s) => (s.id_nilai === r.id_nilai ? { ...s, id_nilai: null, nilai: null, inputNilai: "" } : s)));
+        setStudents((prev) => prev.map((s) => (s.id_nilai === r.id_nilai ? { ...s, id_nilai: null, nilai: null, inputNilai: "", rencana: modeRemedial ? s.rencana : null } : s)));
       }
     } catch (err) { Swal.fire("Gagal Menghapus", err.message, "error"); }
   };
@@ -399,6 +471,8 @@ export default function InputNilaiPage() {
       "KKM": kkmR,
       "Nilai": formatAngka(v),
       "Ketuntasan": v >= kkmR ? "TUNTAS" : "BELUM TUNTAS",
+      "Tipe": r.tipe_nilai === "REMEDIAL" ? "Remedial" : "Reguler",
+      "Tindak Lanjut": r.rencana ? `${r.rencana.opsi_tindakan} (${STATUS_RENCANA[r.rencana.status]?.label || r.rencana.status})` : "-",
       "Pengisi": r.id_guru || "-",
     };
   });
@@ -506,9 +580,20 @@ export default function InputNilaiPage() {
       {/* PARAMETER PENILAIAN */}
       <div ref={filterCardRef} className={`card card-outline ${editId ? "card-warning" : "card-primary"} shadow-sm mb-3`} style={{ scrollMarginTop: "1rem" }}>
         <div className="card-header">
-          <h3 className="card-title fw-semibold mb-0">
-            <i className="bi bi-funnel me-2"></i>Parameter Penilaian
-          </h3>
+          <div className="d-flex flex-wrap align-items-center gap-2">
+            <h3 className="card-title fw-semibold mb-0 me-auto">
+              <i className="bi bi-funnel me-2"></i>Parameter Penilaian
+            </h3>
+            <div className="btn-group btn-group-sm" role="group" aria-label="Tipe penilaian">
+              {TIPE_PENILAIAN.map((t) => (
+                <button key={t.key} type="button"
+                  className={`btn ${filters.tipe === t.key ? (t.key === "REMEDIAL" ? "btn-danger" : "btn-primary") : "btn-outline-secondary"}`}
+                  onClick={() => filters.tipe !== t.key && ubahFilter({ tipe: t.key })}>
+                  <i className={`bi ${t.icon} me-1`}></i>{t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="card-body">
           <div className="row g-3">
@@ -519,16 +604,41 @@ export default function InputNilaiPage() {
             {selectField("id_jenis", "Jenis Penilaian", "bi-tag", options.mbks, "id_jenis", (j) => j.kategori_penilaian, "— Pilih Jenis —")}
             {selectField("id_materi", "Topik / Materi", "bi-list-check", materis, "id_materi", labelMateri, placeholderMateri, materis.length === 0)}
             <div className="col-12 col-sm-6 col-lg-4">
-              <label className="form-label fw-semibold small mb-1"><i className="bi bi-calendar-event text-primary me-1"></i>Tanggal Penilaian</label>
+              <label className="form-label fw-semibold small mb-1">
+                <i className="bi bi-calendar-event text-primary me-1"></i>{modeRemedial ? "Tanggal Pelaksanaan Remedial" : "Tanggal Penilaian"}
+              </label>
               <input type="date" className="form-control" value={filters.tanggal} required
                 onChange={(e) => ubahFilter({ tanggal: e.target.value })} />
             </div>
           </div>
+          {!modeRemedial && tanggalTersedia.length > 0 && (
+            // Penilaian lain pada kombinasi yang sama; tanggal berbeda tersimpan sebagai data nilai tersendiri
+            <div className="d-flex flex-wrap align-items-center gap-1 mt-3 small">
+              <span className="text-muted me-1"><i className="bi bi-clock-history me-1"></i>Penilaian tersimpan:</span>
+              {tanggalTersedia.map((t) => (
+                <button key={t.tanggal} type="button" onClick={() => ubahFilter({ tanggal: t.tanggal })}
+                  className={`btn btn-sm rounded-pill py-0 ${t.tanggal === filters.tanggal ? "btn-primary" : "btn-outline-primary"}`}>
+                  {formatTanggal(t.tanggal)} <span className="opacity-75">({t.jumlah})</span>
+                </button>
+              ))}
+              {!tanggalTersedia.some((t) => t.tanggal === filters.tanggal) && (
+                <span className="badge text-bg-success ms-1"><i className="bi bi-plus-lg me-1"></i>Penilaian baru {formatTanggal(filters.tanggal)}</span>
+              )}
+            </div>
+          )}
+          {modeRemedial && (
+            <div className="alert alert-danger-subtle bg-danger-subtle border-danger-subtle small mt-3 mb-0 py-2">
+              <i className="bi bi-life-preserver me-1"></i>
+              Mode remedial memuat siswa yang punya rencana tindak lanjut pada penilaian ini. Nilai yang diisi dicatat sebagai nilai remedial,
+              menuntaskan rencananya, dan menggantikan nilai asal pada rapor serta laporan.
+            </div>
+          )}
         </div>
         {editId && (
           <div className="card-footer bg-warning-subtle d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span className="fw-semibold text-warning-emphasis small">
-              <i className="bi bi-pencil-square me-1"></i>Mode Edit: lembar di bawah memuat penilaian lama. Ubah nilai atau tanggal, lalu simpan.
+              <i className="bi bi-pencil-square me-1"></i>Mode Edit: lembar di bawah memuat penilaian lama. Ubah nilainya, lalu simpan.
+              {!modeRemedial && " Memilih tanggal lain membuka penilaian tanggal tersebut."}
             </span>
             <button type="button" className="btn btn-sm btn-outline-dark" onClick={cancelEdit}>
               <i className="bi bi-x-lg me-1"></i>Batalkan Edit
@@ -632,20 +742,33 @@ export default function InputNilaiPage() {
           <form onSubmit={handleSave} className="card card-outline card-success shadow-sm mb-3">
             <div className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto">
-                <i className="bi bi-people me-2"></i>Lembar Nilai
-                <span className="text-muted fw-normal small ms-2">{mapelTerpilih?.nama_mapel} · {namaKelas}</span>
+                <i className={`bi ${modeRemedial ? "bi-life-preserver text-danger" : "bi-people"} me-2`}></i>{modeRemedial ? "Lembar Nilai Remedial" : "Lembar Nilai"}
+                <span className="text-muted fw-normal small ms-2">{mapelTerpilih?.nama_mapel} · {namaKelas}{!modeRemedial && ` · ${formatTanggal(filters.tanggal)}`}</span>
               </h3>
               {jumlahTercatat > 0 && (
                 <span className="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
-                  <i className="bi bi-database-check me-1"></i>{jumlahTercatat} nilai sudah tercatat
+                  <i className="bi bi-database-check me-1"></i>{jumlahTercatat} nilai {modeRemedial ? "remedial " : ""}sudah tercatat
                 </span>
+              )}
+              {perluTindakLanjut.length > 1 && (
+                <button type="button" className="btn btn-sm btn-danger"
+                  onClick={() => bukaTindakLanjut(perluTindakLanjut.map((r) => ({ id_nilai: r.id_nilai, nama_siswa: r.nama_siswa, nilai: r.nilai })))}>
+                  <i className="bi bi-people-fill me-1"></i>Tindak Lanjut Kelompok ({perluTindakLanjut.length})
+                </button>
               )}
             </div>
             <div className="card-body p-0">
               {loadingSheet ? (
                 <div className="text-center py-5 text-muted"><div className="spinner-border text-success mb-2"></div><div>Memuat daftar siswa...</div></div>
               ) : rows.length === 0 ? (
-                <div className="text-center py-5 text-muted"><i className="bi bi-person-x fs-1 d-block mb-2"></i>Belum ada siswa terdaftar pada kelas ini.</div>
+                <div className="text-center py-5 text-muted">
+                  {modeRemedial ? (
+                    <><i className="bi bi-emoji-smile fs-1 d-block mb-2"></i>Belum ada rencana tindak lanjut untuk penilaian ini.
+                      <div className="small mt-1">Rencana dibuat dari tombol <b>Tindak Lanjut</b> pada lembar reguler bagi siswa yang belum mencapai KKM.</div></>
+                  ) : (
+                    <><i className="bi bi-person-x fs-1 d-block mb-2"></i>Belum ada siswa terdaftar pada kelas ini.</>
+                  )}
+                </div>
               ) : (
                 <div className="table-responsive">
                   <table className="table table-hover align-middle mb-0">
@@ -653,34 +776,67 @@ export default function InputNilaiPage() {
                       <tr>
                         <th className="text-center" style={{ width: 56 }}>No</th>
                         <th>Nama Siswa</th>
+                        {modeRemedial && <th className="text-center" style={{ width: 110 }}>Nilai Asal</th>}
                         <th className="text-center" style={{ width: 160 }}>
-                          Nilai <span className="fw-normal text-muted">(0 – 100)</span>
+                          {modeRemedial ? "Nilai Remedial" : "Nilai"} <span className="fw-normal text-muted">(0 – 100)</span>
                         </th>
                         <th className="text-center" style={{ minWidth: 190 }}>Predikat & Status</th>
+                        {!modeRemedial && <th className="text-center" style={{ minWidth: 170 }}>Tindak Lanjut</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((r, idx) => (
-                        <tr key={r.id_siswa} className={r.berubah ? "table-warning" : ""}>
+                        <tr key={r.key} className={r.berubah ? "table-warning" : ""}>
                           <td className="text-center fw-semibold text-muted">{idx + 1}</td>
                           <td>
                             <div className="fw-semibold">{r.nama_siswa}</div>
                             <small className="text-muted">NISN: {r.nisn || r.id_siswa}</small>
-                            {r.id_nilai && r.tanggal && r.tanggal !== filters.tanggal && (
+                            {modeRemedial ? (
+                              <small className="d-block text-danger-emphasis">
+                                <i className="bi bi-signpost-split me-1"></i>{r.rencana.opsi_tindakan} · {formatTanggal(r.rencana.tanggal_rencana)}
+                                {r.tanggal && <span className="text-muted"> · dicatat {formatTanggal(r.tanggal)}</span>}
+                              </small>
+                            ) : r.id_nilai && r.tanggal && r.tanggal !== filters.tanggal && (
                               <small className="text-muted d-block"><i className="bi bi-clock-history me-1"></i>Tercatat {formatTanggal(r.tanggal)}</small>
                             )}
                           </td>
+                          {modeRemedial && (
+                            <td className="text-center">
+                              <span className="badge text-bg-danger">{formatAngka(Number(r.nilaiAsal?.nilai))}</span>
+                              <small className="d-block text-muted">{formatTanggal(r.nilaiAsal?.tanggal)}</small>
+                            </td>
+                          )}
                           <td>
                             <input type="number" step="any" min="0" max="100" inputMode="decimal"
                               data-nilai-idx={idx}
                               className={`form-control text-center fw-bold ${r.parsed === null ? "is-invalid" : ""}`}
                               value={r.inputNilai} placeholder="Kosong"
-                              onChange={(e) => handleInput(r.id_siswa, e.target.value)}
+                              onChange={(e) => handleInput(r.key, e.target.value)}
                               onKeyDown={(e) => handleKeyDown(e, idx)}
                               onFocus={(e) => e.target.select()}
                               aria-label={`Nilai ${r.nama_siswa}`} />
                           </td>
                           <td className="text-center"><StatusBadge nilai={r.parsed} kkm={kkm} /></td>
+                          {!modeRemedial && (
+                            <td className="text-center">
+                              {r.rencana ? (
+                                <button type="button" className="btn btn-link p-0 text-decoration-none" title="Lihat / ubah rencana"
+                                  onClick={() => ubahTindakLanjut(r.rencana, { nama_siswa: r.nama_siswa, nilai: r.nilai })}>
+                                  <RencanaBadge rencana={r.rencana} kkm={kkm} />
+                                </button>
+                              ) : typeof r.parsed === "number" && r.parsed < kkm ? (
+                                // Aktif setelah nilainya tersimpan, karena rencana ditautkan ke data nilai
+                                <button type="button" className="btn btn-sm btn-outline-danger"
+                                  disabled={!r.id_nilai || r.berubah}
+                                  title={!r.id_nilai || r.berubah ? "Simpan nilai terlebih dahulu" : "Atur rencana tindak lanjut"}
+                                  onClick={() => bukaTindakLanjut([{ id_nilai: r.id_nilai, nama_siswa: r.nama_siswa, nilai: r.nilai }])}>
+                                  <i className="bi bi-life-preserver me-1"></i>Tindak Lanjut
+                                </button>
+                              ) : (
+                                <span className="text-muted small">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -703,7 +859,7 @@ export default function InputNilaiPage() {
                 <button type="submit" className="btn btn-success fw-semibold px-4" disabled={saving}>
                   {saving
                     ? <><span className="spinner-border spinner-border-sm me-2"></span>Menyimpan...</>
-                    : <><i className="bi bi-floppy me-1"></i>Simpan Nilai Kelas</>}
+                    : <><i className="bi bi-floppy me-1"></i>{modeRemedial ? "Simpan Nilai Remedial" : "Simpan Nilai Kelas"}</>}
                 </button>
               </div>
             )}
@@ -772,7 +928,12 @@ export default function InputNilaiPage() {
                             <small className="text-muted">{r.siswa?.nisn || r.id_siswa}</small>
                           </td>
                           <td>{r.mapel?.nama_mapel || r.id_mapel}</td>
-                          <td><span className="badge bg-info-subtle text-info-emphasis border border-info-subtle">{r.jenis?.kategori_penilaian || r.id_jenis}</span></td>
+                          <td>
+                            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle">{r.jenis?.kategori_penilaian || r.id_jenis}</span>
+                            {r.tipe_nilai === "REMEDIAL" && (
+                              <div><span className="badge text-bg-danger fw-normal" title={r.rencana_asal?.opsi_tindakan}><i className="bi bi-life-preserver me-1"></i>Remedial</span></div>
+                            )}
+                          </td>
                           <td>
                             {r.materi?.nama_materi || r.id_materi}
                             {r.materi?.kategori?.nama_kategori && (
@@ -781,10 +942,27 @@ export default function InputNilaiPage() {
                           </td>
                           <td className="text-center">
                             <span className={`badge fs-6 ${tuntas ? "text-bg-success" : "text-bg-danger"}`} title={tuntas ? "Tuntas" : "Belum tuntas"}>{formatAngka(v)}</span>
+                            {r.rencana && (
+                              <div className="mt-1">
+                                <span className={`badge bg-${STATUS_RENCANA[r.rencana.status]?.warna || "warning"}-subtle text-${STATUS_RENCANA[r.rencana.status]?.warna || "warning"}-emphasis border fw-normal`}>
+                                  {STATUS_RENCANA[r.rencana.status]?.label}
+                                  {r.rencana.nilai_remedial && ` → ${formatAngka(Number(r.rencana.nilai_remedial.nilai))}`}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td><span className="badge bg-body-secondary text-body-secondary border fw-normal">{r.id_guru || "-"}</span></td>
                           <td className="text-center">
                             <div className="btn-group btn-group-sm">
+                              {(r.rencana || !tuntas) && (
+                                <button type="button" className={`btn ${r.rencana ? "btn-outline-warning" : "btn-outline-danger"}`}
+                                  title={r.rencana ? "Lihat / ubah rencana tindak lanjut" : "Atur rencana tindak lanjut"}
+                                  onClick={() => (r.rencana
+                                    ? ubahTindakLanjut(r.rencana, { nama_siswa: r.siswa?.nama_siswa || r.id_siswa, nilai: v }, kkmMapel(r.mapel))
+                                    : bukaTindakLanjut([{ id_nilai: r.id_nilai, nama_siswa: r.siswa?.nama_siswa || r.id_siswa, nilai: v }], kkmMapel(r.mapel)))}>
+                                  <i className="bi bi-life-preserver"></i>
+                                </button>
+                              )}
                               <button type="button" className="btn btn-outline-primary" title="Edit" onClick={() => handleEdit(r)}><i className="bi bi-pencil"></i></button>
                               <button type="button" className="btn btn-outline-danger" title="Hapus" onClick={() => handleDelete(r)}><i className="bi bi-trash"></i></button>
                             </div>
@@ -820,6 +998,10 @@ export default function InputNilaiPage() {
           </div>
         )}
       </div>
+
+      {tindakLanjut && (
+        <ModalTindakLanjut target={tindakLanjut} kkm={tindakLanjut.kkm} onTutup={() => setTindakLanjut(null)} onTersimpan={selesaiTindakLanjut} />
+      )}
     </div>
   );
 }
