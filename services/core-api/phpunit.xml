@@ -23,8 +23,13 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Tes memakai PostgreSQL seperti aplikasi, di database terpisah yang dikosongkan tiap kali tes jalan.
+             Host & akun diambil dari .env. Buat sekali: createdb school_platform_test (lihat README). -->
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="school_platform_test" force="true"/>
+        <!-- Container Docker membawa DB_DATABASE sebagai variabel server; ikut ditimpa -->
+        <server name="DB_CONNECTION" value="pgsql" force="true"/>
+        <server name="DB_DATABASE" value="school_platform_test" force="true"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

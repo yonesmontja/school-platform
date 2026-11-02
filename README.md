@@ -290,7 +290,26 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 
 ## Testing
 
+Tes core-api memakai PostgreSQL seperti aplikasi, di database terpisah `school_platform_test` yang dikosongkan
+setiap kali tes jalan. Database utama tidak pernah disentuh: tes menolak berjalan bila nama database tidak
+berakhiran `_test`.
+
 ```bash
-cd services/core-api
-php artisan test
+cd infra
+# Sekali saja: buat database tes
+docker compose exec db createdb -U school_admin school_platform_test
+# Jalankan semua tes (±1 menit)
+docker compose exec core-api php artisan test
+# Satu berkas atau satu tes saja
+docker compose exec core-api php artisan test --filter RemedialTest
 ```
+
+| Berkas                                                                 | Yang diuji                                                                                   |
+|------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| [AksesPeranTest](services/core-api/tests/Feature/AksesPeranTest.php)   | Hak akses per peran: rute admin/kepsek, guru dibatasi mapel diampu, kelas binaan, data miliknya; portal siswa |
+| [RemedialTest](services/core-api/tests/Feature/RemedialTest.php)       | Penilaian per tanggal, rencana tindak lanjut & jadwal, nilai remedial (termasuk gaya import), rekap efektif, pembersihan jadwal |
+| [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
+
+Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh
+[MembuatDataSekolah](services/core-api/tests/Concerns/MembuatDataSekolah.php). Jalankan tes sebelum commit,
+terutama setelah mengubah controller, aturan akses, atau migrasi.
