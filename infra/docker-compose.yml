@@ -50,9 +50,11 @@ services:
       - /app/.next
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: school_cloudflared_quick
+    container_name: school_cloudflared_named
     restart: unless-stopped
-    command: tunnel --no-autoupdate --url http://web:3000
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - web
   ai-engine:

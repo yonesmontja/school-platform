@@ -21,7 +21,7 @@ school-platform/
 | `web`       | Next.js                           | 3000  |
 | `core-api`  | Laravel + Sanctum (token auth)    | 8000  |
 | `ai-engine` | Django + Django REST Framework    | 8001  |
-| `cloudflared` | Cloudflare quick tunnel ke `web` (URL publik sementara) | –  |
+| `cloudflared` | Cloudflare named tunnel ke `web` (domain tetap; token `CLOUDFLARE_TUNNEL_TOKEN` di `infra/.env`) | –  |
 | `db`        | PostgreSQL 16                     | 5432  |
 | `redis`     | Redis 7                           | 6379  |
 
