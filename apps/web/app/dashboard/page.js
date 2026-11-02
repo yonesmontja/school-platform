@@ -9,7 +9,7 @@ import { ACCENTS, THEME_MODES, setAccent, setThemeMode, useAppTheme } from "@/ap
 import {
   DIMENSI, EWS_DEFAULT, KELOMPOK, METRIK, MODE_WAKTU, PALET, PRESET_KUSTOM, TIPE_GRAFIK,
   buatKonteks, fmt, grafikDistribusi, grafikJenis, grafikKehadiran, grafikKorelasi, grafikMapel,
-  grafikProgres, grafikRadar, hitungEWS, hitungKPI, hitungKustom,
+  grafikProgres, grafikRadar, hitungEWS, hitungKPI, hitungKustom, tanggalMulaiSemester,
 } from "./_lib/analitik";
 import { API_URL } from "@/app/lib/config";
 
@@ -19,7 +19,7 @@ const EWS_PER_PAGE = 8;
 
 // Grafik bawaan; urutan, ukuran, dan visibilitasnya bisa diatur pengguna
 const WIDGETS = [
-  { id: "progres", title: "Progres Capaian STNKM", subtitle: "Pergerakan 5 dimensi S-T-N-K-M sepanjang waktu", icon: "bi-graph-up-arrow", variant: "primary", size: "full", height: 320 },
+  { id: "progres", title: "Progres Capaian STNKM", subtitle: "Pergerakan S-T-N-K-M, Teori B.Ind & Math sepanjang waktu (minggu dihitung dari awal semester)", icon: "bi-graph-up-arrow", variant: "primary", size: "full", height: 320 },
   { id: "radar", title: "Profil Radar STNKM", subtitle: "Rata-rata poin 5 dimensi kelas (dan siswa terpilih)", icon: "bi-hexagon", variant: "info", size: "half" },
   { id: "mapel", title: "Capaian Rata-rata per Mapel", subtitle: "Rata-rata nilai terhadap KKM tiap mapel", icon: "bi-bar-chart", variant: "success", size: "half" },
   { id: "distribusi", title: "Distribusi Nilai", subtitle: "Sebaran nilai per rentang", icon: "bi-bar-chart-steps", variant: "warning", size: "half" },
@@ -216,10 +216,13 @@ export default function DashboardPage() {
     if (data && progres.siswa !== "ALL" && !data.students.some((s) => s.id_siswa === progres.siswa)) setProgres((p) => ({ ...p, siswa: "ALL" }));
   }, [data]);
 
+  // Wk.1 = minggu pertama semester, sama dengan Laporan STNKM
+  const tanggalMulai = tanggalMulaiSemester(periodes.find((p) => p.id_periode === filter.id_periode));
+
   const hasil = useMemo(() => {
     if (!data) return {};
     return {
-      progres: grafikProgres(data, ctx, progres),
+      progres: grafikProgres(data, ctx, { ...progres, tanggalMulai }),
       radar: grafikRadar(data, ctx, { siswa: progres.siswa }),
       mapel: grafikMapel(data, ctx),
       distribusi: grafikDistribusi(data),
@@ -228,7 +231,7 @@ export default function DashboardPage() {
       korelasi: grafikKorelasi(data, ctx, { batas: batasKorelasi }),
       ...Object.fromEntries(prefs.custom.map((c) => [c.id, hitungKustom(data, ctx, c)])),
     };
-  }, [data, ctx, progres, batasKorelasi, prefs.custom]);
+  }, [data, ctx, progres, tanggalMulai, batasKorelasi, prefs.custom]);
 
   const namaKelas = filter.id_kelas === "ALL" ? "Seluruh Kelas" : classes.find((k) => k.id_kelas === filter.id_kelas)?.nama_kelas || "-";
   const periodeObj = periodes.find((p) => p.id_periode === filter.id_periode);

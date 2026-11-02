@@ -4,9 +4,19 @@
 export const DIMENSI = [
   { key: "S", label: "Skill", full: "Skill (Keterampilan)", color: "#0d6efd" },
   { key: "T", label: "Teori", full: "Teori (Pengetahuan)", color: "#198754" },
-  { key: "N", label: "Nalar", full: "Nalar (Berpikir Kritis)", color: "#fd7e14" },
-  { key: "K", label: "Karakter", full: "Karakter (Sikap & Etika)", color: "#6f42c1" },
-  { key: "M", label: "Minat", full: "Minat (Keterlibatan)", color: "#d63384" },
+  { key: "N", label: "Nalar", full: "Nalar (Berpikir Kritis)", color: "#0dcaf0" },
+  { key: "K", label: "Karakter", full: "Karakter (Sikap & Etika)", color: "#fd7e14" },
+  { key: "M", label: "Minat", full: "Minat (Keterlibatan)", color: "#dc3545" },
+];
+// Garis mapel khusus = rata-rata poin Teori (poin_T) nilai mapel tersebut, seperti di Laporan STNKM
+export const MAPEL_KHUSUS = [
+  { key: "BIndo", label: "B.Ind", nama: "Teori B. Indonesia", color: "#6f42c1", cocok: (n) => n.includes("indonesia") },
+  { key: "Math", label: "Math", nama: "Teori Matematika", color: "#495057", cocok: (n) => n.includes("matematika") || n.includes("math") },
+];
+// Tujuh seri grafik progres: S-T-N-K-M (garis penuh) + B.Ind & Math (putus-putus)
+export const SERI_PROGRES = [
+  ...DIMENSI.map((d) => ({ key: d.key, label: d.key, nama: d.full, color: d.color, dash: [] })),
+  ...MAPEL_KHUSUS.map((k) => ({ key: k.key, label: k.label, nama: k.nama, color: k.color, dash: [6, 4] })),
 ];
 export const STATUS_HADIR = [
   { key: "HADIR", label: "Hadir", color: "#198754" },
@@ -36,6 +46,15 @@ const parseYmd = (s) => {
 };
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const seninDari = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+const geserHari = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+// Selisih hari dari tanggal kalender agar tidak terganggu pergantian jam musim panas
+const selisihHari = (a, b) => Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / 86400000);
+
+// Tanggal mulai semester bawaan (sama dengan Laporan STNKM): Ganjil pertengahan Juli, Genap awal Januari
+export const tanggalMulaiSemester = (periode) => {
+  const tahun = parseInt(String(periode?.tahun_ajaran || "").split("/")[0], 10) || new Date().getFullYear();
+  return /genap/i.test(periode?.semester || "") ? `${tahun + 1}-01-05` : `${tahun}-07-13`;
+};
 
 export function kunciWaktu(tanggal, mode) {
   const d = parseYmd(tanggal);
@@ -179,26 +198,155 @@ const gayaGaris = (color, extra = {}) => ({
 });
 const kosong = (pesan) => ({ kosong: pesan });
 
-// 1. Progres STNKM (garis 5 dimensi)
-export function grafikProgres(data, ctx, { sumber = "AKADEMIK", siswa = "ALL", mode = "monthly" }) {
-  const aka = sumber === "AKADEMIK";
-  const recs = (aka ? data.nilai : data.jurnal).filter((r) => siswa === "ALL" || r.id_siswa === siswa);
-  if (!recs.length) return kosong(aka ? "Belum ada nilai pada konteks ini." : "Belum ada jurnal pada konteks ini.");
-  const deret = deretWaktu(recs.map((r) => r.tanggal), mode);
-  const isiPer = new Map(deret.map((b) => [b.key, []]));
-  recs.forEach((r) => isiPer.get(kunciWaktu(r.tanggal, mode).key)?.push(r));
-  const nilaiDim = (rows, d) => r1(rata(rows.map((r) => num(r[aka ? `poin_${d.key}` : `val_${d.key}`]))));
+// Ruang di bawah label minggu untuk pita bulan, seperti di Laporan STNKM
+const PITA_BULAN_H = 20;
+const pitaBulanPlugin = {
+  id: "pitaBulan",
+  afterDraw(chart, _args, opts) {
+    const labels = opts?.labels;
+    const x = chart.scales.x;
+    if (!labels?.length || !x) return;
+    const { ctx } = chart;
+    ctx.save();
+    ctx.font = "600 11px system-ui, sans-serif";
+    ctx.fillStyle = "#6c757d";
+    ctx.strokeStyle = "rgba(108,117,125,.25)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const y = x.bottom - PITA_BULAN_H;
+    const half = labels.length > 1 ? (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2 : 20;
+    let start = 0;
+    for (let i = 1; i <= labels.length; i++) {
+      if (i === labels.length || labels[i] !== labels[start]) {
+        const kiri = x.getPixelForValue(start) - half;
+        const kanan = x.getPixelForValue(i - 1) + half;
+        ctx.fillText(labels[start], (kiri + kanan) / 2, y + 4);
+        if (i < labels.length) { ctx.beginPath(); ctx.moveTo(kanan, x.top); ctx.lineTo(kanan, y + PITA_BULAN_H); ctx.stroke(); }
+        start = i;
+      }
+    }
+    ctx.restore();
+  },
+};
 
-  const datasets = DIMENSI.map((d) => ({ label: d.full, data: deret.map((b) => nilaiDim(isiPer.get(b.key), d)), ...gayaGaris(d.color) }));
+// Ember waktu grafik progres. Minggu & bulan dihitung dari tanggal mulai semester (Wk.1 = minggu pertama),
+// label bulan diambil dari hari Kamis tiap minggu (acuan ISO 8601) — sama dengan Laporan STNKM.
+function emberProgres(tanggalList, mode, tanggalMulai) {
+  if (mode === "daily") {
+    const deret = deretWaktu(tanggalList.filter((t) => t >= tanggalMulai), "daily");
+    return { ember: deret.map((b) => ({ ...b, title: b.label })), indeks: (t) => deret.findIndex((b) => b.key === kunciWaktu(t, "daily").key) };
+  }
+  const senin = seninDari(parseYmd(tanggalMulai));
+  const mingguKe = (t) => Math.floor(selisihHari(senin, parseYmd(t)) / 7) + 1;
+  const maxWk = Math.max(0, ...tanggalList.map(mingguKe));
+  const ember = [], petaWk = new Map();
+  for (let wk = 1; wk <= maxWk; wk++) {
+    const awal = geserHari(senin, (wk - 1) * 7);
+    const kamis = geserHari(awal, 3);
+    const bulan = `${BULAN[kamis.getMonth()]}-${String(kamis.getFullYear()).slice(-2)}`;
+    if (mode === "weekly") {
+      const f = (d) => `${d.getDate()} ${BULAN[d.getMonth()]}`;
+      ember.push({ key: wk, label: `Wk.${wk}`, bulan, title: `${f(awal)} – ${f(geserHari(awal, 6))}` });
+    } else if (ember[ember.length - 1]?.key !== bulan) {
+      ember.push({ key: bulan, label: bulan, bulan, title: bulan });
+    }
+    petaWk.set(wk, ember.length - 1);
+  }
+  // Entri sebelum tanggal mulai semester tidak masuk hitungan (indeks -1)
+  return { ember, indeks: (t) => petaWk.get(mingguKe(t)) ?? -1 };
+}
+
+// 1. Progres STNKM-B.Ind-Math (tujuh garis, sama dengan Laporan STNKM)
+export function grafikProgres(data, ctx, { sumber = "AKADEMIK", siswa = "ALL", mode = "monthly", tanggalMulai }) {
+  const aka = sumber === "AKADEMIK";
+  const cocokSiswa = (r) => siswa === "ALL" || r.id_siswa === siswa;
+  const mapelKhusus = Object.fromEntries(MAPEL_KHUSUS.map((k) => [k.key, new Set(
+    data.subjects.filter((m) => k.cocok(String(m.nama_mapel || "").toLowerCase())).map((m) => m.id_mapel),
+  )]));
+  const khususDari = (n) => MAPEL_KHUSUS.find((k) => mapelKhusus[k.key].has(n.id_mapel));
+
+  // Entri: S-M dari sumber terpilih (nilai hanya yang ber-poin STNKM); B.Ind & Math selalu dari poin Teori nilai mapelnya
+  const entri = [];
+  data.nilai.filter(cocokSiswa).forEach((n) => {
+    const poin = {};
+    if (aka && DIMENSI.some((d) => num(n[`poin_${d.key}`]) !== 0)) DIMENSI.forEach((d) => { poin[d.key] = num(n[`poin_${d.key}`]); });
+    const k = khususDari(n);
+    if (k) poin[k.key] = num(n.poin_T);
+    if (Object.keys(poin).length) entri.push({ id_siswa: n.id_siswa, tanggal: String(n.tanggal).slice(0, 10), poin });
+  });
+  if (!aka) data.jurnal.filter(cocokSiswa).forEach((j) => entri.push({
+    id_siswa: j.id_siswa, tanggal: String(j.tanggal).slice(0, 10), poin: Object.fromEntries(DIMENSI.map((d) => [d.key, num(j[`val_${d.key}`])])),
+  }));
+  if (!entri.length) return kosong(aka ? "Belum ada nilai pada konteks ini." : "Belum ada jurnal atau nilai B.Ind/Math pada konteks ini.");
+
+  const { ember, indeks } = emberProgres(entri.map((e) => e.tanggal), mode, tanggalMulai || tanggalMulaiSemester());
+  if (!ember.length) return kosong("Belum ada data sejak tanggal mulai semester.");
+
+  // Rata-rata berjenjang seperti Laporan STNKM: record harian per siswa → rata-rata siswa per ember → rata-rata kelas
+  const harian = new Map();
+  entri.forEach((e) => {
+    const i = indeks(e.tanggal);
+    if (i < 0) return;
+    const kunci = `${e.id_siswa}|${e.tanggal}`;
+    if (!harian.has(kunci)) harian.set(kunci, { id_siswa: e.id_siswa, i, jumlah: {}, cacah: {} });
+    const h = harian.get(kunci);
+    Object.entries(e.poin).forEach(([k, v]) => { h.jumlah[k] = (h.jumlah[k] || 0) + v; h.cacah[k] = (h.cacah[k] || 0) + 1; });
+  });
+  const perSiswa = new Map(); // `${id_siswa}|${i}` → { key: [nilai harian] }
+  harian.forEach((h) => {
+    const kunci = `${h.id_siswa}|${h.i}`;
+    if (!perSiswa.has(kunci)) perSiswa.set(kunci, { i: h.i, nilai: {} });
+    const s = perSiswa.get(kunci);
+    Object.keys(h.jumlah).forEach((k) => (s.nilai[k] ||= []).push(h.jumlah[k] / h.cacah[k]));
+  });
+  const perEmber = ember.map(() => ({ siswa: 0, nilai: {} }));
+  perSiswa.forEach((s) => {
+    perEmber[s.i].siswa++;
+    Object.entries(s.nilai).forEach(([k, arr]) => (perEmber[s.i].nilai[k] ||= []).push(rata(arr)));
+  });
+
+  // Skor jurnal (-5..5) beda skala dengan poin Teori (0..100): B.Ind & Math pindah ke sumbu kanan
+  const sumbuKanan = !aka;
+  const datasets = SERI_PROGRES.map((s) => {
+    const khusus = s.dash.length > 0;
+    return {
+      label: s.label, nama: s.nama,
+      data: perEmber.map((e) => r1(rata(e.nilai[s.key] || []))),
+      ...gayaGaris(s.color, { borderDash: s.dash, tension: 0.3, borderWidth: 2 }),
+      ...(sumbuKanan && khusus ? { yAxisID: "y1" } : {}),
+    };
+  });
+  const mingguan = mode === "weekly";
   return {
     config: {
       type: "line",
-      data: { labels: deret.map((b) => b.label), datasets },
-      options: opsiDasar({ root: { scales: { y: { beginAtZero: !aka ? false : true }, x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 16 } } } } }),
+      data: { labels: ember.map((e) => e.label), datasets },
+      options: opsiDasar({
+        plugins: {
+          tooltip: {
+            callbacks: {
+              title: (items) => `${items[0].label}${mingguan ? ` (${ember[items[0].dataIndex]?.title || ""})` : ""}`,
+              label: (item) => ` ${item.dataset.label} · ${item.dataset.nama}: ${fmt(item.raw)}`,
+            },
+          },
+          pitaBulan: { labels: mingguan ? ember.map((e) => e.bulan) : [] },
+        },
+        root: {
+          scales: {
+            y: { beginAtZero: aka },
+            ...(sumbuKanan ? { y1: { position: "right", min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: "Teori B.Ind / Math" } } } : {}),
+            x: {
+              grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: mingguan ? 30 : 16 },
+              afterFit: (scale) => { if (mingguan) scale.height += PITA_BULAN_H; },
+            },
+          },
+        },
+      }),
+      plugins: [pitaBulanPlugin],
     },
     table: {
-      headers: ["Periode", ...DIMENSI.map((d) => d.label), "Jumlah Entri"],
-      rows: deret.map((b, i) => [b.label, ...datasets.map((ds) => ds.data[i] ?? "-"), isiPer.get(b.key).length]),
+      headers: ["Periode", ...SERI_PROGRES.map((s) => s.label), "Jumlah Siswa"],
+      rows: ember.map((e, i) => [mingguan ? `${e.label} (${e.title})` : e.label, ...datasets.map((ds) => ds.data[i] ?? "-"), perEmber[i].siswa]),
     },
   };
 }
