@@ -13,6 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Semua request datang lewat proxy Next.js (dan cloudflared). IP asli pengguna dibaca dari
+        // X-Forwarded-For hanya bila pengirimnya proxy tepercaya (jaringan privat Docker), agar
+        // rate limit login berlaku per pengguna, bukan per container web.
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', '127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7'),
+            headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
+        );
         // Bawaan Laravel mengarahkan tamu ke route('login') yang tidak ada di API ini (→ error 500).
         // Request API cukup dijawab 401 JSON; halaman login ada di frontend Next.js.
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : url('/'));

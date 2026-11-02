@@ -27,15 +27,21 @@ class AuthController extends Controller
         ]);
 
         $identitas = trim((string) ($request->login ?? $request->email));
+        // Dua lapis: 5 gagal/menit per akun+IP (salah ketik biasa), dan 20 gagal/15 menit per akun
+        // dari IP mana pun (menebak sandi dari banyak alamat sekaligus).
         $kunciLimit = 'login:' . Str::lower($identitas) . '|' . $request->ip();
-        if (RateLimiter::tooManyAttempts($kunciLimit, 5)) {
-            $detik = RateLimiter::availableIn($kunciLimit);
-            throw ValidationException::withMessages(['login' => ["Terlalu banyak percobaan. Coba lagi dalam {$detik} detik."]]);
+        $kunciAkun = 'login-akun:' . Str::lower($identitas);
+        foreach ([$kunciLimit => 5, $kunciAkun => 20] as $kunci => $maks) {
+            if (RateLimiter::tooManyAttempts($kunci, $maks)) {
+                $menit = (int) ceil(RateLimiter::availableIn($kunci) / 60);
+                throw ValidationException::withMessages(['login' => ["Terlalu banyak percobaan login. Coba lagi dalam {$menit} menit."]]);
+            }
         }
 
         $user = User::where('email', $identitas)->orWhere('username', $identitas)->first();
         if (!$user || !Hash::check($request->password, $user->password)) {
             RateLimiter::hit($kunciLimit, 60);
+            RateLimiter::hit($kunciAkun, 15 * 60);
             throw ValidationException::withMessages(['login' => ['Email/username atau kata sandi salah.']]);
         }
         if (!$user->aktif) {
@@ -43,6 +49,11 @@ class AuthController extends Controller
         }
 
         RateLimiter::clear($kunciLimit);
+        RateLimiter::clear($kunciAkun);
+        // Token yang sudah kedaluwarsa (lihat sanctum.expiration) dibersihkan agar tabel tidak menumpuk
+        if ($menit = config('sanctum.expiration')) {
+            $user->tokens()->where('created_at', '<', now()->subMinutes($menit))->delete();
+        }
         $user->forceFill(['login_terakhir' => now()])->save();
         $token = $user->createToken('auth_token')->plainTextToken;
 

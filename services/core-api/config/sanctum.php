@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Token login berlaku 7 hari (menit); setelah itu pengguna diminta login ulang
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 60 * 24 * 7) ?: null,
 
     /*
     |--------------------------------------------------------------------------

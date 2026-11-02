@@ -35,7 +35,7 @@ use App\Http\Controllers\Api\PortalController;
 | Batasan data per guru (mapel diampu, kelas binaan, data milik sendiri) dicek di controller.
 */
 
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {
@@ -49,7 +49,6 @@ Route::get('/signature/{filename}', function ($filename) {
     $type = File::mimeType($path);
     $response = Response::make($file, 200);
     $response->header("Content-Type", $type);
-    $response->header('Access-Control-Allow-Origin', '*'); // Izinkan akses dari Next.js
     return $response;
 });
 
@@ -57,7 +56,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     // ===== SEMUA PERAN =====
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/user', [AuthController::class, 'me']);
-    Route::post('/akun/password', [AuthController::class, 'gantiPassword']);
+    Route::post('/akun/password', [AuthController::class, 'gantiPassword'])->middleware('throttle:10,1');
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/settings', [SchoolSettingController::class, 'show']);
 

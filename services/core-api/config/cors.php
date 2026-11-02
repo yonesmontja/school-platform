@@ -19,7 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:3000'],
+    // Browser memanggil API lewat proxy Next.js (domain yang sama), jadi CORS hanya perlu
+    // untuk frontend yang dipasang di domain lain. Pisahkan beberapa origin dengan koma.
+    'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000'))))),
 
     'allowed_origins_patterns' => [],
 

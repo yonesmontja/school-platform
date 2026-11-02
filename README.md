@@ -135,6 +135,28 @@ pip install -r requirements.txt
 python manage.py runserver 8001
 ```
 
+## Keamanan akses publik
+
+Aplikasi bisa dibuka dari internet lewat tunnel cloudflared, jadi beberapa pengaman dipasang:
+
+- **Port Docker hanya untuk komputer host.** Database, Redis, core-api, dan AI engine terikat ke `127.0.0.1`.
+  Web juga terikat ke `127.0.0.1` secara bawaan; perangkat lain memakai alamat tunnel (HTTPS). Untuk membuka
+  web ke jaringan lokal (HTTP tanpa enkripsi), jalankan `WEB_BIND=0.0.0.0 docker compose up -d web`.
+- **HTTPS saja.** Akses `http://` lewat Cloudflare dialihkan ke `https://` ([apps/web/proxy.js](apps/web/proxy.js)),
+  dan semua respons membawa header HSTS, `X-Frame-Options`, `X-Content-Type-Options`, serta `Referrer-Policy`.
+- **IP asli pengguna.** Laravel memercayai `X-Forwarded-For` hanya dari jaringan privat (proxy Next.js dan
+  cloudflared), diatur dengan `TRUSTED_PROXIES` di `.env` core-api.
+- **Batas percobaan login.** Gagal 5 kali per menit per akun+IP, atau 20 kali per 15 menit per akun dari IP
+  mana pun, membuat login akun itu ditahan sementara. Ada juga batas 30 permintaan login per menit per IP.
+  Ganti kata sandi dibatasi 10 kali per menit.
+- **Token login berlaku 7 hari** (`SANCTUM_EXPIRATION`, dalam menit; `0` = tanpa batas). Token kedaluwarsa
+  dibersihkan saat pengguna login.
+- **CORS** hanya untuk origin di `CORS_ALLOWED_ORIGINS` (bawaan `http://localhost:3000`). Frontend sendiri
+  memakai domain yang sama sehingga tidak bergantung pada CORS.
+
+Sebelum dipakai di server sungguhan, set `APP_ENV=production` dan `APP_DEBUG=false` di `.env` core-api agar
+pesan error tidak menampilkan detail kode.
+
 ## Akun default
 
 Setelah `php artisan migrate --seed`, tersedia akun admin (akun peran lain dibuat admin lewat Manajemen Pengguna):

@@ -8,8 +8,10 @@ services:
       POSTGRES_DB: school_platform
       POSTGRES_USER: school_admin
       POSTGRES_PASSWORD: school_password
+    # Port database, redis, dan API hanya dibuka untuk komputer ini (bukan jaringan lokal/internet).
+    # Akses dari luar lewat web (port 3000) atau tunnel cloudflared.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -17,7 +19,7 @@ services:
     image: redis:7
     container_name: school_redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   core-api:
     build: ../services/core-api
@@ -28,7 +30,7 @@ services:
       - db
       - redis
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ../services/core-api:/var/www/html
       # vendor di volume Docker: membaca ribuan file vendor lewat bind mount Windows membuat tiap request ~4 detik
@@ -42,8 +44,10 @@ services:
       API_INTERNAL_URL: http://core-api:8000
     depends_on:
       - core-api
+    # Bawaan hanya untuk komputer ini; perangkat lain memakai tunnel HTTPS. Untuk membuka ke
+    # jaringan lokal (http, tanpa enkripsi), jalankan dengan WEB_BIND=0.0.0.0.
     ports:
-      - "3000:3000"
+      - "${WEB_BIND:-127.0.0.1}:3000:3000"
     volumes:
       - ../apps/web:/app
       - /app/node_modules
@@ -66,7 +70,7 @@ services:
       - db
       - redis
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
 
 volumes:
   pgdata:
