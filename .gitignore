@@ -5,3 +5,6 @@ vendor/
 __pycache__/
 .claude/*
 !.claude/skills/
+
+# Hasil backup database & file unggahan (infra/backup)
+/backups/

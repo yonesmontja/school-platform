@@ -1,0 +1,2 @@
+# Skrip shell dijalankan di container Linux; CRLF membuatnya gagal
+*.sh text eol=lf

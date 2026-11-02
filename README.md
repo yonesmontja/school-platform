@@ -157,6 +157,38 @@ Aplikasi bisa dibuka dari internet lewat tunnel cloudflared, jadi beberapa penga
 Sebelum dipakai di server sungguhan, set `APP_ENV=production` dan `APP_DEBUG=false` di `.env` core-api agar
 pesan error tidak menampilkan detail kode.
 
+## Backup data
+
+Service `db-backup` (lihat [infra/backup/backup.sh](infra/backup/backup.sh)) membuat backup harian ke folder
+`backups/` di root repo (di luar container, tidak ikut git):
+
+- `backups/harian/db_<tanggal>_<jam>.dump`: isi database (format `pg_dump -Fc`), diperiksa bisa dibaca sebelum disimpan
+- `backups/harian/storage_<tanggal>_<jam>.tar.gz`: file unggahan (tanda tangan, lampiran jadwal/jurnal)
+- `backups/bulanan/`: salinan pertama tiap bulan
+
+Backup dibuat sekali sehari begitu lewat jam 01.00. Bila komputer mati pada jam itu, backup dibuat saat komputer
+menyala lagi. Backup harian disimpan 14 hari, bulanan 12 bulan. Semua bisa diatur di `infra/.env`:
+
+| Variabel             | Bawaan          | Arti                                                         |
+|----------------------|-----------------|--------------------------------------------------------------|
+| `BACKUP_DIR`         | `../backups`    | Folder tujuan; sebaiknya disk lain atau folder Google Drive/OneDrive |
+| `BACKUP_HOUR`        | `1`             | Jam paling awal backup harian dibuat                         |
+| `BACKUP_KEEP_DAYS`   | `14`            | Lama backup harian disimpan (hari)                           |
+| `BACKUP_KEEP_MONTHS` | `12`            | Lama backup bulanan disimpan (bulan)                         |
+| `BACKUP_TZ`          | `Asia/Jayapura` | Zona waktu penamaan dan jadwal                               |
+
+```bash
+cd infra
+docker compose logs db-backup                                   # riwayat backup
+docker compose exec db-backup sh /backup/backup.sh sekarang     # backup manual saat ini juga
+docker compose exec db-backup sh /backup/restore.sh             # daftar backup yang tersedia
+docker compose exec db-backup sh /backup/restore.sh /backups/harian/db_2026-11-02_0100.dump YA
+```
+
+Restore menimpa seluruh database, jadi kondisi saat itu dibackup dulu secara otomatis, dan pemulihan berjalan
+dalam satu transaksi. File unggahan dipulihkan dengan mengekstrak arsipnya ke
+`services/core-api/storage/app/` (misalnya `tar -xzf backups/harian/storage_<tanggal>.tar.gz -C services/core-api/storage/app`).
+
 ## Akun default
 
 Setelah `php artisan migrate --seed`, tersedia akun admin (akun peran lain dibuat admin lewat Manajemen Pengguna):

@@ -4,6 +4,7 @@ services:
   db:
     image: postgres:16
     container_name: school_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: school_platform
       POSTGRES_USER: school_admin
@@ -18,12 +19,14 @@ services:
   redis:
     image: redis:7
     container_name: school_redis
+    restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
 
   core-api:
     build: ../services/core-api
     container_name: school_core_api
+    restart: unless-stopped
     env_file:
       - ../services/core-api/.env
     depends_on:
@@ -39,6 +42,7 @@ services:
   web:
     build: ../apps/web
     container_name: school_web
+    restart: unless-stopped
     environment:
       # Browser memanggil /api di domain web; Next.js meneruskannya ke core-api lewat jaringan Docker
       API_INTERNAL_URL: http://core-api:8000
@@ -64,6 +68,7 @@ services:
   ai-engine:
     build: ../services/ai-engine
     container_name: school_ai_engine
+    restart: unless-stopped
     env_file:
       - ../services/ai-engine/.env
     depends_on:
@@ -71,6 +76,28 @@ services:
       - redis
     ports:
       - "127.0.0.1:8001:8001"
+  # Backup harian database + file unggahan ke folder host (lihat infra/backup/backup.sh)
+  db-backup:
+    image: postgres:16
+    container_name: school_db_backup
+    restart: unless-stopped
+    command: ["sh", "/backup/backup.sh"]
+    environment:
+      PGHOST: db
+      PGDATABASE: school_platform
+      PGUSER: school_admin
+      PGPASSWORD: school_password
+      TZ: ${BACKUP_TZ:-Asia/Jayapura}
+      BACKUP_HOUR: ${BACKUP_HOUR:-1}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-12}
+    depends_on:
+      - db
+    volumes:
+      - ./backup:/backup:ro
+      - ../services/core-api/storage/app:/storage:ro
+      # Folder hasil backup di komputer host; arahkan ke disk lain/folder sinkron cloud lewat BACKUP_DIR
+      - ${BACKUP_DIR:-../backups}:/backups
 
 volumes:
   pgdata:
