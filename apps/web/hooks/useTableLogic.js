@@ -16,6 +16,12 @@ export const useTableLogic = (fetchDataFunction, columnsDef, searchFields, { pen
 
   const tableRef = useRef(null);
   const tabulatorInstance = useRef(null);
+  // Data & kolom terbaru untuk handler "tableBuilt": data bisa tiba sebelum Tabulator selesai dibuat,
+  // sedangkan closure inisialisasi hanya memegang nilai awal (kosong)
+  const dataTerbaru = useRef(data);
+  dataTerbaru.current = data;
+  const kolomTampil = useRef(visibleColumns);
+  kolomTampil.current = visibleColumns;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -53,8 +59,8 @@ export const useTableLogic = (fetchDataFunction, columnsDef, searchFields, { pen
 
         tabulatorInstance.current.on("tableBuilt", () => {
           if (isMounted && tabulatorInstance.current) {
-            tabulatorInstance.current.replaceData(data);
-            applyColumnVisibility(visibleColumns);
+            tabulatorInstance.current.replaceData(dataTerbaru.current);
+            applyColumnVisibility(kolomTampil.current);
           }
         });
       }
