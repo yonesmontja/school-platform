@@ -13,7 +13,7 @@ class MasterProyek extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id_proyek', 'judul_proyek', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode'];
+    protected $fillable = ['id_proyek', 'judul_proyek', 'bentuk', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode'];
 
     public function targets(): HasMany { return $this->hasMany(MasterTargetP5::class, 'id_proyek', 'id_proyek'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }

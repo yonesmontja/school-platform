@@ -6,17 +6,10 @@ import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
+import { DIMENSI_LULUSAN, BENTUK_KOKURIKULER, labelBentuk, skalaDari, tingkatPredikat, predikatTampil } from "@/app/lib/kokurikuler";
 
 const getToken = () => localStorage.getItem("token");
 
-const DIMENSI_PROFIL = [
-  "Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia",
-  "Berkebinekaan Global",
-  "Bergotong Royong",
-  "Mandiri",
-  "Bernalar Kritis",
-  "Kreatif",
-];
 const STNKM = [
   { key: "S", label: "Skill", color: "primary" },
   { key: "T", label: "Teori", color: "success" },
@@ -24,13 +17,6 @@ const STNKM = [
   { key: "K", label: "Karakter", color: "warning" },
   { key: "M", label: "Minat", color: "danger" },
 ];
-const PREDIKAT = [
-  { value: "SB", label: "Sangat Berkembang", color: "success" },
-  { value: "BSH", label: "Berkembang Sesuai Harapan", color: "primary" },
-  { value: "MB", label: "Mulai Berkembang", color: "warning" },
-  { value: "BB", label: "Belum Berkembang", color: "danger" },
-];
-const PREDIKAT_MAP = Object.fromEntries(PREDIKAT.map((p) => [p.value, p]));
 const AI_MODES = [
   { value: "GEMINI", label: "Gemini" },
   { value: "CLAUDE", label: "Claude" },
@@ -72,6 +58,9 @@ export default function P5Page() {
   const kelasTersedia = useMemo(() => classes.filter((k) => bolehKelolaKelas(k.id_kelas)), [classes, bolehKelolaKelas]);
   const [periodes, setPeriodes] = useState([]);
   const [settings, setSettings] = useState(null);
+  // Skala predikat sekolah (Pengaturan Sekolah): 4 tingkat BB–SB atau 3 tingkat e-Rapor Berkembang/Cakap/Mahir
+  const skala = skalaDari(settings);
+  const TINGKAT = tingkatPredikat(skala);
   const [filters, setFilters] = useState({ id_kelas: "", id_periode: "", id_proyek: "" });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -172,11 +161,11 @@ export default function P5Page() {
   };
 
   // ================= PROJEK =================
-  const bukaProyekBaru = () => setFormProyek({ id_proyek: null, judul_proyek: "", fase: "", deskripsi_proyek: "", targets: [targetKosong()] });
+  const bukaProyekBaru = () => setFormProyek({ id_proyek: null, judul_proyek: "", bentuk: "PROYEK", fase: "", deskripsi_proyek: "", targets: [targetKosong()] });
   const bukaEditProyek = () => {
     if (!proyek) return;
     setFormProyek({
-      id_proyek: proyek.id_proyek, judul_proyek: proyek.judul_proyek, fase: proyek.fase || "", deskripsi_proyek: proyek.deskripsi_proyek || "",
+      id_proyek: proyek.id_proyek, judul_proyek: proyek.judul_proyek, bentuk: proyek.bentuk || "PROYEK", fase: proyek.fase || "", deskripsi_proyek: proyek.deskripsi_proyek || "",
       targets: proyek.targets.map((t) => ({ ...t, elemen: t.elemen || "", sub_elemen: t.sub_elemen || "", capaian_akhir_fase: t.capaian_akhir_fase || "", relasi_stnkm: parseRelasi(t.relasi_stnkm) })),
     });
   };
@@ -188,10 +177,10 @@ export default function P5Page() {
 
   const simpanProyek = async () => {
     const f = formProyek;
-    if (!f.judul_proyek.trim()) return Swal.fire("Perhatian", "Judul projek wajib diisi.", "warning");
+    if (!f.judul_proyek.trim()) return Swal.fire("Perhatian", "Judul kegiatan wajib diisi.", "warning");
     if (f.targets.length === 0 || f.targets.some((t) => !t.dimensi.trim())) return Swal.fire("Perhatian", "Setiap target wajib memiliki dimensi.", "warning");
     if (f.id_proyek && proyek && proyek.targets.some((t) => !f.targets.some((x) => x.id_target === t.id_target))) {
-      const ok = await Swal.fire({ title: "Ada target yang dihapus", text: "Nilai P5 siswa pada target yang dihapus juga akan hilang. Lanjutkan?", icon: "warning", showCancelButton: true, confirmButtonText: "Ya, Simpan", cancelButtonText: "Batal" });
+      const ok = await Swal.fire({ title: "Ada target yang dihapus", text: "Predikat siswa pada target yang dihapus juga akan hilang. Lanjutkan?", icon: "warning", showCancelButton: true, confirmButtonText: "Ya, Simpan", cancelButtonText: "Batal" });
       if (!ok.isConfirmed) return;
     }
     setSavingProyek(true);
@@ -272,10 +261,10 @@ export default function P5Page() {
   }, [data, proyek]);
 
   const rekapPredikat = useMemo(() => {
-    const c = Object.fromEntries(PREDIKAT.map((p) => [p.value, 0]));
-    nilaiProyek.forEach((n) => { c[n.predikat]++; });
+    const c = Object.fromEntries(TINGKAT.map((p) => [p.kode, 0]));
+    nilaiProyek.forEach((n) => { const t = predikatTampil(n.predikat, skala); if (t) c[t.kode]++; });
     return c;
-  }, [nilaiProyek]);
+  }, [nilaiProyek, skala]);
 
   const terakhirDihitung = useMemo(() => {
     let max = null;
@@ -286,7 +275,7 @@ export default function P5Page() {
   const hitungNilai = async () => {
     const ok = await Swal.fire({
       title: "Jalankan ekstraksi STNKM?",
-      html: "Predikat P5 tiap siswa dihitung dari rata-rata poin STNKM nilai harian sesuai relasi target.<br><small class='text-muted'>Hasil sebelumnya (termasuk ubahan manual) akan ditimpa.</small>",
+      html: "Predikat tiap siswa dihitung dari rata-rata poin STNKM nilai harian sesuai relasi target.<br><small class='text-muted'>Hasil sebelumnya (termasuk ubahan manual) akan ditimpa.</small>",
       icon: "question", showCancelButton: true, confirmButtonText: "Ya, Ekstrak Sekarang", cancelButtonText: "Batal",
     });
     if (!ok.isConfirmed) return;
@@ -297,8 +286,10 @@ export default function P5Page() {
       const r = res.rekap;
       Swal.fire({
         title: "Ekstraksi Selesai", icon: "success",
-        html: `${res.message}<br>SB: <b>${r.SB}</b> · BSH: <b>${r.BSH}</b> · MB: <b>${r.MB}</b> · BB: <b>${r.BB}</b>`
-          + (res.target_tanpa_relasi ? `<div class="alert alert-warning small mt-3 mb-0">${res.target_tanpa_relasi} target belum punya relasi STNKM sehingga skornya 0 (BB). Atur relasinya lewat Edit Projek.</div>` : ""),
+        html: `${res.message}<br>${skala === 3
+          ? `Mahir: <b>${r.SB}</b> · Cakap: <b>${r.BSH}</b> · Berkembang: <b>${r.MB + r.BB}</b>`
+          : `SB: <b>${r.SB}</b> · BSH: <b>${r.BSH}</b> · MB: <b>${r.MB}</b> · BB: <b>${r.BB}</b>`}`
+          + (res.target_tanpa_relasi ? `<div class="alert alert-warning small mt-3 mb-0">${res.target_tanpa_relasi} target belum punya relasi STNKM sehingga skornya 0 (${predikatTampil("BB", skala).singkat}). Atur relasinya lewat Edit Kegiatan.</div>` : ""),
       });
     } catch (err) { Swal.fire("Gagal", err.message, "error"); }
     finally { setHitungLoading(false); }
@@ -321,21 +312,21 @@ export default function P5Page() {
     const rows = [];
     siswaNilai.forEach((s) => proyek.targets.forEach((t) => {
       const n = nilaiProyek.get(`${s.id_siswa}|${t.id_target}`);
-      rows.push({ No: rows.length + 1, "Nama Siswa": s.nama_siswa, "Dimensi Target P5": `${t.dimensi}${t.elemen ? ` - ${t.elemen}` : ""}`, "Skor STNKM": n ? n.skor_rata2 : "-", Predikat: n?.predikat || "-" });
+      rows.push({ No: rows.length + 1, "Nama Siswa": s.nama_siswa, "Dimensi Profil Lulusan": `${t.dimensi}${t.elemen ? ` - ${t.elemen}` : ""}`, "Skor STNKM": n ? n.skor_rata2 : "-", Predikat: predikatTampil(n?.predikat, skala)?.label || "-" });
     }));
     return rows;
   };
   const adaNilai = () => {
-    if (!proyek || nilaiProyek.size === 0) { Swal.fire("Kosong", "Belum ada nilai P5. Jalankan Ekstrak Nilai P5 terlebih dahulu.", "info"); return false; }
+    if (!proyek || nilaiProyek.size === 0) { Swal.fire("Kosong", "Belum ada predikat. Jalankan Ekstrak Predikat terlebih dahulu.", "info"); return false; }
     return true;
   };
-  const namaFile = () => `Nilai_P5_${namaKelas.replace(/\s+/g, "_")}_${todayYmd()}`;
+  const namaFile = () => `Predikat_Kokurikuler_${namaKelas.replace(/\s+/g, "_")}_${todayYmd()}`;
   const eksporExcel = () => {
     if (!adaNilai()) return;
     const wb = XLSX.utils.book_new();
     const matriks = siswaNilai.map((s, i) => ({
       No: i + 1, "Nama Siswa": s.nama_siswa,
-      ...Object.fromEntries(proyek.targets.map((t, j) => [`T${j + 1}. ${t.dimensi}`.slice(0, 60), nilaiProyek.get(`${s.id_siswa}|${t.id_target}`)?.predikat || "-"])),
+      ...Object.fromEntries(proyek.targets.map((t, j) => [`T${j + 1}. ${t.dimensi}`.slice(0, 60), predikatTampil(nilaiProyek.get(`${s.id_siswa}|${t.id_target}`)?.predikat, skala)?.singkat || "-"])),
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(matriks), "Matriks Predikat");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(barisNilai()), "Detail Skor");
@@ -364,7 +355,7 @@ export default function P5Page() {
   };
   const eksporPDF = async () => {
     if (!adaNilai()) return;
-    await generateProfessionalPDF(barisNilai(), `Laporan Evaluasi P5 - ${proyek.judul_proyek} - ${namaKelas}`, settings, getBase64ImageFromUrl);
+    await generateProfessionalPDF(barisNilai(), `Laporan Kokurikuler - ${proyek.judul_proyek} - ${namaKelas}`, settings, getBase64ImageFromUrl);
   };
 
   const jumlahCatatan = Object.values(catatanTersimpan).filter(Boolean).length;
@@ -375,19 +366,28 @@ export default function P5Page() {
       {/* HEADER HALAMAN */}
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-          <h3 className="fw-bold text-primary mb-0"><i className="bi bi-stars me-2"></i>Projek P5</h3>
-          <small className="text-muted">Projek Penguatan Profil Pelajar Pancasila: target, catatan proses, dan predikat</small>
+          <h3 className="fw-bold text-primary mb-0"><i className="bi bi-stars me-2"></i>Proyek</h3>
+          <small className="text-muted">Kegiatan kokurikuler: target dimensi profil lulusan, catatan proses, dan predikat</small>
         </div>
         <ol className="breadcrumb mb-0 small">
           <li className="breadcrumb-item"><Link href="/dashboard">Dashboard</Link></li>
           <li className="breadcrumb-item">TDU - Jadwal</li>
-          <li className="breadcrumb-item active" aria-current="page">Projek P5</li>
+          <li className="breadcrumb-item active" aria-current="page">Proyek</li>
         </ol>
+      </div>
+
+      {/* PENJELASAN SINGKAT KOKURIKULER */}
+      <div className="alert alert-info small py-2 mb-3">
+        <i className="bi bi-info-circle me-1"></i>
+        <b>Kokurikuler</b> (Permendikdasmen 13/2025) menggantikan P5 untuk menguatkan <b>8 Dimensi Profil Lulusan</b>:
+        keimanan dan ketakwaan, kewargaan, penalaran kritis, kreativitas, kolaborasi, kemandirian, kesehatan, dan komunikasi.
+        Bentuknya bisa proyek lintas mapel, gerakan 7 Kebiasaan Anak Indonesia Hebat, atau penguatan intrakurikuler.
+        Rapor memuat deskripsi capaian dimensinya; skala predikat ({skala === 3 ? "Berkembang/Cakap/Mahir" : "BB/MB/BSH/SB"}) diatur di Pengaturan Sekolah.
       </div>
 
       {/* FILTER */}
       <div className="card card-outline card-primary shadow-sm mb-3">
-        <div className="card-header"><h3 className="card-title fw-semibold mb-0"><i className="bi bi-funnel me-2"></i>Pilih Projek</h3></div>
+        <div className="card-header"><h3 className="card-title fw-semibold mb-0"><i className="bi bi-funnel me-2"></i>Pilih Kegiatan</h3></div>
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-12 col-md-3">
@@ -406,15 +406,15 @@ export default function P5Page() {
               {isGuru && classes.length > 0 && kelasTersedia.length === 0 && <div className="form-text text-danger">Anda belum menjadi wali kelas mana pun.</div>}
             </div>
             <div className="col-12 col-md-6">
-              <label className="form-label fw-semibold small mb-1">Projek</label>
+              <label className="form-label fw-semibold small mb-1">Kegiatan</label>
               <div className="input-group">
                 <select className="form-select" value={filters.id_proyek} disabled={!data || data.proyek.length === 0} onChange={(e) => gantiProyek(e.target.value)}>
-                  {!data ? <option value="">— Pilih Kelas Dulu —</option> : data.proyek.length === 0 ? <option value="">— Belum ada projek —</option> : null}
+                  {!data ? <option value="">— Pilih Kelas Dulu —</option> : data.proyek.length === 0 ? <option value="">— Belum ada kegiatan —</option> : null}
                   {(data?.proyek || []).map((p) => <option key={p.id_proyek} value={p.id_proyek}>{p.judul_proyek}{p.fase ? ` (Fase ${p.fase})` : ""}</option>)}
                 </select>
-                <button type="button" className="btn btn-primary" disabled={!data} onClick={bukaProyekBaru} title="Projek baru"><i className="bi bi-plus-lg"></i><span className="d-none d-lg-inline ms-1">Baru</span></button>
-                <button type="button" className="btn btn-outline-secondary" disabled={!proyek} onClick={bukaEditProyek} title="Edit projek & target"><i className="bi bi-pencil"></i></button>
-                <button type="button" className="btn btn-outline-danger" disabled={!proyek} onClick={hapusProyek} title="Hapus projek"><i className="bi bi-trash"></i></button>
+                <button type="button" className="btn btn-primary" disabled={!data} onClick={bukaProyekBaru} title="Kegiatan baru"><i className="bi bi-plus-lg"></i><span className="d-none d-lg-inline ms-1">Baru</span></button>
+                <button type="button" className="btn btn-outline-secondary" disabled={!proyek} onClick={bukaEditProyek} title="Edit kegiatan & target"><i className="bi bi-pencil"></i></button>
+                <button type="button" className="btn btn-outline-danger" disabled={!proyek} onClick={hapusProyek} title="Hapus kegiatan"><i className="bi bi-trash"></i></button>
               </div>
             </div>
           </div>
@@ -424,18 +424,18 @@ export default function P5Page() {
       {!filters.id_kelas || !filters.id_periode ? (
         <div className="card shadow-sm"><div className="card-body text-center py-5 text-muted">
           <i className="bi bi-clipboard-check display-5 text-primary opacity-50"></i>
-          <h5 className="fw-semibold mt-3">Pilih periode dan kelas untuk mengelola projek P5</h5>
+          <h5 className="fw-semibold mt-3">Pilih periode dan kelas untuk mengelola kegiatan kokurikuler</h5>
         </div></div>
       ) : loading || !data ? (
         <div className="card shadow-sm"><div className="card-body text-center py-5 text-muted">
-          <div className="spinner-border text-primary mb-2"></div><div>Memuat data projek...</div>
+          <div className="spinner-border text-primary mb-2"></div><div>Memuat data kegiatan...</div>
         </div></div>
       ) : !proyek ? (
         <div className="card shadow-sm"><div className="card-body text-center py-5 text-muted">
           <i className="bi bi-folder-plus display-5 text-primary opacity-50"></i>
-          <h5 className="fw-semibold mt-3">Belum ada projek P5 untuk {namaKelas} pada periode ini</h5>
-          <p className="small">Buat projek beserta target dimensinya, lalu isi catatan proses dan ekstrak predikat siswa.</p>
-          <button type="button" className="btn btn-primary" onClick={bukaProyekBaru}><i className="bi bi-plus-lg me-1"></i>Buat Projek Pertama</button>
+          <h5 className="fw-semibold mt-3">Belum ada kegiatan kokurikuler untuk {namaKelas} pada periode ini</h5>
+          <p className="small">Buat kegiatan beserta target dimensi profil lulusannya, lalu isi catatan proses dan ekstrak predikat siswa.</p>
+          <button type="button" className="btn btn-primary" onClick={bukaProyekBaru}><i className="bi bi-plus-lg me-1"></i>Buat Kegiatan Pertama</button>
         </div></div>
       ) : (
         <>
@@ -445,6 +445,9 @@ export default function P5Page() {
               <div className="row g-3">
                 <div className="col-12 col-lg-5">
                   <h5 className="fw-bold mb-1">{proyek.judul_proyek} {proyek.fase && <span className="badge text-bg-primary align-middle">Fase {proyek.fase}</span>}</h5>
+                  <div className="mb-1"><span className="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                    <i className={`bi ${BENTUK_KOKURIKULER.find((b) => b.value === proyek.bentuk)?.icon || "bi-diagram-3"} me-1`}></i>{labelBentuk(proyek.bentuk)}
+                  </span></div>
                   <p className="small text-muted mb-2" style={{ whiteSpace: "pre-line" }}>{proyek.deskripsi_proyek || "Tidak ada deskripsi."}</p>
                   <div className="d-flex flex-wrap gap-2 small">
                     <span className="badge text-bg-light border"><i className="bi bi-bullseye me-1"></i>{proyek.targets.length} target</span>
@@ -453,7 +456,7 @@ export default function P5Page() {
                   </div>
                 </div>
                 <div className="col-12 col-lg-7">
-                  <div className="small fw-semibold text-muted mb-1">Target Dimensi &amp; Relasi STNKM</div>
+                  <div className="small fw-semibold text-muted mb-1">Target Dimensi Profil Lulusan &amp; Relasi STNKM</div>
                   <ul className="list-group list-group-flush small border rounded">
                     {proyek.targets.map((t, i) => {
                       const relasi = parseRelasi(t.relasi_stnkm);
@@ -468,7 +471,7 @@ export default function P5Page() {
                       );
                     })}
                   </ul>
-                  {targetTanpaRelasi > 0 && <small className="text-warning d-block mt-1"><i className="bi bi-exclamation-triangle me-1"></i>{targetTanpaRelasi} target tanpa relasi STNKM akan selalu mendapat BB saat diekstrak.</small>}
+                  {targetTanpaRelasi > 0 && <small className="text-warning d-block mt-1"><i className="bi bi-exclamation-triangle me-1"></i>{targetTanpaRelasi} target tanpa relasi STNKM akan selalu mendapat {predikatTampil("BB", skala).singkat} saat diekstrak.</small>}
                 </div>
               </div>
             </div>
@@ -480,7 +483,7 @@ export default function P5Page() {
               <i className="bi bi-pencil-square me-1"></i>Catatan Proses{catatanBerubah && <span className="badge text-bg-warning ms-1">belum disimpan</span>}
             </button></li>
             <li className="nav-item"><button type="button" className={`nav-link ${tab === "NILAI" ? "active fw-semibold" : ""}`} onClick={() => setTab("NILAI")}>
-              <i className="bi bi-award me-1"></i>Nilai P5
+              <i className="bi bi-award me-1"></i>Predikat
             </button></li>
           </ul>
 
@@ -546,10 +549,12 @@ export default function P5Page() {
                 <div className="alert alert-info d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 py-2">
                   <div className="small">
                     <i className="bi bi-robot me-1"></i>Skor = rata-rata poin STNKM dari nilai harian siswa sesuai relasi target.
-                    Predikat: <b>SB</b> ≥ 90 · <b>BSH</b> ≥ 75 · <b>MB</b> ≥ 60 · <b>BB</b> &lt; 60. Predikat bisa diubah manual per sel.
+                    {skala === 3
+                      ? <>Predikat: <b>Mahir</b> ≥ 90 · <b>Cakap</b> ≥ 75 · <b>Berkembang</b> &lt; 75.</>
+                      : <>Predikat: <b>SB</b> ≥ 90 · <b>BSH</b> ≥ 75 · <b>MB</b> ≥ 60 · <b>BB</b> &lt; 60.</>} Predikat bisa diubah manual per sel.
                   </div>
                   <button type="button" className="btn btn-primary btn-sm fw-semibold text-nowrap" onClick={hitungNilai} disabled={hitungLoading}>
-                    {hitungLoading ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-magic me-1"></i>}Ekstrak Nilai P5
+                    {hitungLoading ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-magic me-1"></i>}Ekstrak Predikat
                   </button>
                 </div>
 
@@ -561,7 +566,7 @@ export default function P5Page() {
                     </div>
                   </div>
                   <div className="col-12 col-md-7 d-flex flex-wrap justify-content-md-end align-items-center gap-2">
-                    {PREDIKAT.map((p) => <span key={p.value} className={`badge text-bg-${p.color}`} title={p.label}>{p.value}: {rekapPredikat[p.value]}</span>)}
+                    {TINGKAT.map((p) => <span key={p.kode} className={`badge text-bg-${p.color}`} title={p.label}>{p.singkat}: {rekapPredikat[p.kode]}</span>)}
                     <div className="btn-group btn-group-sm">
                       <button type="button" className="btn btn-outline-success" onClick={eksporExcel}><i className="bi bi-file-earmark-excel me-1"></i>Excel</button>
                       <button type="button" className="btn btn-outline-secondary" onClick={eksporCSV}><i className="bi bi-filetype-csv me-1"></i>CSV</button>
@@ -572,7 +577,7 @@ export default function P5Page() {
 
                 {nilaiProyek.size === 0 ? (
                   <div className="text-center text-muted py-5 border rounded">
-                    <i className="bi bi-magic fs-1 d-block mb-2 opacity-50"></i>Belum ada nilai. Klik <b>Ekstrak Nilai P5</b> untuk menghitung predikat seluruh siswa.
+                    <i className="bi bi-magic fs-1 d-block mb-2 opacity-50"></i>Belum ada predikat. Klik <b>Ekstrak Predikat</b> untuk menghitung predikat seluruh siswa.
                   </div>
                 ) : (
                   <div className="table-responsive">
@@ -597,12 +602,13 @@ export default function P5Page() {
                             {proyek.targets.map((t) => {
                               const n = nilaiProyek.get(`${s.id_siswa}|${t.id_target}`);
                               if (!n) return <td key={t.id_target} className="text-center text-muted">–</td>;
-                              const p = PREDIKAT_MAP[n.predikat];
+                              const p = predikatTampil(n.predikat, skala);
                               return (
                                 <td key={t.id_target} className="text-center">
-                                  <select className={`form-select form-select-sm fw-semibold text-bg-${p.color} border-0 mx-auto`} style={{ maxWidth: 90 }}
-                                    value={n.predikat} onChange={(e) => ubahPredikat(n, e.target.value)} title={p.label}>
-                                    {PREDIKAT.map((x) => <option key={x.value} value={x.value}>{x.value}</option>)}
+                                  {/* Skala 3: pilihan Berkembang/Cakap/Mahir disimpan sebagai MB/BSH/SB */}
+                                  <select className={`form-select form-select-sm fw-semibold text-bg-${p.color} border-0 mx-auto`} style={{ maxWidth: skala === 3 ? 130 : 90 }}
+                                    value={p.kode} onChange={(e) => ubahPredikat(n, TINGKAT.find((x) => x.kode === e.target.value).simpan)} title={p.label}>
+                                    {TINGKAT.map((x) => <option key={x.kode} value={x.kode}>{x.singkat}</option>)}
                                   </select>
                                   <div className="text-muted" style={{ fontSize: 11 }}>skor {Number(n.skor_rata2).toFixed(1)}</div>
                                 </td>
@@ -621,19 +627,25 @@ export default function P5Page() {
       )}
 
       {/* MODAL PROJEK & TARGET */}
-      <Modal show={!!formProyek} title={formProyek?.id_proyek ? "Edit Projek P5" : "Projek P5 Baru"} icon="bi-folder2-open" onClose={() => !savingProyek && setFormProyek(null)} footer={(
+      <Modal show={!!formProyek} title={formProyek?.id_proyek ? "Edit Kegiatan Kokurikuler" : "Kegiatan Kokurikuler Baru"} icon="bi-folder2-open" onClose={() => !savingProyek && setFormProyek(null)} footer={(
         <>
           <button type="button" className="btn btn-secondary" onClick={() => setFormProyek(null)} disabled={savingProyek}>Batal</button>
           <button type="button" className="btn btn-primary fw-semibold" onClick={simpanProyek} disabled={savingProyek}>
-            {savingProyek ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-save me-2"></i>}Simpan Projek
+            {savingProyek ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-save me-2"></i>}Simpan Kegiatan
           </button>
         </>
       )}>
         {formProyek && (
           <>
             <div className="row g-3 mb-3">
+              <div className="col-12">
+                <label className="form-label fw-semibold small mb-1">Bentuk Kegiatan</label>
+                <select className="form-select" value={formProyek.bentuk} onChange={(e) => setFormProyek((f) => ({ ...f, bentuk: e.target.value }))}>
+                  {BENTUK_KOKURIKULER.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                </select>
+              </div>
               <div className="col-12 col-md-9">
-                <label className="form-label fw-semibold small mb-1">Judul Projek *</label>
+                <label className="form-label fw-semibold small mb-1">Judul Kegiatan *</label>
                 <input type="text" className="form-control" maxLength={255} value={formProyek.judul_proyek} onChange={(e) => setFormProyek((f) => ({ ...f, judul_proyek: e.target.value }))} />
               </div>
               <div className="col-12 col-md-3">
@@ -644,17 +656,17 @@ export default function P5Page() {
                 </select>
               </div>
               <div className="col-12">
-                <label className="form-label fw-semibold small mb-1">Deskripsi / Fokus Projek</label>
+                <label className="form-label fw-semibold small mb-1">Deskripsi / Fokus Kegiatan</label>
                 <textarea className="form-control" rows="2" maxLength={2000} value={formProyek.deskripsi_proyek} onChange={(e) => setFormProyek((f) => ({ ...f, deskripsi_proyek: e.target.value }))}></textarea>
                 <div className="form-text">Kelas: <b>{namaKelas}</b> · dipakai juga oleh AI saat menyusun catatan proses.</div>
               </div>
             </div>
 
             <div className="d-flex align-items-center mb-2">
-              <h6 className="fw-bold mb-0 me-auto">Target Dimensi ({formProyek.targets.length})</h6>
+              <h6 className="fw-bold mb-0 me-auto">Target Dimensi Profil Lulusan ({formProyek.targets.length})</h6>
               <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setFormProyek((f) => ({ ...f, targets: [...f.targets, targetKosong()] }))}><i className="bi bi-plus-lg me-1"></i>Tambah Target</button>
             </div>
-            <datalist id="dimensi-profil">{DIMENSI_PROFIL.map((d) => <option key={d} value={d} />)}</datalist>
+            <datalist id="dimensi-profil">{DIMENSI_LULUSAN.map((d) => <option key={d} value={d} />)}</datalist>
             {formProyek.targets.map((t, i) => (
               <div key={t.id_target || `baru-${i}`} className="card mb-2">
                 <div className="card-body py-2">

@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import { API_URL } from "@/app/lib/config";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
+import { skalaDari, tingkatPredikat, predikatTampil, keteranganSkala, deskripsiKokurikuler, labelBentuk } from "@/app/lib/kokurikuler";
 
 
 export const DIMENSI = [
@@ -22,7 +23,12 @@ export const MODE_KALKULASI = [
 export const JENIS_DOKUMEN = [
   { value: "lengkap", label: "Buku Lengkap" },
   { value: "akademik", label: "Akademik Saja" },
-  { value: "p5", label: "Rapor P5 Saja" },
+  { value: "p5", label: "Kokurikuler Saja" },
+];
+// Tampilan halaman kokurikuler di rapor (dipilih saat mencetak)
+export const TAMPILAN_KOKURIKULER = [
+  { value: "deskripsi", label: "Deskripsi saja (format rapor 2025)" },
+  { value: "lengkap", label: "Deskripsi + tabel dimensi & predikat" },
 ];
 export const AI_MODES = [
   { value: "GEMINI", label: "Google Gemini" },
@@ -34,7 +40,7 @@ export const AI_MODES = [
 ];
 export const PREDIKAT = ["BB", "MB", "BSH", "SB"];
 export const CATATAN_DEFAULT = "Peserta didik menunjukkan perkembangan sikap dan karakter yang stabil.";
-export const CATATAN_P5_DEFAULT = "Peserta didik mengikuti proses proyek dengan antusias.";
+export const CATATAN_P5_DEFAULT = "Peserta didik mengikuti proses kegiatan dengan antusias.";
 
 export const num = (v) => parseFloat(v) || 0;
 export const rata = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
@@ -201,6 +207,7 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
     presensi[st in presensi ? st : "hadir"]++;
   });
 
+  const skalaKokurikuler = skalaDari(data.settings);
   const proyek = data.proyek.map((p) => {
     const dimensi = [];
     p.targets.forEach((t) => {
@@ -210,7 +217,11 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
       grup.targets.push({ ...t, predikat: nilai?.predikat || null });
     });
     const catatan = data.catatan_p5.find((c) => c.id_proyek === p.id_proyek && c.id_siswa === idSiswa);
-    return { ...p, dimensi, catatan: catatan?.catatan_proses || CATATAN_P5_DEFAULT };
+    return {
+      ...p, dimensi, skala: skalaKokurikuler,
+      catatan: catatan?.catatan_proses || CATATAN_P5_DEFAULT,
+      deskripsi: deskripsiKokurikuler(dimensi, skalaKokurikuler) || "Predikat dimensi profil lulusan belum diisi.",
+    };
   });
 
   const terisi = mapelRows.filter((r) => r.nilai !== null);
@@ -432,40 +443,54 @@ export const Akademik = ({ r, tanggal, pecah }) => (
   </HalamanBerkop>
 );
 
-export const RaporP5 = ({ r, proyek, urutan, tanggal, pecah }) => (
-  <HalamanBerkop r={r} tanggal={tanggal} pecah={pecah} footer={(
-    <>
-      <div className="rp-title">CATATAN PROSES PROYEK:</div>
-      <div className="rp-box">{proyek.catatan}</div>
-    </>
-  )}>
-    <div className="rp-title" style={{ marginTop: 0 }}>RAPOR PROJEK PENGUATAN PROFIL PELAJAR PANCASILA (PROJEK {urutan})</div>
-    <div className="rp-proyek">
-      <strong>Judul Projek: {proyek.judul_proyek}</strong>{proyek.fase ? ` (Fase ${proyek.fase})` : ""}<br />
-      <span style={{ fontSize: 11 }}>{proyek.deskripsi_proyek || "-"}</span>
-    </div>
-    <div style={{ fontSize: 11, marginBottom: 6 }}>
-      <strong>Keterangan Predikat:</strong> BB = Belum Berkembang | MB = Mulai Berkembang | BSH = Berkembang Sesuai Harapan | SB = Sangat Berkembang
-    </div>
-    <table className="rp-table">
-      <thead>
-        <tr><th rowSpan="2" width="56%">Dimensi, Elemen, &amp; Sub-Elemen</th><th colSpan="4" width="44%">Pencapaian</th></tr>
-        <tr>{PREDIKAT.map((p) => <th key={p} width="11%">{p}</th>)}</tr>
-      </thead>
-      <tbody>
-        {proyek.dimensi.length === 0 && <tr><td colSpan="5" className="rp-c">Belum ada target projek.</td></tr>}
-        {proyek.dimensi.map((d) => (
-          <Fragment key={d.nama}>
-            <tr><td colSpan="5" className="rp-dim">{d.nama}</td></tr>
-            {d.targets.map((t) => (
-              <tr key={t.id_target}>
-                <td><strong>{t.elemen || "-"}</strong><br />{t.sub_elemen || "-"}<br /><em style={{ fontSize: 10 }}>Capaian: {t.capaian_akhir_fase || "-"}</em></td>
-                {PREDIKAT.map((p) => <td key={p} className="rp-c" style={{ fontWeight: "bold" }}>{t.predikat === p ? "✓" : ""}</td>)}
-              </tr>
-            ))}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
-  </HalamanBerkop>
-);
+// tampilan: "deskripsi" (format rapor 2025) atau "lengkap" (deskripsi + tabel dimensi & predikat)
+export const RaporP5 = ({ r, proyek, urutan, tanggal, pecah, tampilan = "deskripsi" }) => {
+  const tingkat = tingkatPredikat(proyek.skala);
+  const kolom = tingkat.length;
+  return (
+    <HalamanBerkop r={r} tanggal={tanggal} pecah={pecah} footer={(
+      <>
+        <div className="rp-title">CATATAN PROSES KEGIATAN:</div>
+        <div className="rp-box">{proyek.catatan}</div>
+      </>
+    )}>
+      <div className="rp-title" style={{ marginTop: 0 }}>KOKURIKULER (KEGIATAN {urutan})</div>
+      <div className="rp-proyek">
+        <strong>{proyek.judul_proyek}</strong>{proyek.fase ? ` (Fase ${proyek.fase})` : ""}
+        <span style={{ fontSize: 11 }}> · {labelBentuk(proyek.bentuk)}</span><br />
+        <span style={{ fontSize: 11 }}>{proyek.deskripsi_proyek || "-"}</span>
+      </div>
+      <div className="rp-title">CAPAIAN DIMENSI PROFIL LULUSAN:</div>
+      <div className="rp-box">{proyek.deskripsi}</div>
+      {tampilan === "lengkap" && (
+        <>
+          <div style={{ fontSize: 11, margin: "8px 0 6px" }}>
+            <strong>Keterangan Predikat:</strong> {keteranganSkala(proyek.skala)}
+          </div>
+          <table className="rp-table">
+            <thead>
+              <tr><th rowSpan="2" width="56%">Dimensi, Elemen, &amp; Sub-Elemen</th><th colSpan={kolom} width="44%">Pencapaian</th></tr>
+              <tr>{tingkat.slice().reverse().map((p) => <th key={p.kode} width={`${Math.floor(44 / kolom)}%`}>{p.singkat}</th>)}</tr>
+            </thead>
+            <tbody>
+              {proyek.dimensi.length === 0 && <tr><td colSpan={kolom + 1} className="rp-c">Belum ada target kegiatan.</td></tr>}
+              {proyek.dimensi.map((d) => (
+                <Fragment key={d.nama}>
+                  <tr><td colSpan={kolom + 1} className="rp-dim">{d.nama}</td></tr>
+                  {d.targets.map((t) => (
+                    <tr key={t.id_target}>
+                      <td><strong>{t.elemen || "-"}</strong><br />{t.sub_elemen || "-"}<br /><em style={{ fontSize: 10 }}>Capaian: {t.capaian_akhir_fase || "-"}</em></td>
+                      {tingkat.slice().reverse().map((p) => (
+                        <td key={p.kode} className="rp-c" style={{ fontWeight: "bold" }}>{predikatTampil(t.predikat, proyek.skala)?.kode === p.kode ? "✓" : ""}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </HalamanBerkop>
+  );
+};

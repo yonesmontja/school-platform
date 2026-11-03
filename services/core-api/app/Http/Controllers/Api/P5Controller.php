@@ -55,6 +55,8 @@ class P5Controller extends Controller
     {
         return [
             'judul_proyek' => 'required|string|max:255',
+            // Bentuk kegiatan kokurikuler
+            'bentuk' => 'nullable|in:PROYEK,KEBIASAAN,INTRAKURIKULER',
             'deskripsi_proyek' => 'nullable|string|max:2000',
             'fase' => 'nullable|string|max:10',
             'id_kelas' => 'required|exists:classes,id_kelas',
@@ -78,7 +80,7 @@ class P5Controller extends Controller
         $proyek = DB::transaction(function () use ($request) {
             $proyek = MasterProyek::create([
                 'id_proyek' => 'PRY-' . Str::uuid(),
-                ...$request->only(['judul_proyek', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode']),
+                ...$request->only(['judul_proyek', 'bentuk', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode']),
             ]);
             $this->sinkronTarget($proyek, $request->targets);
             return $proyek;
@@ -95,7 +97,7 @@ class P5Controller extends Controller
         $this->cekKelas($request, $request->id_kelas);
 
         DB::transaction(function () use ($request, $proyek) {
-            $proyek->update($request->only(['judul_proyek', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode']));
+            $proyek->update($request->only(['judul_proyek', 'bentuk', 'deskripsi_proyek', 'fase', 'id_kelas', 'id_periode']));
             $this->sinkronTarget($proyek, $request->targets);
         });
 

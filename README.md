@@ -1,6 +1,6 @@
 # School Platform
 
-Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), jadwal pembelajaran, input nilai dengan remedial, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, projek P5, cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, manajemen pengguna berbasis peran, portal siswa/orang tua, serta ekspor laporan ke PDF/Excel.
+Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), jadwal pembelajaran, input nilai dengan remedial, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, kegiatan kokurikuler (menu Proyek), cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, manajemen pengguna berbasis peran, portal siswa/orang tua, serta ekspor laporan ke PDF/Excel.
 
 ## Arsitektur
 
@@ -38,7 +38,7 @@ school-platform/
 - **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa); template nilai otomatis memuat satu kolom per indikator aktif materi (judul berkode `[IND-…]`)
 - **Presensi** — input kehadiran siswa per tanggal secara batch
-- **Projek P5** — kelola projek & target, catatan proses (dapat dibuat dengan AI), dan ekstraksi nilai
+- **Proyek (kokurikuler)** — kegiatan kokurikuler pengganti P5 (Permendikdasmen 13/2025): bentuk kegiatan (proyek lintas mapel, 7 Kebiasaan Anak Indonesia Hebat, penguatan intrakurikuler), target **8 Dimensi Profil Lulusan**, catatan proses (dapat dibuat dengan AI), dan ekstraksi predikat dari STNKM. Skala predikat diatur sekolah: 4 tingkat BB/MB/BSH/SB atau 3 tingkat e-Rapor Berkembang/Cakap/Mahir (predikat tetap tersimpan 4 tingkat). Rapor memuat deskripsi capaian dimensi otomatis; tampilan *deskripsi saja* atau *deskripsi + tabel* dipilih saat mencetak
 - **Laporan STNKM** — laporan rata-rata STNKM per kelas/siswa dengan grafik tren, detail siswa, dan ekspor multi-halaman
 - **Cetak Rapor** — data rapor, catatan wali kelas (dapat dibuat dengan AI), cetak, dan distribusi; deskripsi capaian mapel yang dinilai per indikator disusun dari indikatornya (penguasaan terbaik, perlu bimbingan di bawah KKM, atau perlu peningkatan)
 - **WhatsApp (Fonnte)** — kirim pesan otomatis untuk rapor dan presensi lewat gateway Fonnte
@@ -271,9 +271,9 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/presensi` | Daftar presensi | staf | ✔ |
 | POST | `/presensi/batch` | Simpan presensi secara batch | staf | ✔ |
 | DELETE | `/presensi/tanggal` | Hapus presensi per tanggal | staf | ✔ |
-| GET | `/p5` | Data projek P5 | staf | ✔ |
-| POST | `/p5/proyek` | Tambah projek P5 | staf | ✔ |
-| PUT/DELETE | `/p5/proyek/{id}` | Ubah/hapus projek P5 | staf | ✔ |
+| GET | `/p5` | Data kegiatan kokurikuler | staf | ✔ |
+| POST | `/p5/proyek` | Tambah kegiatan kokurikuler (`bentuk`: PROYEK/KEBIASAAN/INTRAKURIKULER) | staf | ✔ |
+| PUT/DELETE | `/p5/proyek/{id}` | Ubah/hapus kegiatan kokurikuler | staf | ✔ |
 | POST | `/p5/catatan` | Simpan catatan proses P5 | staf | ✔ |
 | POST | `/p5/catatan/generate` | Buat catatan P5 dengan AI | staf | ✔ |
 | POST | `/p5/hitung` | Ekstraksi nilai P5 | staf | ✔ |
@@ -311,7 +311,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
 | `/dashboard/jurnal`       | Jurnal (anekdotal & observasi) |
 | `/dashboard/presensi`     | Presensi             |
-| `/dashboard/p5`           | Proyek (P5)          |
+| `/dashboard/p5`           | Proyek (kegiatan kokurikuler) |
 | `/dashboard/import-excel` | Import Excel         |
 | `/dashboard/laporan-stnkm`| STNKM (laporan)      |
 | `/dashboard/rapor`        | Rapor (cetak)        |

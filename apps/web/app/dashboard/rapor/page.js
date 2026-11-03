@@ -6,7 +6,7 @@ import { useAkses } from "@/app/lib/akses";
 
 const getToken = () => localStorage.getItem("token");
 import {
-  DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, urlTtd, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5,
+  DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, urlTtd, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5, TAMPILAN_KOKURIKULER,
 } from "@/components/rapor/raporDokumen";
 import { API_URL } from "@/app/lib/config";
 
@@ -39,6 +39,7 @@ export default function CetakRaporPage() {
   const [filters, setFilters] = useState({ id_periode: "", id_kelas: "", id_siswa: "" });
   const [modeKalkulasi, setModeKalkulasi] = useState("2");
   const [jenisDokumen, setJenisDokumen] = useState("lengkap");
+  const [tampilanKokurikuler, setTampilanKokurikuler] = useState("deskripsi");
   const [bobot, setBobot] = useState({ S: 1, T: 1, N: 1, K: 1, M: 1 });
   const [tanggalRapor, setTanggalRapor] = useState(todayYmd());
   const [data, setData] = useState(null);
@@ -141,7 +142,7 @@ export default function CetakRaporPage() {
   // --- CETAK (jendela cetak bawaan browser → Simpan sebagai PDF) ---
   const handleCetak = () => {
     if (!butuhSiswa()) return;
-    if (halaman.length === 0) return Swal.fire("Tidak Ada Halaman", "Kelas ini belum memiliki projek P5 untuk dicetak.", "info");
+    if (halaman.length === 0) return Swal.fire("Tidak Ada Halaman", "Kelas ini belum memiliki kegiatan kokurikuler untuk dicetak.", "info");
     const win = window.open("", "_blank", "width=1024,height=768");
     if (!win) return Swal.fire("Pop-up Diblokir", "Izinkan pop-up untuk situs ini agar jendela cetak bisa dibuka.", "warning");
     const judul = `Rapor_${jenisDokumen}_${rapor.siswa.nama_siswa}`.replace(/[^\w\-]+/g, "_");
@@ -298,6 +299,14 @@ export default function CetakRaporPage() {
                 {JENIS_DOKUMEN.map((j) => <option key={j.value} value={j.value}>{j.label}</option>)}
               </select>
             </div>
+            {jenisDokumen !== "akademik" && (
+              <div className="col-12 col-sm-6 col-lg-4">
+                <label className="form-label fw-semibold small mb-1">Tampilan Kokurikuler</label>
+                <select className="form-select" value={tampilanKokurikuler} onChange={(e) => setTampilanKokurikuler(e.target.value)}>
+                  {TAMPILAN_KOKURIKULER.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            )}
             <div className="col-12 col-sm-6 col-lg-4">
               <label className="form-label fw-semibold small mb-1">Tanggal Rapor</label>
               <input type="date" className="form-control" value={tanggalRapor} onChange={(e) => e.target.value && setTanggalRapor(e.target.value)} />
@@ -385,7 +394,7 @@ export default function CetakRaporPage() {
           <div className="card-header d-flex flex-wrap align-items-center gap-2">
             <h3 className="card-title fw-semibold mb-0 me-auto"><i className="bi bi-eye me-2"></i>Pratinjau A4 · {halaman.length} halaman</h3>
             {jenisDokumen !== "akademik" && rapor.proyek.length === 0 && (
-              <span className="badge text-bg-light border text-wrap"><i className="bi bi-info-circle me-1"></i>Belum ada projek P5 untuk kelas & periode ini</span>
+              <span className="badge text-bg-light border text-wrap"><i className="bi bi-info-circle me-1"></i>Belum ada kegiatan kokurikuler untuk kelas & periode ini</span>
             )}
           </div>
           <div className="card-body bg-body-secondary">
@@ -395,7 +404,7 @@ export default function CetakRaporPage() {
                 if (h.jenis === "sampul") return <Sampul key={h.key} r={rapor} pecah={pecah} />;
                 if (h.jenis === "biodata") return <Biodata key={h.key} r={rapor} tanggal={tanggalRapor} pecah={pecah} />;
                 if (h.jenis === "akademik") return <Akademik key={h.key} r={rapor} tanggal={tanggalRapor} pecah={pecah} />;
-                return <RaporP5 key={h.key} r={rapor} proyek={h.proyek} urutan={h.urutan} tanggal={tanggalRapor} pecah={pecah} />;
+                return <RaporP5 key={h.key} r={rapor} proyek={h.proyek} urutan={h.urutan} tanggal={tanggalRapor} pecah={pecah} tampilan={tampilanKokurikuler} />;
               })}
               {halaman.length === 0 && <div className="text-center text-muted py-5">Tidak ada halaman untuk jenis dokumen ini.</div>}
             </div>

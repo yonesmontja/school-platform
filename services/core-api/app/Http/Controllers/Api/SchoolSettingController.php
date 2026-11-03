@@ -13,7 +13,8 @@ class SchoolSettingController extends Controller
         $setting = SchoolSetting::first();
         // Jika belum ada data, buatkan default kosong
         if (!$setting) {
-            $setting = SchoolSetting::create(['nama_sekolah' => 'Nama Sekolah Default']);
+            // refresh: nilai bawaan kolom (KKTP, skala kokurikuler) ikut terkirim sejak pertama dibuat
+            $setting = SchoolSetting::create(['nama_sekolah' => 'Nama Sekolah Default'])->refresh();
         }
         return response()->json($setting);
     }
@@ -33,6 +34,7 @@ class SchoolSettingController extends Controller
             'kktp_cukup' => 'sometimes|integer|between:1,98',
             'kktp_baik' => 'sometimes|integer|between:2,99|gt:kktp_cukup',
             'kktp_sangat_baik' => 'sometimes|integer|between:3,100|gt:kktp_baik',
+            'skala_kokurikuler' => 'sometimes|in:3,4',
         ], [
             'kktp_baik.gt' => 'Batas Baik harus lebih tinggi dari batas Cukup.',
             'kktp_sangat_baik.gt' => 'Batas Sangat Baik harus lebih tinggi dari batas Baik.',

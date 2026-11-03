@@ -276,6 +276,21 @@ export default function PengaturanSekolahPage() {
             </div>
 
             <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Skala Predikat Kokurikuler</h5>
+            <p className="small text-muted mb-3">
+              Dipakai di menu Proyek dan bagian kokurikuler rapor. Predikat tetap tersimpan rinci, jadi skala bisa diganti kapan saja tanpa kehilangan data.
+            </p>
+            <div className="d-flex flex-column gap-2">
+              {[["4", "4 tingkat: BB / MB / BSH / SB (seperti P5)"], ["3", "3 tingkat: Berkembang / Cakap / Mahir (mengikuti e-Rapor; BB & MB → Berkembang, BSH → Cakap, SB → Mahir)"]].map(([v, label]) => (
+                <div className="form-check" key={v}>
+                  <input className="form-check-input" type="radio" name="skala_kokurikuler" id={`skala_${v}`} value={v}
+                    checked={String(formData.skala_kokurikuler ?? "4") === v} onChange={handleInputChange} />
+                  <label className="form-check-label small" htmlFor={`skala_${v}`}>{label}</label>
+                </div>
+              ))}
+            </div>
+
+            <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Integrasi AI</h5>
             <p className="small text-muted mb-0">
               Dipakai untuk analisis Jurnal Anekdotal dan Catatan Wali Kelas di rapor. Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.
