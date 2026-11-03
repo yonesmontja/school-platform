@@ -7,6 +7,13 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 
+// Jenis asesmen kurikulum nasional; diagnostik memetakan kemampuan awal dan tidak dihitung ke rapor
+const JENIS_ASESMEN = {
+  DIAGNOSTIK: { label: "Diagnostik", warna: "secondary", info: "Memetakan kemampuan awal; tidak masuk rapor" },
+  FORMATIF: { label: "Formatif", warna: "info", info: "Umpan balik selama proses belajar" },
+  SUMATIF: { label: "Sumatif", warna: "primary", info: "Akhir lingkup materi / semester; masuk rapor" },
+};
+
 const getToken = () => localStorage.getItem("token");
 
 const MATRIX_LABELS = [
@@ -75,13 +82,24 @@ export default function MasterMBKPage() {
         `<span class="text-muted small">${cell.getValue()}</span>`,
     },
     {
-      title: "Kategori Penilaian",
+      title: "Aktivitas",
       field: "kategori_penilaian",
       minWidth: 160,
       widthGrow: 2,
       headerHozAlign: "center",
       formatter: (cell) =>
         `<strong class="text-dark">${cell.getValue()}</strong>`,
+    },
+    {
+      title: "Jenis Asesmen",
+      field: "jenis_asesmen",
+      width: 130,
+      headerHozAlign: "center",
+      hozAlign: "center",
+      formatter: (cell) => {
+        const j = JENIS_ASESMEN[cell.getValue()];
+        return j ? `<span class="badge text-bg-${j.warna}" title="${j.info}">${j.label}</span>` : "-";
+      },
     },
     {
       title: "Keterangan",
@@ -151,7 +169,8 @@ export default function MasterMBKPage() {
 
   const handleExportExcel = () => {
     const data = getFilteredData().map((row) => ({
-      Kategori: row.kategori_penilaian,
+      Aktivitas: row.kategori_penilaian,
+      "Jenis Asesmen": JENIS_ASESMEN[row.jenis_asesmen]?.label || "-",
       Keterangan: row.keterangan || "-",
       "Matriks S": row.mat_S,
       "Matriks T": row.mat_T,
@@ -177,7 +196,8 @@ export default function MasterMBKPage() {
 
   const handleExportCSV = () => {
     const data = getFilteredData().map((row) => ({
-      Kategori: row.kategori_penilaian,
+      Aktivitas: row.kategori_penilaian,
+      "Jenis Asesmen": JENIS_ASESMEN[row.jenis_asesmen]?.label || "-",
       Keterangan: row.keterangan || "-",
       "Matriks S": row.mat_S,
       "Matriks T": row.mat_T,
@@ -207,7 +227,8 @@ export default function MasterMBKPage() {
 
   const handleExportPDF = async () => {
     const data = getFilteredData().map((row) => ({
-      "Kategori Penilaian": row.kategori_penilaian,
+      Aktivitas: row.kategori_penilaian,
+      "Jenis Asesmen": JENIS_ASESMEN[row.jenis_asesmen]?.label || "-",
       Keterangan: row.keterangan || "-",
       S: row.mat_S,
       T: row.mat_T,
@@ -226,7 +247,7 @@ export default function MasterMBKPage() {
     });
     await generateProfessionalPDF(
       data,
-      "Laporan Data MBK (Jenis Penilaian)",
+      "Laporan Data Aktivitas",
       schoolSettings,
       getBase64ImageFromUrl,
     );
@@ -234,7 +255,7 @@ export default function MasterMBKPage() {
   };
 
   const openModal = (mbk = null) => {
-    const defaults = { mat_S: 1, mat_T: 1, mat_N: 1, mat_K: 1, mat_M: 1 };
+    const defaults = { jenis_asesmen: "FORMATIF", mat_S: 1, mat_T: 1, mat_N: 1, mat_K: 1, mat_M: 1 };
     const data = mbk ? { ...defaults, ...mbk } : defaults;
     setFormData({
       ...data,
@@ -293,7 +314,7 @@ export default function MasterMBKPage() {
 
   const handleDelete = async (id) => {
     const confirm = await Swal.fire({
-      title: "Hapus MBK?",
+      title: "Hapus Aktivitas?",
       text: "Data ini akan dihapus permanen.",
       icon: "warning",
       showCancelButton: true,
@@ -334,6 +355,7 @@ export default function MasterMBKPage() {
         visibleColumns={visibleColumns}
         toggleColumn={toggleColumn}
         onAdd={() => openModal()}
+        penambah={["admin", "guru"]}
         onExportExcel={handleExportExcel}
         onExportCSV={handleExportCSV}
         onExportPDF={handleExportPDF}
@@ -344,12 +366,12 @@ export default function MasterMBKPage() {
           className="modal fade show d-block"
           style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050 }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header bg-primary text-white">
                 <h5 className="modal-title fw-bold">
                   <i className="bi bi-list-check me-2"></i>
-                  {formData.id_jenis ? "Edit MBK" : "Tambah MBK Baru"}
+                  {formData.id_jenis ? "Edit Aktivitas" : "Tambah Aktivitas Baru"}
                 </h5>
                 <button
                   type="button"
@@ -362,7 +384,7 @@ export default function MasterMBKPage() {
                   <div className="row g-3 mb-3">
                     <div className="col-md-6">
                       <label className="form-label fw-bold small text-muted">
-                        Kategori Penilaian *
+                        Nama Aktivitas *
                       </label>
                       <input
                         type="text"
@@ -375,8 +397,24 @@ export default function MasterMBKPage() {
                             kategori_penilaian: e.target.value,
                           })
                         }
-                        placeholder="Contoh: Proses/Harian"
+                        placeholder="Contoh: Kuis Lisan, Praktikum"
                       />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold small text-muted">
+                        Jenis Asesmen *
+                      </label>
+                      <select
+                        className="form-select"
+                        required
+                        value={formData.jenis_asesmen || "FORMATIF"}
+                        onChange={(e) => setFormData({ ...formData, jenis_asesmen: e.target.value })}
+                      >
+                        {Object.entries(JENIS_ASESMEN).map(([kode, j]) => (
+                          <option key={kode} value={kode}>{j.label}</option>
+                        ))}
+                      </select>
+                      <div className="form-text">{JENIS_ASESMEN[formData.jenis_asesmen || "FORMATIF"].info}</div>
                     </div>
                     <div className="col-md-6">
                       <label className="form-label fw-bold small text-muted">

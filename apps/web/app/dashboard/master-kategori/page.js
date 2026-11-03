@@ -14,6 +14,7 @@ export default function MasterKategoriPage() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mapels, setMapels] = useState([]);
 
   const safeFetch = async (url, options = {}) => {
     const res = await fetch(url, options);
@@ -26,17 +27,21 @@ export default function MasterKategoriPage() {
   };
 
   const fetchKategoriData = useCallback(async () => {
-    const [resKategori, resSettings] = await Promise.all([
+    const [resKategori, resSettings, resMapel] = await Promise.all([
       safeFetch(`${API_URL}/kategori-penilaian`, { headers: { Authorization: `Bearer ${getToken()}` } }),
       safeFetch(`${API_URL}/settings`, { headers: { Authorization: `Bearer ${getToken()}` } }),
+      safeFetch(`${API_URL}/subjects`, { headers: { Authorization: `Bearer ${getToken()}` } }),
     ]);
     setSchoolSettings(resSettings || null);
+    setMapels(resMapel.data || []);
     return resKategori.data || [];
   }, []);
 
   const COLUMNS_DEF = [
     { title: "ID Kategori", field: "id_kategori", width: 150, headerHozAlign: "center", hozAlign: "center", formatter: (cell) => `<span class="text-muted small">${cell.getValue()}</span>` },
-    { title: "Nama Kategori", field: "nama_kategori", minWidth: 180, widthGrow: 2, headerHozAlign: "center", formatter: (cell) => `<strong class="text-dark">${cell.getValue()}</strong>` },
+    { title: "High Level", field: "nama_kategori", minWidth: 180, widthGrow: 2, headerHozAlign: "center", formatter: (cell) => `<strong class="text-dark">${cell.getValue()}</strong>` },
+    // High Level = Elemen CP; kosong berarti berlaku untuk semua mapel
+    { title: "Mapel", field: "mapel.nama_mapel", minWidth: 150, headerHozAlign: "center", hozAlign: "center", formatter: (cell) => cell.getValue() ? `<span class="badge bg-light text-dark border">${cell.getValue()}</span>` : `<span class="text-muted small fst-italic">Semua mapel</span>` },
     { title: "Keterangan", field: "keterangan", minWidth: 250, widthGrow: 3, headerHozAlign: "center", formatter: (cell) => cell.getValue() || `<span class="text-muted fst-italic">-</span>` },
     {
       title: "Aksi", field: "action", width: 100, hozAlign: "center", headerHozAlign: "center",
@@ -63,7 +68,7 @@ export default function MasterKategoriPage() {
   };
 
   const handleExportExcel = () => {
-    const data = getFilteredData().map(row => ({ "ID": row.id_kategori, "Nama Kategori": row.nama_kategori, "Keterangan": row.keterangan || "-" }));
+    const data = getFilteredData().map(row => ({ "ID": row.id_kategori, "High Level": row.nama_kategori, "Mapel": row.mapel?.nama_mapel || "Semua mapel", "Keterangan": row.keterangan || "-" }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "High Level");
@@ -72,7 +77,7 @@ export default function MasterKategoriPage() {
   };
 
   const handleExportCSV = () => {
-    const data = getFilteredData().map(row => ({ "ID": row.id_kategori, "Nama Kategori": row.nama_kategori, "Keterangan": row.keterangan || "-" }));
+    const data = getFilteredData().map(row => ({ "ID": row.id_kategori, "High Level": row.nama_kategori, "Mapel": row.mapel?.nama_mapel || "Semua mapel", "Keterangan": row.keterangan || "-" }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     const ws = XLSX.utils.json_to_sheet(data);
     const csv = XLSX.utils.sheet_to_csv(ws);
@@ -83,7 +88,7 @@ export default function MasterKategoriPage() {
   };
 
   const handleExportPDF = async () => {
-    const data = getFilteredData().map(row => ({ "Nama Kategori": row.nama_kategori, "Keterangan": row.keterangan || "-" }));
+    const data = getFilteredData().map(row => ({ "High Level": row.nama_kategori, "Mapel": row.mapel?.nama_mapel || "Semua mapel", "Keterangan": row.keterangan || "-" }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     Swal.fire({ title: "Menyiapkan PDF...", allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
     await generateProfessionalPDF(data, "Laporan Data High Level", schoolSettings, getBase64ImageFromUrl);
@@ -102,7 +107,7 @@ export default function MasterKategoriPage() {
     const method = formData.id_kategori ? "PUT" : "POST";
     const url = formData.id_kategori ? `${API_URL}/kategori-penilaian/${formData.id_kategori}` : `${API_URL}/kategori-penilaian`;
     try {
-      await safeFetch(url, { method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify(formData) });
+      await safeFetch(url, { method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ ...formData, id_mapel: formData.id_mapel || null }) });
       Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Data Disimpan!", showConfirmButton: false, timer: 2000 });
       setShowModal(false); refresh();
     } catch (err) { Swal.fire("Gagal", err.message, "error"); } 
@@ -149,8 +154,16 @@ export default function MasterKategoriPage() {
               <form onSubmit={handleSubmit}>
                 <div className="modal-body p-4 bg-white">
                   <div className="mb-3">
-                    <label className="form-label fw-bold small text-muted">Nama Kategori (Topik STNKM) *</label>
-                    <input type="text" className="form-control" required value={formData.nama_kategori || ""} onChange={(e) => setFormData({ ...formData, nama_kategori: e.target.value })} placeholder="Contoh: Skill, Teori, Nalar, Karakter, Minat" />
+                    <label className="form-label fw-bold small text-muted">Nama High Level (Elemen CP / topik) *</label>
+                    <input type="text" className="form-control" required value={formData.nama_kategori || ""} onChange={(e) => setFormData({ ...formData, nama_kategori: e.target.value })} placeholder="Contoh: Membaca, Bilangan, Mengamati" />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold small text-muted">Berlaku untuk mapel</label>
+                    <select className="form-select" value={formData.id_mapel || ""} onChange={(e) => setFormData({ ...formData, id_mapel: e.target.value })}>
+                      <option value="">Semua mapel</option>
+                      {mapels.map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                    </select>
+                    <div className="form-text">Elemen Capaian Pembelajaran biasanya khusus satu mapel, misalnya Bahasa Indonesia: Membaca.</div>
                   </div>
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-muted">Keterangan</label>

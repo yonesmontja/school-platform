@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
+use App\Http\Controllers\Api\IndikatorController;
 use App\Http\Controllers\Api\MateriController;
 use App\Http\Controllers\Api\JurnalController;
 use App\Http\Controllers\Api\LaporanController;
@@ -76,7 +77,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::apiResource('/subjects', SubjectController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/periodes', PeriodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['store', 'update', 'destroy']);
-        Route::apiResource('/mbk', MBKController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('/mbk', MBKController::class)->only(['update', 'destroy']);
+        Route::delete('/indikator/{indikator}', [IndikatorController::class, 'destroy']);
         Route::delete('/materi/{materi}', [MateriController::class, 'destroy']);
 
         Route::get('/users', [UserController::class, 'index']);
@@ -100,9 +102,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/mbk', [MBKController::class, 'index']);
         Route::get('/materi/by-context', [MateriController::class, 'byContext']);
         Route::get('/materi', [MateriController::class, 'index']);
-        // Materi boleh ditambah/diubah semua staf (guru hanya untuk mapel yang diampu); hapus khusus admin
-        Route::post('/materi', [MateriController::class, 'store']);
-        Route::put('/materi/{materi}', [MateriController::class, 'update']);
+        Route::get('/indikator', [IndikatorController::class, 'index']);
 
         // Nilai: guru dibatasi ke mapel yang diampu (dicek di controller)
         Route::prefix('nilai')->group(function () {
@@ -170,6 +170,16 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
         Route::post('/whatsapp', [WhatsAppController::class, 'kirim']);
+    });
+
+    // ===== PENYUSUN REFERENSI PENILAIAN (ADMIN & GURU; KEPSEK LIHAT SAJA) =====
+    // Guru dibatasi ke mapel yang diampu (dicek di controller); ubah/hapus aktivitas, hapus materi & indikator khusus admin
+    Route::middleware('role:admin,guru')->group(function () {
+        Route::post('/mbk', [MBKController::class, 'store']);
+        Route::post('/materi', [MateriController::class, 'store']);
+        Route::put('/materi/{materi}', [MateriController::class, 'update']);
+        Route::post('/indikator', [IndikatorController::class, 'store']);
+        Route::put('/indikator/{indikator}', [IndikatorController::class, 'update']);
     });
 
     // ===== PENGELOLA AKADEMIK (ADMIN & KEPSEK) =====

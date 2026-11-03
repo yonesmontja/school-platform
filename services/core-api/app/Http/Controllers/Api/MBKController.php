@@ -21,6 +21,7 @@ class MBKController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'kategori_penilaian' => 'required|string|max:100',
+            'jenis_asesmen' => 'required|in:DIAGNOSTIK,FORMATIF,SUMATIF',
             'keterangan' => 'nullable|string',
             'mat_S' => 'required|numeric|between:0,1',
             'mat_T' => 'required|numeric|between:0,1',
@@ -36,6 +37,7 @@ class MBKController extends Controller
         $mbk = MasterMBK::create([
             'id_jenis' => 'MBK-' . Str::random(8),
             'kategori_penilaian' => $request->kategori_penilaian,
+            'jenis_asesmen' => $request->jenis_asesmen,
             'keterangan' => $request->keterangan,
             'mat_S' => $request->mat_S,
             'mat_T' => $request->mat_T,
@@ -53,6 +55,7 @@ class MBKController extends Controller
 
         $validator = Validator::make($request->all(), [
             'kategori_penilaian' => 'required|string|max:100',
+            'jenis_asesmen' => 'required|in:DIAGNOSTIK,FORMATIF,SUMATIF',
             'keterangan' => 'nullable|string',
             'mat_S' => 'required|numeric|between:0,1',
             'mat_T' => 'required|numeric|between:0,1',
@@ -67,6 +70,7 @@ class MBKController extends Controller
 
         $mbk->update([
             'kategori_penilaian' => $request->kategori_penilaian,
+            'jenis_asesmen' => $request->jenis_asesmen,
             'keterangan' => $request->keterangan,
             'mat_S' => $request->mat_S,
             'mat_T' => $request->mat_T,

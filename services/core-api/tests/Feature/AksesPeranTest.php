@@ -138,7 +138,7 @@ class AksesPeranTest extends TestCase
         $this->sebagai($this->sekolah->guruA)->getJson('/api/kategori-penilaian')->assertOk();
         $this->getJson('/api/mbk')->assertOk();
         $this->postJson('/api/kategori-penilaian', ['nama_kategori' => 'X'])->assertForbidden();
-        $this->postJson('/api/mbk', ['kategori_penilaian' => 'X'])->assertForbidden();
+        $this->putJson('/api/mbk/JNS-T', ['kategori_penilaian' => 'X'])->assertForbidden();
         $this->postJson('/api/periodes', [])->assertForbidden();
     }
 

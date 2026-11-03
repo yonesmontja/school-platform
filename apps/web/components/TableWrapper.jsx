@@ -17,9 +17,11 @@ export default function TableWrapper({
   onExportPDF,
   // Peran yang boleh menambah/mengubah data di halaman ini
   pengubah = ["admin"],
+  // Peran yang boleh menambah data baru (bawaan: sama dengan pengubah)
+  penambah = pengubah,
 }) {
   const { role, user } = useAkses();
-  const bolehUbah = pengubah.includes(role);
+  const bolehUbah = pengubah.includes(role) || penambah.includes(role);
   const hanyaLihat = !!user && !bolehUbah;
 
   return (
@@ -94,7 +96,7 @@ export default function TableWrapper({
             </button>
           </div>
 
-          {bolehUbah && onAdd && (
+          {penambah.includes(role) && onAdd && (
             <button className="btn btn-primary fw-bold shadow-sm" onClick={onAdd}>
               <i className="bi bi-plus-lg me-2"></i>Tambah Data
             </button>

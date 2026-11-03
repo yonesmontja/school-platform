@@ -33,7 +33,7 @@ school-platform/
 - **Jadwal Pembelajaran** — kalender (FullCalendar) dengan geser-jadwal (drag), ubah status, dan master ruangan (kelola oleh admin/kepsek)
 - **Master Siswa** — CRUD siswa beserta data referensi (agama, suku, pekerjaan, wilayah, orang tua/wali, sekolah asal)
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD; mata pelajaran memiliki KKM per mapel
-- **Master Referensi Penilaian** — CRUD periode, kategori penilaian, MBK, dan materi
+- **Referensi Penilaian (selaras kurikulum nasional)** — Semester; High Level = Elemen CP, bisa khusus satu mapel atau semua mapel; Aktivitas dengan jenis asesmen (diagnostik/formatif/sumatif); Materi memuat Tujuan Pembelajaran (TP) dan banyak Indikator Ketercapaian TP (IKTP) yang bisa diurutkan dan dinonaktifkan. Indikator dan aktivitas ditambah admin atau guru (guru hanya mapel yang diampu), kepsek melihat saja; indikator dihapus admin dan hanya bila belum pernah dipakai menilai
 - **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch (nilai bertanggal), dilengkapi analitik kelas dan riwayat nilai; mode remedial dengan rencana tindak lanjut per siswa
 - **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa)
@@ -240,8 +240,12 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
 | GET | `/portal/rapor` | Rapor anak (portal) | siswa, ortu | ✔ |
 | POST | `/settings` | Simpan pengaturan sekolah | admin | ✔ |
-| POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk` | Tambah/ubah/hapus data master | admin | ✔ |
-| POST/PUT | `/materi` | Tambah/ubah materi (guru hanya mapel yang diampu) | staf | ✔ |
+| POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian` | Tambah/ubah/hapus data master | admin | ✔ |
+| PUT/DELETE | `/mbk/{id}` | Ubah/hapus aktivitas | admin | ✔ |
+| POST | `/mbk` | Tambah aktivitas (`jenis_asesmen`: DIAGNOSTIK/FORMATIF/SUMATIF) | admin, guru | ✔ |
+| POST/PUT | `/materi` | Tambah/ubah materi beserta daftar `indikator` (guru hanya mapel yang diampu) | admin, guru | ✔ |
+| GET · POST/PUT | `/indikator` | Daftar (staf) · tambah/ubah (admin, guru) indikator (IKTP) suatu materi | staf | ✔ |
+| DELETE | `/indikator/{id}` | Hapus indikator yang belum pernah dipakai menilai | admin | ✔ |
 | DELETE | `/materi/{id}` | Hapus materi | admin | ✔ |
 | GET/POST/PUT/DELETE | `/users, /users/{id}` | Kelola akun pengguna | admin | ✔ |
 | POST | `/users/generate` | Buat akun massal | admin | ✔ |
@@ -302,7 +306,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/master-periode`  | Semester (admin & kepsek) |
 | `/dashboard/master-kategori` | High Level (kategori penilaian) |
 | `/dashboard/master-mbk`   | Aktivitas (MBK)      |
-| `/dashboard/master-materi`| Materi (staf tambah/ubah; guru hanya mapel diampu; hapus khusus admin) |
+| `/dashboard/master-materi`| Materi (admin & guru tambah/ubah, guru hanya mapel diampu; kepsek lihat; hapus khusus admin) |
 | `/dashboard/jadwal`       | Jadwal (grup menu "TDU - Jadwal") |
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
 | `/dashboard/jurnal`       | Jurnal (anekdotal & observasi) |

@@ -7,9 +7,10 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksesDari, bacaUser, useAkses } from "@/app/lib/akses";
+import DaftarIndikator from "@/components/referensi/DaftarIndikator";
 
-// Semua staf boleh menambah & mengubah materi (guru hanya mapel yang diampu); hapus khusus admin
-const PENGUBAH = ["admin", "kepsek", "guru"];
+// Admin & guru menambah dan mengubah materi (guru hanya mapel yang diampu); kepsek melihat saja; hapus khusus admin
+const PENGUBAH = ["admin", "guru"];
 
 const getToken = () => localStorage.getItem("token");
 
@@ -133,6 +134,18 @@ export default function MasterMateriPage() {
         cell.getValue()
           ? `<span class="badge bg-secondary">${cell.getValue()}</span>`
           : "-",
+    },
+    {
+      title: "Indikator",
+      field: "indikator",
+      width: 100,
+      headerHozAlign: "center",
+      hozAlign: "center",
+      headerSort: false,
+      formatter: (cell) => {
+        const aktif = (cell.getValue() || []).filter((i) => i.aktif).length;
+        return aktif ? `<span class="badge bg-primary-subtle text-primary-emphasis border">${aktif} IKTP</span>` : `<span class="text-muted small">-</span>`;
+      },
     },
     {
       title: "Matriks STNKM",
@@ -304,6 +317,7 @@ export default function MasterMateriPage() {
       mat_N: parseFloat(data.mat_N) || 1,
       mat_K: parseFloat(data.mat_K) || 1,
       mat_M: parseFloat(data.mat_M) || 1,
+      indikator: (data.indikator || []).map(({ id_indikator, deskripsi, aktif }) => ({ id_indikator, deskripsi, aktif })),
     });
     setShowModal(true);
   };
@@ -333,7 +347,10 @@ export default function MasterMateriPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          indikator: (formData.indikator || []).filter((i) => i.deskripsi?.trim()),
+        }),
       });
       Swal.fire({
         toast: true,
@@ -433,9 +450,13 @@ export default function MasterMateriPage() {
                         className="form-select"
                         required
                         value={formData.id_mapel || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, id_mapel: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const id_mapel = e.target.value;
+                          const kategori = kategoris.find((k) => k.id_kategori === formData.id_kategori);
+                          // High Level khusus mapel lain tidak berlaku lagi setelah mapel diganti
+                          const tetap = kategori && (!kategori.id_mapel || kategori.id_mapel === id_mapel);
+                          setFormData({ ...formData, id_mapel, id_kategori: tetap ? formData.id_kategori : "" });
+                        }}
                       >
                         <option value="">-- Pilih Mapel --</option>
                         {mapels.filter((m) => bolehNilaiMapel(m.id_mapel)).map((m) => (
@@ -505,11 +526,13 @@ export default function MasterMateriPage() {
                         }
                       >
                         <option value="">-- Pilih High Level --</option>
-                        {kategoris.map((k) => (
-                          <option key={k.id_kategori} value={k.id_kategori}>
-                            {k.nama_kategori}
-                          </option>
-                        ))}
+                        {kategoris
+                          .filter((k) => !k.id_mapel || k.id_mapel === formData.id_mapel)
+                          .map((k) => (
+                            <option key={k.id_kategori} value={k.id_kategori}>
+                              {k.nama_kategori}{k.id_mapel ? "" : " (semua mapel)"}
+                            </option>
+                          ))}
                       </select>
                     </div>
                   </div>
@@ -534,7 +557,7 @@ export default function MasterMateriPage() {
                   </div>
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-muted">
-                      Deskripsi Kompetensi / Tujuan Pembelajaran
+                      Tujuan Pembelajaran (TP)
                     </label>
                     <textarea
                       className="form-control"
@@ -546,9 +569,14 @@ export default function MasterMateriPage() {
                           deskripsi_kompetensi: e.target.value,
                         })
                       }
-                      placeholder="Apa yang akan dicapai siswa?"
+                      placeholder="Contoh: Peserta didik mampu membandingkan dan mengurutkan pecahan."
                     ></textarea>
                   </div>
+
+                  <DaftarIndikator
+                    daftar={formData.indikator || []}
+                    onChange={(indikator) => setFormData((f) => ({ ...f, indikator }))}
+                  />
 
                   <div className="border-top pt-3">
                     <h6 className="fw-bold text-secondary mb-3">

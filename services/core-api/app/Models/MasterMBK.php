@@ -7,5 +7,5 @@ class MasterMBK extends Model {
     protected $primaryKey = 'id_jenis';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $fillable = ['id_jenis', 'kategori_penilaian', 'keterangan', 'mat_S', 'mat_T', 'mat_N', 'mat_K', 'mat_M'];
+    protected $fillable = ['id_jenis', 'kategori_penilaian', 'jenis_asesmen', 'keterangan', 'mat_S', 'mat_T', 'mat_N', 'mat_K', 'mat_M'];
 }
