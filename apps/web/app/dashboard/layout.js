@@ -28,26 +28,26 @@ const MENU_GROUPS = [
     items: [
       { href: "/dashboard/master-periode", label: "Semester", icon: "bi-calendar-week", peran: PENGELOLA },
       { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
-      { href: "/dashboard/master-mbk", label: "Master MBK (Aktivitas)", icon: "bi-list-check" },
+      { href: "/dashboard/master-mbk", label: "Aktivitas", icon: "bi-list-check" },
       { href: "/dashboard/master-materi", label: "Materi", icon: "bi-journal-bookmark" },
     ],
   },
   {
     id: "transaksi", label: "TDU - Jadwal", icon: "bi-lightning-charge",
     items: [
-      { href: "/dashboard/jadwal", label: "Jadwal Pembelajaran", icon: "bi-calendar3-week" },
+      { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
-      { href: "/dashboard/jurnal", label: "Jurnal Anekdotal", icon: "bi-journal-text" },
-      { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
-      { href: "/dashboard/p5", label: "Projek P5", icon: "bi-stars" },
       { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
+      { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },
+      { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
+      { href: "/dashboard/p5", label: "Proyek", icon: "bi-stars" },
     ],
   },
   {
     id: "laporan", label: "Laporan", icon: "bi-bar-chart-line",
     items: [
-      { href: "/dashboard/laporan-stnkm", label: "Laporan STNKM", icon: "bi-graph-up-arrow" },
-      { href: "/dashboard/rapor", label: "Cetak Rapor", icon: "bi-file-earmark-richtext" },
+      { href: "/dashboard/laporan-stnkm", label: "STNKM", icon: "bi-graph-up-arrow" },
+      { href: "/dashboard/rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
     ],
   },
   {

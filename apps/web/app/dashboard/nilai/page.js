@@ -467,7 +467,7 @@ export default function InputNilaiPage() {
       "Mata Pelajaran": r.mapel?.nama_mapel || r.id_mapel,
       "Jenis": r.jenis?.kategori_penilaian || r.id_jenis,
       "Materi": r.materi?.nama_materi || r.id_materi,
-      "Kategori STNKM": r.materi?.kategori?.nama_kategori || "-",
+      "High Level": r.materi?.kategori?.nama_kategori || "-",
       "KKM": kkmR,
       "Nilai": formatAngka(v),
       "Ketuntasan": v >= kkmR ? "TUNTAS" : "BELUM TUNTAS",
@@ -528,7 +528,7 @@ export default function InputNilaiPage() {
       "Nama Siswa": r["Nama Siswa"],
       "Mapel": r["Mata Pelajaran"],
       "Jenis": r.Jenis,
-      "Materi (Kategori)": `${r.Materi}${r["Kategori STNKM"] !== "-" ? ` (${r["Kategori STNKM"]})` : ""}`,
+      "Materi (High Level)": `${r.Materi}${r["High Level"] !== "-" ? ` (${r["High Level"]})` : ""}`,
       "KKM": r.KKM,
       "Nilai": r.Nilai,
       "Ketuntasan": r.Ketuntasan,
@@ -906,7 +906,7 @@ export default function InputNilaiPage() {
                       {sortHeader("siswa", "Siswa")}
                       {sortHeader("mapel", "Mapel")}
                       {sortHeader("jenis", "Jenis")}
-                      <th>Materi & Kategori STNKM</th>
+                      <th>Materi & High Level</th>
                       {sortHeader("nilai", "Nilai", "text-center")}
                       {sortHeader("guru", "Pengisi")}
                       <th className="text-center">Aksi</th>

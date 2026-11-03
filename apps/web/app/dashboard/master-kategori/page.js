@@ -66,7 +66,7 @@ export default function MasterKategoriPage() {
     const data = getFilteredData().map(row => ({ "ID": row.id_kategori, "Nama Kategori": row.nama_kategori, "Keterangan": row.keterangan || "-" }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Kategori");
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "High Level");
     XLSX.writeFile(wb, `Data_Kategori_${new Date().getTime()}.xlsx`);
     Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Excel diunduh", showConfirmButton: false, timer: 2000 });
   };

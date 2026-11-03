@@ -301,16 +301,16 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/master-mapel` | Master Mata Pelajaran (admin & kepsek) |
 | `/dashboard/master-periode`  | Semester (admin & kepsek) |
 | `/dashboard/master-kategori` | High Level (kategori penilaian) |
-| `/dashboard/master-mbk`   | Master MBK (Aktivitas) |
+| `/dashboard/master-mbk`   | Aktivitas (MBK)      |
 | `/dashboard/master-materi`| Materi (staf tambah/ubah; guru hanya mapel diampu; hapus khusus admin) |
-| `/dashboard/jadwal`       | Jadwal Pembelajaran (grup menu "TDU - Jadwal") |
+| `/dashboard/jadwal`       | Jadwal (grup menu "TDU - Jadwal") |
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
-| `/dashboard/jurnal`       | Jurnal Anekdotal     |
+| `/dashboard/jurnal`       | Jurnal (anekdotal & observasi) |
 | `/dashboard/presensi`     | Presensi             |
-| `/dashboard/p5`           | Projek P5            |
+| `/dashboard/p5`           | Proyek (P5)          |
 | `/dashboard/import-excel` | Import Excel         |
-| `/dashboard/laporan-stnkm`| Laporan STNKM        |
-| `/dashboard/rapor`        | Cetak Rapor          |
+| `/dashboard/laporan-stnkm`| STNKM (laporan)      |
+| `/dashboard/rapor`        | Rapor (cetak)        |
 | `/dashboard/akun`         | Akun Saya            |
 | `/dashboard/pengguna`     | Manajemen Pengguna (admin) |
 | `/dashboard/pengaturan`   | Pengaturan Sekolah (admin) |

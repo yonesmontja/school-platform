@@ -124,7 +124,7 @@ export default function MasterMateriPage() {
           : "-",
     },
     {
-      title: "Kategori",
+      title: "High Level",
       field: "kategori.nama_kategori",
       width: 120,
       headerHozAlign: "center",
@@ -491,7 +491,7 @@ export default function MasterMateriPage() {
                     </div>
                     <div className="col-md-6">
                       <label className="form-label fw-bold small text-muted">
-                        Kategori STNKM *
+                        High Level *
                       </label>
                       <select
                         className="form-select"
@@ -504,7 +504,7 @@ export default function MasterMateriPage() {
                           })
                         }
                       >
-                        <option value="">-- Pilih Kategori --</option>
+                        <option value="">-- Pilih High Level --</option>
                         {kategoris.map((k) => (
                           <option key={k.id_kategori} value={k.id_kategori}>
                             {k.nama_kategori}

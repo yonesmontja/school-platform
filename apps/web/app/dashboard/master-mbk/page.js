@@ -324,7 +324,7 @@ export default function MasterMBKPage() {
   return (
     <>
       <TableWrapper
-        title="Master MBK (Aktivitas)"
+        title="Aktivitas"
         icon="bi-list-check"
         loading={loading}
         searchQuery={searchQuery}
