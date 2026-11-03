@@ -63,9 +63,14 @@ export default function JadwalPage() {
   useEffect(() => {
     if (prefsSiap) try { localStorage.setItem(KEY_PREFS, JSON.stringify(prefs)); } catch (e) { /* storage diblokir */ }
   }, [prefs, prefsSiap]);
-  // FullCalendar hanya membaca initialView saat pertama dipasang; terapkan tampilan tersimpan setelah preferensi termuat
+  // FullCalendar hanya membaca initialView saat pertama dipasang; terapkan tampilan tersimpan setelah preferensi termuat.
+  // changeView memanggil flushSync, jadi ditunda ke microtask agar tidak berjalan di tengah render React.
   useEffect(() => {
-    if (prefsSiap && api() && api().view.type !== prefs.view) api().changeView(prefs.view);
+    if (!prefsSiap) return;
+    queueMicrotask(() => {
+      const kal = api();
+      if (kal && kal.view.type !== prefs.view) kal.changeView(prefs.view);
+    });
   }, [prefsSiap]);
   const ubahPrefs = (patch) => setPrefs((p) => ({ ...p, ...patch }));
 
