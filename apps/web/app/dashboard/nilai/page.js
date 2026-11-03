@@ -572,7 +572,7 @@ export default function InputNilaiPage() {
         </div>
         <ol className="breadcrumb mb-0 small">
           <li className="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
-          <li className="breadcrumb-item">Transaksi</li>
+          <li className="breadcrumb-item">TDU - Jadwal</li>
           <li className="breadcrumb-item active" aria-current="page">Input Nilai</li>
         </ol>
       </div>

@@ -77,7 +77,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::apiResource('/periodes', PeriodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/mbk', MBKController::class)->only(['store', 'update', 'destroy']);
-        Route::apiResource('/materi', MateriController::class)->only(['store', 'update', 'destroy']);
+        Route::delete('/materi/{materi}', [MateriController::class, 'destroy']);
 
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
@@ -100,6 +100,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/mbk', [MBKController::class, 'index']);
         Route::get('/materi/by-context', [MateriController::class, 'byContext']);
         Route::get('/materi', [MateriController::class, 'index']);
+        // Materi boleh ditambah/diubah semua staf (guru hanya untuk mapel yang diampu); hapus khusus admin
+        Route::post('/materi', [MateriController::class, 'store']);
+        Route::put('/materi/{materi}', [MateriController::class, 'update']);
 
         // Nilai: guru dibatasi ke mapel yang diampu (dicek di controller)
         Route::prefix('nilai')->group(function () {

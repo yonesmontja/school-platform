@@ -12,27 +12,28 @@ const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "b
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
 
 // Grup menu sidebar staf; setiap grup bisa dilipat/dibuka. Item ber-"peran" hanya tampil untuk peran tsb.
+const PENGELOLA = ["admin", "kepsek"];
 const MENU_GROUPS = [
   {
     id: "master", label: "Master Data", icon: "bi-database",
     items: [
-      { href: "/dashboard/master-siswa", label: "Master Siswa", icon: "bi-people-fill" },
-      { href: "/dashboard/master-guru", label: "Master Guru", icon: "bi-person-video3" },
-      { href: "/dashboard/master-kelas", label: "Master Kelas", icon: "bi-door-open-fill" },
-      { href: "/dashboard/master-mapel", label: "Master Mapel", icon: "bi-book-half" },
+      { href: "/dashboard/master-siswa", label: "Master Siswa", icon: "bi-people-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-guru", label: "Master Guru", icon: "bi-person-video3", peran: PENGELOLA },
+      { href: "/dashboard/master-kelas", label: "Master Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-mapel", label: "Master Mapel", icon: "bi-book-half", peran: PENGELOLA },
     ],
   },
   {
     id: "referensi", label: "Referensi Penilaian", icon: "bi-sliders2",
     items: [
-      { href: "/dashboard/master-periode", label: "Master Periode", icon: "bi-calendar-week" },
-      { href: "/dashboard/master-kategori", label: "Master Kategori", icon: "bi-tags" },
-      { href: "/dashboard/master-mbk", label: "Master MBK", icon: "bi-list-check" },
-      { href: "/dashboard/master-materi", label: "Master Materi", icon: "bi-journal-bookmark" },
+      { href: "/dashboard/master-periode", label: "Semester", icon: "bi-calendar-week", peran: PENGELOLA },
+      { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
+      { href: "/dashboard/master-mbk", label: "Master MBK (Aktivitas)", icon: "bi-list-check" },
+      { href: "/dashboard/master-materi", label: "Materi", icon: "bi-journal-bookmark" },
     ],
   },
   {
-    id: "transaksi", label: "Transaksi", icon: "bi-lightning-charge",
+    id: "transaksi", label: "TDU - Jadwal", icon: "bi-lightning-charge",
     items: [
       { href: "/dashboard/jadwal", label: "Jadwal Pembelajaran", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
@@ -325,9 +326,10 @@ export default function DashboardLayout({ children }) {
             <li className="nav-item">
               <button
                 onClick={handleLogout}
-                className="btn btn-danger btn-sm rounded-pill px-3 fw-bold"
+                className="btn btn-danger btn-sm rounded-pill px-3 fw-bold btn-keluar"
+                title="Keluar"
               >
-                <i className="bi bi-power me-1"></i> Keluar
+                <i className="bi bi-power me-1"></i><span className="label-keluar"> Keluar</span>
               </button>
             </li>
           </ul>

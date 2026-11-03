@@ -32,6 +32,8 @@ class MateriController extends Controller
 
     public function store(Request $request)
     {
+        $this->pastikanBolehKelola($request);
+
         $validator = Validator::make($request->all(), [
             'id_mapel' => 'required|exists:subjects,id_mapel',
             'id_kelas' => 'required|exists:classes,id_kelas',
@@ -71,6 +73,9 @@ class MateriController extends Controller
     public function update(Request $request, $id)
     {
         $materi = MasterMateri::findOrFail($id);
+        // Guru tidak boleh mengubah materi mapel lain, termasuk memindahkannya ke mapel yang ia ampu
+        abort_unless($request->user()->bolehNilaiMapel($materi->id_mapel), 403, 'Anda hanya dapat mengelola materi mata pelajaran yang Anda ampu.');
+        $this->pastikanBolehKelola($request);
 
         $validator = Validator::make($request->all(), [
             'id_mapel' => 'required|exists:subjects,id_mapel',
@@ -105,6 +110,14 @@ class MateriController extends Controller
         ]);
 
         return response()->json(['message' => 'Materi berhasil diperbarui', 'data' => $materi->load(['mapel', 'kelas', 'periode', 'kategori'])]);
+    }
+
+    /** Guru hanya mengelola materi mapel yang ia ampu; admin & kepsek semua mapel. */
+    private function pastikanBolehKelola(Request $request): void
+    {
+        if ($request->filled('id_mapel')) {
+            abort_unless($request->user()->bolehNilaiMapel($request->id_mapel), 403, 'Anda hanya dapat mengelola materi mata pelajaran yang Anda ampu.');
+        }
     }
 
     public function destroy($id)

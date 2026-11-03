@@ -86,7 +86,7 @@ export default function MasterKategoriPage() {
     const data = getFilteredData().map(row => ({ "Nama Kategori": row.nama_kategori, "Keterangan": row.keterangan || "-" }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     Swal.fire({ title: "Menyiapkan PDF...", allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-    await generateProfessionalPDF(data, "Laporan Data Kategori Penilaian", schoolSettings, getBase64ImageFromUrl);
+    await generateProfessionalPDF(data, "Laporan Data High Level", schoolSettings, getBase64ImageFromUrl);
     Swal.close();
   };
 
@@ -110,7 +110,7 @@ export default function MasterKategoriPage() {
   };
 
   const handleDelete = async (id) => {
-    const confirm = await Swal.fire({ title: "Hapus Kategori?", text: "Data ini akan dihapus permanen.", icon: "warning", showCancelButton: true, confirmButtonColor: "#d33", confirmButtonText: "Ya, Hapus!" });
+    const confirm = await Swal.fire({ title: "Hapus High Level?", text: "Data ini akan dihapus permanen.", icon: "warning", showCancelButton: true, confirmButtonColor: "#d33", confirmButtonText: "Ya, Hapus!" });
     if (confirm.isConfirmed) {
       try {
         await safeFetch(`${API_URL}/kategori-penilaian/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` } });
@@ -123,7 +123,7 @@ export default function MasterKategoriPage() {
   return (
     <>
       <TableWrapper
-        title="Master Kategori Penilaian"
+        title="High Level"
         icon="bi-tags"
         loading={loading}
         searchQuery={searchQuery}
@@ -143,7 +143,7 @@ export default function MasterKategoriPage() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header bg-primary text-white">
-                <h5 className="modal-title fw-bold"><i className="bi bi-tags me-2"></i>{formData.id_kategori ? "Edit Kategori" : "Tambah Kategori Baru"}</h5>
+                <h5 className="modal-title fw-bold"><i className="bi bi-tags me-2"></i>{formData.id_kategori ? "Edit High Level" : "Tambah High Level Baru"}</h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleSubmit}>

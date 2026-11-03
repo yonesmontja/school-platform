@@ -95,7 +95,7 @@ export default function MasterPeriodePage() {
     const data = getFilteredData().map(row => ({ "Tahun Ajaran": row.tahun_ajaran, "Semester": row.semester, "Status": row.status_aktif }));
     if (data.length === 0) return Swal.fire("Kosong", "Tidak ada data", "warning");
     Swal.fire({ title: "Menyiapkan PDF...", allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
-    await generateProfessionalPDF(data, "Laporan Data Periode Akademik", schoolSettings, getBase64ImageFromUrl);
+    await generateProfessionalPDF(data, "Laporan Data Semester", schoolSettings, getBase64ImageFromUrl);
     Swal.close();
   };
 
@@ -119,7 +119,7 @@ export default function MasterPeriodePage() {
   };
 
   const handleDelete = async (id) => {
-    const confirm = await Swal.fire({ title: "Hapus Periode?", text: "Data ini akan dihapus permanen.", icon: "warning", showCancelButton: true, confirmButtonColor: "#d33", confirmButtonText: "Ya, Hapus!" });
+    const confirm = await Swal.fire({ title: "Hapus Semester?", text: "Data ini akan dihapus permanen.", icon: "warning", showCancelButton: true, confirmButtonColor: "#d33", confirmButtonText: "Ya, Hapus!" });
     if (confirm.isConfirmed) {
       try {
         await safeFetch(`${API_URL}/periodes/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` } });
@@ -132,7 +132,7 @@ export default function MasterPeriodePage() {
   return (
     <>
       <TableWrapper
-        title="Master Periode Akademik"
+        title="Semester"
         icon="bi-calendar-week"
         loading={loading}
         searchQuery={searchQuery}
@@ -152,7 +152,7 @@ export default function MasterPeriodePage() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header bg-primary text-white">
-                <h5 className="modal-title fw-bold"><i className="bi bi-calendar-week me-2"></i>{formData.id_periode ? "Edit Periode" : "Tambah Periode Baru"}</h5>
+                <h5 className="modal-title fw-bold"><i className="bi bi-calendar-week me-2"></i>{formData.id_periode ? "Edit Semester" : "Tambah Semester Baru"}</h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowModal(false)}></button>
               </div>
               <form onSubmit={handleSubmit}>

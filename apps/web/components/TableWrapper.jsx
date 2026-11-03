@@ -15,9 +15,12 @@ export default function TableWrapper({
   onExportExcel,
   onExportCSV,
   onExportPDF,
+  // Peran yang boleh menambah/mengubah data di halaman ini
+  pengubah = ["admin"],
 }) {
-  const { isAdmin, user } = useAkses();
-  const hanyaLihat = !!user && !isAdmin;
+  const { role, user } = useAkses();
+  const bolehUbah = pengubah.includes(role);
+  const hanyaLihat = !!user && !bolehUbah;
 
   return (
     <div className="container-fluid mt-4 mb-5">
@@ -91,7 +94,7 @@ export default function TableWrapper({
             </button>
           </div>
 
-          {isAdmin && onAdd && (
+          {bolehUbah && onAdd && (
             <button className="btn btn-primary fw-bold shadow-sm" onClick={onAdd}>
               <i className="bi bi-plus-lg me-2"></i>Tambah Data
             </button>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\MasterKategoriPenilaian;
 use App\Models\TransJurnal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -108,6 +109,37 @@ class AksesPeranTest extends TestCase
         ]));
         $this->sebagai($this->sekolah->guruA)->deleteJson('/api/jurnal/JRN-T')->assertForbidden();
         $this->assertDatabaseHas('trans_jurnal', ['id_jurnal' => 'JRN-T']);
+    }
+
+    public function test_guru_menambah_dan_mengubah_materi_mapel_diampu_tanpa_bisa_menghapus(): void
+    {
+        MasterKategoriPenilaian::create(['id_kategori' => 'KTG-T', 'nama_kategori' => 'Pengetahuan']);
+        $materi = fn (string $mapel, string $nama) => [
+            'id_mapel' => $mapel, 'id_kelas' => 'KLS-A', 'id_periode' => 'PER-T', 'id_kategori' => 'KTG-T', 'nama_materi' => $nama,
+            'mat_S' => 0.2, 'mat_T' => 0.2, 'mat_N' => 0.2, 'mat_K' => 0.2, 'mat_M' => 0.2,
+        ];
+
+        $this->sebagai($this->sekolah->guruA)->postJson('/api/materi', $materi('MPL-A', 'Desimal'))->assertCreated();
+        $this->putJson('/api/materi/MTR-T', $materi('MPL-A', 'Pecahan Campuran'))->assertOk();
+        $this->assertDatabaseHas('master_materi', ['id_materi' => 'MTR-T', 'nama_materi' => 'Pecahan Campuran']);
+
+        // Mapel yang tidak diampu: tidak boleh ditambah, dan materi MPL-A tidak boleh dipindah ke sana
+        $this->postJson('/api/materi', $materi('MPL-B', 'Ekosistem'))->assertForbidden();
+        $this->putJson('/api/materi/MTR-T', $materi('MPL-B', 'Pindah'))->assertForbidden();
+        $this->sebagai($this->sekolah->guruB)->putJson('/api/materi/MTR-T', $materi('MPL-B', 'Ambil'))->assertForbidden();
+
+        $this->sebagai($this->sekolah->guruA)->deleteJson('/api/materi/MTR-T')->assertForbidden();
+        $this->sebagai($this->sekolah->kepsek)->deleteJson('/api/materi/MTR-T')->assertForbidden();
+        $this->sebagai($this->sekolah->admin)->deleteJson('/api/materi/MTR-T')->assertOk();
+    }
+
+    public function test_referensi_lain_tetap_hanya_dibaca_guru(): void
+    {
+        $this->sebagai($this->sekolah->guruA)->getJson('/api/kategori-penilaian')->assertOk();
+        $this->getJson('/api/mbk')->assertOk();
+        $this->postJson('/api/kategori-penilaian', ['nama_kategori' => 'X'])->assertForbidden();
+        $this->postJson('/api/mbk', ['kategori_penilaian' => 'X'])->assertForbidden();
+        $this->postJson('/api/periodes', [])->assertForbidden();
     }
 
     public function test_portal_siswa_hanya_melihat_data_sendiri(): void

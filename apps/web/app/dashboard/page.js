@@ -406,7 +406,7 @@ export default function DashboardPage() {
 
       {!data ? (
         status === "ok" ? (
-          <div className="dash-empty py-5"><i className="bi bi-calendar-x fs-2 d-block mb-2"></i>Belum ada periode akademik. Tambahkan dulu di <Link href="/dashboard/master-periode">Master Periode</Link>.</div>
+          <div className="dash-empty py-5"><i className="bi bi-calendar-x fs-2 d-block mb-2"></i>Belum ada periode akademik. Tambahkan dulu di <Link href="/dashboard/master-periode">Semester</Link>.</div>
         ) : status !== "gagal" && <div className="dash-empty py-5"><div className="spinner-border text-primary mb-2"></div><div>Menyiapkan dasbor mutu akademik...</div></div>
       ) : (
         <>

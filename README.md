@@ -240,7 +240,9 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
 | GET | `/portal/rapor` | Rapor anak (portal) | siswa, ortu | ✔ |
 | POST | `/settings` | Simpan pengaturan sekolah | admin | ✔ |
-| POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk, /materi` | Tambah/ubah/hapus data master | admin | ✔ |
+| POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk` | Tambah/ubah/hapus data master | admin | ✔ |
+| POST/PUT | `/materi` | Tambah/ubah materi (guru hanya mapel yang diampu) | staf | ✔ |
+| DELETE | `/materi/{id}` | Hapus materi | admin | ✔ |
 | GET/POST/PUT/DELETE | `/users, /users/{id}` | Kelola akun pengguna | admin | ✔ |
 | POST | `/users/generate` | Buat akun massal | admin | ✔ |
 | POST | `/users/{id}/reset-password` | Reset password pengguna | admin | ✔ |
@@ -293,15 +295,15 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 |---------------------------|----------------------|
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
-| `/dashboard/master-siswa` | Master Siswa         |
-| `/dashboard/master-guru`  | Master Guru          |
-| `/dashboard/master-kelas` | Master Kelas         |
-| `/dashboard/master-mapel` | Master Mata Pelajaran|
-| `/dashboard/master-periode`  | Master Periode    |
-| `/dashboard/master-kategori` | Master Kategori Penilaian |
-| `/dashboard/master-mbk`   | Master MBK           |
-| `/dashboard/master-materi`| Master Materi        |
-| `/dashboard/jadwal`       | Jadwal Pembelajaran  |
+| `/dashboard/master-siswa` | Master Siswa (admin & kepsek)  |
+| `/dashboard/master-guru`  | Master Guru (admin & kepsek)   |
+| `/dashboard/master-kelas` | Master Kelas (admin & kepsek)  |
+| `/dashboard/master-mapel` | Master Mata Pelajaran (admin & kepsek) |
+| `/dashboard/master-periode`  | Semester (admin & kepsek) |
+| `/dashboard/master-kategori` | High Level (kategori penilaian) |
+| `/dashboard/master-mbk`   | Master MBK (Aktivitas) |
+| `/dashboard/master-materi`| Materi (staf tambah/ubah; guru hanya mapel diampu; hapus khusus admin) |
+| `/dashboard/jadwal`       | Jadwal Pembelajaran (grup menu "TDU - Jadwal") |
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
 | `/dashboard/jurnal`       | Jurnal Anekdotal     |
 | `/dashboard/presensi`     | Presensi             |

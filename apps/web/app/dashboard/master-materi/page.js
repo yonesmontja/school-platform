@@ -6,6 +6,10 @@ import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
+import { aksesDari, bacaUser, useAkses } from "@/app/lib/akses";
+
+// Semua staf boleh menambah & mengubah materi (guru hanya mapel yang diampu); hapus khusus admin
+const PENGUBAH = ["admin", "kepsek", "guru"];
 
 const getToken = () => localStorage.getItem("token");
 
@@ -144,8 +148,14 @@ export default function MasterMateriPage() {
       width: 100,
       hozAlign: "center",
       headerHozAlign: "center",
-      formatter: () =>
-        `<button class="btn btn-sm btn-primary me-1 btn-edit"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash"></i></button>`,
+      formatter: (cell) => {
+        const akses = aksesDari(bacaUser());
+        const edit = akses.bolehNilaiMapel(cell.getRow().getData().id_mapel)
+          ? `<button class="btn btn-sm btn-primary me-1 btn-edit" title="Ubah"><i class="bi bi-pencil-square"></i></button>` : "";
+        const hapus = akses.isAdmin
+          ? `<button class="btn btn-sm btn-outline-danger btn-delete" title="Hapus"><i class="bi bi-trash"></i></button>` : "";
+        return edit + hapus || `<span class="text-muted small">-</span>`;
+      },
       cellClick: (e, cell) => {
         if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
         if (e.target.closest(".btn-delete"))
@@ -166,7 +176,8 @@ export default function MasterMateriPage() {
   } = useTableLogic(fetchMateriData, COLUMNS_DEF, [
     "nama_materi",
     "deskripsi_kompetensi",
-  ]);
+  ], { pengubah: PENGUBAH });
+  const { bolehNilaiMapel } = useAkses();
 
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
@@ -374,7 +385,7 @@ export default function MasterMateriPage() {
   return (
     <>
       <TableWrapper
-        title="Master Materi Pembelajaran"
+        title="Materi"
         icon="bi-journal-bookmark"
         loading={loading}
         searchQuery={searchQuery}
@@ -384,6 +395,7 @@ export default function MasterMateriPage() {
         visibleColumns={visibleColumns}
         toggleColumn={toggleColumn}
         onAdd={() => openModal()}
+        pengubah={PENGUBAH}
         onExportExcel={handleExportExcel}
         onExportCSV={handleExportCSV}
         onExportPDF={handleExportPDF}
@@ -426,7 +438,7 @@ export default function MasterMateriPage() {
                         }
                       >
                         <option value="">-- Pilih Mapel --</option>
-                        {mapels.map((m) => (
+                        {mapels.filter((m) => bolehNilaiMapel(m.id_mapel)).map((m) => (
                           <option key={m.id_mapel} value={m.id_mapel}>
                             {m.nama_mapel}
                           </option>

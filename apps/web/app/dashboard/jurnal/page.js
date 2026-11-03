@@ -658,7 +658,7 @@ export default function JurnalAnekdotalPage() {
         <h3 className="fw-bold text-primary mb-0"><i className="bi bi-journal-text me-2"></i>Jurnal Anekdotal & Observasi</h3>
         <ol className="breadcrumb mb-0 small">
           <li className="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
-          <li className="breadcrumb-item">Transaksi</li>
+          <li className="breadcrumb-item">TDU - Jadwal</li>
           <li className="breadcrumb-item active" aria-current="page">Jurnal Anekdotal</li>
         </ol>
       </div>
