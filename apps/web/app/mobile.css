@@ -159,8 +159,21 @@
     white-space: normal;
   }
 
-  /* Dialog: sedikit jarak ke tepi layar */
-  .modal-dialog {
-    margin: 0.5rem;
+  /* Dialog: jarak tipis ke tepi layar; tinggi modal scrollable ikut variabel ini */
+  .modal {
+    --bs-modal-margin: 0.5rem;
+  }
+  .modal .modal-header {
+    padding: 0.6rem 0.9rem;
+  }
+  .modal .modal-header .modal-title {
+    font-size: 1.05rem;
+  }
+  .modal .modal-body.p-4,
+  .modal .modal-body {
+    padding: 0.9rem !important;
+  }
+  .modal .modal-footer {
+    padding: 0.5rem 0.9rem;
   }
 }

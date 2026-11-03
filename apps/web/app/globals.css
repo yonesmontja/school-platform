@@ -630,3 +630,23 @@
 .theme-swatch.is-active {
   box-shadow: 0 0 0 2px var(--bs-body-bg), 0 0 0 4px var(--bs-emphasis-color);
 }
+
+/* Modal ber-<form>: Bootstrap hanya menggulir .modal-body yang menjadi anak langsung .modal-content.
+   Banyak modal membungkus body + footer dengan <form>, sehingga isi panjang terpotong tanpa bisa digulir.
+   Form dijadikan kolom flex agar body tetap bisa digulir dan footer (tombol Simpan) selalu terlihat. */
+.modal-dialog-scrollable .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.modal-dialog-scrollable .modal-content > form > .modal-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* Modal tanpa kelas scrollable: lapisan latar yang menggulir, bukan halaman di belakangnya */
+.modal.d-block {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
