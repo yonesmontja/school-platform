@@ -35,7 +35,7 @@ school-platform/
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD; mata pelajaran memiliki KKM per mapel
 - **Referensi Penilaian (selaras kurikulum nasional)** — Semester; High Level = Elemen CP, bisa khusus satu mapel atau semua mapel; Aktivitas dengan jenis asesmen (diagnostik/formatif/sumatif); Materi memuat Tujuan Pembelajaran (TP) dan banyak Indikator Ketercapaian TP (IKTP) yang bisa diurutkan dan dinonaktifkan. Indikator dan aktivitas ditambah admin atau guru (guru hanya mapel yang diampu), kepsek melihat saja; indikator dihapus admin dan hanya bila belum pernah dipakai menilai
 - **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch (nilai bertanggal), dilengkapi analitik kelas dan riwayat nilai; mode remedial dengan rencana tindak lanjut per siswa; **penilaian per indikator**: satu sesi memilih satu atau lebih indikator (IKTP) materi, termasuk menambah indikator baru di tempat, lalu nilai 0–100 diisi per indikator dan nilai materi = rata-rata indikator yang terisi (mengalir ke STNKM, KKM, dan remedial seperti biasa); predikat capaian mengikuti **KKTP** sekolah (batas Cukup/Baik/Sangat Baik diatur di Pengaturan Sekolah, bawaan 70/80/90; tuntas tetap KKM mapel); remedial per indikator: hanya indikator di bawah KKM yang diulang, nilai remedial = rata-rata indikator setelah perbaikan; setiap nilai mencatat **guru penilai** (ID Master Guru: guru pemilik akun, atau guru pengampu mapel bila diisi admin/kepsek) dan **akun pengisinya** secara terpisah; **siklus remedial**: kebijakan nilai remedial di rapor diatur di Pengaturan Sekolah (bawaan dibatasi setinggi KKM mapel, atau apa adanya; nilai asli tetap tersimpan dan status tuntas mengikuti nilai sebenarnya), dan orang tua/wali bisa dikabari lewat WhatsApp saat rencana tindak lanjut dibuat maupun saat hasil remedial dicatat (otomatis via Fonnte bila aktif, selain itu tombol chat WA per siswa)
-- **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal
+- **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal. Guru jurnal: akun guru = dirinya sendiri; bila diisi admin/kepsek = guru yang dipilih di form, atau guru pengampu mapel materinya, atau wali kelas (jurnal observasi tanpa materi)
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa); template nilai otomatis memuat satu kolom per indikator aktif materi (judul berkode `[IND-…]`)
 - **Presensi** — input kehadiran siswa per tanggal secara batch
 - **Proyek (kokurikuler)** — kegiatan kokurikuler pengganti P5 (Permendikdasmen 13/2025): bentuk kegiatan (proyek lintas mapel, 7 Kebiasaan Anak Indonesia Hebat, penguatan intrakurikuler), target **8 Dimensi Profil Lulusan**, catatan proses (dapat dibuat dengan AI), dan ekstraksi predikat dari STNKM. Skala predikat diatur sekolah: 4 tingkat BB/MB/BSH/SB atau 3 tingkat e-Rapor Berkembang/Cakap/Mahir (predikat tetap tersimpan 4 tingkat). Rapor memuat deskripsi capaian dimensi otomatis; tampilan *deskripsi saja* atau *deskripsi + tabel* dipilih saat mencetak
@@ -44,6 +44,7 @@ school-platform/
 - **WhatsApp (Fonnte)** — kirim pesan otomatis untuk rapor dan presensi lewat gateway Fonnte
 - **Dashboard** — dasbor analitik bergaya SaaS dengan grafik (Chart.js) dan menu sidebar berkelompok yang dapat dilipat, dengan pencarian menu (Ctrl+K) dan mode mini; panel **Indikator Perlu Perhatian**: indikator (IKTP) diurutkan dari ketuntasan terendah, dengan rata-rata, persentase tuntas terhadap KKM, dan daftar siswa belum tuntas (nilai remedial terbaru menggantikan nilai asal); panel **Efektivitas Tindak Lanjut**: per bentuk tindak lanjut (Tes Ulang, Tutor Sebaya, dst.) jumlah yang sudah dilaksanakan, persentase siswa tuntas sesudahnya, rata-rata kenaikan nilai, serta rencana yang menunggu atau lewat tanggal
 - **Tema** — mode terang/gelap/otomatis dan pilihan warna aksen untuk seluruh aplikasi
+- **Log Aktivitas (audit trail)** — mencatat seluruh tindakan pengguna: login/logout/login gagal, setiap tambah/ubah/hapus data beserta nilai **sebelum → sesudah** per record (otomatis dari semua model, termasuk proses sistem/migrasi), percobaan yang ditolak, serta output di browser (unduh Excel/CSV/PDF, cetak, chat WhatsApp, salin teks) dan halaman yang dibuka. Kata sandi, token, API key, dan berkas base64 disensor. Log hanya-tambah (tidak bisa diubah/dihapus). Halaman bergaya AdminLTE 4: info-box statistik, tren per kategori, peta jam sibuk, pengguna & modul teraktif, linimasa (timeline) atau tabel, filter (rentang waktu, kategori, pengguna, modul, aksi, status, pencarian), drawer detail dengan diff, mode langsung (muat ulang otomatis), dan ekspor CSV. Admin & kepsek melihat semua aktivitas; guru melihat aktivitasnya sendiri (Aktivitas Saya)
 - **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
 
@@ -236,6 +237,11 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/me`, `/user` | Data user yang sedang login | semua peran | ✔ |
 | POST | `/akun/password` | Ganti password sendiri | semua peran | ✔ |
 | POST | `/logout` | Logout | semua peran | ✔ |
+| POST | `/log-aktivitas/event` | Catat tindakan di browser (buka halaman, ekspor, cetak, chat WA, salin) | semua peran | ✔ |
+| GET | `/log-aktivitas` | Daftar log (filter `dari`, `sampai`, `kategori`, `aksi`, `modul`, `user_id`, `status`, `q`; paginasi) | staf (guru: miliknya) | ✔ |
+| GET | `/log-aktivitas/ringkasan` | Statistik: per kategori, per hari, per jam, pengguna & modul teratas | staf (guru: miliknya) | ✔ |
+| GET | `/log-aktivitas/opsi` | Pilihan filter (pengguna, modul, aksi) | staf | ✔ |
+| GET | `/log-aktivitas/{id}` | Detail log beserta perubahan data sebelum/sesudah | staf (guru: miliknya) | ✔ |
 | GET | `/settings` | Ambil pengaturan sekolah | semua peran | ✔ |
 | GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
 | GET | `/portal/rapor` | Rapor anak (portal) | siswa, ortu | ✔ |
@@ -319,6 +325,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/akun`         | Akun Saya            |
 | `/dashboard/pengguna`     | Manajemen Pengguna (admin) |
 | `/dashboard/pengaturan`   | Pengaturan Sekolah (admin) |
+| `/dashboard/log-aktivitas` | Log Aktivitas / audit trail (admin & kepsek: semua; guru: Aktivitas Saya) |
 | `/dashboard/portal`       | Portal Siswa/Orang Tua |
 
 ## Testing
@@ -342,6 +349,7 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [AksesPeranTest](services/core-api/tests/Feature/AksesPeranTest.php)   | Hak akses per peran: rute admin/kepsek, guru dibatasi mapel diampu, kelas binaan, data miliknya; portal siswa |
 | [RemedialTest](services/core-api/tests/Feature/RemedialTest.php)       | Penilaian per tanggal, rencana tindak lanjut & jadwal, nilai remedial (termasuk gaya import), rekap efektif, pembersihan jadwal |
 | [SiklusRemedialTest](services/core-api/tests/Feature/SiklusRemedialTest.php) | Batas nilai remedial di rapor sesuai pengaturan, data efektivitas tindak lanjut di dasbor, pesan WA orang tua (rencana & hasil) dan hak aksesnya |
+| [LogAktivitasTest](services/core-api/tests/Feature/LogAktivitasTest.php) | Audit trail: login/logout/login gagal, diff sebelum-sesudah, percobaan ditolak, sensor kata sandi, event output, hak lihat, log tidak bisa diubah, aturan guru jurnal |
 | [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
 
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh

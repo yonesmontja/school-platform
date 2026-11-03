@@ -650,3 +650,38 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* ===== Log Aktivitas (audit trail) ===== */
+.min-w-0 { min-width: 0; }
+.log-drawer { width: min(560px, 100vw) !important; visibility: visible; }
+.log-drawer .offcanvas-body { overscroll-behavior: contain; }
+.log-meta dt { font-weight: 500; color: var(--bs-secondary-color); }
+.log-meta dd { margin-bottom: .5rem; }
+.log-diff > summary { cursor: pointer; list-style: none; }
+.log-diff > summary::-webkit-details-marker { display: none; }
+.log-diff[open] > summary { background: var(--bs-tertiary-bg); border-radius: .5rem .5rem 0 0; }
+/* Tabel Bootstrap mewarnai sel lewat --bs-table-bg, jadi warna diff diatur di variabel itu */
+.table td.log-lama { --bs-table-bg: var(--bs-danger-bg-subtle); --bs-table-color: var(--bs-danger-text-emphasis); text-decoration: line-through; text-decoration-color: rgba(var(--bs-danger-rgb), .5); }
+.table td.log-baru { --bs-table-bg: var(--bs-success-bg-subtle); --bs-table-color: var(--bs-success-text-emphasis); font-weight: 600; }
+.log-aktivitas .info-box { margin-bottom: 0; height: 100%; }
+.log-lama, .log-baru { word-break: break-word; }
+.log-json { max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.log-jam { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
+.log-jam-sel { position: relative; height: 26px; border-radius: 4px; background: var(--bs-tertiary-bg); }
+.log-jam-sel > span { position: absolute; bottom: -18px; left: 0; font-size: 10px; color: var(--bs-secondary-color); }
+.log-jam { margin-bottom: 18px; }
+.log-timeline > div > .timeline-item { transition: box-shadow .15s ease, transform .15s ease; }
+.log-timeline > div > .timeline-item:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(var(--bs-body-color-rgb), .12); }
+.log-timeline > div > .timeline-item.log-gagal { border-left: 3px solid var(--bs-danger); }
+.log-timeline .timeline-header { font-size: .9rem; }
+.log-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bs-success); animation: log-pulse 1.4s infinite; vertical-align: middle; }
+@keyframes log-pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), .6); } 100% { box-shadow: 0 0 0 8px rgba(var(--bs-success-rgb), 0); } }
+.log-putar { display: inline-block; animation: log-putar .8s linear infinite; }
+@keyframes log-putar { to { transform: rotate(360deg); } }
+@media (max-width: 575.98px) {
+  .log-timeline::before { left: 15px; }
+  .log-timeline > div .timeline-icon { left: 2px; }
+  .log-timeline > div > .timeline-item { margin-left: 40px; margin-right: 0; }
+  .log-aktivitas .info-box .info-box-icon { width: 46px; font-size: 1.25rem; }
+  .log-jam-sel { height: 20px; }
+}

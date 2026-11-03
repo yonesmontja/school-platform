@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Classes;
+use App\Models\MasterMateri;
 use App\Models\Student;
+use App\Models\Subject;
 use App\Models\TransJurnal;
 use App\Services\JurnalAIService;
 use Illuminate\Http\Request;
@@ -126,14 +129,26 @@ class JurnalController extends Controller
         }
     }
 
+    /**
+     * Guru yang tercatat pada jurnal: akun guru = dirinya sendiri. Bila diisi admin/kepsek: guru yang dipilih di form,
+     * atau guru pengampu mapel dari materinya, atau (jurnal observasi tanpa materi) wali kelas siswa.
+     */
+    private function guruJurnal(Request $request, ?string $idMateri, ?string $idKelas): ?string
+    {
+        $user = $request->user();
+        if ($user->isGuru() && $user->id_guru) return $user->id_guru;
+        if ($request->id_guru) return $request->id_guru;
+        $pengampu = $idMateri ? Subject::whereKey(MasterMateri::whereKey($idMateri)->value('id_mapel'))->value('id_guru') : null;
+        return $pengampu ?? ($idKelas ? Classes::whereKey($idKelas)->value('wali_kelas') : null);
+    }
+
     private function dataJurnal(Request $request): array
     {
         return [
             'tanggal' => $request->tanggal,
             'id_siswa' => $request->id_siswa,
             'id_kelas' => $request->id_kelas,
-            // Akun guru selalu tercatat sebagai pengamat; admin/kepsek boleh memilih guru dari form
-            'id_guru' => $request->user()->isGuru() ? $request->user()->id_guru : $request->id_guru,
+            'id_guru' => $this->guruJurnal($request, $request->id_materi, $request->id_kelas),
             'id_jenis' => $request->id_jenis,
             'id_materi' => $request->id_materi,
             'narasi_kejadian' => $request->narasi_kejadian,
@@ -241,7 +256,7 @@ class JurnalController extends Controller
                     'id_siswa' => $rec['id_siswa'],
                     'id_kelas' => $kelasSiswa[$rec['id_siswa']],
                     'id_jenis' => $request->id_jenis,
-                    'id_guru' => $request->user()->isGuru() ? $request->user()->id_guru : null,
+                    'id_guru' => $this->guruJurnal($request, null, $kelasSiswa[$rec['id_siswa']]),
                     'narasi_kejadian' => $rec['narasi_kejadian'],
                     'mode_dampak' => $request->mode_dampak,
                     'val_S' => $rec['val_S'] ?? 0,

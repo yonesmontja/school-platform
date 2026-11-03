@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { SIDEBAR_PREF_EVENT, bacaAccordion } from "@/app/lib/sidebarPrefs";
 import ThemeMenu from "@/components/ThemeMenu";
 import { API_URL, AKSES_EVENT, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal } from "@/app/lib/akses";
+import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
@@ -56,6 +57,7 @@ const MENU_GROUPS = [
       AKUN_ITEM,
       { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
+      { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
     ],
   },
 ];
@@ -71,6 +73,12 @@ const menuUntuk = (role) => (role === "siswa" || role === "ortu")
 const KEY_OPEN = "sidebar_open_groups";
 const KEY_MINI = "sidebar_mini";
 const DESKTOP_QUERY = "(min-width: 992px)";
+
+// Nama halaman untuk audit trail (Log Aktivitas)
+const SEMUA_HALAMAN = [DASHBOARD_ITEM, PORTAL_ITEM, ...MENU_GROUPS.flatMap((g) => g.items)];
+const namaHalaman = (pathname) =>
+  [...SEMUA_HALAMAN].sort((a, b) => b.href.length - a.href.length)
+    .find((it) => pathname === it.href || pathname.startsWith(`${it.href}/`))?.label || pathname;
 
 const isActivePath = (pathname, href) =>
   href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -117,6 +125,17 @@ export default function DashboardLayout({ children }) {
   const isPortal = role === "siswa" || role === "ortu";
   const homeItem = isPortal ? PORTAL_ITEM : DASHBOARD_ITEM;
   const menuGroups = useMemo(() => menuUntuk(role), [role]);
+
+  // Audit trail: catat setiap halaman yang dibuka dan setiap output (unduh, cetak, chat WA, salin)
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  useEffect(() => pasangPelacakOutput(() => ({ modul: namaHalaman(pathRef.current) })), []);
+  const halamanTercatat = useRef("");
+  useEffect(() => {
+    if (!user || halamanTercatat.current === pathname) return;
+    halamanTercatat.current = pathname;
+    catatAktivitas({ aksi: "BUKA_HALAMAN", modul: namaHalaman(pathname), deskripsi: `Membuka halaman ${namaHalaman(pathname)}`, rute: pathname });
+  }, [pathname, user]);
   const activeGroupId = menuGroups.find((g) => g.items.some((it) => isActivePath(pathname, it.href)))?.id;
 
   useEffect(() => {

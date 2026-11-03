@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditTrail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -42,9 +43,11 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             RateLimiter::hit($kunciLimit, 60);
             RateLimiter::hit($kunciAkun, 15 * 60);
+            $this->catatLogin($user, 'LOGIN_GAGAL', "Login gagal: kata sandi salah atau akun tidak dikenal ({$identitas})", $identitas);
             throw ValidationException::withMessages(['login' => ['Email/username atau kata sandi salah.']]);
         }
         if (!$user->aktif) {
+            $this->catatLogin($user, 'LOGIN_GAGAL', 'Login ditolak: akun nonaktif', $identitas);
             throw ValidationException::withMessages(['login' => ['Akun Anda dinonaktifkan. Hubungi admin sekolah.']]);
         }
 
@@ -56,6 +59,7 @@ class AuthController extends Controller
         }
         $user->forceFill(['login_terakhir' => now()])->save();
         $token = $user->createToken('auth_token')->plainTextToken;
+        $this->catatLogin($user, 'LOGIN', 'Masuk ke aplikasi', $identitas);
 
         return response()->json([
             'status' => 'success',
@@ -98,8 +102,19 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        AuditTrail::catat(['user' => $request->user(), 'kategori' => 'AUTH', 'aksi' => 'LOGOUT', 'modul' => 'Akun', 'deskripsi' => 'Keluar dari aplikasi',
+            'metode' => 'POST', 'rute' => '/api/logout', 'status_http' => 200]);
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Logged out successfully']);
+    }
+
+    private function catatLogin(?User $user, string $aksi, string $deskripsi, string $identitas): void
+    {
+        AuditTrail::catat([
+            'user' => $user, 'kategori' => 'AUTH', 'aksi' => $aksi, 'modul' => 'Akun', 'deskripsi' => $deskripsi,
+            'berhasil' => $aksi === 'LOGIN', 'metode' => 'POST', 'rute' => '/api/login', 'status_http' => $aksi === 'LOGIN' ? 200 : 422,
+            'meta' => ['identitas' => $identitas],
+        ]);
     }
 }

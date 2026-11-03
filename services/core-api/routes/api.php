@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\JadwalController;
 use App\Http\Controllers\Api\RuanganController;
 
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\LogAktivitasController;
 use App\Http\Controllers\Api\PortalController;
 
 /*
@@ -60,6 +61,16 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::post('/akun/password', [AuthController::class, 'gantiPassword'])->middleware('throttle:10,1');
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/settings', [SchoolSettingController::class, 'show']);
+    // Tindakan di browser (cetak, ekspor, chat WA, buka halaman) untuk audit trail
+    Route::post('/log-aktivitas/event', [LogAktivitasController::class, 'event'])->middleware('throttle:120,1');
+
+    // Log Aktivitas: admin & kepsek melihat semua, guru hanya miliknya (dicek di controller)
+    Route::middleware('role:admin,kepsek,guru')->prefix('log-aktivitas')->group(function () {
+        Route::get('/', [LogAktivitasController::class, 'index']);
+        Route::get('/ringkasan', [LogAktivitasController::class, 'ringkasan']);
+        Route::get('/opsi', [LogAktivitasController::class, 'opsi']);
+        Route::get('/{id}', [LogAktivitasController::class, 'show'])->whereNumber('id');
+    });
 
     // ===== PORTAL SISWA & ORANG TUA =====
     Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {
