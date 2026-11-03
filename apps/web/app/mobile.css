@@ -1,0 +1,166 @@
+/*
+ * Tampilan HP (lebar < 576px) untuk semua halaman dashboard.
+ * Halaman disusun dengan ukuran desktop (AdminLTE/Bootstrap); lapisan ini merapatkan jarak, mengecilkan
+ * judul, menyembunyikan breadcrumb, dan merapikan kartu statistik, form, serta toolbar tabel.
+ * Dimuat paling akhir agar menimpa gaya bawaan dan gaya per halaman.
+ */
+@media (max-width: 575.98px) {
+  /* Skala dasar sedikit lebih kecil: semua ukuran berbasis rem ikut menyesuaikan */
+  html {
+    font-size: 15px;
+  }
+
+  /* ---------- Kerangka & jarak tepi ---------- */
+  .app-main .app-content {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .app-main .container-fluid {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .app-main .container-fluid.mt-4 {
+    margin-top: 0.75rem !important;
+  }
+  .app-main .mb-4 {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Header atas: tombol Keluar cukup ikon */
+  .app-header .btn-keluar {
+    padding: 0.3rem 0.6rem !important;
+  }
+  .app-header .btn-keluar .label-keluar {
+    display: none;
+  }
+  .app-header .btn-keluar .bi {
+    margin-right: 0 !important;
+  }
+
+  /* ---------- Judul halaman & breadcrumb ---------- */
+  .app-main h3:not(.card-title),
+  .app-main .h3:not(.card-title) {
+    font-size: 1.2rem;
+    line-height: 1.3;
+  }
+  .app-main h4,
+  .app-main .h4 {
+    font-size: 1.1rem;
+  }
+  .app-main h5,
+  .app-main .h5 {
+    font-size: 1rem;
+  }
+  .app-main .breadcrumb {
+    display: none !important;
+  }
+  .app-main .badge.fs-6 {
+    font-size: 0.75rem !important;
+  }
+
+  /* ---------- Kartu statistik (info-box): tetap 2 kolom, lebih rapat ---------- */
+  .app-main .info-box {
+    min-height: 0;
+    padding: 0.5rem;
+    align-items: center;
+  }
+  .app-main .info-box .info-box-icon {
+    flex: 0 0 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.1rem;
+    border-radius: 0.5rem;
+  }
+  .app-main .info-box .info-box-content {
+    /* Tanpa min-width: 0 isi flex melebar dan teks keluar dari kartu */
+    min-width: 0;
+    padding: 0 0 0 0.5rem;
+    line-height: 1.3;
+  }
+  .app-main .info-box .info-box-text {
+    display: block;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .app-main .info-box .info-box-number {
+    margin-top: 0.1rem;
+    font-size: 1.15rem !important;
+    line-height: 1.2;
+  }
+
+  /* ---------- Kartu ---------- */
+  .app-main .card-header {
+    padding: 0.6rem 0.75rem;
+  }
+  .app-main .card-body {
+    padding: 0.75rem;
+  }
+  .app-main .card-footer {
+    padding: 0.6rem 0.75rem;
+  }
+  .app-main .card.p-3,
+  .app-main .card.p-md-4 {
+    padding: 0.75rem !important;
+  }
+
+  /* ---------- Form: isian berpasangan dijadikan selebar penuh agar teks pilihan tidak terpotong ---------- */
+  .app-main form .row > .col-6:has(> .form-select, > .form-control, > select, > .input-group),
+  .app-main .card-body .row > .col-6:has(> .form-select, > .form-control, > select, > .input-group) {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  .app-main .form-label {
+    margin-bottom: 0.2rem;
+  }
+  .app-main select.form-select {
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- Tombol ---------- */
+  .app-main .btn:not(.btn-sm):not(.btn-lg) {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.875rem;
+  }
+  .app-main .btn-lg {
+    padding: 0.5rem 0.9rem;
+    font-size: 1rem;
+  }
+
+  /* ---------- Tabel ---------- */
+  .app-main .table-responsive {
+    -webkit-overflow-scrolling: touch;
+  }
+  .app-main .tabulator .tabulator-footer .tabulator-page {
+    padding: 2px 6px;
+  }
+  .app-main .tabulator .tabulator-footer .tabulator-page[data-page="first"],
+  .app-main .tabulator .tabulator-footer .tabulator-page[data-page="last"] {
+    display: none;
+  }
+
+  /* ---------- Toolbar kalender Jadwal: judul tanggal turun ke baris sendiri ---------- */
+  .jadwal-toolbar {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+  .jadwal-toolbar .btn.rounded-pill {
+    white-space: nowrap;
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+  .jadwal-toolbar .jadwal-title {
+    order: 10;
+    flex: 1 0 100%;
+    margin: 0;
+    padding-left: 0.25rem;
+    font-size: 1rem;
+    white-space: normal;
+  }
+
+  /* Dialog: sedikit jarak ke tepi layar */
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+}

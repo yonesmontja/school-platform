@@ -6,6 +6,7 @@ import './globals.css';
 import './dashboard-saas.css';
 import './theme-dark.css';
 import './jadwal.css';
+import './mobile.css';
 import Script from 'next/script';
 import { THEME_INIT_SCRIPT } from './lib/themeScript';
 

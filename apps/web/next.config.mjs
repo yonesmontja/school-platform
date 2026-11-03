@@ -16,6 +16,8 @@ const HEADER_KEAMANAN = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Tombol indikator dev Next.js menutupi form di layar HP
+  devIndicators: false,
   // Mode dev memblokir aset JS untuk domain selain localhost; domain tunnel harus didaftarkan
   allowedDevOrigins: ["web.saprapor.com", "*.saprapor.com"],
   async headers() {
