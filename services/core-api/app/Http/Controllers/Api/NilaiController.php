@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
+use App\Models\MasterIndikator;
 use App\Models\MasterMBK;
 use App\Models\MasterMateri;
 use App\Models\MasterPeriode;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\TransNilai;
+use App\Models\TransNilaiIndikator;
 use App\Models\TransRencanaRemedial;
 use App\Services\RemedialService;
 use Illuminate\Http\Request;
@@ -19,7 +21,7 @@ use Illuminate\Validation\Rule;
 
 class NilaiController extends Controller
 {
-    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
+    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
     private const META = ['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi'];
 
     public function getFilters(Request $request)
@@ -39,7 +41,8 @@ class NilaiController extends Controller
 
     public function getMateriByContext(Request $request)
     {
-        $query = MasterMateri::with('kategori');
+        // Indikator aktif ditawarkan saat menilai; yang nonaktif tetap terbaca lewat lembar nilai bila pernah dipakai
+        $query = MasterMateri::with(['kategori', 'indikator' => fn($q) => $q->where('aktif', true)]);
 
         if ($request->filled('id_mapel')) $query->where('id_mapel', $request->id_mapel);
         // Materi tanpa kelas/periode berlaku umum untuk semua kelas/periode
@@ -100,7 +103,7 @@ class NilaiController extends Controller
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
         $existing = $this->queryPenilaian($meta, $request->tanggal)
-            ->with('rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi')
+            ->with('rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'nilaiIndikator')
             ->whereIn('id_siswa', $students->pluck('id_siswa'))
             ->get()
             ->keyBy('id_siswa');
@@ -111,8 +114,14 @@ class NilaiController extends Controller
             ->groupBy('tanggal')->orderByDesc('tanggal')->get()
             ->map(fn($t) => ['tanggal' => substr($t->tanggal, 0, 10), 'jumlah' => (int) $t->jumlah]);
 
+        // Indikator yang sudah dinilai pada sesi ini (termasuk yang kini nonaktif), urut sesuai susunan materi
+        $idTerpakai = $existing->flatMap(fn($n) => $n->nilaiIndikator->pluck('id_indikator'))->unique();
+        $indikatorSesi = MasterIndikator::whereIn('id_indikator', $idTerpakai)->orderBy('urutan')->orderBy('created_at')
+            ->get(['id_indikator', 'deskripsi', 'aktif', 'urutan']);
+
         return response()->json([
             'tanggal_tersedia' => $tanggalTersedia,
+            'indikator_sesi' => $indikatorSesi,
             'students' => $students->map(function ($s) use ($existing) {
                 $n = $existing[$s->id_siswa] ?? null;
                 return [
@@ -123,6 +132,7 @@ class NilaiController extends Controller
                     'nilai' => $n ? (float) $n->nilai : null,
                     'tanggal' => $n?->tanggal,
                     'rencana' => $n?->rencana,
+                    'nilai_indikator' => $n ? $n->nilaiIndikator->mapWithKeys(fn($i) => [$i->id_indikator => (float) $i->nilai]) : (object) [],
                 ];
             }),
         ]);
@@ -168,7 +178,10 @@ class NilaiController extends Controller
             'records.*.id_siswa' => 'required|exists:students,id_siswa',
             'records.*.tipe_nilai' => ['nullable', Rule::in(['NORMAL', 'REMEDIAL'])],
             'records.*.id_rencana' => 'nullable|exists:trans_rencana_remedial,id_rencana',
-            'records.*.nilai' => 'required|numeric|between:0,100',
+            // Nilai per indikator {id_indikator: 0-100}; bila diisi, nilai materi = rata-ratanya
+            'records.*.nilai_indikator' => 'nullable|array',
+            'records.*.nilai_indikator.*' => 'numeric|between:0,100',
+            'records.*.nilai' => 'required_without:records.*.nilai_indikator|nullable|numeric|between:0,100',
             'records.*.poin_S' => 'nullable|numeric',
             'records.*.poin_T' => 'nullable|numeric',
             'records.*.poin_N' => 'nullable|numeric',
@@ -179,7 +192,25 @@ class NilaiController extends Controller
         $this->cekMapel($request, $request->id_mapel);
         $meta = $request->only(self::META);
         $tipeBawaan = $request->input('tipe_nilai', 'NORMAL');
-        $records = collect($request->records)->map(fn($r) => $r + ['tipe_nilai' => $tipeBawaan]);
+
+        // Indikator yang dinilai harus milik materi penilaian ini
+        $idIndikator = collect($request->records)->flatMap(fn($r) => array_keys($r['nilai_indikator'] ?? []))->unique();
+        $asing = $idIndikator->diff(MasterIndikator::where('id_materi', $meta['id_materi'])->whereIn('id_indikator', $idIndikator)->pluck('id_indikator'));
+        if ($asing->isNotEmpty()) {
+            return response()->json(['message' => 'Ada indikator yang bukan milik materi ini: ' . $asing->implode(', ')], 422);
+        }
+
+        $records = collect($request->records)->map(function ($r) use ($tipeBawaan) {
+            $r += ['tipe_nilai' => $tipeBawaan];
+            $r['nilai_indikator'] = array_map('floatval', $r['nilai_indikator'] ?? []);
+            if ($r['nilai_indikator']) {
+                $r['nilai'] = round(array_sum($r['nilai_indikator']) / count($r['nilai_indikator']), 2);
+            }
+            return $r;
+        });
+        if ($records->contains(fn($r) => !isset($r['nilai']))) {
+            return response()->json(['message' => 'Setiap siswa harus punya nilai atau minimal satu nilai indikator.'], 422);
+        }
         [$remedial, $normal] = $records->partition(fn($r) => $r['tipe_nilai'] === 'REMEDIAL');
 
         $idSiswa = $records->pluck('id_siswa')->unique();
@@ -230,7 +261,7 @@ class NilaiController extends Controller
                     $row->update($data);
                     $updated++;
                 } else {
-                    TransNilai::create([
+                    $row = TransNilai::create([
                         'id_nilai' => 'NIL-' . Str::uuid(),
                         'id_siswa' => $rec['id_siswa'],
                         ...$meta,
@@ -239,6 +270,7 @@ class NilaiController extends Controller
                     ]);
                     $saved++;
                 }
+                $this->simpanNilaiIndikator($row, $rec['nilai_indikator']);
             };
 
             foreach ($normal as $rec) {
@@ -264,6 +296,18 @@ class NilaiController extends Controller
             'updated' => $updated,
             'perlu_tindak_lanjut' => $perluTindakLanjut,
         ]);
+    }
+
+    /**
+     * Samakan nilai per indikator dengan kiriman: indikator yang tidak dikirim lagi dihapus dari nilai ini,
+     * sehingga kolom nilai selalu sama dengan rata-rata indikator yang tercatat.
+     */
+    private function simpanNilaiIndikator(TransNilai $row, array $nilaiIndikator): void
+    {
+        TransNilaiIndikator::where('id_nilai', $row->id_nilai)->whereNotIn('id_indikator', array_keys($nilaiIndikator))->delete();
+        foreach ($nilaiIndikator as $idIndikator => $nilai) {
+            TransNilaiIndikator::updateOrCreate(['id_nilai' => $row->id_nilai, 'id_indikator' => $idIndikator], ['nilai' => $nilai]);
+        }
     }
 
     private function cariRencana(array $rec, array $meta): ?TransRencanaRemedial

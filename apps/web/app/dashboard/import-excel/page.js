@@ -53,6 +53,10 @@ const parseTanggal = (v) => {
 };
 
 const labelPeriode = (p) => `${p.tahun_ajaran} (${p.semester})`;
+
+// Kolom indikator di template: "1. Deskripsi singkat [IND-XXXX]"; ID di dalam kurung siku yang dibaca saat import
+const POLA_KOLOM_INDIKATOR = /\[(IND-[A-Za-z0-9]+)\]\s*$/;
+const kolomIndikator = (no, i) => `${no}. ${i.deskripsi.length > 40 ? `${i.deskripsi.slice(0, 39)}…` : i.deskripsi} [${i.id_indikator}]`;
 const labelMateri = (m) => `${m.nama_materi}${m.kategori?.nama_kategori ? ` [${m.kategori.nama_kategori}]` : ""}`;
 
 const STATUS_META = {
@@ -159,6 +163,8 @@ export default function ImportExcelPage() {
   const siswaById = useMemo(() => new Map(ref.students.map((s) => [String(s.id_siswa), s])), [ref.students]);
   const siswaKelas = useMemo(() => ref.students.filter((s) => s.id_kelas === meta.id_kelas), [ref.students, meta.id_kelas]);
   const kelasTerpilih = ref.classes.find((k) => k.id_kelas === meta.id_kelas);
+  const indikatorMateri = materis.find((m) => m.id_materi === meta.id_materi)?.indikator || [];
+  // Indikator hanya untuk metode OTOMATIS: poin STNKM manual tidak dihitung dari nilai
 
   const metaLengkap = isNilai
     ? ["id_kelas", "id_mapel", "id_periode", "id_jenis", "id_materi", "tanggal"].every((k) => meta[k])
@@ -218,9 +224,18 @@ export default function ImportExcelPage() {
         "Tanggal pada parameter import dicatat sebagai tanggal pelaksanaan remedial. Rencana siswa otomatis berstatus Selesai.",
       ];
     } else if (isNilai && metode === "OTOMATIS") {
-      header = ["id_siswa", "nama_siswa", "nilai", "tipe"];
-      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, "", ""]);
-      petunjuk = ["Isi kolom nilai (0-100). Kosongkan bila siswa tidak dinilai.", "Poin STNKM dihitung sistem dari matriks Jenis Penilaian x Materi.", petunjukTipe];
+      const kolomInd = indikatorMateri.map((i, n) => kolomIndikator(n + 1, i));
+      header = ["id_siswa", "nama_siswa", ...kolomInd, "nilai", "tipe"];
+      rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, ...kolomInd.map(() => ""), "", ""]);
+      petunjuk = [
+        "Isi kolom nilai (0-100). Kosongkan bila siswa tidak dinilai.",
+        ...(kolomInd.length ? [
+          "Materi ini punya indikator (IKTP): isi nilai 0-100 di kolom indikator yang dinilai. Nilai siswa = rata-rata indikator yang terisi, dan kolom nilai diabaikan untuk baris itu.",
+          "Kolom indikator yang tidak dinilai boleh dihapus atau dikosongkan. Jangan ubah kode [IND-...] di judul kolom.",
+          ...indikatorMateri.map((i, n) => `Indikator ${n + 1}: ${i.deskripsi}`),
+        ] : []),
+        "Poin STNKM dihitung sistem dari matriks Jenis Penilaian x Materi.", petunjukTipe,
+      ];
     } else if (isNilai) {
       header = ["id_siswa", "nama_siswa", ...DIMENSI, "Rata-rata", "tipe"];
       rows = siswa.map((s) => [s.id_siswa, s.nama_siswa, "", "", "", "", "", "", ""]);
@@ -233,7 +248,7 @@ export default function ImportExcelPage() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-    ws["!cols"] = header.map((h) => ({ wch: h === "narasi_kejadian" ? 50 : h === "nama_siswa" || h === "tindak_lanjut" ? 28 : 14 }));
+    ws["!cols"] = header.map((h) => ({ wch: h === "narasi_kejadian" ? 50 : h === "nama_siswa" || h === "tindak_lanjut" ? 28 : POLA_KOLOM_INDIKATOR.test(h) ? 24 : 14 }));
     XLSX.utils.book_append_sheet(wb, ws, "Format_Data");
 
     // Sheet referensi: guru menyalin ID & nama siswa dari sini ke Format_Data
@@ -284,9 +299,16 @@ export default function ImportExcelPage() {
           if (found) map[target] = found;
         });
 
-        const wajib = isNilai ? (metode === "OTOMATIS" ? ["id_siswa", "nilai"] : ["id_siswa", ...DIMENSI]) : ["id_siswa", "tanggal", "narasi"];
+        // Kolom indikator dikenali dari kode [IND-...] di judulnya
+        map.indikator = isNilai && metode === "OTOMATIS"
+          ? keys.map((k) => ({ key: k, id: String(k).match(POLA_KOLOM_INDIKATOR)?.[1] })).filter((c) => c.id)
+          : [];
+        const wajib = isNilai
+          ? (metode === "OTOMATIS" ? ["id_siswa", ...(map.indikator.length ? [] : ["nilai"])] : ["id_siswa", ...DIMENSI])
+          : ["id_siswa", "tanggal", "narasi"];
         const label = { narasi: "narasi_kejadian", rata: "Rata-rata" };
         const hilang = wajib.filter((c) => !map[c]);
+        if (!hilang.length && isNilai && metode === "OTOMATIS" && !map.nilai && !map.indikator.length) hilang.push("nilai");
         if (hilang.length) {
           resetFile();
           return Swal.fire("Format Tidak Sesuai", `Kolom wajib tidak ditemukan: <b>${hilang.map((c) => label[c] || c).join(", ")}</b>.<br>Gunakan tombol <b>Unduh Template</b>.`, "error");
@@ -313,9 +335,30 @@ export default function ImportExcelPage() {
 
       if (isNilai) {
         if (metode === "OTOMATIS") {
+          // Nilai per indikator lebih dulu; bila semua kosong, pakai kolom nilai
+          const petaInd = {};
+          let adaIsianInd = false;
+          (colMap.indikator || []).forEach(({ key, id }) => {
+            const raw = row[key];
+            if (isEmpty(raw)) return;
+            adaIsianInd = true;
+            const v = toNumber(raw);
+            const no = indikatorMateri.findIndex((i) => i.id_indikator === id) + 1;
+            if (!no) errors.push(`Kolom ${id} bukan indikator aktif materi terpilih`);
+            else if (isNaN(v)) errors.push(`Indikator ${no} bukan angka`);
+            else if (v < 0 || v > 100) errors.push(`Indikator ${no} di luar 0-100`);
+            else petaInd[id] = v;
+          });
+          const angka = Object.values(petaInd);
           const raw = get("nilai");
-          if (isEmpty(raw)) skips.push("Nilai kosong");
-          else {
+          if (angka.length) {
+            out.nilai_indikator = petaInd;
+            out.nilai = Math.round((angka.reduce((a, b) => a + b, 0) / angka.length) * 100) / 100;
+            out.info_indikator = `${angka.length} indikator`;
+          } else if (isEmpty(raw)) {
+            // Isian indikator yang salah bukan baris kosong: tetap ditandai error
+            if (!adaIsianInd) skips.push("Nilai kosong");
+          } else {
             const v = toNumber(raw);
             if (isNaN(v)) errors.push("Nilai bukan angka");
             else if (v < 0 || v > 100) errors.push("Nilai di luar 0-100");
@@ -379,7 +422,7 @@ export default function ImportExcelPage() {
       const status = skips.length ? "skip" : errors.length ? "error" : "ok";
       return { ...out, status, pesan: status === "skip" ? skips.join(", ") : errors.join(", ") };
     });
-  }, [rawRows, colMap, siswaById, isNilai, metode, meta.id_kelas, rencanaBySiswa, metaPenilaian]);
+  }, [rawRows, colMap, siswaById, isNilai, metode, meta.id_kelas, rencanaBySiswa, metaPenilaian, indikatorMateri]);
 
   const ringkasan = useMemo(() => ({
     total: validated.length,
@@ -422,6 +465,7 @@ export default function ImportExcelPage() {
             id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal, metode_stnkm: metode,
             records: siap.map((r) => ({
               id_siswa: r.id_siswa, nilai: r.nilai, tipe_nilai: r.tipe,
+              ...(r.nilai_indikator && { nilai_indikator: r.nilai_indikator }),
               ...(metode === "MANUAL" && Object.fromEntries(DIMENSI.map((d) => [`poin_${d}`, r[`poin_${d}`]]))),
             })),
           }),
@@ -473,7 +517,9 @@ export default function ImportExcelPage() {
   );
 
   const previewColumns = isNilai
-    ? [...(metode === "OTOMATIS" ? [{ key: "nilai", label: "Nilai" }] : [...DIMENSI.map((d) => ({ key: `poin_${d}`, label: d })), { key: "nilai", label: "Rata-rata" }]),
+    ? [...(metode === "OTOMATIS"
+      ? [{ key: "nilai", label: "Nilai" }, ...(colMap.indikator?.length ? [{ key: "info_indikator", label: "Dari Indikator" }] : [])]
+      : [...DIMENSI.map((d) => ({ key: `poin_${d}`, label: d })), { key: "nilai", label: "Rata-rata" }]),
       ...(colMap.tipe ? [{ key: "tipe_info", label: "Tipe" }] : [])]
     : [{ key: "tanggal", label: "Tanggal" }, { key: "narasi", label: "Narasi Kejadian", wide: true }, ...DIMENSI.map((d) => ({ key: `val_${d}`, label: d }))];
 

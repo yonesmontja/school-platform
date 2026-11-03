@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
 import { API_URL } from "@/app/lib/config";
+import { useAkses } from "@/app/lib/akses";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -65,6 +66,13 @@ const parseNilai = (raw) => {
 
 const labelMapel = (m) => `${m.nama_mapel}${m.guru?.nama_guru ? ` — ${m.guru.nama_guru}` : ""} (KKM ${kkmMapel(m)})`;
 const labelMateri = (m) => `${m.nama_materi}${m.kategori?.nama_kategori ? ` [${m.kategori.nama_kategori}]` : ""}`;
+// Nilai per indikator yang terisi (angka) → { id_indikator: nilai }
+const petaIndikator = (input, ids) => Object.fromEntries(ids.map((id) => [id, parseNilai(input?.[id])]).filter(([, v]) => typeof v === "number"));
+const samaPeta = (a = {}, b = {}) => {
+  const ka = Object.keys(a), kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => Number(a[k]) === Number(b[k]));
+};
+const singkat = (teks, n = 28) => (teks.length > n ? `${teks.slice(0, n - 1)}…` : teks);
 const labelPeriode = (p) => (p ? `${p.tahun_ajaran} (${p.semester})` : "-");
 
 // --- KOMPONEN KECIL ---
@@ -125,6 +133,10 @@ export default function InputNilaiPage() {
   const [editId, setEditId] = useState(null);
   const [tanggalTersedia, setTanggalTersedia] = useState([]);
   const [tindakLanjut, setTindakLanjut] = useState(null); // target ModalTindakLanjut
+  // Indikator (IKTP) yang dinilai pada lembar reguler; kosong = nilai diisi langsung
+  const [indikatorDipilih, setIndikatorDipilih] = useState([]);
+  const [indikatorSesi, setIndikatorSesi] = useState([]);
+  const { isAdmin, isGuru } = useAkses();
   const filterCardRef = useRef(null);
 
   // --- RIWAYAT ---
@@ -160,12 +172,35 @@ export default function InputNilaiPage() {
   // Hanya lembar reguler yang dibuka per tanggal; di lembar remedial tanggal = tanggal pelaksanaan saat disimpan
   const tanggalLembar = modeRemedial ? "" : filters.tanggal;
 
+  // Indikator materi terpilih: yang aktif + yang pernah dinilai di sesi ini (walau kini nonaktif)
+  const materiTerpilih = materis.find((m) => m.id_materi === filters.id_materi);
+  const daftarIndikator = useMemo(() => {
+    const peta = new Map();
+    [...(materiTerpilih?.indikator || []), ...indikatorSesi].forEach((i) => { if (!peta.has(i.id_indikator)) peta.set(i.id_indikator, i); });
+    return [...peta.values()].sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+  }, [materiTerpilih, indikatorSesi]);
+  const pakaiIndikator = !modeRemedial && indikatorDipilih.length > 0;
+  const kolomIndikator = daftarIndikator.filter((i) => indikatorDipilih.includes(i.id_indikator));
+  const nomorIndikator = (id) => daftarIndikator.findIndex((i) => i.id_indikator === id) + 1;
+
   // Baris lembar mode lain (sebelum data mode baru selesai dimuat) tidak ditampilkan
   const rows = useMemo(() => students.filter((s) => s.tipe === filters.tipe).map((s) => {
+    const awalIndikator = s.nilai_indikator || {};
+    if (pakaiIndikator) {
+      // Nilai materi = rata-rata indikator yang diisi
+      const isian = indikatorDipilih.map((id) => [id, parseNilai(s.inputIndikator?.[id])]);
+      const salah = isian.some(([, v]) => v === null);
+      const peta = petaIndikator(s.inputIndikator, indikatorDipilih);
+      const angka = Object.values(peta);
+      const nilai = salah ? null : angka.length ? Math.round((angka.reduce((a, b) => a + b, 0) / angka.length) * 100) / 100 : "";
+      return { ...s, parsed: nilai, petaIndikator: peta, salahIndikator: Object.fromEntries(isian.filter(([, v]) => v === null)),
+        berubah: !salah && (angka.length > 0 || !!s.id_nilai) && !samaPeta(peta, awalIndikator) };
+    }
     const nilai = parseNilai(s.inputNilai);
     const awal = s.nilai === null ? "" : s.nilai;
-    return { ...s, parsed: nilai, berubah: nilai !== awal };
-  }), [students, filters.tipe]);
+    // Beralih dari nilai per indikator ke nilai langsung juga dihitung perubahan (data indikator akan dibuang)
+    return { ...s, parsed: nilai, berubah: nilai !== awal || (typeof nilai === "number" && Object.keys(awalIndikator).length > 0) };
+  }), [students, filters.tipe, pakaiIndikator, indikatorDipilih]);
 
   const jumlahBerubah = rows.filter((r) => r.berubah).length;
   const adaTidakValid = rows.some((r) => r.parsed === null);
@@ -233,8 +268,13 @@ export default function InputNilaiPage() {
       } else {
         params.set("tanggal", tanggalLembar);
         const data = await safeFetch(`${API_URL}/nilai/students?${params}`, { headers: authHeader() });
-        setStudents((data.students || []).map((s) => ({ ...s, tipe: "NORMAL", key: s.id_siswa, inputNilai: s.nilai ?? "" })));
+        setStudents((data.students || []).map((s) => ({
+          ...s, tipe: "NORMAL", key: s.id_siswa, inputNilai: s.nilai ?? "", inputIndikator: { ...(s.nilai_indikator || {}) },
+        })));
         setTanggalTersedia(data.tanggal_tersedia || []);
+        // Penilaian tersimpan membuka kembali indikator yang dipakainya; penilaian baru mulai tanpa indikator
+        setIndikatorSesi(data.indikator_sesi || []);
+        setIndikatorDipilih((data.indikator_sesi || []).map((i) => i.id_indikator));
       }
     } catch (err) { Swal.fire("Error", err.message, "error"); }
     finally { setLoadingSheet(false); }
@@ -302,6 +342,32 @@ export default function InputNilaiPage() {
   const handleInput = (key, val) => {
     setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputNilai: val } : s)));
   };
+  const handleInputIndikator = (key, id, val) => {
+    setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputIndikator: { ...s.inputIndikator, [id]: val } } : s)));
+  };
+
+  const pilihIndikator = (id) =>
+    setIndikatorDipilih((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  // Tambah indikator "sambil jalan" ke materi terpilih, lalu langsung dinilai
+  const tambahIndikator = async () => {
+    const { value: deskripsi } = await Swal.fire({
+      title: "Indikator baru", input: "textarea", inputLabel: materiTerpilih?.nama_materi,
+      inputPlaceholder: "Contoh: Peserta didik dapat membandingkan dua pecahan berpenyebut beda",
+      showCancelButton: true, confirmButtonText: "Tambah & nilai", cancelButtonText: "Batal",
+      inputValidator: (v) => (!v?.trim() ? "Tulis deskripsi indikator" : undefined),
+    });
+    if (!deskripsi) return;
+    try {
+      const data = await safeFetch(`${API_URL}/indikator`, {
+        method: "POST", headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify({ id_materi: filters.id_materi, deskripsi }),
+      });
+      const baru = data.data;
+      setMateris((prev) => prev.map((m) => (m.id_materi === filters.id_materi ? { ...m, indikator: [...(m.indikator || []), baru] } : m)));
+      setIndikatorDipilih((prev) => [...prev, baru.id_indikator]);
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
 
   const bukaTindakLanjut = (items, kkmTarget = kkm) => setTindakLanjut({ mode: "baru", items, kkm: kkmTarget });
   const ubahTindakLanjut = (rencana, item, kkmTarget = kkm) => setTindakLanjut({ mode: "ubah", rencana, item, kkm: kkmTarget });
@@ -312,15 +378,18 @@ export default function InputNilaiPage() {
   };
 
   // Enter / panah bawah pindah ke siswa berikutnya, panah atas ke sebelumnya
-  const handleKeyDown = (e, idx) => {
+  const handleKeyDown = (e, idx, kolom = 0) => {
     const arah = e.key === "Enter" || e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
     if (!arah) return;
     e.preventDefault();
-    const next = document.querySelector(`input[data-nilai-idx="${idx + arah}"]`);
+    const next = document.querySelector(`input[data-nilai-idx="${kolom}-${idx + arah}"]`);
     if (next) { next.focus(); next.select(); }
   };
 
-  const handleReset = () => setStudents((prev) => prev.map((s) => ({ ...s, inputNilai: s.nilai ?? "" })));
+  const handleReset = () => {
+    setStudents((prev) => prev.map((s) => ({ ...s, inputNilai: s.nilai ?? "", inputIndikator: { ...(s.nilai_indikator || {}) } })));
+    setIndikatorDipilih(indikatorSesi.map((i) => i.id_indikator));
+  };
 
   const statistik = useMemo(() => {
     const terisi = rows.map((r) => r.parsed).filter((v) => typeof v === "number");
@@ -347,13 +416,26 @@ export default function InputNilaiPage() {
     e?.preventDefault();
     if (!filters.tanggal) return Swal.fire("Perhatian", "Tanggal penilaian wajib diisi.", "warning");
     if (adaTidakValid) return Swal.fire("Nilai Tidak Valid", "Periksa kembali isian bertanda merah. Nilai harus berupa angka 0 – 100.", "warning");
+    const indikatorDibuang = !modeRemedial && rows.some((r) => r.id_nilai && Object.keys(r.nilai_indikator || {}).some((id) => !indikatorDipilih.includes(id)));
+    if (indikatorDibuang) {
+      const res = await Swal.fire({
+        title: "Ada indikator yang tidak lagi dinilai",
+        html: "Nilai indikator yang tidak dipilih akan <b>dihapus</b> dari penilaian ini, dan nilai siswa dihitung ulang dari indikator yang tersisa.",
+        icon: "warning", showCancelButton: true, confirmButtonText: "Lanjut simpan", cancelButtonText: "Kembali",
+      });
+      if (!res.isConfirmed) return;
+    }
 
     // Remedial hanya mengirim baris yang diubah, agar tanggal nilai remedial lain tidak ikut tergeser
     const records = rows
       .filter((r) => typeof r.parsed === "number" && (!modeRemedial || r.berubah))
-      .map((r) => ({ id_siswa: r.id_siswa, nilai: r.parsed, ...(modeRemedial && { id_rencana: r.key }) }));
+      .map((r) => ({
+        id_siswa: r.id_siswa, nilai: r.parsed,
+        ...(modeRemedial && { id_rencana: r.key }),
+        ...(pakaiIndikator && { nilai_indikator: r.petaIndikator }),
+      }));
     if (records.length === 0) {
-      return Swal.fire("Kosong", modeRemedial ? "Belum ada nilai remedial yang diisi atau diubah." : "Isi minimal satu nilai siswa.", "warning");
+      return Swal.fire("Kosong", modeRemedial ? "Belum ada nilai remedial yang diisi atau diubah." : pakaiIndikator ? "Isi minimal satu nilai indikator." : "Isi minimal satu nilai siswa.", "warning");
     }
 
     const dikosongkan = rows.filter((r) => r.parsed === "" && r.id_nilai).length;
@@ -468,6 +550,7 @@ export default function InputNilaiPage() {
       "Jenis": r.jenis?.kategori_penilaian || r.id_jenis,
       "Materi": r.materi?.nama_materi || r.id_materi,
       "High Level": r.materi?.kategori?.nama_kategori || "-",
+      "Nilai Indikator": (r.nilai_indikator || []).map((i) => `${i.indikator?.deskripsi || i.id_indikator}: ${formatAngka(Number(i.nilai))}`).join("; ") || "-",
       "KKM": kkmR,
       "Nilai": formatAngka(v),
       "Ketuntasan": v >= kkmR ? "TUNTAS" : "BELUM TUNTAS",
@@ -757,6 +840,33 @@ export default function InputNilaiPage() {
                 </button>
               )}
             </div>
+            {!modeRemedial && (
+              // Indikator (IKTP) yang dinilai pada sesi ini; satu kolom nilai per indikator
+              <div className="px-3 py-2 border-bottom bg-body-tertiary">
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  <small className="fw-semibold text-muted me-1"><i className="bi bi-list-check me-1"></i>Indikator dinilai:</small>
+                  {daftarIndikator.length === 0 && <small className="text-muted fst-italic">Materi ini belum punya indikator; nilai diisi langsung.</small>}
+                  {daftarIndikator.map((i) => {
+                    const dipilih = indikatorDipilih.includes(i.id_indikator);
+                    return (
+                      <button key={i.id_indikator} type="button" title={i.deskripsi} onClick={() => pilihIndikator(i.id_indikator)}
+                        className={`btn btn-sm rounded-pill text-start ${dipilih ? "btn-primary" : "btn-outline-secondary"}${i.aktif === false ? " opacity-75" : ""}`}>
+                        <i className={`bi ${dipilih ? "bi-check2-square" : "bi-square"} me-1`}></i>
+                        <b>{nomorIndikator(i.id_indikator)}.</b> {singkat(i.deskripsi, 40)}{i.aktif === false && " (nonaktif)"}
+                      </button>
+                    );
+                  })}
+                  {(isAdmin || isGuru) && filters.id_materi && (
+                    <button type="button" className="btn btn-sm btn-outline-primary rounded-pill" onClick={tambahIndikator}>
+                      <i className="bi bi-plus-lg me-1"></i>Indikator baru
+                    </button>
+                  )}
+                </div>
+                {pakaiIndikator && (
+                  <small className="d-block text-muted mt-1">Nilai siswa = rata-rata indikator yang diisi. Kosongkan indikator yang tidak dinilai untuk siswa tertentu.</small>
+                )}
+              </div>
+            )}
             <div className="card-body p-0">
               {loadingSheet ? (
                 <div className="text-center py-5 text-muted"><div className="spinner-border text-success mb-2"></div><div>Memuat daftar siswa...</div></div>
@@ -777,8 +887,14 @@ export default function InputNilaiPage() {
                         <th className="text-center" style={{ width: 56 }}>No</th>
                         <th>Nama Siswa</th>
                         {modeRemedial && <th className="text-center" style={{ width: 110 }}>Nilai Asal</th>}
-                        <th className="text-center" style={{ width: 160 }}>
-                          {modeRemedial ? "Nilai Remedial" : "Nilai"} <span className="fw-normal text-muted">(0 – 100)</span>
+                        {pakaiIndikator && kolomIndikator.map((i) => (
+                          <th key={i.id_indikator} className="text-center" style={{ minWidth: 96 }} title={i.deskripsi}>
+                            <span className="badge text-bg-primary">{nomorIndikator(i.id_indikator)}</span>
+                            <div className="fw-normal small text-muted text-truncate" style={{ maxWidth: 120 }}>{singkat(i.deskripsi, 18)}</div>
+                          </th>
+                        ))}
+                        <th className="text-center" style={{ width: pakaiIndikator ? 110 : 160 }}>
+                          {modeRemedial ? "Nilai Remedial" : pakaiIndikator ? "Rata-rata" : "Nilai"} <span className="fw-normal text-muted">(0 – 100)</span>
                         </th>
                         <th className="text-center" style={{ minWidth: 190 }}>Predikat & Status</th>
                         {!modeRemedial && <th className="text-center" style={{ minWidth: 170 }}>Tindak Lanjut</th>}
@@ -806,15 +922,33 @@ export default function InputNilaiPage() {
                               <small className="d-block text-muted">{formatTanggal(r.nilaiAsal?.tanggal)}</small>
                             </td>
                           )}
+                          {pakaiIndikator && kolomIndikator.map((i, k) => (
+                            <td key={i.id_indikator}>
+                              <input type="number" step="any" min="0" max="100" inputMode="decimal"
+                                data-nilai-idx={`${k}-${idx}`}
+                                className={`form-control form-control-sm text-center ${i.id_indikator in (r.salahIndikator || {}) ? "is-invalid" : ""}`}
+                                value={r.inputIndikator?.[i.id_indikator] ?? ""} placeholder="–"
+                                onChange={(e) => handleInputIndikator(r.key, i.id_indikator, e.target.value)}
+                                onKeyDown={(e) => handleKeyDown(e, idx, k)}
+                                onFocus={(e) => e.target.select()}
+                                aria-label={`Indikator ${nomorIndikator(i.id_indikator)} ${r.nama_siswa}`} />
+                            </td>
+                          ))}
                           <td>
-                            <input type="number" step="any" min="0" max="100" inputMode="decimal"
-                              data-nilai-idx={idx}
-                              className={`form-control text-center fw-bold ${r.parsed === null ? "is-invalid" : ""}`}
-                              value={r.inputNilai} placeholder="Kosong"
-                              onChange={(e) => handleInput(r.key, e.target.value)}
-                              onKeyDown={(e) => handleKeyDown(e, idx)}
-                              onFocus={(e) => e.target.select()}
-                              aria-label={`Nilai ${r.nama_siswa}`} />
+                            {pakaiIndikator ? (
+                              <div className="text-center fw-bold fs-6" aria-label={`Nilai ${r.nama_siswa}`}>
+                                {typeof r.parsed === "number" ? formatAngka(r.parsed) : <span className="text-muted fw-normal">–</span>}
+                              </div>
+                            ) : (
+                              <input type="number" step="any" min="0" max="100" inputMode="decimal"
+                                data-nilai-idx={`0-${idx}`}
+                                className={`form-control text-center fw-bold ${r.parsed === null ? "is-invalid" : ""}`}
+                                value={r.inputNilai} placeholder="Kosong"
+                                onChange={(e) => handleInput(r.key, e.target.value)}
+                                onKeyDown={(e) => handleKeyDown(e, idx)}
+                                onFocus={(e) => e.target.select()}
+                                aria-label={`Nilai ${r.nama_siswa}`} />
+                            )}
                           </td>
                           <td className="text-center"><StatusBadge nilai={r.parsed} kkm={kkm} /></td>
                           {!modeRemedial && (
@@ -938,6 +1072,11 @@ export default function InputNilaiPage() {
                             {r.materi?.nama_materi || r.id_materi}
                             {r.materi?.kategori?.nama_kategori && (
                               <div><span className="badge text-bg-secondary fw-normal text-wrap">{r.materi.kategori.nama_kategori}</span></div>
+                            )}
+                            {r.nilai_indikator?.length > 0 && (
+                              <div className="small text-muted mt-1" title={r.nilai_indikator.map((i) => `${i.indikator?.deskripsi}: ${formatAngka(Number(i.nilai))}`).join("\n")}>
+                                <i className="bi bi-list-check me-1"></i>{r.nilai_indikator.length} indikator
+                              </div>
                             )}
                           </td>
                           <td className="text-center">

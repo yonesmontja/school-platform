@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TransNilai extends Model
@@ -27,6 +28,9 @@ class TransNilai extends Model
     public function jenis(): BelongsTo { return $this->belongsTo(MasterMBK::class, 'id_jenis', 'id_jenis'); }
     public function materi(): BelongsTo { return $this->belongsTo(MasterMateri::class, 'id_materi', 'id_materi'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
+
+    // Nilai per indikator (IKTP); bila ada, kolom nilai = rata-ratanya
+    public function nilaiIndikator(): HasMany { return $this->hasMany(TransNilaiIndikator::class, 'id_nilai', 'id_nilai'); }
 
     // Rencana tindak lanjut terbaru yang dipicu nilai ini
     public function rencana(): HasOne
