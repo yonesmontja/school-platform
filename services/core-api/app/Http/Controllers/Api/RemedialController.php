@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\SchoolSetting;
 use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransRencanaRemedial;
+use App\Services\PesanRemedialService;
 use App\Services\RemedialService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -144,6 +146,29 @@ class RemedialController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Rencana tindak lanjut dibatalkan.']);
+    }
+
+    /**
+     * Pesan WhatsApp untuk orang tua/wali: RENCANA (rencana baru dibuat) atau HASIL (nilai remedial sudah dicatat).
+     * Frontend mengirimnya lewat /whatsapp bila Fonnte aktif, atau membuka chat WA satu per satu.
+     */
+    public function notifikasi(Request $request, PesanRemedialService $pesan)
+    {
+        $request->validate([
+            'jenis' => 'required|in:RENCANA,HASIL',
+            'id_rencana' => 'required|array|min:1|max:50',
+            'id_rencana.*' => 'string',
+        ]);
+
+        $rencana = TransRencanaRemedial::with(PesanRemedialService::RELASI)->whereIn('id_rencana', $request->id_rencana)->get();
+        foreach ($rencana as $r) $this->cekMapel($request, $r->id_mapel);
+        if ($request->jenis === 'HASIL') $rencana = $rencana->filter(fn($r) => $r->nilaiRemedial);
+
+        $settings = SchoolSetting::first();
+        return response()->json([
+            'wa_otomatis' => (bool) ($settings?->status_wa_api && $settings?->wa_api_token),
+            'data' => $rencana->map(fn($r) => $pesan->susun($r, $request->jenis, $request->user()))->values(),
+        ]);
     }
 
     private function cekMapel(Request $request, ?string $idMapel): void

@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
+import PanelWaOrtu from "@/components/nilai/PanelWaOrtu";
 import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
@@ -132,6 +133,8 @@ export default function InputNilaiPage() {
   const [editId, setEditId] = useState(null);
   const [tanggalTersedia, setTanggalTersedia] = useState([]);
   const [tindakLanjut, setTindakLanjut] = useState(null); // target ModalTindakLanjut
+  const [panelWa, setPanelWa] = useState(null); // { jenis, idRencana, catatan } untuk PanelWaOrtu
+  const [kabariHasil, setKabariHasil] = useState(true);
   // Indikator (IKTP) yang dinilai pada lembar reguler; kosong = nilai diisi langsung
   const [indikatorDipilih, setIndikatorDipilih] = useState([]);
   const [indikatorSesi, setIndikatorSesi] = useState([]);
@@ -398,8 +401,9 @@ export default function InputNilaiPage() {
 
   const bukaTindakLanjut = (items, kkmTarget = kkm) => setTindakLanjut({ mode: "baru", items, kkm: kkmTarget });
   const ubahTindakLanjut = (rencana, item, kkmTarget = kkm) => setTindakLanjut({ mode: "ubah", rencana, item, kkm: kkmTarget });
-  const selesaiTindakLanjut = () => {
+  const selesaiTindakLanjut = (notifikasi) => {
     setTindakLanjut(null);
+    if (notifikasi?.idRencana?.length) setPanelWa(notifikasi);
     fetchStudents();
     fetchRiwayat();
   };
@@ -485,7 +489,11 @@ export default function InputNilaiPage() {
           id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, tipe_nilai: filters.tipe, records,
         }),
       });
-      if (data.perlu_tindak_lanjut > 0) {
+      const belumTuntas = data.perlu_tindak_lanjut > 0
+        ? `${data.perlu_tindak_lanjut} siswa masih di bawah KKM ${kkm}; atur tindak lanjut berikutnya lewat lembar nilai reguler atau riwayat.` : "";
+      if (modeRemedial && kabariHasil) {
+        setPanelWa({ jenis: "HASIL", idRencana: records.map((r) => r.id_rencana), catatan: `${data.message} ${belumTuntas}`.trim() });
+      } else if (data.perlu_tindak_lanjut > 0) {
         Swal.fire({
           icon: "info", title: data.message,
           html: `<b>${data.perlu_tindak_lanjut}</b> siswa ${modeRemedial ? "masih" : ""} di bawah KKM ${kkm}. Atur rencana tindak lanjutnya lewat tombol <b>Tindak Lanjut</b> pada lembar nilai${modeRemedial ? " reguler atau riwayat" : ""}.`,
@@ -743,6 +751,12 @@ export default function InputNilaiPage() {
               Mode remedial memuat siswa yang punya rencana tindak lanjut pada penilaian ini. Nilai yang diisi dicatat sebagai nilai remedial,
               menuntaskan rencananya, dan menggantikan nilai asal pada rapor serta laporan.
               {pakaiIndikator && " Bila nilai asal dinilai per indikator, cukup isi indikator yang belum mencapai KKM; indikator yang sudah tuntas tetap memakai nilai asalnya."}
+              <div className="form-check form-switch mt-2 mb-0">
+                <input className="form-check-input" type="checkbox" id="kabariHasil" checked={kabariHasil} onChange={(e) => setKabariHasil(e.target.checked)} />
+                <label className="form-check-label fw-semibold" htmlFor="kabariHasil">
+                  <i className="bi bi-whatsapp text-success me-1"></i>Kabari orang tua/wali hasil remedialnya lewat WhatsApp setelah disimpan
+                </label>
+              </div>
             </div>
           )}
         </div>
@@ -1179,6 +1193,9 @@ export default function InputNilaiPage() {
 
       {tindakLanjut && (
         <ModalTindakLanjut target={tindakLanjut} kkm={tindakLanjut.kkm} onTutup={() => setTindakLanjut(null)} onTersimpan={selesaiTindakLanjut} />
+      )}
+      {panelWa && (
+        <PanelWaOrtu jenis={panelWa.jenis} idRencana={panelWa.idRencana} catatan={panelWa.catatan} onTutup={() => setPanelWa(null)} />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ use App\Models\Teacher;
 use App\Models\TransJurnal;
 use App\Models\TransNilai;
 use App\Models\TransPresensi;
+use App\Services\RemedialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -38,10 +39,10 @@ class DashboardController extends Controller
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas']);
 
-        $nilai = TransNilai::efektif()->where('id_periode', $request->id_periode)
+        $nilai = RemedialService::batasiNilai(TransNilai::efektif()->where('id_periode', $request->id_periode)
             ->when($idKelas, fn($q) => $q->where('id_kelas', $idKelas))
             ->orderBy('tanggal')
-            ->get(['id_siswa', 'id_kelas', 'id_mapel', 'id_jenis', 'tanggal', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']);
+            ->get(['id_siswa', 'id_kelas', 'id_mapel', 'id_jenis', 'tanggal', 'tipe_nilai', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']));
 
         $presensi = TransPresensi::where('id_periode', $request->id_periode)
             ->when($idKelas, fn($q) => $q->where('id_kelas', $idKelas))
@@ -54,7 +55,7 @@ class DashboardController extends Controller
 
         // Nilai per indikator (reguler & remedial) untuk analisis indikator yang perlu perhatian;
         // frontend memakai nilai remedial terbaru, sama seperti deskripsi capaian rapor
-        $nilaiIndikator = DB::table('trans_nilai_indikator as ni')
+        $nilaiIndikator = RemedialService::batasiNilai(DB::table('trans_nilai_indikator as ni')
             ->join('trans_nilai as n', 'n.id_nilai', '=', 'ni.id_nilai')
             ->join('master_indikator as i', 'i.id_indikator', '=', 'ni.id_indikator')
             ->join('master_materi as m', 'm.id_materi', '=', 'i.id_materi')
@@ -62,7 +63,18 @@ class DashboardController extends Controller
             ->when($idKelas, fn($q) => $q->where('n.id_kelas', $idKelas))
             ->orderBy('n.tanggal')
             ->get(['n.id_siswa', 'n.id_kelas', 'n.id_mapel', 'n.tipe_nilai', 'n.tanggal', 'ni.id_indikator', 'ni.nilai',
-                'i.deskripsi', 'i.urutan', 'i.id_materi', 'm.nama_materi']);
+                'i.deskripsi', 'i.urutan', 'i.id_materi', 'm.nama_materi']));
+
+        // Rencana tindak lanjut beserta nilai asal & nilai remedial apa adanya (tanpa batas KKM),
+        // untuk mengukur efektivitas tiap bentuk tindak lanjut
+        $rencanaRemedial = DB::table('trans_rencana_remedial as rr')
+            ->join('trans_nilai as n', 'n.id_nilai', '=', 'rr.id_nilai_asal')
+            ->leftJoin('trans_nilai as rem', 'rem.id_rencana', '=', 'rr.id_rencana')
+            ->where('n.id_periode', $request->id_periode)
+            ->when($idKelas, fn($q) => $q->where('n.id_kelas', $idKelas))
+            ->orderBy('rr.tanggal_rencana')
+            ->get(['rr.id_rencana', 'rr.id_siswa', 'rr.id_mapel', 'rr.opsi_tindakan', 'rr.status', 'rr.tanggal_rencana',
+                'n.id_kelas', 'n.nilai as nilai_asal', 'rem.nilai as nilai_remedial', 'rem.tanggal as tanggal_remedial']);
 
         return response()->json([
             'jumlah_guru' => Teacher::count(),
@@ -74,6 +86,7 @@ class DashboardController extends Controller
             'presensi' => $presensi,
             'jurnal' => $jurnal,
             'nilai_indikator' => $nilaiIndikator,
+            'rencana_remedial' => $rencanaRemedial,
         ]);
     }
 }

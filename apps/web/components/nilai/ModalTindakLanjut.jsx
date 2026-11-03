@@ -47,6 +47,7 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
   }));
   const [ruangan, setRuangan] = useState([]);
   const [proses, setProses] = useState(false);
+  const [kabariOrtu, setKabariOrtu] = useState(true);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onTutup(); };
@@ -82,7 +83,8 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
         ? await kirim("PUT", `${API_URL}/remedial/${rencana.id_rencana}`, body)
         : await kirim("POST", `${API_URL}/remedial`, { ...body, id_nilai: dipilih });
       Swal.fire({ toast: true, position: "top-end", icon: "success", title: data.message, showConfirmButton: false, timer: 2500 });
-      onTersimpan();
+      // Rencana baru: halaman membuka panel WA orang tua untuk rencana yang baru dibuat
+      onTersimpan(!ubah && kabariOrtu ? { jenis: "RENCANA", idRencana: (data.data || []).map((r) => r.id_rencana) } : null);
     } catch (err) { Swal.fire("Gagal Menyimpan", err.message, "error"); }
     finally { setProses(false); }
   };
@@ -210,6 +212,15 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
                   </>
                 )}
               </div>
+
+              {!ubah && (
+                <div className="form-check form-switch mt-3 mb-0">
+                  <input className="form-check-input" type="checkbox" id="kabariOrtu" checked={kabariOrtu} onChange={(e) => setKabariOrtu(e.target.checked)} />
+                  <label className="form-check-label small fw-semibold" htmlFor="kabariOrtu">
+                    <i className="bi bi-whatsapp text-success me-1"></i>Kabari orang tua/wali lewat WhatsApp setelah disimpan
+                  </label>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               {ubah && rencana?.status === "DIRENCANAKAN" && (

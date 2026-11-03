@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import ChartCard, { ChartCanvas, MenuEkspor } from "@/components/dashboard/ChartCard";
+import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { eksporCSV, eksporPDFEws, eksporPNGEws } from "@/components/dashboard/chartExport";
 import { ACCENTS, THEME_MODES, setAccent, setThemeMode, useAppTheme } from "@/app/lib/themePrefs";
 import {
   DIMENSI, EWS_DEFAULT, KELOMPOK, METRIK, MODE_WAKTU, PALET, PRESET_KUSTOM, TIPE_GRAFIK,
   buatKonteks, fmt, grafikDistribusi, grafikJenis, grafikKehadiran, grafikKorelasi, grafikMapel,
-  grafikProgres, grafikRadar, hitungEWS, hitungIndikator, hitungKPI, hitungKustom, tanggalMulaiSemester,
+  grafikProgres, grafikRadar, hitungEfektivitas, hitungEWS, hitungIndikator, hitungKPI, hitungKustom, tanggalMulaiSemester,
 } from "./_lib/analitik";
 import { API_URL } from "@/app/lib/config";
 
@@ -218,6 +219,7 @@ export default function DashboardPage() {
   // Bawaan: hanya indikator yang punya siswa belum tuntas; 8 teratas kecuali diperluas
   const indikatorTampil = indikator.filter((i) => (indMapel === "ALL" || i.id_mapel === indMapel) && (indSemua || i.belum.length > 0));
   const mapelIndikator = [...new Map(indikator.map((i) => [i.id_mapel, i.mapel])).entries()];
+  const efektivitas = useMemo(() => (data ? hitungEfektivitas(data, ctx) : null), [data, ctx]);
 
   // Siswa terpilih di grafik progres di-reset bila tidak ada di konteks baru
   useEffect(() => {
@@ -356,6 +358,7 @@ export default function DashboardPage() {
   const tampilKpi = !prefs.hidden.kpi;
   const tampilEws = !prefs.hidden.ews;
   const tampilIndikator = !prefs.hidden.indikator;
+  const tampilEfektivitas = !prefs.hidden.efektivitas;
 
   return (
     <div className="container-fluid mb-5 dash-root">
@@ -650,6 +653,81 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* EFEKTIVITAS TINDAK LANJUT REMEDIAL */}
+          {tampilEfektivitas && efektivitas && (
+            <div className={`card dash-card card-outline card-success mb-3${prefs.collapsed.efektivitas ? " is-collapsed" : ""}`}>
+              <div className="card-header dash-card-header flex-wrap">
+                <span className="dash-card-icon text-bg-success"><i className="bi bi-life-preserver"></i></span>
+                <div className="me-auto min-w-0">
+                  <h3 className="card-title dash-card-title">Efektivitas Tindak Lanjut</h3>
+                  <div className="dash-card-subtitle">Bentuk tindak lanjut remedial yang paling berhasil menuntaskan siswa pada konteks ini</div>
+                </div>
+                <button type="button" className="btn btn-sm btn-tool-dash" onClick={() => toggleCollapse("efektivitas")} title={prefs.collapsed.efektivitas ? "Buka" : "Lipat"}><i className="bi bi-chevron-up dash-collapse-icon"></i></button>
+              </div>
+              <div className="dash-collapse"><div className="dash-collapse-inner"><div className="card-body">
+                {efektivitas.baris.length === 0 ? (
+                  <div className="text-center text-body-secondary py-4">
+                    <i className="bi bi-life-preserver fs-3 d-block mb-1"></i>Belum ada rencana tindak lanjut pada konteks ini.
+                    <div className="small">Rencana dibuat lewat tombol <b>Tindak Lanjut</b> di <Link href="/dashboard/nilai">Input Nilai</Link> untuk siswa di bawah KKM.</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="d-flex flex-wrap gap-2 mb-3 small">
+                      <span className="badge text-bg-light border fw-normal">{efektivitas.total.rencana} rencana</span>
+                      <span className="badge text-bg-light border fw-normal">{efektivitas.total.selesai} sudah dilaksanakan</span>
+                      {efektivitas.total.persenTuntas != null && <span className="badge bg-success-subtle text-success-emphasis border border-success-subtle fw-normal">{efektivitas.total.persenTuntas}% tuntas setelah remedial</span>}
+                      {efektivitas.total.menunggu > 0 && <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal">{efektivitas.total.menunggu} menunggu pelaksanaan</span>}
+                      {efektivitas.total.terlambat > 0 && <span className="badge text-bg-danger fw-normal"><i className="bi bi-alarm me-1"></i>{efektivitas.total.terlambat} lewat tanggal rencana</span>}
+                    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0 small dash-table">
+                        <thead>
+                          <tr>
+                            <th>Bentuk tindak lanjut</th>
+                            <th className="text-center">Dilaksanakan</th>
+                            <th style={{ minWidth: 150 }}>Tuntas setelahnya</th>
+                            <th className="text-center">Rata-rata kenaikan</th>
+                            <th className="text-center">Menunggu</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {efektivitas.baris.map((o) => (
+                            <tr key={o.opsi}>
+                              <td className="fw-semibold text-nowrap">
+                                <i className={`bi ${OPSI_TINDAK_LANJUT.find((x) => x.nama === o.opsi)?.ikon || "bi-signpost-split"} text-primary me-1`}></i>{o.opsi}
+                              </td>
+                              <td className="text-center">{o.selesai}/{o.rencana}</td>
+                              <td>
+                                {o.persenTuntas == null ? <span className="text-body-secondary">Belum ada hasil</span> : (
+                                  <>
+                                    <div className="d-flex justify-content-between"><span>{o.tuntas}/{o.selesai} siswa</span><b>{o.persenTuntas}%</b></div>
+                                    <div className="progress" style={{ height: 6 }} role="progressbar" aria-valuenow={o.persenTuntas} aria-valuemin="0" aria-valuemax="100">
+                                      <div className={`progress-bar ${o.persenTuntas >= 75 ? "bg-success" : o.persenTuntas >= 50 ? "bg-warning" : "bg-danger"}`} style={{ width: `${o.persenTuntas}%` }}></div>
+                                    </div>
+                                  </>
+                                )}
+                              </td>
+                              <td className="text-center">
+                                {o.kenaikan == null ? "–" : <span className={`fw-semibold ${o.kenaikan > 0 ? "text-success" : "text-danger"}`}>{o.kenaikan > 0 ? "+" : ""}{fmt(o.kenaikan)}</span>}
+                              </td>
+                              <td className="text-center">
+                                {o.menunggu || "–"}
+                                {o.terlambat > 0 && <span className="badge text-bg-danger ms-1 fw-normal" title="Rencana yang sudah lewat tanggalnya tetapi belum ada nilai remedial">{o.terlambat} terlambat</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="small text-body-secondary mt-2">
+                      <i className="bi bi-info-circle me-1"></i>Dihitung dari nilai remedial sebenarnya, sebelum dibatasi KKM, karena yang diukur adalah hasil belajar siswa.
+                    </div>
+                  </>
+                )}
+              </div></div></div>
+            </div>
+          )}
+
           {/* GRAFIK */}
           <div className="row g-3">
             {semuaWidget.filter((w) => !prefs.hidden[w.id]).map((w) => (
@@ -826,7 +904,7 @@ export default function DashboardPage() {
 
         <div className="dash-set-section">
           <div className="dash-set-title">Panel Utama</div>
-          {[["kpi", "Kartu metrik (KPI)"], ["ews", "Sistem Peringatan Dini (EWS)"], ["indikator", "Indikator perlu perhatian"]].map(([id, l]) => (
+          {[["kpi", "Kartu metrik (KPI)"], ["ews", "Sistem Peringatan Dini (EWS)"], ["indikator", "Indikator perlu perhatian"], ["efektivitas", "Efektivitas tindak lanjut"]].map(([id, l]) => (
             <div key={id} className="form-check form-switch mb-2">
               <input className="form-check-input" type="checkbox" id={`show_${id}`} checked={!prefs.hidden[id]} onChange={(e) => ubahPrefs((p) => ({ ...p, hidden: { ...p.hidden, [id]: !e.target.checked } }))} />
               <label className="form-check-label small" htmlFor={`show_${id}`}>{l}</label>

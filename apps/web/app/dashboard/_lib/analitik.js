@@ -166,6 +166,41 @@ export function hitungIndikator(data, ctx) {
   }).sort((a, b) => a.persenTuntas - b.persenTuntas || a.rata - b.rata);
 }
 
+/**
+ * Efektivitas tiap bentuk tindak lanjut remedial: berapa rencana yang sudah dilaksanakan, berapa siswa
+ * yang tuntas sesudahnya, dan rata-rata kenaikan nilai. Memakai nilai remedial apa adanya (sebelum dibatasi KKM)
+ * karena yang diukur adalah hasil belajarnya. Rencana yang belum dilaksanakan melewati tanggalnya = terlambat.
+ */
+export function hitungEfektivitas(data, ctx, hariIni = new Date().toISOString().slice(0, 10)) {
+  const peta = new Map();
+  (data.rencana_remedial || []).forEach((r) => {
+    let o = peta.get(r.opsi_tindakan);
+    if (!o) peta.set(r.opsi_tindakan, o = { opsi: r.opsi_tindakan, rencana: 0, selesai: 0, tuntas: 0, kenaikan: [], menunggu: 0, terlambat: 0 });
+    o.rencana++;
+    if (r.nilai_remedial != null) {
+      o.selesai++;
+      if (num(r.nilai_remedial) >= ctx.kkm(r.id_mapel)) o.tuntas++;
+      o.kenaikan.push(num(r.nilai_remedial) - num(r.nilai_asal));
+    } else {
+      o.menunggu++;
+      if (String(r.tanggal_rencana).slice(0, 10) < hariIni) o.terlambat++;
+    }
+  });
+
+  const baris = [...peta.values()].map((o) => ({
+    ...o,
+    persenTuntas: o.selesai ? Math.round((o.tuntas / o.selesai) * 100) : null,
+    kenaikan: o.kenaikan.length ? rata(o.kenaikan) : null,
+  })).sort((a, b) => (b.persenTuntas ?? -1) - (a.persenTuntas ?? -1) || b.selesai - a.selesai);
+
+  const total = baris.reduce((t, o) => ({
+    rencana: t.rencana + o.rencana, selesai: t.selesai + o.selesai, tuntas: t.tuntas + o.tuntas,
+    menunggu: t.menunggu + o.menunggu, terlambat: t.terlambat + o.terlambat,
+  }), { rencana: 0, selesai: 0, tuntas: 0, menunggu: 0, terlambat: 0 });
+  total.persenTuntas = total.selesai ? Math.round((total.tuntas / total.selesai) * 100) : null;
+  return { baris, total };
+}
+
 export function hitungEWS(data, ctx, ambang = EWS_DEFAULT) {
   const a = { ...EWS_DEFAULT, ...ambang };
   const hasil = [];

@@ -118,6 +118,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         // Rencana tindak lanjut remedial: hak akses mengikuti mapel nilai (dicek di controller)
         Route::prefix('remedial')->group(function () {
             Route::post('/', [RemedialController::class, 'store']);
+            Route::post('/notifikasi', [RemedialController::class, 'notifikasi']);
             Route::put('/{id}', [RemedialController::class, 'update']);
             Route::delete('/{id}', [RemedialController::class, 'destroy']);
         });

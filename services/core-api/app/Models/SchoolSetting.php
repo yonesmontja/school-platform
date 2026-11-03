@@ -40,6 +40,7 @@ class SchoolSetting extends Model
         'kktp_baik',
         'kktp_sangat_baik',
         'skala_kokurikuler',
+        'batas_nilai_remedial',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;

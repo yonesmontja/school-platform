@@ -276,6 +276,22 @@ export default function PengaturanSekolahPage() {
             </div>
 
             <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Nilai Remedial di Rapor</h5>
+            <p className="small text-muted mb-3">
+              Berlaku untuk rapor, Laporan STNKM, dan Dashboard. Nilai remedial tetap tersimpan apa adanya, jadi kebijakan ini bisa diganti kapan saja.
+              Status tuntas selalu mengikuti nilai remedial sebenarnya.
+            </p>
+            <div className="d-flex flex-column gap-2">
+              {[["KKM", "Dibatasi setinggi KKM mapel (mis. KKM 75, remedial 92 → rapor 75)"], ["ASLI", "Apa adanya (rapor memakai nilai remedial sebenarnya)"]].map(([v, label]) => (
+                <div className="form-check" key={v}>
+                  <input className="form-check-input" type="radio" name="batas_nilai_remedial" id={`batas_${v}`} value={v}
+                    checked={(formData.batas_nilai_remedial ?? "KKM") === v} onChange={handleInputChange} />
+                  <label className="form-check-label small" htmlFor={`batas_${v}`}>{label}</label>
+                </div>
+              ))}
+            </div>
+
+            <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Skala Predikat Kokurikuler</h5>
             <p className="small text-muted mb-3">
               Dipakai di menu Proyek dan bagian kokurikuler rapor. Predikat tetap tersimpan rinci, jadi skala bisa diganti kapan saja tanpa kehilangan data.

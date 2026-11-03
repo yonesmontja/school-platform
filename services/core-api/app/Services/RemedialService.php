@@ -2,14 +2,34 @@
 
 namespace App\Services;
 
+use App\Models\SchoolSetting;
+use App\Models\Subject;
 use App\Models\TransJadwal;
 use App\Models\TransRencanaRemedial;
+use Illuminate\Support\Collection;
 
 /**
  * Siklus status rencana remedial dan sesi jadwal yang menyertainya.
  */
 class RemedialService
 {
+    /**
+     * Terapkan kebijakan sekolah pada nilai remedial yang direkap (rapor, laporan, dasbor):
+     * bila batas_nilai_remedial = KKM, nilai remedial tidak melebihi KKM mapelnya.
+     * Baris (model atau hasil query) harus memuat tipe_nilai, id_mapel, dan nilai; datanya tidak disimpan ulang.
+     */
+    public static function batasiNilai(Collection $baris): Collection
+    {
+        if ((SchoolSetting::first()?->batas_nilai_remedial ?? 'KKM') !== 'KKM') return $baris;
+
+        $kkm = Subject::pluck('kkm', 'id_mapel');
+        return $baris->each(function ($b) use ($kkm) {
+            if ($b->tipe_nilai !== 'REMEDIAL') return;
+            $batas = (float) ($kkm[$b->id_mapel] ?? 75);
+            if ((float) $b->nilai > $batas) $b->nilai = $batas;
+        });
+    }
+
     public static function tandaiSelesai(TransRencanaRemedial $rencana, string $tanggal): void
     {
         $rencana->update(['status' => 'SELESAI', 'tanggal_selesai' => $tanggal]);

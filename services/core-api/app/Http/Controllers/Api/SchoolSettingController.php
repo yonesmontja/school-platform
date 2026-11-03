@@ -35,6 +35,7 @@ class SchoolSettingController extends Controller
             'kktp_baik' => 'sometimes|integer|between:2,99|gt:kktp_cukup',
             'kktp_sangat_baik' => 'sometimes|integer|between:3,100|gt:kktp_baik',
             'skala_kokurikuler' => 'sometimes|in:3,4',
+            'batas_nilai_remedial' => 'sometimes|in:KKM,ASLI',
         ], [
             'kktp_baik.gt' => 'Batas Baik harus lebih tinggi dari batas Cukup.',
             'kktp_sangat_baik.gt' => 'Batas Sangat Baik harus lebih tinggi dari batas Baik.',
