@@ -16,7 +16,7 @@ class TransNilai extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id_nilai', 'tanggal', 'id_siswa', 'id_mapel', 'id_guru', 
+        'id_nilai', 'tanggal', 'id_siswa', 'id_mapel', 'id_guru', 'diisi_oleh',
         'id_periode', 'id_jenis', 'id_materi', 'id_kelas', 'nilai',
         'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M', 'metode_stnkm',
         'tipe_nilai', 'id_rencana',
@@ -28,6 +28,10 @@ class TransNilai extends Model
     public function jenis(): BelongsTo { return $this->belongsTo(MasterMBK::class, 'id_jenis', 'id_jenis'); }
     public function materi(): BelongsTo { return $this->belongsTo(MasterMateri::class, 'id_materi', 'id_materi'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
+    // Guru penilai (pemilik akun guru, atau guru pengampu mapel bila diisi admin/kepsek)
+    public function guru(): BelongsTo { return $this->belongsTo(Teacher::class, 'id_guru', 'id_guru'); }
+    // Akun yang menginput nilai
+    public function pengisi(): BelongsTo { return $this->belongsTo(User::class, 'diisi_oleh'); }
 
     // Nilai per indikator (IKTP); bila ada, kolom nilai = rata-ratanya
     public function nilaiIndikator(): HasMany { return $this->hasMany(TransNilaiIndikator::class, 'id_nilai', 'id_nilai'); }

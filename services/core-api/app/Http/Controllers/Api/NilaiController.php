@@ -10,6 +10,7 @@ use App\Models\MasterMateri;
 use App\Models\MasterPeriode;
 use App\Models\Student;
 use App\Models\Subject;
+use App\Models\Teacher;
 use App\Models\TransNilai;
 use App\Models\TransNilaiIndikator;
 use App\Models\TransRencanaRemedial;
@@ -21,7 +22,7 @@ use Illuminate\Validation\Rule;
 
 class NilaiController extends Controller
 {
-    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
+    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'guru:id_guru,nama_guru', 'pengisi:id,name', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
     private const META = ['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi'];
 
     public function getFilters(Request $request)
@@ -242,19 +243,23 @@ class NilaiController extends Controller
         $metode = $request->input('metode_stnkm', 'OTOMATIS');
         $mbk = MasterMBK::find($meta['id_jenis']);
         $materi = MasterMateri::find($meta['id_materi']);
-        // Belum ada relasi users → teachers, jadi pengisi dicatat dengan nama akun
-        $pengisi = Str::limit($request->user()->name ?? 'UNKNOWN', 50, '');
+        // Guru penilai: guru pemilik akun; admin/kepsek menilai atas nama guru pengampu mapel
+        $user = $request->user();
+        $guruAkun = $user->id_guru && Teacher::whereKey($user->id_guru)->exists() ? $user->id_guru : null;
+        $guruPengampu = Subject::find($meta['id_mapel'])?->id_guru;
 
         $existing = $this->queryPenilaian($meta, $request->tanggal)->whereIn('id_siswa', $normal->pluck('id_siswa'))->get()->keyBy('id_siswa');
         $saved = 0; $updated = 0;
 
-        DB::transaction(function () use ($request, $meta, $metode, $mbk, $materi, $pengisi, $existing, $normal, $remedial, &$saved, &$updated) {
-            $simpan = function (array $rec, ?TransNilai $row, array $tambahan) use ($request, $meta, $metode, $mbk, $materi, $pengisi, &$saved, &$updated) {
+        DB::transaction(function () use ($request, $meta, $metode, $mbk, $materi, $user, $guruAkun, $guruPengampu, $existing, $normal, $remedial, &$saved, &$updated) {
+            $simpan = function (array $rec, ?TransNilai $row, array $tambahan) use ($request, $meta, $metode, $mbk, $materi, $user, $guruAkun, $guruPengampu, &$saved, &$updated) {
                 $nilai = (float) $rec['nilai'];
                 $data = [
                     'tanggal' => $request->tanggal,
                     'nilai' => $nilai,
-                    'id_guru' => $pengisi,
+                    // Koreksi oleh admin/kepsek tidak mengganti guru penilai yang sudah tercatat
+                    'id_guru' => $guruAkun ?? $row?->id_guru ?? $guruPengampu,
+                    'diisi_oleh' => $user->id,
                     'metode_stnkm' => $metode,
                     ...($metode === 'MANUAL' ? $this->poinManual($rec) : $this->hitungStnkm($nilai, $mbk, $materi)),
                 ];

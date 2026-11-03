@@ -66,6 +66,9 @@ const samaPeta = (a = {}, b = {}) => {
   const ka = Object.keys(a), kb = Object.keys(b);
   return ka.length === kb.length && ka.every((k) => Number(a[k]) === Number(b[k]));
 };
+// Guru penilai (Master Guru); nama akun pengisi disebut bila berbeda, mis. admin yang mengisi atas nama guru
+const namaGuru = (r) => r.guru?.nama_guru || r.id_guru || "-";
+const pengisiLain = (r) => (r.pengisi?.name && r.pengisi.name !== r.guru?.nama_guru ? r.pengisi.name : null);
 const singkat = (teks, n = 28) => (teks.length > n ? `${teks.slice(0, n - 1)}…` : teks);
 const labelPeriode = (p) => (p ? `${p.tahun_ajaran} (${p.semester})` : "-");
 
@@ -536,7 +539,7 @@ export default function InputNilaiPage() {
 
   const filteredRiwayat = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const cocok = (r) => [r.siswa?.nama_siswa, r.siswa?.nisn, r.mapel?.nama_mapel, r.jenis?.kategori_penilaian, r.materi?.nama_materi, r.materi?.kategori?.nama_kategori, r.id_guru]
+    const cocok = (r) => [r.siswa?.nama_siswa, r.siswa?.nisn, r.mapel?.nama_mapel, r.jenis?.kategori_penilaian, r.materi?.nama_materi, r.materi?.kategori?.nama_kategori, r.guru?.nama_guru, r.pengisi?.name]
       .some((v) => String(v ?? "").toLowerCase().includes(q));
     const nilaiSort = {
       tanggal: (r) => String(r.tanggal),
@@ -544,7 +547,7 @@ export default function InputNilaiPage() {
       mapel: (r) => (r.mapel?.nama_mapel || "").toLowerCase(),
       jenis: (r) => (r.jenis?.kategori_penilaian || "").toLowerCase(),
       nilai: (r) => Number(r.nilai),
-      guru: (r) => String(r.id_guru || "").toLowerCase(),
+      guru: (r) => namaGuru(r).toLowerCase(),
     }[sortCol];
     return (q ? riwayat.filter(cocok) : riwayat.slice()).sort((a, b) => {
       const va = nilaiSort(a), vb = nilaiSort(b);
@@ -580,7 +583,8 @@ export default function InputNilaiPage() {
       "Ketuntasan": v >= kkmR ? "TUNTAS" : "BELUM TUNTAS",
       "Tipe": r.tipe_nilai === "REMEDIAL" ? "Remedial" : "Reguler",
       "Tindak Lanjut": r.rencana ? `${r.rencana.opsi_tindakan} (${STATUS_RENCANA[r.rencana.status]?.label || r.rencana.status})` : "-",
-      "Pengisi": r.id_guru || "-",
+      "Guru": namaGuru(r),
+      "Diisi Oleh": r.pengisi?.name || "-",
     };
   });
 
@@ -1074,7 +1078,7 @@ export default function InputNilaiPage() {
                       {sortHeader("jenis", "Jenis")}
                       <th>Materi & High Level</th>
                       {sortHeader("nilai", "Nilai", "text-center")}
-                      {sortHeader("guru", "Pengisi")}
+                      {sortHeader("guru", "Guru")}
                       <th className="text-center">Aksi</th>
                     </tr>
                   </thead>
@@ -1122,7 +1126,10 @@ export default function InputNilaiPage() {
                               </div>
                             )}
                           </td>
-                          <td><span className="badge bg-body-secondary text-body-secondary border fw-normal">{r.id_guru || "-"}</span></td>
+                          <td>
+                            <span className="badge bg-body-secondary text-body-secondary border fw-normal">{namaGuru(r)}</span>
+                            {pengisiLain(r) && <small className="d-block text-muted" title="Akun yang menginput">diisi {pengisiLain(r)}</small>}
+                          </td>
                           <td className="text-center">
                             <div className="btn-group btn-group-sm">
                               {(r.rencana || !tuntas) && (
