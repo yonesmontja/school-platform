@@ -9,7 +9,7 @@ import { ACCENTS, THEME_MODES, setAccent, setThemeMode, useAppTheme } from "@/ap
 import {
   DIMENSI, EWS_DEFAULT, KELOMPOK, METRIK, MODE_WAKTU, PALET, PRESET_KUSTOM, TIPE_GRAFIK,
   buatKonteks, fmt, grafikDistribusi, grafikJenis, grafikKehadiran, grafikKorelasi, grafikMapel,
-  grafikProgres, grafikRadar, hitungEWS, hitungKPI, hitungKustom, tanggalMulaiSemester,
+  grafikProgres, grafikRadar, hitungEWS, hitungIndikator, hitungKPI, hitungKustom, tanggalMulaiSemester,
 } from "./_lib/analitik";
 import { API_URL } from "@/app/lib/config";
 
@@ -134,6 +134,10 @@ export default function DashboardPage() {
   const [ewsSort, setEwsSort] = useState({ col: "skor", asc: false });
   const [ewsPage, setEwsPage] = useState(1);
   const [ewsZoom, setEwsZoom] = useState(false);
+  // Indikator perlu perhatian
+  const [indMapel, setIndMapel] = useState("ALL");
+  const [indSemua, setIndSemua] = useState(false);
+  const [indLengkap, setIndLengkap] = useState(false);
 
   const fetchJSON = async (url) => {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}`, Accept: "application/json" } });
@@ -210,6 +214,10 @@ export default function DashboardPage() {
   const ctx = useMemo(() => (data ? buatKonteks(data) : null), [data]);
   const kpi = useMemo(() => (data ? hitungKPI(data, ctx) : null), [data, ctx]);
   const ews = useMemo(() => (data ? hitungEWS(data, ctx, prefs.ews) : []), [data, ctx, prefs.ews]);
+  const indikator = useMemo(() => (data ? hitungIndikator(data, ctx) : []), [data, ctx]);
+  // Bawaan: hanya indikator yang punya siswa belum tuntas; 8 teratas kecuali diperluas
+  const indikatorTampil = indikator.filter((i) => (indMapel === "ALL" || i.id_mapel === indMapel) && (indSemua || i.belum.length > 0));
+  const mapelIndikator = [...new Map(indikator.map((i) => [i.id_mapel, i.mapel])).entries()];
 
   // Siswa terpilih di grafik progres di-reset bila tidak ada di konteks baru
   useEffect(() => {
@@ -347,6 +355,7 @@ export default function DashboardPage() {
 
   const tampilKpi = !prefs.hidden.kpi;
   const tampilEws = !prefs.hidden.ews;
+  const tampilIndikator = !prefs.hidden.indikator;
 
   return (
     <div className="container-fluid mb-5 dash-root">
@@ -552,6 +561,95 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* INDIKATOR PERLU PERHATIAN */}
+          {tampilIndikator && (
+            <div className={`card dash-card card-outline card-warning mb-3${prefs.collapsed.indikator ? " is-collapsed" : ""}`}>
+              <div className="card-header dash-card-header flex-wrap">
+                <span className="dash-card-icon text-bg-warning"><i className="bi bi-list-check"></i></span>
+                <div className="me-auto min-w-0">
+                  <h3 className="card-title dash-card-title">Indikator Perlu Perhatian</h3>
+                  <div className="dash-card-subtitle">Indikator ketercapaian TP dengan siswa belum tuntas terbanyak, sebagai dasar remedial kelompok atau pengulangan materi</div>
+                </div>
+                <button type="button" className="btn btn-sm btn-tool-dash" onClick={() => toggleCollapse("indikator")} title={prefs.collapsed.indikator ? "Buka" : "Lipat"}><i className="bi bi-chevron-up dash-collapse-icon"></i></button>
+              </div>
+              <div className="dash-collapse"><div className="dash-collapse-inner"><div className="card-body">
+                {indikator.length === 0 ? (
+                  <div className="text-center text-body-secondary py-4">
+                    <i className="bi bi-list-check fs-3 d-block mb-1"></i>Belum ada penilaian per indikator pada konteks ini.
+                    <div className="small">Pilih indikator saat mengisi <Link href="/dashboard/nilai">Input Nilai</Link> agar analisis ini terisi.</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                      <select className="form-select form-select-sm w-auto" value={indMapel} onChange={(e) => setIndMapel(e.target.value)}>
+                        <option value="ALL">Semua mapel</option>
+                        {mapelIndikator.map(([id, nama]) => <option key={id} value={id}>{nama}</option>)}
+                      </select>
+                      <div className="form-check form-switch mb-0 ms-md-auto">
+                        <input className="form-check-input" type="checkbox" id="ind_semua" checked={indSemua} onChange={(e) => setIndSemua(e.target.checked)} />
+                        <label className="form-check-label small" htmlFor="ind_semua">Tampilkan juga indikator yang sudah tuntas semua</label>
+                      </div>
+                    </div>
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0 small dash-table">
+                        <thead>
+                          <tr>
+                            <th>Indikator</th>
+                            <th className="text-center" style={{ width: 90 }}>Rata-rata</th>
+                            <th style={{ minWidth: 150 }}>Ketuntasan</th>
+                            <th>Belum tuntas</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {indikatorTampil.length === 0 && (
+                            <tr><td colSpan="4" className="text-center text-success fw-semibold py-4"><i className="bi bi-patch-check fs-3 d-block mb-1"></i>Semua siswa sudah tuntas pada indikator yang dinilai.</td></tr>
+                          )}
+                          {(indLengkap ? indikatorTampil : indikatorTampil.slice(0, 8)).map((i) => (
+                            <tr key={i.id_indikator}>
+                              <td>
+                                <div className="fw-semibold">{i.deskripsi}</div>
+                                <small className="text-body-secondary">{i.nama_materi} · {i.mapel} · {i.kelas}</small>
+                              </td>
+                              <td className="text-center">
+                                <span className={`badge ${i.rata >= i.kkm ? "text-bg-success" : "text-bg-danger"}`}>{fmt(i.rata)}</span>
+                                <div className="text-body-secondary" style={{ fontSize: 11 }}>KKM {i.kkm}</div>
+                              </td>
+                              <td>
+                                <div className="d-flex justify-content-between"><span>{i.tuntas}/{i.jumlah} siswa</span><b>{i.persenTuntas}%</b></div>
+                                <div className="progress" style={{ height: 6 }} role="progressbar" aria-valuenow={i.persenTuntas} aria-valuemin="0" aria-valuemax="100">
+                                  <div className={`progress-bar ${i.persenTuntas >= 75 ? "bg-success" : i.persenTuntas >= 50 ? "bg-warning" : "bg-danger"}`} style={{ width: `${i.persenTuntas}%` }}></div>
+                                </div>
+                              </td>
+                              <td>
+                                {i.belum.length === 0 ? <span className="text-success">—</span> : (
+                                  <div className="d-flex flex-wrap gap-1">
+                                    {i.belum.slice(0, 6).map((s) => (
+                                      <span key={s.id_siswa} className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-normal">{s.nama} · {fmt(s.nilai)}</span>
+                                    ))}
+                                    {i.belum.length > 6 && (
+                                      <span className="badge text-bg-light border fw-normal" title={i.belum.slice(6).map((s) => `${s.nama} (${fmt(s.nilai)})`).join(", ")}>+{i.belum.length - 6} lainnya</span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {indikatorTampil.length > 8 && (
+                      <div className="text-center mt-2">
+                        <button type="button" className="btn btn-sm btn-link" onClick={() => setIndLengkap((v) => !v)}>
+                          {indLengkap ? "Tampilkan lebih sedikit" : `Tampilkan semua (${indikatorTampil.length})`}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div></div></div>
+            </div>
+          )}
+
           {/* GRAFIK */}
           <div className="row g-3">
             {semuaWidget.filter((w) => !prefs.hidden[w.id]).map((w) => (
@@ -728,7 +826,7 @@ export default function DashboardPage() {
 
         <div className="dash-set-section">
           <div className="dash-set-title">Panel Utama</div>
-          {[["kpi", "Kartu metrik (KPI)"], ["ews", "Sistem Peringatan Dini (EWS)"]].map(([id, l]) => (
+          {[["kpi", "Kartu metrik (KPI)"], ["ews", "Sistem Peringatan Dini (EWS)"], ["indikator", "Indikator perlu perhatian"]].map(([id, l]) => (
             <div key={id} className="form-check form-switch mb-2">
               <input className="form-check-input" type="checkbox" id={`show_${id}`} checked={!prefs.hidden[id]} onChange={(e) => ubahPrefs((p) => ({ ...p, hidden: { ...p.hidden, [id]: !e.target.checked } }))} />
               <label className="form-check-label small" htmlFor={`show_${id}`}>{l}</label>

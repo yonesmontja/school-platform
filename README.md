@@ -42,7 +42,7 @@ school-platform/
 - **Laporan STNKM** — laporan rata-rata STNKM per kelas/siswa dengan grafik tren, detail siswa, dan ekspor multi-halaman
 - **Cetak Rapor** — data rapor, catatan wali kelas (dapat dibuat dengan AI), cetak, dan distribusi; deskripsi capaian mapel yang dinilai per indikator disusun dari indikatornya (penguasaan terbaik, perlu bimbingan di bawah KKM, atau perlu peningkatan)
 - **WhatsApp (Fonnte)** — kirim pesan otomatis untuk rapor dan presensi lewat gateway Fonnte
-- **Dashboard** — dasbor analitik bergaya SaaS dengan grafik (Chart.js) dan menu sidebar berkelompok yang dapat dilipat, dengan pencarian menu (Ctrl+K) dan mode mini
+- **Dashboard** — dasbor analitik bergaya SaaS dengan grafik (Chart.js) dan menu sidebar berkelompok yang dapat dilipat, dengan pencarian menu (Ctrl+K) dan mode mini; panel **Indikator Perlu Perhatian**: indikator (IKTP) diurutkan dari ketuntasan terendah, dengan rata-rata, persentase tuntas terhadap KKM, dan daftar siswa belum tuntas (nilai remedial terbaru menggantikan nilai asal)
 - **Tema** — mode terang/gelap/otomatis dan pilihan warna aksen untuk seluruh aplikasi
 - **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)

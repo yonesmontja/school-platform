@@ -131,6 +131,41 @@ export function hitungKPI(data, ctx) {
 }
 
 // ================= EARLY WARNING SYSTEM =================
+/**
+ * Indikator (IKTP) yang perlu perhatian: nilai efektif tiap siswa per indikator (nilai remedial terbaru
+ * menggantikan nilai reguler, seperti deskripsi rapor), lalu per indikator rata-rata, ketuntasan terhadap
+ * KKM mapel, dan siswa yang belum tuntas. Urut dari ketuntasan terendah.
+ */
+export function hitungIndikator(data, ctx) {
+  const peta = new Map();
+  (data.nilai_indikator || []).forEach((b) => {
+    let ind = peta.get(b.id_indikator);
+    if (!ind) peta.set(b.id_indikator, ind = {
+      id_indikator: b.id_indikator, deskripsi: b.deskripsi, nama_materi: b.nama_materi, id_mapel: b.id_mapel,
+      kelas: new Set(), siswa: new Map(),
+    });
+    ind.kelas.add(b.id_kelas);
+    const s = ind.siswa.get(b.id_siswa) || { reguler: [], remedial: null };
+    if (b.tipe_nilai === "REMEDIAL") s.remedial = Number(b.nilai); // baris urut tanggal: yang terakhir menang
+    else s.reguler.push(Number(b.nilai));
+    ind.siswa.set(b.id_siswa, s);
+  });
+
+  return [...peta.values()].map((ind) => {
+    const kkm = ctx.kkm(ind.id_mapel);
+    const nilai = [...ind.siswa.entries()].map(([id, s]) => ({ id_siswa: id, nama: ctx.namaSiswa(id), nilai: s.remedial ?? rata(s.reguler) }));
+    const belum = nilai.filter((n) => n.nilai < kkm).sort((a, b) => a.nilai - b.nilai);
+    return {
+      id_indikator: ind.id_indikator, deskripsi: ind.deskripsi, nama_materi: ind.nama_materi,
+      id_mapel: ind.id_mapel, mapel: ctx.namaMapel(ind.id_mapel), kkm,
+      kelas: [...ind.kelas].map(ctx.namaKelas).join(", "),
+      rata: rata(nilai.map((n) => n.nilai)), jumlah: nilai.length,
+      tuntas: nilai.length - belum.length, persenTuntas: Math.round(((nilai.length - belum.length) / nilai.length) * 100),
+      belum,
+    };
+  }).sort((a, b) => a.persenTuntas - b.persenTuntas || a.rata - b.rata);
+}
+
 export function hitungEWS(data, ctx, ambang = EWS_DEFAULT) {
   const a = { ...EWS_DEFAULT, ...ambang };
   const hasil = [];

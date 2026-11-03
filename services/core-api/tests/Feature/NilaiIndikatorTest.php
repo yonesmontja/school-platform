@@ -134,6 +134,20 @@ class NilaiIndikatorTest extends TestCase
         $this->assertSame(78, \App\Models\SchoolSetting::first()->kktp_baik);
     }
 
+    public function test_dashboard_memuat_nilai_indikator_per_kelas_dan_periode(): void
+    {
+        $this->simpan([['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-1' => 90, 'IND-2' => 50]]])->assertOk();
+
+        $res = $this->getJson('/api/dashboard?id_periode=PER-T&id_kelas=KLS-A')->assertOk();
+        $this->assertCount(2, $res->json('nilai_indikator'));
+        $baris = collect($res->json('nilai_indikator'))->firstWhere('id_indikator', 'IND-2');
+        $this->assertSame('Pecahan', $baris['nama_materi']);
+        $this->assertEquals(50, $baris['nilai']);
+
+        // Kelas lain tidak ikut
+        $this->assertCount(0, $this->getJson('/api/dashboard?id_periode=PER-T&id_kelas=KLS-B')->json('nilai_indikator'));
+    }
+
     public function test_riwayat_memuat_nilai_per_indikator(): void
     {
         $this->simpan([['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-1' => 80, 'IND-2' => 70]]])->assertOk();
