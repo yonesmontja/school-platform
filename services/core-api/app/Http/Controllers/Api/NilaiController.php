@@ -151,7 +151,9 @@ class NilaiController extends Controller
         $data = TransRencanaRemedial::with([
                 'siswa:id_siswa,nisn,nama_siswa',
                 'nilaiAsal:id_nilai,nilai,tanggal,tipe_nilai',
+                'nilaiAsal.nilaiIndikator.indikator:id_indikator,deskripsi,urutan,aktif',
                 'nilaiRemedial:id_nilai,id_rencana,nilai,tanggal',
+                'nilaiRemedial.nilaiIndikator',
                 'jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi',
             ])
             ->whereHas('nilaiAsal', fn($q) => $q->where($meta))
@@ -278,6 +280,15 @@ class NilaiController extends Controller
             }
             foreach ($remedial as $rec) {
                 $rencana = $rec['rencana'];
+                if ($rec['nilai_indikator']) {
+                    // Remedial per indikator: indikator yang diulang menggantikan nilai asalnya, sisanya tetap,
+                    // sehingga nilai remedial = rata-rata seluruh indikator setelah perbaikan
+                    $gabungan = array_replace(
+                        $rencana->nilaiAsal->nilaiIndikator->mapWithKeys(fn($i) => [$i->id_indikator => (float) $i->nilai])->all(),
+                        $rec['nilai_indikator'],
+                    );
+                    $rec['nilai'] = round(array_sum($gabungan) / count($gabungan), 2);
+                }
                 $simpan($rec, $rencana->nilaiRemedial, ['tipe_nilai' => 'REMEDIAL', 'id_rencana' => $rencana->id_rencana]);
                 RemedialService::tandaiSelesai($rencana, $request->tanggal);
             }
@@ -312,7 +323,7 @@ class NilaiController extends Controller
 
     private function cariRencana(array $rec, array $meta): ?TransRencanaRemedial
     {
-        $query = TransRencanaRemedial::with('nilaiRemedial')
+        $query = TransRencanaRemedial::with('nilaiRemedial', 'nilaiAsal.nilaiIndikator')
             ->where('id_siswa', $rec['id_siswa'])
             ->whereHas('nilaiAsal', fn($q) => $q->where($meta));
 

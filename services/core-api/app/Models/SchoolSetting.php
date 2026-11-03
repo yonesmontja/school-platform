@@ -36,6 +36,9 @@ class SchoolSetting extends Model
         'id_wa_group_guru',
         'status_wa_api',
         'wa_api_token',
+        'kktp_cukup',
+        'kktp_baik',
+        'kktp_sangat_baik',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;
@@ -58,6 +61,9 @@ class SchoolSetting extends Model
         'api_key_openkey' => 'encrypted',
         'wa_api_token' => 'encrypted',
         'status_wa_api' => 'boolean',
+        'kktp_cukup' => 'integer',
+        'kktp_baik' => 'integer',
+        'kktp_sangat_baik' => 'integer',
     ];
 
     private function hasKey(string $field): bool

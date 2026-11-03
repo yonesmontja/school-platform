@@ -2,6 +2,7 @@
 // Mesin kalkulasi & komponen dokumen rapor, dipakai halaman Cetak Rapor dan Portal Siswa/Orang Tua
 import { Fragment } from "react";
 import { API_URL } from "@/app/lib/config";
+import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 
 
 export const DIMENSI = [
@@ -70,6 +71,52 @@ export const mapelBerlaku = (namaMapel, agama, tingkat) => {
 };
 
 // =========================================================================
+// DESKRIPSI CAPAIAN DARI INDIKATOR (IKTP)
+// =========================================================================
+// "Peserta didik dapat membandingkan pecahan" → "membandingkan pecahan", agar enak dibaca di dalam kalimat
+const frasaIndikator = (teks) => {
+  const t = String(teks || "").trim().replace(/[.;]+$/, "").replace(/^(peserta didik|siswa|murid|ananda)\s+(dapat|mampu|bisa)\s+/i, "");
+  return t.charAt(0).toLowerCase() + t.slice(1);
+};
+// "serta", bukan "dan": deskripsi indikator sendiri sering memuat kata "dan"
+const gabungFrasa = (list) => (list.length <= 1 ? list.join("") : `${list.slice(0, -1).join(", ")} serta ${list[list.length - 1]}`);
+
+/**
+ * Nilai per indikator satu siswa pada satu mapel: nilai remedial terbaru menggantikan nilai reguler,
+ * selain itu rata-rata nilai reguler. Kalimat: indikator terkuat (≥ KKM) dan yang perlu bimbingan (< KKM).
+ */
+export function deskripsiIndikator(baris, kkm, tingkat) {
+  const per = new Map();
+  baris.forEach((b) => {
+    const p = per.get(b.id_indikator) || { deskripsi: b.deskripsi, urutan: b.urutan, reguler: [], remedial: null };
+    if (b.tipe_nilai === "REMEDIAL") p.remedial = num(b.nilai); // baris sudah urut tanggal: yang terakhir menang
+    else p.reguler.push(num(b.nilai));
+    per.set(b.id_indikator, p);
+  });
+  const items = [...per.values()].map((p) => ({ ...p, nilai: p.remedial ?? rata(p.reguler) }));
+  if (!items.length) return null;
+
+  const perlu = items.filter((i) => i.nilai < kkm).sort((a, b) => a.nilai - b.nilai).slice(0, 2);
+  // Semua tuntas: indikator terendah disebut "perlu peningkatan" bila belum mencapai tingkat tertinggi
+  const terendah = [...items].sort((a, b) => a.nilai - b.nilai)[0];
+  const tingkatkan = !perlu.length && items.length > 1 && terendah.nilai < tingkat[0].min ? terendah : null;
+  const kuat = items.filter((i) => i.nilai >= kkm && i !== tingkatkan).sort((a, b) => b.nilai - a.nilai).slice(0, 2);
+
+  const seg = [];
+  if (kuat.length) {
+    const level = tingkatNilai(rata(kuat.map((i) => i.nilai)), tingkat).label.toLowerCase();
+    seg.push({ t: `Menunjukkan penguasaan yang ${level} dalam ` }, { t: gabungFrasa(kuat.map((i) => frasaIndikator(i.deskripsi))), b: true });
+  }
+  if (perlu.length) {
+    seg.push({ t: kuat.length ? ". Perlu bimbingan dalam " : "Perlu bimbingan dalam " }, { t: gabungFrasa(perlu.map((i) => frasaIndikator(i.deskripsi))), b: true });
+  } else if (tingkatkan) {
+    seg.push({ t: ". Perlu peningkatan dalam " }, { t: frasaIndikator(tingkatkan.deskripsi), b: true });
+  }
+  seg.push({ t: "." });
+  return seg;
+}
+
+// =========================================================================
 // MESIN KALKULASI RAPOR (port dari rapor.html GAS)
 // =========================================================================
 export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
@@ -98,6 +145,8 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
     else if (j.mode_dampak === "PISAH" && j.narasi_kejadian) narasiPisah.push(j.narasi_kejadian);
   });
   const bonusPerMapel = bonusJurnal / (grupMapel.length || 1);
+  const tingkatCapaian = tingkatKktp(data.settings);
+  const nilaiIndikatorSiswa = (data.nilai_indikator || []).filter((n) => n.id_siswa === idSiswa);
   const totalBobot = DIMENSI.reduce((s, d) => s + bobot[d.key], 0) || 1;
 
   const poinGlobal = Object.fromEntries(DIMENSI.map((d) => [d.key, []]));
@@ -139,6 +188,9 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
         { t: "." },
       ];
     }
+    // Mapel yang dinilai per indikator memakai deskripsi capaian dari indikatornya (selaras KKTP)
+    const dariIndikator = deskripsiIndikator(nilaiIndikatorSiswa.filter((n) => g.ids.includes(n.id_mapel)), g.kkm, tingkatCapaian);
+    if (dariIndikator) row.deskripsi = dariIndikator;
     return row;
   });
 

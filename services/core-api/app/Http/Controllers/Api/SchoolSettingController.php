@@ -29,6 +29,13 @@ class SchoolSettingController extends Controller
             'no_wa_kepsek' => 'nullable|string|max:30',
             'id_wa_group_guru' => 'nullable|string|max:100',
             'status_wa_api' => 'nullable|boolean',
+            // Rentang KKTP harus naik: cukup < baik < sangat baik
+            'kktp_cukup' => 'sometimes|integer|between:1,98',
+            'kktp_baik' => 'sometimes|integer|between:2,99|gt:kktp_cukup',
+            'kktp_sangat_baik' => 'sometimes|integer|between:3,100|gt:kktp_baik',
+        ], [
+            'kktp_baik.gt' => 'Batas Baik harus lebih tinggi dari batas Cukup.',
+            'kktp_sangat_baik.gt' => 'Batas Sangat Baik harus lebih tinggi dari batas Baik.',
         ]);
 
         $data = $request->except(['ttd_kepsek_base64']);

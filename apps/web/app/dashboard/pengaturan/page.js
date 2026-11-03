@@ -260,6 +260,22 @@ export default function PengaturanSekolahPage() {
             </div>
 
             <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Kriteria Ketercapaian TP (KKTP)</h5>
+            <p className="small text-muted mb-3">
+              Batas bawah tiap tingkat capaian untuk nilai 0–100, dipakai di Input Nilai dan deskripsi capaian rapor.
+              Nilai di bawah batas Cukup tergolong <b>Perlu Bimbingan</b>. Batas tuntas (remedial) tetap mengikuti KKM tiap mapel.
+            </p>
+            <div className="row g-3">
+              {[["kktp_cukup", "Cukup mulai", 70], ["kktp_baik", "Baik mulai", 80], ["kktp_sangat_baik", "Sangat Baik mulai", 90]].map(([name, label, bawaan]) => (
+                <div className="col-4" key={name}>
+                  <label className="form-label fw-bold small">{label}</label>
+                  <input type="number" min="1" max="100" className="form-control" name={name}
+                    value={formData[name] ?? bawaan} onChange={handleInputChange} />
+                </div>
+              ))}
+            </div>
+
+            <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Integrasi AI</h5>
             <p className="small text-muted mb-0">
               Dipakai untuk analisis Jurnal Anekdotal dan Catatan Wali Kelas di rapor. Key disimpan terenkripsi di server dan tidak akan ditampilkan kembali.

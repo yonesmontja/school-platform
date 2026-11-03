@@ -17,6 +17,7 @@ use App\Models\TransNilaiP5;
 use App\Models\TransPresensi;
 use App\Services\RaporAIService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -80,6 +81,13 @@ class RaporController extends Controller
                 ->where('id_periode', $idPeriode)
                 ->whereIn('id_siswa', $idSiswa)
                 ->get(['id_siswa', 'tanggal', 'status_kehadiran']),
+            // Nilai per indikator (reguler & remedial) untuk deskripsi capaian; frontend memilih nilai terbaru remedial
+            'nilai_indikator' => DB::table('trans_nilai_indikator as ni')
+                ->join('trans_nilai as n', 'n.id_nilai', '=', 'ni.id_nilai')
+                ->join('master_indikator as i', 'i.id_indikator', '=', 'ni.id_indikator')
+                ->where('n.id_kelas', $idKelas)->where('n.id_periode', $idPeriode)->whereIn('n.id_siswa', $idSiswa)
+                ->orderBy('n.tanggal')
+                ->get(['n.id_siswa', 'n.id_mapel', 'n.tipe_nilai', 'n.tanggal', 'ni.id_indikator', 'ni.nilai', 'i.deskripsi', 'i.urutan']),
             'catatan_wali' => TransCatatanWali::whereIn('id_siswa', $idSiswa)->where('id_periode', $idPeriode)->get(),
             'proyek' => $proyek,
             'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),

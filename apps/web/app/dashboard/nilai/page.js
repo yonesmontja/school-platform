@@ -7,6 +7,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
 import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
+import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -30,12 +31,6 @@ const TIPE_PENILAIAN = [
   { key: "REMEDIAL", label: "Remedial", icon: "bi-life-preserver" },
 ];
 
-const KATEGORI = [
-  { key: "sb", label: "Sangat Baik", range: "≥ 90", min: 90, color: "success" },
-  { key: "b", label: "Baik", range: "80 – 89", min: 80, color: "primary" },
-  { key: "c", label: "Cukup", range: "70 – 79", min: 70, color: "warning" },
-  { key: "k", label: "Perlu Bimbingan", range: "< 70", min: -Infinity, color: "danger" },
-];
 
 // Tanggal lokal (YYYY-MM-DD); toISOString() memakai UTC sehingga pagi hari di WIB/WIT masih tanggal kemarin
 const todayLocal = () => {
@@ -54,7 +49,6 @@ const formatTanggal = (str) => {
 
 const formatAngka = (v) => (Number.isInteger(v) ? v : Number(v).toFixed(1));
 const kkmMapel = (mapel) => Number(mapel?.kkm ?? DEFAULT_KKM);
-const kategoriNilai = (v) => KATEGORI.find((k) => v >= k.min);
 
 // "" = kosong (tidak dinilai), null = tidak valid, angka = valid
 const parseNilai = (raw) => {
@@ -88,10 +82,11 @@ const InfoBox = ({ icon, color, label, children }) => (
   </div>
 );
 
-const StatusBadge = ({ nilai, kkm }) => {
+// Tingkat capaian mengikuti KKTP sekolah; tuntas mengikuti KKM mapel
+const StatusBadge = ({ nilai, kkm, tingkat }) => {
   if (nilai === "") return <span className="badge text-bg-light border text-muted">Belum dinilai</span>;
   if (nilai === null) return <span className="badge text-bg-danger"><i className="bi bi-exclamation-circle me-1"></i>Tidak valid</span>;
-  const kat = kategoriNilai(nilai);
+  const kat = tingkatNilai(nilai, tingkat);
   return (
     <div className="d-flex flex-wrap justify-content-center gap-1">
       <span className={`badge bg-${kat.color}-subtle text-${kat.color}-emphasis border border-${kat.color}-subtle`}>{kat.label}</span>
@@ -124,6 +119,7 @@ export default function InputNilaiPage() {
   const [options, setOptions] = useState({ periodes: [], classes: [], subjects: [], mbks: [] });
   const [materis, setMateris] = useState([]);
   const [settings, setSettings] = useState(null);
+  const KATEGORI = useMemo(() => tingkatKktp(settings), [settings]);
 
   // --- LEMBAR NILAI ---
   const [filters, setFilters] = useState(emptyFilters);
@@ -179,14 +175,38 @@ export default function InputNilaiPage() {
     [...(materiTerpilih?.indikator || []), ...indikatorSesi].forEach((i) => { if (!peta.has(i.id_indikator)) peta.set(i.id_indikator, i); });
     return [...peta.values()].sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
   }, [materiTerpilih, indikatorSesi]);
-  const pakaiIndikator = !modeRemedial && indikatorDipilih.length > 0;
-  const kolomIndikator = daftarIndikator.filter((i) => indikatorDipilih.includes(i.id_indikator));
-  const nomorIndikator = (id) => daftarIndikator.findIndex((i) => i.id_indikator === id) + 1;
+  // Lembar remedial: kolom untuk indikator yang belum mencapai KKM pada nilai asal siswa mana pun
+  const indikatorRemedial = useMemo(() => {
+    if (!modeRemedial) return [];
+    const peta = new Map();
+    students.filter((s) => s.tipe === "REMEDIAL").forEach((s) => (s.asalIndikator || []).forEach((i) => {
+      if (Number(i.nilai) < kkm && !peta.has(i.id_indikator)) {
+        peta.set(i.id_indikator, { id_indikator: i.id_indikator, deskripsi: i.indikator?.deskripsi || i.id_indikator, urutan: i.indikator?.urutan ?? 0 });
+      }
+    }));
+    return [...peta.values()].sort((a, b) => a.urutan - b.urutan);
+  }, [students, modeRemedial, kkm]);
+  const pakaiIndikator = modeRemedial ? indikatorRemedial.length > 0 : indikatorDipilih.length > 0;
+  const kolomIndikator = modeRemedial ? indikatorRemedial : daftarIndikator.filter((i) => indikatorDipilih.includes(i.id_indikator));
+  const nomorIndikator = (id) => (daftarIndikator.findIndex((i) => i.id_indikator === id) + 1) || (kolomIndikator.findIndex((i) => i.id_indikator === id) + 1);
 
   // Baris lembar mode lain (sebelum data mode baru selesai dimuat) tidak ditampilkan
   const rows = useMemo(() => students.filter((s) => s.tipe === filters.tipe).map((s) => {
     const awalIndikator = s.nilai_indikator || {};
-    if (pakaiIndikator) {
+    if (s.tipe === "REMEDIAL" && s.asalIndikator?.length) {
+      // Indikator yang diulang menggantikan nilai asalnya; nilai remedial = rata-rata seluruh indikator setelah perbaikan
+      const asal = Object.fromEntries(s.asalIndikator.map((i) => [i.id_indikator, Number(i.nilai)]));
+      const lemah = s.asalIndikator.filter((i) => Number(i.nilai) < kkm).map((i) => i.id_indikator);
+      const isian = lemah.map((id) => [id, parseNilai(s.inputIndikator?.[id])]);
+      const salah = isian.some(([, v]) => v === null);
+      const peta = petaIndikator(s.inputIndikator, lemah);
+      const gabungan = Object.values({ ...asal, ...peta });
+      const nilai = salah ? null : Object.keys(peta).length ? Math.round((gabungan.reduce((a, b) => a + b, 0) / gabungan.length) * 100) / 100 : "";
+      return { ...s, parsed: nilai, petaIndikator: peta, lemah, asalPeta: asal,
+        salahIndikator: Object.fromEntries(isian.filter(([, v]) => v === null)),
+        berubah: !salah && Object.keys(peta).length > 0 && !samaPeta(peta, awalIndikator) };
+    }
+    if (pakaiIndikator && s.tipe === "NORMAL") {
       // Nilai materi = rata-rata indikator yang diisi
       const isian = indikatorDipilih.map((id) => [id, parseNilai(s.inputIndikator?.[id])]);
       const salah = isian.some(([, v]) => v === null);
@@ -200,7 +220,7 @@ export default function InputNilaiPage() {
     const awal = s.nilai === null ? "" : s.nilai;
     // Beralih dari nilai per indikator ke nilai langsung juga dihitung perubahan (data indikator akan dibuang)
     return { ...s, parsed: nilai, berubah: nilai !== awal || (typeof nilai === "number" && Object.keys(awalIndikator).length > 0) };
-  }), [students, filters.tipe, pakaiIndikator, indikatorDipilih]);
+  }), [students, filters.tipe, pakaiIndikator, indikatorDipilih, kkm]);
 
   const jumlahBerubah = rows.filter((r) => r.berubah).length;
   const adaTidakValid = rows.some((r) => r.parsed === null);
@@ -260,6 +280,10 @@ export default function InputNilaiPage() {
           return {
             tipe: "REMEDIAL", key: r.id_rencana, id_siswa: r.id_siswa, nisn: r.siswa?.nisn, nama_siswa: r.siswa?.nama_siswa || r.id_siswa,
             rencana: r, nilaiAsal: r.nilai_asal,
+            // Nilai indikator asal (detail) dan nilai indikator remedial yang sudah tercatat
+            asalIndikator: r.nilai_asal?.nilai_indikator || [],
+            nilai_indikator: Object.fromEntries((rem?.nilai_indikator || []).map((i) => [i.id_indikator, Number(i.nilai)])),
+            inputIndikator: Object.fromEntries((rem?.nilai_indikator || []).map((i) => [i.id_indikator, Number(i.nilai)])),
             id_nilai: rem?.id_nilai || null, nilai: rem ? Number(rem.nilai) : null, tanggal: rem?.tanggal?.slice(0, 10) || null,
             inputNilai: rem ? Number(rem.nilai) : "",
           };
@@ -396,7 +420,7 @@ export default function InputNilaiPage() {
     const n = terisi.length;
     const tuntas = terisi.filter((v) => v >= kkm).length;
     const distribusi = Object.fromEntries(KATEGORI.map((k) => [k.key, 0]));
-    terisi.forEach((v) => { distribusi[kategoriNilai(v).key]++; });
+    terisi.forEach((v) => { distribusi[tingkatNilai(v, KATEGORI).key]++; });
     return {
       total: rows.length, terisi: n, tuntas, distribusi,
       rata: n ? terisi.reduce((a, b) => a + b, 0) / n : 0,
@@ -405,7 +429,7 @@ export default function InputNilaiPage() {
       persenTuntas: n ? Math.round((tuntas / n) * 100) : 0,
       persenTerisi: rows.length ? Math.round((n / rows.length) * 100) : 0,
     };
-  }, [rows, kkm]);
+  }, [rows, kkm, KATEGORI]);
 
   const cancelEdit = () => {
     setEditId(null);
@@ -432,7 +456,7 @@ export default function InputNilaiPage() {
       .map((r) => ({
         id_siswa: r.id_siswa, nilai: r.parsed,
         ...(modeRemedial && { id_rencana: r.key }),
-        ...(pakaiIndikator && { nilai_indikator: r.petaIndikator }),
+        ...(r.petaIndikator && Object.keys(r.petaIndikator).length > 0 && { nilai_indikator: r.petaIndikator }),
       }));
     if (records.length === 0) {
       return Swal.fire("Kosong", modeRemedial ? "Belum ada nilai remedial yang diisi atau diubah." : pakaiIndikator ? "Isi minimal satu nilai indikator." : "Isi minimal satu nilai siswa.", "warning");
@@ -714,6 +738,7 @@ export default function InputNilaiPage() {
               <i className="bi bi-life-preserver me-1"></i>
               Mode remedial memuat siswa yang punya rencana tindak lanjut pada penilaian ini. Nilai yang diisi dicatat sebagai nilai remedial,
               menuntaskan rencananya, dan menggantikan nilai asal pada rapor serta laporan.
+              {pakaiIndikator && " Bila nilai asal dinilai per indikator, cukup isi indikator yang belum mencapai KKM; indikator yang sudah tuntas tetap memakai nilai asalnya."}
             </div>
           )}
         </div>
@@ -924,6 +949,12 @@ export default function InputNilaiPage() {
                           )}
                           {pakaiIndikator && kolomIndikator.map((i, k) => (
                             <td key={i.id_indikator}>
+                              {r.tipe === "REMEDIAL" && !r.lemah?.includes(i.id_indikator) ? (
+                                // Indikator yang sudah tuntas atau tidak dinilai pada nilai asal tidak diulang
+                                <div className="text-center small text-muted" title="Tidak diulang">
+                                  {r.asalPeta?.[i.id_indikator] !== undefined ? <>{formatAngka(r.asalPeta[i.id_indikator])} <i className="bi bi-check2"></i></> : "–"}
+                                </div>
+                              ) : (
                               <input type="number" step="any" min="0" max="100" inputMode="decimal"
                                 data-nilai-idx={`${k}-${idx}`}
                                 className={`form-control form-control-sm text-center ${i.id_indikator in (r.salahIndikator || {}) ? "is-invalid" : ""}`}
@@ -932,10 +963,11 @@ export default function InputNilaiPage() {
                                 onKeyDown={(e) => handleKeyDown(e, idx, k)}
                                 onFocus={(e) => e.target.select()}
                                 aria-label={`Indikator ${nomorIndikator(i.id_indikator)} ${r.nama_siswa}`} />
+                              )}
                             </td>
                           ))}
                           <td>
-                            {pakaiIndikator ? (
+                            {pakaiIndikator && (r.tipe === "NORMAL" || r.asalIndikator?.length) ? (
                               <div className="text-center fw-bold fs-6" aria-label={`Nilai ${r.nama_siswa}`}>
                                 {typeof r.parsed === "number" ? formatAngka(r.parsed) : <span className="text-muted fw-normal">–</span>}
                               </div>
@@ -950,7 +982,7 @@ export default function InputNilaiPage() {
                                 aria-label={`Nilai ${r.nama_siswa}`} />
                             )}
                           </td>
-                          <td className="text-center"><StatusBadge nilai={r.parsed} kkm={kkm} /></td>
+                          <td className="text-center"><StatusBadge nilai={r.parsed} kkm={kkm} tingkat={KATEGORI} /></td>
                           {!modeRemedial && (
                             <td className="text-center">
                               {r.rencana ? (

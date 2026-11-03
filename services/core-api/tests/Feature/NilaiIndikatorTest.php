@@ -98,6 +98,42 @@ class NilaiIndikatorTest extends TestCase
         $this->deleteJson('/api/indikator/IND-1')->assertOk();
     }
 
+    public function test_remedial_per_indikator_menggabungkan_indikator_yang_sudah_tuntas(): void
+    {
+        // Indikator 1 tuntas (90), indikator 2 belum (40) → nilai asal 65, di bawah KKM 75
+        $this->simpan([['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-1' => 90, 'IND-2' => 40]]])->assertOk();
+        $asal = TransNilai::value('id_nilai');
+        $this->postJson('/api/remedial', ['id_nilai' => [$asal], 'opsi_tindakan' => 'Tes Ulang', 'tanggal_rencana' => '2030-01-08'])->assertOk();
+
+        $res = $this->getJson('/api/nilai/remedial?' . http_build_query($this->sekolah->meta))->assertOk();
+        $this->assertCount(2, $res->json('data.0.nilai_asal.nilai_indikator'));
+
+        // Hanya indikator 2 yang diulang: nilai remedial = (90 + 80) / 2
+        $this->postJson('/api/nilai/batch', $this->sekolah->meta + ['tanggal' => '2030-01-09', 'tipe_nilai' => 'REMEDIAL', 'records' => [
+            ['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-2' => 80]],
+        ]])->assertOk();
+
+        $remedial = TransNilai::where('tipe_nilai', 'REMEDIAL')->first();
+        $this->assertEquals(85, $remedial->nilai);
+        $this->assertSame(['IND-2'], $remedial->nilaiIndikator()->pluck('id_indikator')->all());
+    }
+
+    public function test_rapor_memuat_nilai_indikator_dan_kktp_diatur_sekolah(): void
+    {
+        $this->simpan([['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-1' => 90, 'IND-2' => 60]]])->assertOk();
+        $this->getJson('/api/settings')->assertOk(); // membuat baris pengaturan bawaan, seperti saat aplikasi pertama dibuka
+
+        $res = $this->getJson("/api/rapor/data?id_kelas=KLS-A&id_periode=PER-T")->assertOk();
+        $this->assertCount(2, $res->json('nilai_indikator'));
+        $this->assertSame('Menyebutkan pembilang', collect($res->json('nilai_indikator'))->firstWhere('id_indikator', 'IND-1')['deskripsi']);
+        $this->assertSame(80, $res->json('settings.kktp_baik'));
+
+        Sanctum::actingAs($this->sekolah->admin);
+        $this->postJson('/api/settings', ['kktp_cukup' => 75, 'kktp_baik' => 70, 'kktp_sangat_baik' => 92])->assertUnprocessable();
+        $this->postJson('/api/settings', ['kktp_cukup' => 65, 'kktp_baik' => 78, 'kktp_sangat_baik' => 92])->assertOk();
+        $this->assertSame(78, \App\Models\SchoolSetting::first()->kktp_baik);
+    }
+
     public function test_riwayat_memuat_nilai_per_indikator(): void
     {
         $this->simpan([['id_siswa' => 'SIS-1', 'nilai_indikator' => ['IND-1' => 80, 'IND-2' => 70]]])->assertOk();
