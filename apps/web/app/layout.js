@@ -20,7 +20,9 @@ export default function RootLayout({ children }) {
     // data-bs-theme & data-accent diisi skrip tema sebelum halaman tampil
     <html lang="id" data-bs-theme="light" data-accent="biru" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* beforeInteractive: disisipkan Next.js sebelum hidrasi, bukan dirender React (tag <script> biasa
+            memicu peringatan saat pohon dibangun ulang di klien) */}
+        <Script id="tema-awal" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="layout-fixed sidebar-expand-lg bg-body-tertiary">
         {children}
