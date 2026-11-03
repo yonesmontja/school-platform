@@ -16,6 +16,8 @@ const HEADER_KEAMANAN = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Mode dev memblokir aset JS untuk domain selain localhost; domain tunnel harus didaftarkan
+  allowedDevOrigins: ["web.saprapor.com", "*.saprapor.com"],
   async headers() {
     return [{ source: "/:path*", headers: HEADER_KEAMANAN }];
   },

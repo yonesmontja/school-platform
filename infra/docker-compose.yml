@@ -58,7 +58,7 @@ services:
       - /app/.next
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: school_cloudflared_named
+    container_name: school_cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

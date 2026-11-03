@@ -21,9 +21,9 @@ school-platform/
 | `web`       | Next.js                           | 3000  |
 | `core-api`  | Laravel + Sanctum (token auth)    | 8000  |
 | `ai-engine` | Django + Django REST Framework    | 8001  |
-| `cloudflared` | Cloudflare named tunnel ke `web` (domain tetap; token `CLOUDFLARE_TUNNEL_TOKEN` di `infra/.env`) | –  |
 | `db`        | PostgreSQL 16                     | 5432  |
 | `redis`     | Redis 7                           | 6379  |
+| `cloudflared` | Cloudflare named tunnel ke `web` (domain publik `web.saprapor.com`; token di `infra/.env`) | –  |
 
 ## Fitur
 
@@ -134,6 +134,32 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python manage.py runserver 8001
 ```
+
+## Akses publik (Cloudflare Tunnel)
+
+Aplikasi dibuka dari internet lewat Cloudflare named tunnel di **https://web.saprapor.com**, tanpa membuka port
+di router. Konektornya adalah layanan `cloudflared` di [infra/docker-compose.yml](infra/docker-compose.yml)
+(container `school_cloudflared`, `restart: unless-stopped`).
+
+1. Di dashboard Cloudflare Zero Trust → Networks → Tunnels, buat tunnel lalu salin tokennya (bagian setelah
+   `--token` pada perintah `docker run` yang ditampilkan Cloudflare).
+2. Simpan token di `infra/.env` (diabaikan git, jangan di-commit):
+
+   ```env
+   CLOUDFLARE_TUNNEL_TOKEN=eyJ...
+   ```
+
+3. Jalankan `docker compose up -d cloudflared` dari folder `infra`. Jangan jalankan juga perintah `docker run`
+   dari Cloudflare, karena akan membuat konektor ganda.
+4. Tambahkan **Public Hostname** di tunnel tersebut: domain `web.saprapor.com`, service **HTTP** ke `web:3000`
+   (nama layanan di jaringan Docker; `host.docker.internal:3000` juga bisa).
+5. Web berjalan dalam mode dev, jadi domain tunnel harus terdaftar di `allowedDevOrigins`
+   ([apps/web/next.config.mjs](apps/web/next.config.mjs)). Tanpa itu, Next.js memblokir aset JavaScript dan
+   halaman tertahan di "Redirecting...". Domain baru di luar `*.saprapor.com` perlu ditambahkan di sana, lalu
+   restart container `web`.
+
+Cek koneksi dengan `docker logs school_cloudflared`: harus ada 4 baris `Registered tunnel connection` dan baris
+`Updated to new configuration` yang memuat hostname tadi.
 
 ## Keamanan akses publik
 
