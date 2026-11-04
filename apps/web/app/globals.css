@@ -712,3 +712,11 @@
   .notif-popover { position: fixed; left: 12px; right: 12px; top: 58px; width: auto; }
   .notif-aksi { width: 100%; justify-content: flex-end; }
 }
+
+/* ===== Portal siswa & orang tua ===== */
+.portal-kal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.portal-kal-hari { font-size: 10px; text-align: center; color: var(--bs-secondary-color); padding-bottom: 2px; }
+.portal-kal-sel { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 6px;
+  background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+.portal-kal-sel:empty { background: transparent; }
+.portal-kal-titik { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }

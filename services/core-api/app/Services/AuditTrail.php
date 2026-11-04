@@ -28,7 +28,7 @@ class AuditTrail
         'TransNilai' => 'Nilai', 'TransNilaiIndikator' => 'Nilai', 'TransRencanaRemedial' => 'Remedial',
         'TransJurnal' => 'Jurnal', 'TransPresensi' => 'Presensi', 'TransJadwal' => 'Jadwal',
         'TransNilaiP5' => 'Proyek', 'TransCatatanP5' => 'Proyek', 'TransCatatanWali' => 'Rapor',
-        'SchoolSetting' => 'Pengaturan Sekolah', 'User' => 'Pengguna',
+        'SchoolSetting' => 'Pengaturan Sekolah', 'User' => 'Pengguna', 'TransDiagnostikNonkognitif' => 'Asesmen Diagnostik',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit
@@ -258,6 +258,7 @@ class AuditTrail
         'PUT api/users/{id}' => ['Pengguna', 'UBAH', 'Mengubah akun pengguna'],
         'DELETE api/users/{id}' => ['Pengguna', 'HAPUS', 'Menghapus akun pengguna'],
         'POST api/users/{id}/reset-password' => ['Pengguna', 'RESET_SANDI', 'Mereset kata sandi pengguna', 'AUTH'],
+        'PUT api/diagnostik/nonkognitif' => ['Asesmen Diagnostik', 'SIMPAN', 'Menyimpan diagnostik non-kognitif kelas'],
         'POST api/whatsapp' => ['WhatsApp', 'KIRIM_WA', 'Mengirim WhatsApp otomatis (Fonnte)', 'OUTPUT'],
     ];
 }

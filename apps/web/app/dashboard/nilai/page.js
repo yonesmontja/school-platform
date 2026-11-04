@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
@@ -166,6 +167,8 @@ export default function InputNilaiPage() {
 
   // --- TURUNAN ---
   const mapelTerpilih = options.subjects.find((m) => m.id_mapel === filters.id_mapel);
+  // Aktivitas berjenis Diagnostik: pemetaan kemampuan awal, tidak masuk rapor dan tidak ditindaklanjuti remedial
+  const diagnostik = options.mbks.find((m) => m.id_jenis === filters.id_jenis)?.jenis_asesmen === "DIAGNOSTIK";
   const kelasTerpilih = options.classes.find((k) => k.id_kelas === filters.id_kelas);
   const periodeTerpilih = options.periodes.find((p) => p.id_periode === filters.id_periode);
   const kkm = kkmMapel(mapelTerpilih);
@@ -232,7 +235,7 @@ export default function InputNilaiPage() {
   const adaTidakValid = rows.some((r) => r.parsed === null);
   const jumlahTercatat = rows.filter((s) => s.id_nilai).length;
   // Nilai tersimpan di bawah KKM yang belum punya rencana tindak lanjut
-  const perluTindakLanjut = modeRemedial ? [] : rows.filter((r) => r.id_nilai && !r.berubah && r.nilai < kkm && !r.rencana);
+  const perluTindakLanjut = modeRemedial || diagnostik ? [] : rows.filter((r) => r.id_nilai && !r.berubah && r.nilai < kkm && !r.rencana);
 
   // --- FETCH ---
   useEffect(() => {
@@ -745,6 +748,13 @@ export default function InputNilaiPage() {
               )}
             </div>
           )}
+          {!modeRemedial && diagnostik && (
+            <div className="alert alert-info small mt-3 mb-0 py-2">
+              <i className="bi bi-clipboard2-pulse me-1"></i>
+              <b>Asesmen diagnostik</b>: nilai ini memetakan kemampuan awal siswa, sehingga tidak masuk rapor, laporan, maupun remedial.
+              Lihat pengelompokan siswa dan rekomendasi pembelajarannya di menu <Link href="/dashboard/diagnostik">Asesmen Diagnostik</Link>.
+            </div>
+          )}
           {modeRemedial && (
             <div className="alert alert-danger-subtle bg-danger-subtle border-danger-subtle small mt-3 mb-0 py-2">
               <i className="bi bi-life-preserver me-1"></i>
@@ -1008,7 +1018,7 @@ export default function InputNilaiPage() {
                                   onClick={() => ubahTindakLanjut(r.rencana, { nama_siswa: r.nama_siswa, nilai: r.nilai })}>
                                   <RencanaBadge rencana={r.rencana} kkm={kkm} />
                                 </button>
-                              ) : typeof r.parsed === "number" && r.parsed < kkm ? (
+                              ) : typeof r.parsed === "number" && r.parsed < kkm && !diagnostik ? (
                                 // Aktif setelah nilainya tersimpan, karena rencana ditautkan ke data nilai
                                 <button type="button" className="btn btn-sm btn-outline-danger"
                                   disabled={!r.id_nilai || r.berubah}

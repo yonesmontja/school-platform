@@ -62,6 +62,9 @@ class RemedialController extends Controller
             if ((float) $n->nilai >= (float) ($n->mapel?->kkm ?? 75)) {
                 return response()->json(['message' => "Nilai {$n->siswa?->nama_siswa} sudah mencapai KKM."], 422);
             }
+            if (in_array($n->id_jenis, TransNilai::jenisDiagnostik(), true)) {
+                return response()->json(['message' => 'Nilai asesmen diagnostik dipakai untuk pemetaan & pengelompokan (menu Asesmen Diagnostik), bukan remedial.'], 422);
+            }
             if ($n->rencana) {
                 return response()->json(['message' => "{$n->siswa?->nama_siswa} sudah punya rencana tindak lanjut untuk nilai ini."], 422);
             }

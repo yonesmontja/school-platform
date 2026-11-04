@@ -44,7 +44,8 @@ class PresensiController extends Controller
         $request->validate([
             'id_kelas' => 'required|exists:classes,id_kelas',
             'id_periode' => 'required|exists:master_periode,id_periode',
-            'tanggal' => 'required|date|before_or_equal:today',
+            // "Hari ini" menurut zona waktu sekolah; zona aplikasi UTC menolak presensi pagi hari (00.00–09.00 WIT)
+            'tanggal' => 'required|date|before_or_equal:' . now(config('app.zona_sekolah'))->toDateString(),
             'records' => 'required|array|min:1',
             'records.*.id_siswa' => 'required|distinct|exists:students,id_siswa',
             'records.*.status_kehadiran' => 'required|in:' . implode(',', self::STATUS),

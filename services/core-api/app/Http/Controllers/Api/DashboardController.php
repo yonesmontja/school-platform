@@ -61,6 +61,7 @@ class DashboardController extends Controller
             ->join('master_materi as m', 'm.id_materi', '=', 'i.id_materi')
             ->where('n.id_periode', $request->id_periode)
             ->when($idKelas, fn($q) => $q->where('n.id_kelas', $idKelas))
+            ->where(fn($q) => $q->whereNull('n.id_jenis')->orWhereNotIn('n.id_jenis', TransNilai::jenisDiagnostik()))
             ->orderBy('n.tanggal')
             ->get(['n.id_siswa', 'n.id_kelas', 'n.id_mapel', 'n.tipe_nilai', 'n.tanggal', 'ni.id_indikator', 'ni.nilai',
                 'i.deskripsi', 'i.urutan', 'i.id_materi', 'm.nama_materi']));

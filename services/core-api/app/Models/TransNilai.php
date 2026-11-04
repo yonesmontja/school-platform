@@ -48,12 +48,24 @@ class TransNilai extends Model
     /**
      * Nilai yang dipakai rekap (rapor, laporan, dasbor): nilai yang sudah diperbaiki lewat remedial
      * digantikan oleh nilai remedialnya, sehingga satu capaian tidak terhitung dua kali.
+     * Nilai asesmen diagnostik (pemetaan kemampuan awal) tidak ikut direkap.
      */
     public function scopeEfektif(Builder $query): Builder
     {
-        return $query->whereNotExists(fn($q) => $q->selectRaw('1')
+        return $query->bukanDiagnostik()->whereNotExists(fn($q) => $q->selectRaw('1')
             ->from('trans_rencana_remedial as rr')
             ->join('trans_nilai as rem', 'rem.id_rencana', '=', 'rr.id_rencana')
             ->whereColumn('rr.id_nilai_asal', 'trans_nilai.id_nilai'));
+    }
+
+    public function scopeBukanDiagnostik(Builder $query, string $kolom = 'trans_nilai.id_jenis'): Builder
+    {
+        return $query->where(fn($q) => $q->whereNull($kolom)->orWhereNotIn($kolom, self::jenisDiagnostik()));
+    }
+
+    /** id_jenis aktivitas berjenis asesmen DIAGNOSTIK */
+    public static function jenisDiagnostik(): array
+    {
+        return MasterMBK::where('jenis_asesmen', 'DIAGNOSTIK')->pluck('id_jenis')->all();
     }
 }

@@ -86,9 +86,12 @@ class RaporController extends Controller
             'nilai_indikator' => RemedialService::batasiNilai(DB::table('trans_nilai_indikator as ni')
                 ->join('trans_nilai as n', 'n.id_nilai', '=', 'ni.id_nilai')
                 ->join('master_indikator as i', 'i.id_indikator', '=', 'ni.id_indikator')
+                ->join('master_materi as m', 'm.id_materi', '=', 'i.id_materi')
                 ->where('n.id_kelas', $idKelas)->where('n.id_periode', $idPeriode)->whereIn('n.id_siswa', $idSiswa)
+                ->where(fn($q) => $q->whereNull('n.id_jenis')->orWhereNotIn('n.id_jenis', TransNilai::jenisDiagnostik()))
                 ->orderBy('n.tanggal')
-                ->get(['n.id_siswa', 'n.id_mapel', 'n.tipe_nilai', 'n.tanggal', 'ni.id_indikator', 'ni.nilai', 'i.deskripsi', 'i.urutan'])),
+                ->get(['n.id_siswa', 'n.id_mapel', 'n.tipe_nilai', 'n.tanggal', 'ni.id_indikator', 'ni.nilai', 'i.deskripsi', 'i.urutan',
+                    'i.id_materi', 'm.nama_materi'])),
             'catatan_wali' => TransCatatanWali::whereIn('id_siswa', $idSiswa)->where('id_periode', $idPeriode)->get(),
             'proyek' => $proyek,
             'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),

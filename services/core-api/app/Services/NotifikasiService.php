@@ -7,6 +7,7 @@ use App\Models\LogAktivitas;
 use App\Models\MasterPeriode;
 use App\Models\Student;
 use App\Models\TransCatatanWali;
+use App\Models\TransDiagnostikNonkognitif;
 use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransPresensi;
@@ -203,6 +204,19 @@ class NotifikasiService
 
         if ($this->periode) {
             $siswa = Student::whereIn('id_kelas', $kelas)->pluck('id_siswa');
+
+            // Diagnostik non-kognitif semester ini (gaya belajar, kesejahteraan, dukungan rumah)
+            $sudahDiag = TransDiagnostikNonkognitif::where('id_periode', $this->periode)->whereIn('id_siswa', $siswa)->count();
+            $kurangDiag = $siswa->count() - $sudahDiag;
+            if ($siswa->isNotEmpty() && $kurangDiag > 0) {
+                $hasil[] = $this->buat('diagnostik', [$this->periode, $kurangDiag], [
+                    'tingkat' => 'info', 'kategori' => 'Diagnostik', 'ikon' => 'bi-clipboard2-pulse',
+                    'judul' => "Diagnostik non-kognitif: {$kurangDiag} siswa belum diisi",
+                    'pesan' => "Sudah {$sudahDiag} dari {$siswa->count()} siswa kelas binaan Anda. Gaya belajar & kondisi siswa membantu guru menyiapkan pembelajaran berdiferensiasi.",
+                    'jumlah' => $kurangDiag, 'tautan' => '/dashboard/diagnostik', 'waktu' => $this->hariIni . 'T00:00:00',
+                ]);
+            }
+
             $sudah = TransCatatanWali::where('id_periode', $this->periode)->whereIn('id_siswa', $siswa)->count();
             $kurang = $siswa->count() - $sudah;
             if ($siswa->isNotEmpty() && $kurang > 0) {

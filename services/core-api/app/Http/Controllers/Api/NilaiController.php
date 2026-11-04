@@ -299,8 +299,8 @@ class NilaiController extends Controller
             }
         });
 
-        // Nilai di bawah KKM yang belum punya rencana tindak lanjut
-        $kkm = (float) (Subject::find($meta['id_mapel'])?->kkm ?? 75);
+        // Nilai di bawah KKM yang belum punya rencana tindak lanjut (asesmen diagnostik tidak ditindaklanjuti remedial)
+        $kkm = in_array($meta['id_jenis'], TransNilai::jenisDiagnostik(), true) ? -1 : (float) (Subject::find($meta['id_mapel'])?->kkm ?? 75);
         $belumTuntas = fn($q) => $q->where('nilai', '<', $kkm)->doesntHave('rencana')->count();
         $perluTindakLanjut = $belumTuntas($this->queryPenilaian($meta, $request->tanggal)->whereIn('id_siswa', $normal->pluck('id_siswa')))
             + $belumTuntas(TransNilai::whereIn('id_rencana', array_keys($rencanaRemedial)));

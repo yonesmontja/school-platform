@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\RuanganController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\LogAktivitasController;
 use App\Http\Controllers\Api\NotifikasiController;
+use App\Http\Controllers\Api\DiagnostikController;
 use App\Http\Controllers\Api\PortalController;
 
 /*
@@ -128,6 +129,13 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/remedial', [NilaiController::class, 'getRemedial']);
             Route::post('/batch', [NilaiController::class, 'saveBatch']);
             Route::delete('/{id}', [NilaiController::class, 'destroy']);
+        });
+
+        // Asesmen diagnostik awal semester: kognitif (lihat) & non-kognitif (diisi wali kelas/pengelola, dicek di controller)
+        Route::prefix('diagnostik')->group(function () {
+            Route::get('/kognitif', [DiagnostikController::class, 'kognitif']);
+            Route::get('/nonkognitif', [DiagnostikController::class, 'nonkognitif']);
+            Route::put('/nonkognitif', [DiagnostikController::class, 'simpanNonkognitif']);
         });
 
         // Rencana tindak lanjut remedial: hak akses mengikuti mapel nilai (dicek di controller)

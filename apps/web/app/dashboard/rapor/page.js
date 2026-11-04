@@ -9,6 +9,7 @@ import {
   DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, urlTtd, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5, TAMPILAN_KOKURIKULER,
 } from "@/components/rapor/raporDokumen";
 import { API_URL } from "@/app/lib/config";
+import { eksporErapor } from "@/components/rapor/eksporErapor";
 
 // Modal sederhana berbasis state agar tidak bergantung pada JS Bootstrap
 const Modal = ({ show, title, icon, headerClass = "bg-primary text-white", size = "modal-lg", onClose, children, footer }) => {
@@ -115,6 +116,15 @@ export default function CetakRaporPage() {
     [data, filters.id_siswa, modeKalkulasi, bobot],
   );
   const wa = useMemo(() => (rapor ? susunPesanWA(rapor) : null), [rapor]);
+
+  // Rekap satu kelas untuk disalin ke format nilai e-Rapor (lembar per mapel, kehadiran, kokurikuler, catatan wali)
+  const handleErapor = () => {
+    if (!data?.students?.length) return Swal.fire("Pilih kelas", "Pilih periode dan kelas terlebih dahulu.", "info");
+    try {
+      const hasil = eksporErapor({ data, modeKalkulasi, bobot });
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: `Rekap e-Rapor: ${hasil.mapel} mapel, ${hasil.siswa} siswa`, showConfirmButton: false, timer: 3000 });
+    } catch (err) { Swal.fire("Gagal ekspor", err.message, "error"); }
+  };
 
   // Urutan halaman sesuai jenis dokumen; halaman terakhir tanpa pemisah agar tidak ada kertas kosong
   const halaman = useMemo(() => {
@@ -252,6 +262,9 @@ export default function CetakRaporPage() {
             </button>
             <button type="button" className="btn btn-success fw-semibold" onClick={bukaWA} title="Kirim ringkasan ke WhatsApp">
               <i className="bi bi-whatsapp me-1"></i><span className="d-none d-sm-inline">WhatsApp</span>
+            </button>
+            <button type="button" className="btn btn-primary fw-semibold" onClick={handleErapor} disabled={!data?.students?.length} title="Unduh rekap nilai satu kelas untuk diisikan ke e-Rapor">
+              <i className="bi bi-file-earmark-spreadsheet me-1"></i><span className="d-none d-sm-inline">e-Rapor</span>
             </button>
             <button type="button" className="btn btn-danger fw-semibold" onClick={handleCetak} title="Cetak / simpan PDF">
               <i className="bi bi-file-earmark-pdf me-1"></i><span className="d-none d-sm-inline">Cetak PDF</span>
