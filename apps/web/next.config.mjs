@@ -21,7 +21,11 @@ const nextConfig = {
   // Mode dev memblokir aset JS untuk domain selain localhost; domain tunnel harus didaftarkan
   allowedDevOrigins: ["web.saprapor.com", "*.saprapor.com"],
   async headers() {
-    const aturan = [{ source: "/:path*", headers: HEADER_KEAMANAN }];
+    const aturan = [
+      { source: "/:path*", headers: HEADER_KEAMANAN },
+      // Service worker selalu diperiksa ulang (jangan sampai versi lama tertahan di Cloudflare/browser)
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }, { key: "Service-Worker-Allowed", value: "/" }] },
+    ];
     // Mode dev: nama file JS tetap walau isinya berubah. Cloudflare mengganti "no-cache" bawaan Next.js
     // menjadi max-age 4 jam, sehingga HP memakai versi lama; "no-store" mencegah cache di Cloudflare & browser.
     if (process.env.NODE_ENV !== "production") {

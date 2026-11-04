@@ -33,7 +33,7 @@ class CatatAktivitas
         $user = $request->user();
         if ($status >= 400) AuditTrail::buangAntrean(); // transaksinya dibatalkan, perubahan tidak terjadi
 
-        if (!AuditTrail::sudahDicatat() && $user && in_array($request->method(), self::MENGUBAH, true) && !$request->is('api/log-aktivitas/*')) {
+        if (!AuditTrail::sudahDicatat() && $user && in_array($request->method(), self::MENGUBAH, true) && !$request->is('api/log-aktivitas/*', 'api/notifikasi/*')) {
             $rute = AuditTrail::uraikanRute($request);
             AuditTrail::catat([
                 'user' => $user,

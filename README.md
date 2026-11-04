@@ -45,6 +45,8 @@ school-platform/
 - **Dashboard** — dasbor analitik bergaya SaaS dengan grafik (Chart.js) dan menu sidebar berkelompok yang dapat dilipat, dengan pencarian menu (Ctrl+K) dan mode mini; panel **Indikator Perlu Perhatian**: indikator (IKTP) diurutkan dari ketuntasan terendah, dengan rata-rata, persentase tuntas terhadap KKM, dan daftar siswa belum tuntas (nilai remedial terbaru menggantikan nilai asal); panel **Efektivitas Tindak Lanjut**: per bentuk tindak lanjut (Tes Ulang, Tutor Sebaya, dst.) jumlah yang sudah dilaksanakan, persentase siswa tuntas sesudahnya, rata-rata kenaikan nilai, serta rencana yang menunggu atau lewat tanggal
 - **Tema** — mode terang/gelap/otomatis dan pilihan warna aksen untuk seluruh aplikasi
 - **Log Aktivitas (audit trail)** — mencatat seluruh tindakan pengguna: login/logout/login gagal, setiap tambah/ubah/hapus data beserta nilai **sebelum → sesudah** per record (otomatis dari semua model, termasuk proses sistem/migrasi), percobaan yang ditolak, serta output di browser (unduh Excel/CSV/PDF, cetak, chat WhatsApp, salin teks) dan halaman yang dibuka. Kata sandi, token, API key, dan berkas base64 disensor. Log hanya-tambah (tidak bisa diubah/dihapus). Halaman bergaya AdminLTE 4: info-box statistik, tren per kategori, peta jam sibuk, pengguna & modul teraktif, linimasa (timeline) atau tabel, filter (rentang waktu, kategori, pengguna, modul, aksi, status, pencarian), drawer detail dengan diff, mode langsung (muat ulang otomatis), dan ekspor CSV. Admin & kepsek melihat semua aktivitas; guru melihat aktivitasnya sendiri (Aktivitas Saya)
+- **Pusat Notifikasi (Perlu Tindakan)** — lonceng di topbar (angka merah bila ada yang mendesak) dan halaman Perlu Tindakan. Notifikasi dihitung otomatis dari data sesuai peran dan hilang sendiri setelah pekerjaannya selesai: **guru** — remedial lewat tanggal, remedial hari ini/besok, nilai di bawah KKM tanpa rencana tindak lanjut, sesi mengajar hari ini, sesi lalu yang belum ditandai Selesai/Batal, presensi kelas binaan yang belum diisi, catatan wali kelas yang belum lengkap; **admin & kepsek** — rekap yang sama untuk seluruh sekolah, kelas yang belum presensi hari ini, dan (admin) percobaan login gagal berulang; **siswa & orang tua** — jadwal & hasil remedial anak serta ketidakhadiran tanpa keterangan. Status dibaca disimpan per pengguna; notifikasi yang isinya berubah muncul lagi sebagai baru. Opsional: notifikasi di perangkat (HP/laptop) untuk hal yang mendesak. "Hari ini" mengikuti zona waktu sekolah (`ZONA_SEKOLAH`, bawaan `Asia/Jayapura`)
+- **Aplikasi terpasang (PWA)** — EduRapor bisa dipasang ke layar utama HP/laptop (tombol **Pasang aplikasi** di topbar; iPhone lewat Bagikan → Tambah ke Layar Utama), terbuka layar penuh dengan ikon sendiri dan pintasan ke Perlu Tindakan, Input Nilai, Presensi, dan Jurnal. Service worker sengaja minimal: tidak menyimpan aset aplikasi (tampilan selalu versi terbaru), hanya menampilkan halaman offline saat koneksi putus dan meneruskan klik notifikasi perangkat
 - **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
 
@@ -242,6 +244,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/log-aktivitas/ringkasan` | Statistik: per kategori, per hari, per jam, pengguna & modul teratas | staf (guru: miliknya) | ✔ |
 | GET | `/log-aktivitas/opsi` | Pilihan filter (pengguna, modul, aksi) | staf | ✔ |
 | GET | `/log-aktivitas/{id}` | Detail log beserta perubahan data sebelum/sesudah | staf (guru: miliknya) | ✔ |
+| GET | `/notifikasi` | Notifikasi Perlu Tindakan sesuai peran (+ jumlah belum dibaca & mendesak) | semua peran | ✔ |
+| POST | `/notifikasi/baca` | Tandai dibaca (`kunci[]`, atau semua bila kosong) | semua peran | ✔ |
 | GET | `/settings` | Ambil pengaturan sekolah | semua peran | ✔ |
 | GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
 | GET | `/portal/rapor` | Rapor anak (portal) | siswa, ortu | ✔ |
@@ -326,6 +330,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/pengguna`     | Manajemen Pengguna (admin) |
 | `/dashboard/pengaturan`   | Pengaturan Sekolah (admin) |
 | `/dashboard/log-aktivitas` | Log Aktivitas / audit trail (admin & kepsek: semua; guru: Aktivitas Saya) |
+| `/dashboard/notifikasi`   | Perlu Tindakan / pusat notifikasi (semua peran) |
 | `/dashboard/portal`       | Portal Siswa/Orang Tua |
 
 ## Testing
@@ -350,6 +355,7 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [RemedialTest](services/core-api/tests/Feature/RemedialTest.php)       | Penilaian per tanggal, rencana tindak lanjut & jadwal, nilai remedial (termasuk gaya import), rekap efektif, pembersihan jadwal |
 | [SiklusRemedialTest](services/core-api/tests/Feature/SiklusRemedialTest.php) | Batas nilai remedial di rapor sesuai pengaturan, data efektivitas tindak lanjut di dasbor, pesan WA orang tua (rencana & hasil) dan hak aksesnya |
 | [LogAktivitasTest](services/core-api/tests/Feature/LogAktivitasTest.php) | Audit trail: login/logout/login gagal, diff sebelum-sesudah, percobaan ditolak, sensor kata sandi, event output, hak lihat, log tidak bisa diubah, aturan guru jurnal |
+| [NotifikasiTest](services/core-api/tests/Feature/NotifikasiTest.php) | Notifikasi per peran: nilai belum ditindaklanjuti → remedial terlambat, cakupan mapel guru, tandai dibaca & muncul lagi bila berubah, jadwal & presensi hari ini, login gagal (admin), portal siswa |
 | [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
 
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh

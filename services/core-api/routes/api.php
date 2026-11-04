@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\RuanganController;
 
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\LogAktivitasController;
+use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PortalController;
 
 /*
@@ -63,6 +64,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::get('/settings', [SchoolSettingController::class, 'show']);
     // Tindakan di browser (cetak, ekspor, chat WA, buka halaman) untuk audit trail
     Route::post('/log-aktivitas/event', [LogAktivitasController::class, 'event'])->middleware('throttle:120,1');
+    // Pusat notifikasi "Perlu Tindakan" (isi disesuaikan peran di NotifikasiService)
+    Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    Route::post('/notifikasi/baca', [NotifikasiController::class, 'baca']);
 
     // Log Aktivitas: admin & kepsek melihat semua, guru hanya miliknya (dicek di controller)
     Route::middleware('role:admin,kepsek,guru')->prefix('log-aktivitas')->group(function () {

@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { SIDEBAR_PREF_EVENT, bacaAccordion } from "@/app/lib/sidebarPrefs";
 import ThemeMenu from "@/components/ThemeMenu";
+import NotifikasiMenu from "@/components/NotifikasiMenu";
+import PasangAplikasi from "@/components/PasangAplikasi";
 import { API_URL, AKSES_EVENT, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal } from "@/app/lib/akses";
 import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
+const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
 
 // Grup menu sidebar staf; setiap grup bisa dilipat/dibuka. Item ber-"peran" hanya tampil untuk peran tsb.
 const PENGELOLA = ["admin", "kepsek"];
@@ -55,6 +58,7 @@ const MENU_GROUPS = [
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
     items: [
       AKUN_ITEM,
+      NOTIF_ITEM,
       { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
       { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
@@ -63,7 +67,7 @@ const MENU_GROUPS = [
 ];
 
 // Portal siswa & orang tua hanya berisi halaman baca miliknya
-const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM] }];
+const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM] }];
 
 const menuUntuk = (role) => (role === "siswa" || role === "ortu")
   ? PORTAL_GROUPS
@@ -327,6 +331,16 @@ export default function DashboardLayout({ children }) {
             </li>
           </ul>
           <ul className="navbar-nav ms-auto align-items-center">
+            {/* PWA: PASANG APLIKASI (tampil bila bisa dipasang) */}
+            <li className="nav-item">
+              <PasangAplikasi />
+            </li>
+            {/* NOTIFIKASI: PERLU TINDAKAN */}
+            {user && (
+              <li className="nav-item">
+                <NotifikasiMenu />
+              </li>
+            )}
             {/* TAMPILAN: TEMA & WARNA AKSEN */}
             <li className="nav-item me-2">
               <ThemeMenu />

@@ -23,6 +23,7 @@ const PORTAL = ["siswa", "ortu"];
 // Halaman yang dibatasi perannya (dicocokkan dengan awalan path); halaman staf lain terbuka untuk semua staf
 const ATURAN_HALAMAN = [
   { awalan: "/dashboard/akun", peran: [...STAF, ...PORTAL] },
+  { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL] },
   { awalan: "/dashboard/portal", peran: PORTAL },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },

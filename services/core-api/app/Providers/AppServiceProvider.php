@@ -36,7 +36,7 @@ class AppServiceProvider extends ServiceProvider
             Event::listen("eloquent.{$event}: *", function (string $nama, array $data) use ($aksi) {
                 $model = $data[0] ?? null;
                 if (!$model instanceof Model || !str_starts_with($model::class, 'App\\Models\\')) return;
-                if ($model instanceof LogAktivitas || $model instanceof LogPerubahan) return;
+                if ($model instanceof LogAktivitas || $model instanceof LogPerubahan || ($model->tanpaAudit ?? false)) return;
                 AuditTrail::rekamModel($model, $aksi);
             });
         }

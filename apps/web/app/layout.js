@@ -13,6 +13,20 @@ import { THEME_INIT_SCRIPT } from './lib/themeScript';
 export const metadata = {
   title: 'EduRapor - School Platform',
   description: 'Sistem Informasi Manajemen Sekolah',
+  applicationName: 'EduRapor',
+  // PWA: dipasang ke layar utama (manifest dari app/manifest.js)
+  appleWebApp: { capable: true, title: 'EduRapor', statusBarStyle: 'default' },
+  icons: {
+    icon: [{ url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' }, { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: '/icons/apple-touch-icon.png',
+  },
+};
+
+export const viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#2563eb' },
+    { media: '(prefers-color-scheme: dark)', color: '#1e293b' },
+  ],
 };
 
 export default function RootLayout({ children }) {

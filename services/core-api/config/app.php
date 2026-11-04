@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Zona waktu sekolah untuk aturan "hari ini" (notifikasi, jadwal, presensi); data tanggal/jam disimpan dalam waktu lokal
+    'zona_sekolah' => env('ZONA_SEKOLAH', 'Asia/Jayapura'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
