@@ -78,6 +78,11 @@ export default function PanduanPage() {
                 <ol className="mb-2 ps-4">
                   {b.langkah.map((l, j) => <li key={j} className="mb-1">{l}</li>)}
                 </ol>
+                {b.gambar && (
+                  <a href={b.gambar} target="_blank" rel="noreferrer" className="d-block mb-2 panduan-gambar" title="Buka gambar ukuran penuh">
+                    <img src={b.gambar} alt={`Contoh tampilan: ${b.judul}`} loading="lazy" className="img-fluid rounded border shadow-sm" style={{ maxWidth: "min(100%, 820px)" }} />
+                  </a>
+                )}
                 {b.tips?.length > 0 && (
                   <div className="alert alert-light border small mb-2 py-2">
                     {b.tips.map((t, j) => <div key={j}><i className="bi bi-lightbulb text-warning me-1"></i>{t}</div>)}
@@ -101,6 +106,7 @@ export default function PanduanPage() {
       )}
 
       <div className="small text-body-secondary mt-4">
+        <i className="bi bi-image me-1"></i>Tangkapan layar memakai data contoh dengan nama fiktif.<br />
         <i className="bi bi-chat-dots me-1"></i>Masih bingung atau menemukan yang tidak sesuai? Sampaikan ke admin sekolah agar panduan diperbaiki.
       </div>
     </div>

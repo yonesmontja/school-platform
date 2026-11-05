@@ -1,5 +1,5 @@
 // Isi Panduan Pengguna. Setiap bagian: peran yang melihatnya, tautan ke halaman terkait,
-// langkah berurutan, dan tips. Teks yang sama dipakai untuk dokumen panduan cetak, jadi
+// langkah berurutan, tips, dan tangkapan layar (public/panduan, data contoh dengan nama fiktif). Teks yang sama dipakai untuk dokumen panduan cetak, jadi
 // perbarui di sini bila alur halaman berubah.
 
 export const KELOMPOK = [
@@ -15,6 +15,7 @@ export const BAGIAN = [
   {
     id: "masuk", kelompok: "mulai", judul: "Masuk pertama kali dan ganti kata sandi", icon: "bi-box-arrow-in-right",
     href: "/dashboard/akun",
+    gambar: "/panduan/akun.jpg",
     langkah: [
       "Buka web.saprapor.com di HP atau laptop.",
       "Isi username dan kata sandi dari admin sekolah. Username guru biasanya NIP/NIK, username siswa adalah NISN.",
@@ -39,6 +40,7 @@ export const BAGIAN = [
   {
     id: "tindakan", kelompok: "mulai", judul: "Perlu Tindakan: daftar pekerjaan Anda", icon: "bi-bell",
     href: "/dashboard/notifikasi",
+    gambar: "/panduan/notifikasi.jpg",
     langkah: [
       "Lihat lonceng di kanan atas. Angka merah berarti ada hal mendesak.",
       "Buka Perlu Tindakan untuk melihat daftarnya: remedial yang jatuh tempo, nilai di bawah KKM yang belum punya rencana, presensi yang belum diisi, sesi jadwal yang belum ditandai, catatan wali yang belum lengkap.",
@@ -60,6 +62,7 @@ export const BAGIAN = [
   {
     id: "nilai", kelompok: "guru", judul: "Input nilai per indikator", icon: "bi-pencil-square",
     href: "/dashboard/nilai",
+    gambar: "/panduan/nilai.jpg",
     langkah: [
       "Buka TDU - Jadwal → Input Nilai.",
       "Pilih Kelas, Mata Pelajaran, Periode Akademik, Jenis Penilaian, dan Topik/Materi. Biarkan tipe penilaian Reguler.",
@@ -77,6 +80,7 @@ export const BAGIAN = [
   {
     id: "tindak-lanjut", kelompok: "guru", judul: "Tindak lanjut dan remedial", icon: "bi-life-preserver",
     href: "/dashboard/nilai",
+    gambar: "/panduan/remedial.jpg",
     langkah: [
       "Setelah nilai disimpan, siswa di bawah KKM memiliki tombol Tindak Lanjut di lembar nilai.",
       "Tekan Tindak Lanjut, pilih bentuknya (mis. Tes Ulang, Tutor Sebaya), tanggal, jam, dan catatan. Centang Masukkan ke Jadwal Pembelajaran bila perlu.",
@@ -104,6 +108,7 @@ export const BAGIAN = [
   {
     id: "jurnal", kelompok: "guru", judul: "Menulis jurnal anekdotal", icon: "bi-journal-text",
     href: "/dashboard/jurnal",
+    gambar: "/panduan/jurnal.jpg",
     langkah: [
       "Buka TDU - Jadwal → Jurnal.",
       "Pilih jalur konteks: Pembelajaran di Kelas (terkait materi) atau Observasi Perilaku Bebas (istirahat, ekskul, di luar KBM).",
@@ -142,6 +147,7 @@ export const BAGIAN = [
   {
     id: "presensi", kelompok: "wali", judul: "Presensi harian", icon: "bi-calendar-check",
     href: "/dashboard/presensi",
+    gambar: "/panduan/presensi.jpg",
     langkah: [
       "Buka TDU - Jadwal → Presensi, pilih Kelas dan Periode, lalu tanggal hari ini.",
       "Tekan Tandai Semua Hadir, lalu ubah siswa yang Sakit (S), Izin (I), atau Alpa (A).",
@@ -172,6 +178,7 @@ export const BAGIAN = [
   {
     id: "rapor", kelompok: "wali", judul: "Catatan wali dan cetak rapor", icon: "bi-file-earmark-richtext",
     href: "/dashboard/rapor",
+    gambar: "/panduan/rapor.jpg",
     langkah: [
       "Buka Laporan → Rapor, pilih Periode, Kelas, dan Peserta Didik.",
       "Periksa pratinjau: nilai akhir, deskripsi capaian (disusun otomatis dari indikator), kehadiran, dan kokurikuler.",
