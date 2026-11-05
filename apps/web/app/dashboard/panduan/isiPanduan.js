@@ -218,6 +218,22 @@ export const BAGIAN = [
     tips: ["Akun baru wajib mengganti sandi saat pertama masuk. Akun yang dinonaktifkan tidak bisa masuk tetapi datanya tetap ada."],
   },
   {
+    id: "keluarga", kelompok: "pengelola", judul: "Data orang tua dan wali", icon: "bi-house-heart",
+    href: "/dashboard/master-keluarga",
+    langkah: [
+      "Buka Master Data → Orang Tua & Wali.",
+      "Tekan Tambah data keluarga, lalu pilih Orang tua kandung atau Wali.",
+      "Isi nama ayah dan/atau ibu (atau nama wali), pekerjaan, nomor WhatsApp, dan alamat.",
+      "Centang anak-anaknya di daftar siswa. Satu data bisa untuk kakak-adik; siswa yang sudah punya data lain akan dipindah.",
+      "Tekan Simpan (atau Ctrl+Enter). Kotak di atas tabel menunjukkan siswa yang belum terhubung.",
+      "Setelah itu, buat akun orang tua di Manajemen Pengguna dengan tombol generate orang tua.",
+    ],
+    tips: [
+      "Nomor WhatsApp di sini dipakai untuk kabar presensi, remedial, dan rapor ke orang tua.",
+      "Data yang sudah punya akun portal tidak bisa dihapus; hapus atau ubah akunnya dulu.",
+    ],
+  },
+  {
     id: "pengaturan", kelompok: "pengelola", judul: "Pengaturan sekolah", icon: "bi-gear-fill",
     href: "/dashboard/pengaturan", peran: ["admin"],
     langkah: [

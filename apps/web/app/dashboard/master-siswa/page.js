@@ -1081,6 +1081,13 @@ export default function MasterSiswaPage() {
                     )}
                     {activeTab === "keluarga" && (
                       <div className="row g-4">
+                        <div className="col-12">
+                          <div className="alert alert-info d-flex align-items-center gap-2 mb-0 py-2 small">
+                            <i className="bi bi-info-circle"></i>
+                            <span className="me-auto">Data orang tua/wali belum ada di pilihan? Tambahkan dulu di menu Orang Tua &amp; Wali, lalu pilih di sini (atau centang anaknya langsung di sana).</span>
+                            <a href="/dashboard/master-keluarga" target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary text-nowrap"><i className="bi bi-box-arrow-up-right me-1"></i>Orang Tua &amp; Wali</a>
+                          </div>
+                        </div>
                         <div className="col-md-6">
                           <div className="card border-primary h-100">
                             <div className="card-header bg-primary text-white fw-bold">

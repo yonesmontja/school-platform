@@ -23,6 +23,7 @@ const MENU_GROUPS = [
     id: "master", label: "Master Data", icon: "bi-database",
     items: [
       { href: "/dashboard/master-siswa", label: "Master Siswa", icon: "bi-people-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-keluarga", label: "Orang Tua & Wali", icon: "bi-house-heart", peran: PENGELOLA },
       { href: "/dashboard/master-guru", label: "Master Guru", icon: "bi-person-video3", peran: PENGELOLA },
       { href: "/dashboard/master-kelas", label: "Master Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
       { href: "/dashboard/master-mapel", label: "Master Mapel", icon: "bi-book-half", peran: PENGELOLA },

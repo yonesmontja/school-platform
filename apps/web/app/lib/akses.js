@@ -30,6 +30,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },
   // Master data & semester hanya untuk pengelola; guru tetap membacanya lewat dropdown di halaman lain
   { awalan: "/dashboard/master-siswa", peran: ["admin", "kepsek"] },
+  { awalan: "/dashboard/master-keluarga", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-guru", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-kelas", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-mapel", peran: ["admin", "kepsek"] },

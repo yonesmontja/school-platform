@@ -17,4 +17,15 @@ class MasterOrtu extends Model
     protected $fillable = [
         'id_ortu', 'nama_ayah', 'id_pekerjaan_ayah', 'nama_ibu', 'id_pekerjaan_ibu', 'jalan_ortu', 'id_wilayah_ortu', 'no_wa'
     ];
+
+    public function anak()
+    {
+        return $this->hasMany(Student::class, 'id_ortu', 'id_ortu');
+    }
+
+    // Akun portal orang tua/wali yang terhubung (bila sudah dibuat di Manajemen Pengguna)
+    public function akun()
+    {
+        return $this->hasOne(User::class, 'id_ortu', 'id_ortu');
+    }
 }

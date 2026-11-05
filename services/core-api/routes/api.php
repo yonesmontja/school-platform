@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
+use App\Http\Controllers\Api\KeluargaController;
 use App\Http\Controllers\Api\SchoolSettingController;
 use App\Http\Controllers\Api\TeacherController;
 use Illuminate\Support\Facades\DB;
@@ -100,6 +101,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::post('/settings', [SchoolSettingController::class, 'update']);
 
         Route::apiResource('/students', StudentController::class)->only(['store', 'update', 'destroy']);
+        Route::post('/keluarga/{jenis}', [KeluargaController::class, 'store'])->whereIn('jenis', ['ortu', 'wali']);
+        Route::put('/keluarga/{jenis}/{id}', [KeluargaController::class, 'update'])->whereIn('jenis', ['ortu', 'wali']);
+        Route::delete('/keluarga/{jenis}/{id}', [KeluargaController::class, 'destroy'])->whereIn('jenis', ['ortu', 'wali']);
         Route::apiResource('/teachers', TeacherController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/classes', ClassesController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/subjects', SubjectController::class)->only(['store', 'update', 'destroy']);
@@ -220,6 +224,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
 
     // ===== PENGELOLA AKADEMIK (ADMIN & KEPSEK) =====
     Route::middleware('role:admin,kepsek')->group(function () {
+        Route::get('/keluarga', [KeluargaController::class, 'index']);
         Route::apiResource('/ruangan', RuanganController::class)->only(['store', 'update', 'destroy']);
     });
 });

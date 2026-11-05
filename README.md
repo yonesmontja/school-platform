@@ -35,6 +35,7 @@ school-platform/
 - **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak miliknya (read-only): ringkasan dengan kotak **Perlu didampingi** (tindak lanjut terjadwal, mapel di bawah KKM, TP belum dikuasai, alpa) dan grafik perkembangan nilai; **Capaian TP** per mapel → materi → indikator dengan tingkat KKTP, tanda tuntas, dan kalimat deskripsi seperti di rapor; **Tindak Lanjut** (remedial: jadwal, jam, ruang, catatan guru, nilai awal → remedial, serta tips mendampingi di rumah per bentuk tindak lanjut); **Jadwal** kelas 7 hari ke depan (sesi remedial siswa lain tidak ditampilkan); kalender kehadiran per bulan; catatan positif (narasi jurnal negatif tidak ditampilkan); dan pratinjau/cetak rapor
 - **Jadwal Pembelajaran** — kalender (FullCalendar) dengan geser-jadwal (drag), ubah status, dan master ruangan (kelola oleh admin/kepsek)
 - **Master Siswa** — CRUD siswa beserta data referensi (agama, suku, pekerjaan, wilayah, orang tua/wali, sekolah asal)
+- **Orang Tua & Wali** — data ayah/ibu atau wali (nama, pekerjaan, nomor WhatsApp, alamat) beserta anak yang terhubung; satu data bisa untuk kakak-adik. Dipakai untuk akun portal orang tua dan nomor kabar WhatsApp. Halaman ini bergaya Tabler (kartu ringkas, tab, formulir dengan pencarian anak, toast, mode gelap) lewat CSS yang dibatasi ke halaman itu ([tabler.css](apps/web/app/dashboard/master-keluarga/tabler.css)); ekspor XLSX/CSV/PDF sama seperti halaman master lain. Admin mengubah, kepsek melihat
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD; mata pelajaran memiliki KKM per mapel
 - **Referensi Penilaian (selaras kurikulum nasional)** — Semester; High Level = Elemen CP, bisa khusus satu mapel atau semua mapel; Aktivitas dengan jenis asesmen (diagnostik/formatif/sumatif); Materi memuat Tujuan Pembelajaran (TP) dan banyak Indikator Ketercapaian TP (IKTP) yang bisa diurutkan dan dinonaktifkan. Indikator dan aktivitas ditambah admin atau guru (guru hanya mapel yang diampu), kepsek melihat saja; indikator dihapus admin dan hanya bila belum pernah dipakai menilai
 - **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch (nilai bertanggal), dilengkapi analitik kelas dan riwayat nilai; mode remedial dengan rencana tindak lanjut per siswa; **penilaian per indikator**: satu sesi memilih satu atau lebih indikator (IKTP) materi, termasuk menambah indikator baru di tempat, lalu nilai 0–100 diisi per indikator dan nilai materi = rata-rata indikator yang terisi (mengalir ke STNKM, KKM, dan remedial seperti biasa); predikat capaian mengikuti **KKTP** sekolah (batas Cukup/Baik/Sangat Baik diatur di Pengaturan Sekolah, bawaan 70/80/90; tuntas tetap KKM mapel); remedial per indikator: hanya indikator di bawah KKM yang diulang, nilai remedial = rata-rata indikator setelah perbaikan; setiap nilai mencatat **guru penilai** (ID Master Guru: guru pemilik akun, atau guru pengampu mapel bila diisi admin/kepsek) dan **akun pengisinya** secara terpisah; **siklus remedial**: kebijakan nilai remedial di rapor diatur di Pengaturan Sekolah (bawaan dibatasi setinggi KKM mapel, atau apa adanya; nilai asli tetap tersimpan dan status tuntas mengikuti nilai sebenarnya), dan orang tua/wali bisa dikabari lewat WhatsApp saat rencana tindak lanjut dibuat maupun saat hasil remedial dicatat (otomatis via Fonnte bila aktif, selain itu tombol chat WA per siswa)
@@ -316,6 +317,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/users/generate` | Buat akun massal | admin | ✔ |
 | POST | `/users/{id}/reset-password` | Reset password pengguna | admin | ✔ |
 | GET | `/students/master-data` | Data referensi untuk form siswa | staf | ✔ |
+| GET | `/keluarga` | Orang tua & wali beserta anak, akun portal, daftar pekerjaan dan siswa | admin, kepsek | ✔ |
+| POST/PUT/DELETE | `/keluarga/{ortu\|wali}[/{id}]` | Tambah/ubah/hapus data keluarga dan anaknya (`anak`: daftar `id_siswa`); hapus ditolak bila ada akun portal | admin | ✔ |
 | GET | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian, /mbk, /materi` | Daftar data master | staf | ✔ |
 | GET | `/materi/by-context` | Materi berdasarkan konteks | staf | ✔ |
 | GET | `/dashboard` | Data dasbor analitik | staf | ✔ |
@@ -366,6 +369,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
 | `/dashboard/master-siswa` | Master Siswa (admin & kepsek)  |
+| `/dashboard/master-keluarga` | Orang Tua & Wali (admin & kepsek; tampilan Tabler) |
 | `/dashboard/master-guru`  | Master Guru (admin & kepsek)   |
 | `/dashboard/master-kelas` | Master Kelas (admin & kepsek)  |
 | `/dashboard/master-mapel` | Master Mata Pelajaran (admin & kepsek) |
@@ -414,6 +418,7 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [LogAktivitasTest](services/core-api/tests/Feature/LogAktivitasTest.php) | Audit trail: login/logout/login gagal, diff sebelum-sesudah, percobaan ditolak, sensor kata sandi, event output, hak lihat, log tidak bisa diubah, aturan guru jurnal |
 | [NotifikasiTest](services/core-api/tests/Feature/NotifikasiTest.php) | Notifikasi per peran: nilai belum ditindaklanjuti → remedial terlambat, cakupan mapel guru, tandai dibaca & muncul lagi bila berubah, jadwal & presensi hari ini, login gagal (admin), portal siswa |
 | [DiagnostikTest](services/core-api/tests/Feature/DiagnostikTest.php) | Nilai diagnostik tidak masuk rapor/remedial tetapi tersedia untuk pemetaan; non-kognitif hanya diisi wali kelas, validasi isian & anggota kelas |
+| [KeluargaTest](services/core-api/tests/Feature/KeluargaTest.php) | Orang tua & wali: anak terhubung/dipindah/dilepas, validasi nama & nomor WA, kepsek hanya lihat, hapus ditolak bila ada akun portal |
 | [ProduksiTest](services/core-api/tests/Feature/ProduksiTest.php) | Endpoint health, batas laju API, arsip Log Aktivitas ke file, peringatan WA login gagal sekali per jam, nomor WA admin tersembunyi dari peran lain |
 | [PortalTest](services/core-api/tests/Feature/PortalTest.php) | Portal: capaian indikator dengan nama materi, tindak lanjut hanya milik anak, jadwal sepekan tanpa sesi remedial/catatan yang memuat nama siswa lain |
 | [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
