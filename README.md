@@ -53,6 +53,7 @@ school-platform/
 - **Pusat Notifikasi (Perlu Tindakan)** — lonceng di topbar (angka merah bila ada yang mendesak) dan halaman Perlu Tindakan. Notifikasi dihitung otomatis dari data sesuai peran dan hilang sendiri setelah pekerjaannya selesai: **guru** — remedial lewat tanggal, remedial hari ini/besok, nilai di bawah KKM tanpa rencana tindak lanjut, sesi mengajar hari ini, sesi lalu yang belum ditandai Selesai/Batal, presensi kelas binaan yang belum diisi, catatan wali kelas yang belum lengkap; **admin & kepsek** — rekap yang sama untuk seluruh sekolah, kelas yang belum presensi hari ini, dan (admin) percobaan login gagal berulang; **siswa & orang tua** — jadwal & hasil remedial anak serta ketidakhadiran tanpa keterangan. Status dibaca disimpan per pengguna; notifikasi yang isinya berubah muncul lagi sebagai baru. Opsional: notifikasi di perangkat (HP/laptop) untuk hal yang mendesak. "Hari ini" mengikuti zona waktu sekolah (`ZONA_SEKOLAH`, bawaan `Asia/Jayapura`)
 - **Aplikasi terpasang (PWA)** — EduRapor bisa dipasang ke layar utama HP/laptop (tombol **Pasang aplikasi** di topbar; iPhone lewat Bagikan → Tambah ke Layar Utama), terbuka layar penuh dengan ikon sendiri dan pintasan ke Perlu Tindakan, Input Nilai, Presensi, dan Jurnal. Service worker sengaja minimal: tidak menyimpan aset aplikasi (tampilan selalu versi terbaru), hanya menampilkan halaman offline saat koneksi putus dan meneruskan klik notifikasi perangkat
 - **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
+- **Panduan** — menu Panduan (Akun & Sistem) berisi langkah singkat per peran: mulai di sini, guru, wali kelas, admin & kepala sekolah, orang tua & siswa; bisa dicari, tiap bagian menautkan ke halamannya, dan bisa dicetak. Isinya di [isiPanduan.js](apps/web/app/dashboard/panduan/isiPanduan.js); perbarui bila alur halaman berubah
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
 
 ## Prasyarat
@@ -386,6 +387,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/log-aktivitas` | Log Aktivitas / audit trail (admin & kepsek: semua; guru: Aktivitas Saya) |
 | `/dashboard/diagnostik`   | Asesmen Diagnostik (kognitif & non-kognitif) |
 | `/dashboard/notifikasi`   | Perlu Tindakan / pusat notifikasi (semua peran) |
+| `/dashboard/panduan`      | Panduan pengguna per peran, bisa dicari dan dicetak (semua peran) |
 | `/dashboard/portal`       | Portal Siswa/Orang Tua |
 
 ## Testing

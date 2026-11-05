@@ -14,6 +14,7 @@ const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speed
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
 const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
+const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
 
 // Grup menu sidebar staf; setiap grup bisa dilipat/dibuka. Item ber-"peran" hanya tampil untuk peran tsb.
 const PENGELOLA = ["admin", "kepsek"];
@@ -63,12 +64,13 @@ const MENU_GROUPS = [
       { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
       { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
+      PANDUAN_ITEM,
     ],
   },
 ];
 
 // Portal siswa & orang tua hanya berisi halaman baca miliknya
-const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM] }];
+const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] }];
 
 const menuUntuk = (role) => (role === "siswa" || role === "ortu")
   ? PORTAL_GROUPS

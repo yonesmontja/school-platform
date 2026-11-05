@@ -24,6 +24,7 @@ const PORTAL = ["siswa", "ortu"];
 const ATURAN_HALAMAN = [
   { awalan: "/dashboard/akun", peran: [...STAF, ...PORTAL] },
   { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL] },
+  { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL] },
   { awalan: "/dashboard/portal", peran: PORTAL },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },
