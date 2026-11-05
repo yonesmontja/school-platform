@@ -30,6 +30,9 @@ class AppServiceProvider extends ServiceProvider
         // Batas kasar per IP untuk endpoint login. Satu sekolah bisa berbagi satu IP publik (NAT),
         // jadi dibuat longgar; batas utama per akun ada di AuthController::login.
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // Batas umum seluruh API: per akun bila sudah login, per IP bila belum. Satu halaman dasbor
+        // memanggil belasan endpoint, jadi longgar untuk pemakaian wajar tapi menahan banjir permintaan.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)->by($request->user()?->id ? 'user:' . $request->user()->id : 'ip:' . $request->ip()));
 
         // Audit trail: setiap tambah/ubah/hapus model aplikasi direkam (kecuali log itu sendiri)
         foreach (['created' => 'TAMBAH', 'updated' => 'UBAH', 'deleted' => 'HAPUS'] as $event => $aksi) {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\SchoolSettingController;
 use App\Http\Controllers\Api\TeacherController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Api\ClassesController;
@@ -40,6 +41,17 @@ use App\Http\Controllers\Api\PortalController;
 */
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// Pemantau uptime (mis. UptimeRobot) dan healthcheck Docker: API hidup dan database terjangkau
+Route::get('/health', function () {
+    try {
+        DB::select('select 1');
+        return response()->json(['status' => 'ok']);
+    } catch (\Throwable $e) {
+        report($e);
+        return response()->json(['status' => 'database tidak terjangkau'], 503);
+    }
+});
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {

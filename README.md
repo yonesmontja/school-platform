@@ -18,7 +18,10 @@ school-platform/
 
 | Layanan     | Teknologi                         | Port  |
 |-------------|-----------------------------------|-------|
-| `web`       | Next.js                           | 3000  |
+| `web`       | Next.js, build produksi (situs publik) | 3000  |
+| `web-dev`   | Next.js mode dev untuk mengedit (profil `dev`) | 3001 |
+| `scheduler` | Tugas terjadwal Laravel (arsip log, token kedaluwarsa) | –  |
+| `db-backup` | Backup harian database + file unggahan | –  |
 | `core-api`  | Laravel + Sanctum (token auth)    | 8000  |
 | `ai-engine` | Django + Django REST Framework    | 8001  |
 | `db`        | PostgreSQL 16                     | 5432  |
@@ -44,7 +47,7 @@ school-platform/
 - **WhatsApp (Fonnte)** — kirim pesan otomatis untuk rapor dan presensi lewat gateway Fonnte
 - **Dashboard** — dasbor analitik bergaya SaaS dengan grafik (Chart.js) dan menu sidebar berkelompok yang dapat dilipat, dengan pencarian menu (Ctrl+K) dan mode mini; panel **Indikator Perlu Perhatian**: indikator (IKTP) diurutkan dari ketuntasan terendah, dengan rata-rata, persentase tuntas terhadap KKM, dan daftar siswa belum tuntas (nilai remedial terbaru menggantikan nilai asal); panel **Efektivitas Tindak Lanjut**: per bentuk tindak lanjut (Tes Ulang, Tutor Sebaya, dst.) jumlah yang sudah dilaksanakan, persentase siswa tuntas sesudahnya, rata-rata kenaikan nilai, serta rencana yang menunggu atau lewat tanggal
 - **Tema** — mode terang/gelap/otomatis dan pilihan warna aksen untuk seluruh aplikasi
-- **Log Aktivitas (audit trail)** — mencatat seluruh tindakan pengguna: login/logout/login gagal, setiap tambah/ubah/hapus data beserta nilai **sebelum → sesudah** per record (otomatis dari semua model, termasuk proses sistem/migrasi), percobaan yang ditolak, serta output di browser (unduh Excel/CSV/PDF, cetak, chat WhatsApp, salin teks) dan halaman yang dibuka. Kata sandi, token, API key, dan berkas base64 disensor. Log hanya-tambah (tidak bisa diubah/dihapus). Halaman bergaya AdminLTE 4: info-box statistik, tren per kategori, peta jam sibuk, pengguna & modul teraktif, linimasa (timeline) atau tabel, filter (rentang waktu, kategori, pengguna, modul, aksi, status, pencarian), drawer detail dengan diff, mode langsung (muat ulang otomatis), dan ekspor CSV. Admin & kepsek melihat semua aktivitas; guru melihat aktivitasnya sendiri (Aktivitas Saya)
+- **Log Aktivitas (audit trail)** — mencatat seluruh tindakan pengguna: login/logout/login gagal, setiap tambah/ubah/hapus data beserta nilai **sebelum → sesudah** per record (otomatis dari semua model, termasuk proses sistem/migrasi), percobaan yang ditolak, serta output di browser (unduh Excel/CSV/PDF, cetak, chat WhatsApp, salin teks) dan halaman yang dibuka. Kata sandi, token, API key, dan berkas base64 disensor. Log hanya-tambah (tidak bisa diubah/dihapus); log lebih tua dari 12 bulan (`LOG_AKTIVITAS_SIMPAN_BULAN`) dipindah otomatis tiap malam ke file arsip `storage/app/arsip-log/*.jsonl.gz` yang ikut backup. Halaman bergaya AdminLTE 4: info-box statistik, tren per kategori, peta jam sibuk, pengguna & modul teraktif, linimasa (timeline) atau tabel, filter (rentang waktu, kategori, pengguna, modul, aksi, status, pencarian), drawer detail dengan diff, mode langsung (muat ulang otomatis), dan ekspor CSV. Admin & kepsek melihat semua aktivitas; guru melihat aktivitasnya sendiri (Aktivitas Saya)
 - **Asesmen Diagnostik** — pemetaan awal semester untuk pembelajaran berdiferensiasi. **Kognitif**: nilai dari aktivitas berjenis Diagnostik (diisi lewat Input Nilai/Import Excel; tidak masuk rapor, laporan, dasbor, maupun remedial) dikelompokkan otomatis menurut KKTP sekolah — *perlu pendampingan intensif*, *siap dengan penguatan*, *siap/mahir* — lengkap dengan rekomendasi pembelajaran per kelompok, kemampuan terlemah tiap siswa, rata-rata kelas per indikator prasyarat, daftar yang belum mengikuti, dan unduhan Excel pengelompokan. **Non-kognitif**: gaya belajar (visual/auditori/kinestetik), minat/bakat, kesejahteraan sosial-emosional, dukungan belajar di rumah, dan catatan per siswa per semester (diisi wali kelas/pengelola; data pribadi, tidak tampil di rapor/portal), dengan profil gaya belajar kelas beserta tips mengajar dan daftar siswa yang perlu perhatian. Wali kelas diingatkan lewat Perlu Tindakan bila belum lengkap
 - **Ekspor e-Rapor** — tombol **e-Rapor** di halaman Rapor mengunduh rekap satu kelas (Excel) untuk disalin ke format nilai aplikasi e-Rapor SD: lembar Petunjuk, satu lembar per mapel (NISN, nama, nilai akhir, ceklis TP — T tercapai/P perlu pendampingan — serta deskripsi capaian kompetensi tercapai & perlu pendampingan, maks. 300 karakter), Kehadiran (S/I/A), Kokurikuler, Catatan Wali, dan Referensi TP. Bukan format impor resmi (format resmi diunduh dari aplikasi e-Rapor tiap sekolah dan berubah tiap versi); kolomnya disusun agar mudah dicocokkan per NISN
 - **Pusat Notifikasi (Perlu Tindakan)** — lonceng di topbar (angka merah bila ada yang mendesak) dan halaman Perlu Tindakan. Notifikasi dihitung otomatis dari data sesuai peran dan hilang sendiri setelah pekerjaannya selesai: **guru** — remedial lewat tanggal, remedial hari ini/besok, nilai di bawah KKM tanpa rencana tindak lanjut, sesi mengajar hari ini, sesi lalu yang belum ditandai Selesai/Batal, presensi kelas binaan yang belum diisi, catatan wali kelas yang belum lengkap; **admin & kepsek** — rekap yang sama untuk seluruh sekolah, kelas yang belum presensi hari ini, dan (admin) percobaan login gagal berulang; **siswa & orang tua** — jadwal & hasil remedial anak serta ketidakhadiran tanpa keterangan. Status dibaca disimpan per pengguna; notifikasi yang isinya berubah muncul lagi sebagai baru. Opsional: notifikasi di perangkat (HP/laptop) untuk hal yang mendesak. "Hari ini" mengikuti zona waktu sekolah (`ZONA_SEKOLAH`, bawaan `Asia/Jayapura`)
@@ -67,6 +70,8 @@ school-platform/
    ```bash
    cp services/core-api/.env.example services/core-api/.env
    touch services/ai-engine/.env
+   # Kata sandi database (acak, panjang) dan token tunnel; file ini tidak masuk git
+   echo "DB_PASSWORD=<kata-sandi-acak>" >> infra/.env
    ```
 
 2. Ubah koneksi database di `services/core-api/.env` agar memakai PostgreSQL dari compose:
@@ -77,9 +82,11 @@ school-platform/
    DB_PORT=5432
    DB_DATABASE=school_platform
    DB_USERNAME=school_admin
-   DB_PASSWORD=school_password
+   # DB_PASSWORD diambil dari infra/.env oleh docker compose
 
    REDIS_HOST=redis
+   APP_ENV=production
+   APP_DEBUG=false
    ```
 
 3. Jalankan semua layanan:
@@ -93,14 +100,40 @@ school-platform/
 
    ```bash
    docker compose exec core-api php artisan key:generate
-   docker compose exec core-api php artisan migrate --seed
+   docker compose exec core-api php artisan migrate --seed --force
    docker compose exec core-api php artisan storage:link
    ```
 
 5. Buka aplikasi:
-   - Web: http://localhost:3000
+   - Web: http://localhost:3000 (build produksi, sama dengan situs publik)
    - API: http://localhost:8000/api (langsung), atau http://localhost:3000/api lewat proxy web
    - AI Engine health check: http://localhost:8001/api/health/
+
+## Mengedit dan menerbitkan
+
+Situs publik (`web`) memakai build produksi, sehingga perubahan kode tidak langsung terlihat oleh pengguna.
+Alurnya dua jalur:
+
+1. Nyalakan jalur kerja (sekali, lalu biarkan selama mengedit):
+
+   ```bash
+   cd infra
+   docker compose --profile dev up -d web-dev     # http://localhost:3001, perubahan langsung terlihat
+   ```
+
+2. Edit kode dan cek hasilnya di http://localhost:3001. API dan database yang dipakai sama dengan situs publik.
+3. Bila sudah benar, terbitkan ke situs publik (tes backend, build web, muat ulang API & scheduler, ±2–3 menit):
+
+   ```bash
+   sh infra/terbitkan.sh            # atau: sh infra/terbitkan.sh --cepat (tanpa tes)
+   ```
+
+4. Matikan jalur kerja bila tidak dipakai: `docker compose stop web-dev`.
+
+Perubahan kode PHP langsung berlaku di API (opcache memeriksa file tiap 2 detik); perubahan `.env` core-api
+perlu `terbitkan.sh` atau restart `core-api`. Karena `APP_ENV=production`, migrasi dijalankan dengan
+`php artisan migrate --force` setelah backup. Detail error tidak tampil di layar; bacalah di
+`services/core-api/storage/logs/laravel-<tanggal>.log` (disimpan 30 hari).
 
 ## Menjalankan secara lokal (tanpa Docker)
 
@@ -158,10 +191,9 @@ di router. Konektornya adalah layanan `cloudflared` di [infra/docker-compose.yml
    dari Cloudflare, karena akan membuat konektor ganda.
 4. Tambahkan **Public Hostname** di tunnel tersebut: domain `web.saprapor.com`, service **HTTP** ke `web:3000`
    (nama layanan di jaringan Docker; `host.docker.internal:3000` juga bisa).
-5. Web berjalan dalam mode dev, jadi domain tunnel harus terdaftar di `allowedDevOrigins`
-   ([apps/web/next.config.mjs](apps/web/next.config.mjs)). Tanpa itu, Next.js memblokir aset JavaScript dan
-   halaman tertahan di "Redirecting...". Domain baru di luar `*.saprapor.com` perlu ditambahkan di sana, lalu
-   restart container `web`.
+5. Tunnel diarahkan ke `web` (build produksi). Bila suatu saat tunnel diarahkan ke `web-dev`, domainnya harus
+   terdaftar di `allowedDevOrigins` ([apps/web/next.config.mjs](apps/web/next.config.mjs)); tanpa itu Next.js
+   mode dev memblokir aset JavaScript dan halaman tertahan di "Redirecting...".
 
 Cek koneksi dengan `docker logs school_cloudflared`: harus ada 4 baris `Registered tunnel connection` dan baris
 `Updated to new configuration` yang memuat hostname tadi.
@@ -180,13 +212,21 @@ Aplikasi bisa dibuka dari internet lewat tunnel cloudflared, jadi beberapa penga
 - **Batas percobaan login.** Gagal 5 kali per menit per akun+IP, atau 20 kali per 15 menit per akun dari IP
   mana pun, membuat login akun itu ditahan sementara. Ada juga batas 30 permintaan login per menit per IP.
   Ganti kata sandi dibatasi 10 kali per menit.
+- **Peringatan login gagal.** Bila satu akun gagal login 10 kali dalam 15 menit, admin menerima WA otomatis
+  (nomor di Pengaturan → Nomor WA Admin; perlu Fonnte aktif), paling banyak sekali per jam per akun.
+  Percobaan berulang juga muncul di Pusat Notifikasi admin.
+- **Batas laju seluruh API**: 300 permintaan per menit per akun (per IP bila belum login).
 - **Token login berlaku 7 hari** (`SANCTUM_EXPIRATION`, dalam menit; `0` = tanpa batas). Token kedaluwarsa
   dibersihkan saat pengguna login.
 - **CORS** hanya untuk origin di `CORS_ALLOWED_ORIGINS` (bawaan `http://localhost:3000`). Frontend sendiri
   memakai domain yang sama sehingga tidak bergantung pada CORS.
 
-Sebelum dipakai di server sungguhan, set `APP_ENV=production` dan `APP_DEBUG=false` di `.env` core-api agar
-pesan error tidak menampilkan detail kode.
+- **Mode produksi**: `APP_ENV=production`, `APP_DEBUG=false` (error tidak menampilkan detail kode), web memakai
+  `next build` + `next start`. Kata sandi database ada di `infra/.env`, bukan di repo.
+- **Pemantau uptime**: `GET /api/health` menjawab `{"status":"ok"}` bila API dan database hidup (503 bila
+  database tidak terjangkau). Daftarkan `https://web.saprapor.com/api/health` di layanan pemantau seperti
+  UptimeRobot (gratis, cek tiap 5 menit) agar ada pemberitahuan saat situs mati. Container `core-api` juga
+  memakai endpoint ini sebagai healthcheck Docker.
 
 ## Backup data
 
@@ -207,14 +247,22 @@ menyala lagi. Backup harian disimpan 14 hari, bulanan 12 bulan. Semua bisa diatu
 | `BACKUP_KEEP_DAYS`   | `14`            | Lama backup harian disimpan (hari)                           |
 | `BACKUP_KEEP_MONTHS` | `12`            | Lama backup bulanan disimpan (bulan)                         |
 | `BACKUP_TZ`          | `Asia/Jayapura` | Zona waktu penamaan dan jadwal                               |
+| `BACKUP_SALINAN_DIR` | (kosong)        | Salinan kedua opsional, mis. flashdisk (Google Drive cukup lewat cara di bawah) |
+| `BACKUP_SALINAN_KEEP`| `7`             | Jumlah backup terakhir yang disimpan di salinan kedua        |
 
 ```bash
 cd infra
 docker compose logs db-backup                                   # riwayat backup
 docker compose exec db-backup sh /backup/backup.sh sekarang     # backup manual saat ini juga
 docker compose exec db-backup sh /backup/restore.sh             # daftar backup yang tersedia
+docker compose exec db-backup sh /backup/uji-restore.sh         # uji pulihkan backup terbaru ke database sementara
 docker compose exec db-backup sh /backup/restore.sh /backups/harian/db_2026-11-02_0100.dump YA
 ```
+
+**Salinan di luar laptop (Google Drive).** Folder `backups/` disinkronkan ke Google Drive lewat Google Drive
+for Desktop dalam mode *Stream files* (isi Drive tidak diunduh ke laptop): Preferences → **My Computer** →
+**Add folder** → pilih folder `backups` → **Sync with Google Drive**. Hasilnya tampil di drive.google.com bagian
+**Computers**. Backup yang dihapus karena lewat masa simpan ikut terhapus di Drive (masih ada di Sampah 30 hari).
 
 Restore menimpa seluruh database, jadi kondisi saat itu dibackup dulu secara otomatis, dan pemulihan berjalan
 dalam satu transaksi. File unggahan dipulihkan dengan mengekstrak arsipnya ke
@@ -228,7 +276,8 @@ Setelah `php artisan migrate --seed`, tersedia akun admin (akun peran lain dibua
 |---------------------|---------------|
 | `admin@sekolah.com` | `password123` |
 
-Seeder bersifat idempoten, jadi `php artisan db:seed` aman dijalankan ulang.
+Seeder bersifat idempoten, jadi `php artisan db:seed` aman dijalankan ulang. **Segera ganti kata sandi ini**
+lewat menu Akun setelah login pertama, karena kata sandi bawaan tercantum di repo.
 
 ## Endpoint API
 
@@ -237,6 +286,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | Method | Endpoint | Keterangan | Peran | Auth |
 |---|---|---|---|---|
 | POST | `/login` | Login (throttle 20/menit), mengembalikan token | – | – |
+| GET | `/health` | Status API dan database untuk pemantau uptime | – | – |
 | GET | `/signature/{filename}` | Gambar tanda tangan (proxy CORS) | – | – |
 | GET | `/me`, `/user` | Data user yang sedang login | semua peran | ✔ |
 | POST | `/akun/password` | Ganti password sendiri | semua peran | ✔ |
@@ -362,6 +412,7 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [LogAktivitasTest](services/core-api/tests/Feature/LogAktivitasTest.php) | Audit trail: login/logout/login gagal, diff sebelum-sesudah, percobaan ditolak, sensor kata sandi, event output, hak lihat, log tidak bisa diubah, aturan guru jurnal |
 | [NotifikasiTest](services/core-api/tests/Feature/NotifikasiTest.php) | Notifikasi per peran: nilai belum ditindaklanjuti → remedial terlambat, cakupan mapel guru, tandai dibaca & muncul lagi bila berubah, jadwal & presensi hari ini, login gagal (admin), portal siswa |
 | [DiagnostikTest](services/core-api/tests/Feature/DiagnostikTest.php) | Nilai diagnostik tidak masuk rapor/remedial tetapi tersedia untuk pemetaan; non-kognitif hanya diisi wali kelas, validasi isian & anggota kelas |
+| [ProduksiTest](services/core-api/tests/Feature/ProduksiTest.php) | Endpoint health, batas laju API, arsip Log Aktivitas ke file, peringatan WA login gagal sekali per jam, nomor WA admin tersembunyi dari peran lain |
 | [PortalTest](services/core-api/tests/Feature/PortalTest.php) | Portal: capaian indikator dengan nama materi, tindak lanjut hanya milik anak, jadwal sepekan tanpa sesi remedial/catatan yang memuat nama siswa lain |
 | [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
 

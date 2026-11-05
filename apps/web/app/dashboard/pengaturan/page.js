@@ -384,6 +384,11 @@ export default function PengaturanSekolahPage() {
               <input type="tel" className="form-control" name="no_wa_kepsek" placeholder="08xxxxxxxxxx" value={formData.no_wa_kepsek || ''} onChange={handleInputChange} />
             </div>
             <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted">Nomor WA Admin (peringatan keamanan)</label>
+              <input type="tel" className="form-control" name="no_wa_admin" placeholder="08xxxxxxxxxx" value={formData.no_wa_admin || ''} onChange={handleInputChange} />
+              <div className="form-text">Menerima pesan otomatis bila satu akun gagal login 10 kali dalam 15 menit (perlu kirim otomatis Fonnte aktif).</div>
+            </div>
+            <div className="col-md-6">
               <label className="form-label fw-bold small text-muted">ID Grup WA Guru</label>
               <input type="text" className="form-control" name="id_wa_group_guru" placeholder="120363xxxxxxxxxx@g.us" value={formData.id_wa_group_guru || ''} onChange={handleInputChange} />
               <div className="form-text">Hanya untuk kirim otomatis; ID grup bisa dilihat di dashboard Fonnte.</div>

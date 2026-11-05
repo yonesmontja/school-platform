@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = "dev-only-key"
@@ -14,7 +15,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "school_platform",
         "USER": "school_admin",
-        "PASSWORD": "school_password",
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": "db",
         "PORT": "5432",
     }

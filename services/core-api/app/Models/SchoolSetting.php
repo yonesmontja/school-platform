@@ -33,6 +33,7 @@ class SchoolSetting extends Model
         'openkey_base_url',
         'openkey_model_name',
         'no_wa_kepsek',
+        'no_wa_admin',
         'id_wa_group_guru',
         'status_wa_api',
         'wa_api_token',

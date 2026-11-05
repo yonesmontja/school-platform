@@ -11,6 +11,10 @@ set -eu
 DIR=/backups
 KEEP_DAYS=${BACKUP_KEEP_DAYS:-14}
 KEEP_MONTHS=${BACKUP_KEEP_MONTHS:-12}
+# Salinan di luar laptop (folder Google Drive/flashdisk, dipasang di /salinan bila BACKUP_SALINAN_DIR diisi)
+SALINAN=/salinan
+SALINAN_AKTIF=${BACKUP_SALINAN_AKTIF:-}
+KEEP_SALINAN=${BACKUP_SALINAN_KEEP:-7}
 JAM=${BACKUP_HOUR:-1}
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
@@ -47,6 +51,19 @@ backup_sekarang() {
   find "$DIR/bulanan" -type f \( -name 'db_*' -o -name 'storage_*' \) -mtime +"$((KEEP_MONTHS * 31))" -delete
 
   log "Backup selesai: $(basename "$db") ($(du -h "$db" | cut -f1)), $(basename "$files") ($(du -h "$files" | cut -f1))"
+  salin_ke_luar "$db" "$files" || log "PERINGATAN: salinan ke $SALINAN gagal; backup lokal tetap tersimpan"
+}
+
+# Salin backup terbaru ke folder kedua; simpan KEEP_SALINAN salinan terakhir
+salin_ke_luar() {
+  [ -n "$SALINAN_AKTIF" ] || return 0
+  for f in "$@"; do
+    cp "$f" "$SALINAN/$(basename "$f").tmp" && mv "$SALINAN/$(basename "$f").tmp" "$SALINAN/$(basename "$f")" || return 1
+  done
+  for pola in 'db_*.dump' 'storage_*.tar.gz'; do
+    ls -1t "$SALINAN"/$pola 2>/dev/null | tail -n +"$((KEEP_SALINAN + 1))" | while read -r lama; do rm -f "$lama"; done
+  done
+  log "Salinan luar diperbarui ($SALINAN, simpan $KEEP_SALINAN terakhir)"
 }
 
 if [ "${1:-}" = "sekarang" ]; then
@@ -55,6 +72,7 @@ if [ "${1:-}" = "sekarang" ]; then
 fi
 
 log "Layanan backup aktif: harian setelah jam $JAM, simpan $KEEP_DAYS hari + $KEEP_MONTHS bulan, folder $DIR"
+[ -n "$SALINAN_AKTIF" ] && log "Salinan luar aktif: $KEEP_SALINAN backup terakhir ikut disalin" || log "Salinan luar belum diatur (BACKUP_SALINAN_DIR di infra/.env)"
 until pg_isready -q; do sleep 5; done
 while true; do
   if [ "$(date +%-H)" -ge "$JAM" ] && ! ls "$DIR/harian/db_$(date +%Y-%m-%d)"_* > /dev/null 2>&1; then

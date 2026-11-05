@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\LogAktivitas;
+use App\Models\SchoolSetting;
 use App\Models\User;
 use App\Services\AuditTrail;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -14,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    // Peringatan WA ke admin: sekian login gagal untuk satu akun dalam sekian menit
+    private const AMBANG_PERINGATAN = 10;
+    private const JENDELA_PERINGATAN = 15;
+
     // Pendaftaran publik ditiadakan: akun dibuat Admin lewat Manajemen Pengguna
 
     /**
@@ -44,6 +52,7 @@ class AuthController extends Controller
             RateLimiter::hit($kunciLimit, 60);
             RateLimiter::hit($kunciAkun, 15 * 60);
             $this->catatLogin($user, 'LOGIN_GAGAL', "Login gagal: kata sandi salah atau akun tidak dikenal ({$identitas})", $identitas);
+            $this->peringatkanAdmin($identitas, $request->ip());
             throw ValidationException::withMessages(['login' => ['Email/username atau kata sandi salah.']]);
         }
         if (!$user->aktif) {
@@ -107,6 +116,32 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Logged out successfully']);
+    }
+
+    /**
+     * Kirim WA ke admin bila satu akun gagal login berulang dalam waktu singkat (indikasi tebak sandi).
+     * Paling banyak sekali per jam per akun; tanpa Fonnte aktif, peringatan tetap muncul di Pusat Notifikasi.
+     */
+    private function peringatkanAdmin(string $identitas, ?string $ip): void
+    {
+        $gagal = LogAktivitas::where('aksi', 'LOGIN_GAGAL')->where('waktu', '>=', now()->subMinutes(self::JENDELA_PERINGATAN))
+            ->whereRaw("lower(meta->>'identitas') = ?", [Str::lower($identitas)])->count();
+        if ($gagal < self::AMBANG_PERINGATAN) return;
+
+        $nomor = SchoolSetting::first()?->no_wa_admin;
+        if (!$nomor || !Cache::add('peringatan-login:' . Str::lower($identitas), true, now()->addHour())) return;
+
+        $pesan = "⚠️ *Peringatan keamanan EduRapor*\n\n"
+            . "Akun *{$identitas}* gagal login {$gagal} kali dalam " . self::JENDELA_PERINGATAN . " menit terakhir"
+            . ($ip ? " (IP terakhir {$ip})" : '') . ".\n\n"
+            . "Jika bukan pemilik akun, periksa menu Log Aktivitas dan pertimbangkan mengganti kata sandi akun tersebut.";
+        // Dikirim langsung: hanya sekali per jam per akun, dan yang menunggu hanya permintaan login yang gagal itu
+        $hasil = app(WhatsAppService::class)->kirim([['target' => $nomor, 'message' => $pesan]]);
+        AuditTrail::catat([
+            'user' => null, 'kategori' => 'SISTEM', 'aksi' => 'PERINGATAN', 'modul' => 'Akun', 'berhasil' => $hasil['sent'],
+            'deskripsi' => $hasil['sent'] ? "Peringatan WA login gagal ({$identitas}) dikirim ke admin" : "Peringatan WA login gagal ({$identitas}) tidak terkirim: {$hasil['reason']}",
+            'meta' => ['identitas' => $identitas],
+        ], []);
     }
 
     private function catatLogin(?User $user, string $aksi, string $deskripsi, string $identitas): void

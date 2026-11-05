@@ -70,6 +70,9 @@ return [
     // Zona waktu sekolah untuk aturan "hari ini" (notifikasi, jadwal, presensi); data tanggal/jam disimpan dalam waktu lokal
     'zona_sekolah' => env('ZONA_SEKOLAH', 'Asia/Jayapura'),
 
+    // Log Aktivitas lebih tua dari ini dipindah ke file arsip (php artisan log:arsipkan, dijadwalkan harian)
+    'log_aktivitas_simpan_bulan' => (int) env('LOG_AKTIVITAS_SIMPAN_BULAN', 12),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

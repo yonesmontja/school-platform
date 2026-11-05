@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16
@@ -8,7 +6,8 @@ services:
     environment:
       POSTGRES_DB: school_platform
       POSTGRES_USER: school_admin
-      POSTGRES_PASSWORD: school_password
+      # Kata sandi di infra/.env (tidak masuk git)
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
     # Port database, redis, dan API hanya dibuka untuk komputer ini (bukan jaringan lokal/internet).
     # Akses dari luar lewat web (port 3000) atau tunnel cloudflared.
     ports:
@@ -29,6 +28,8 @@ services:
     restart: unless-stopped
     env_file:
       - ../services/core-api/.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
     depends_on:
       - db
       - redis
@@ -38,13 +39,40 @@ services:
       - ../services/core-api:/var/www/html
       # vendor di volume Docker: membaca ribuan file vendor lewat bind mount Windows membuat tiap request ~4 detik
       - core_api_vendor:/var/www/html/vendor
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/api/health') === false ? 1 : 0);"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
 
+  # Tugas terjadwal Laravel (routes/console.php): arsip Log Aktivitas, bersihkan token kedaluwarsa
+  scheduler:
+    build: ../services/core-api
+    container_name: school_scheduler
+    restart: unless-stopped
+    env_file:
+      - ../services/core-api/.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
+    depends_on:
+      - core-api
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ../services/core-api:/var/www/html
+      - core_api_vendor:/var/www/html/vendor
+
+  # Situs publik (lewat tunnel): build produksi. Perubahan kode baru tampil setelah diterbitkan
+  # ulang (infra/terbitkan.sh), jadi pengguna tidak melihat pekerjaan yang belum selesai.
   web:
-    build: ../apps/web
+    build:
+      context: ../apps/web
+      target: prod
+      args:
+        # Browser memanggil /api di domain web; Next.js meneruskannya ke core-api lewat jaringan Docker
+        API_INTERNAL_URL: http://core-api:8000
     container_name: school_web
     restart: unless-stopped
     environment:
-      # Browser memanggil /api di domain web; Next.js meneruskannya ke core-api lewat jaringan Docker
       API_INTERNAL_URL: http://core-api:8000
     depends_on:
       - core-api
@@ -52,6 +80,22 @@ services:
     # jaringan lokal (http, tanpa enkripsi), jalankan dengan WEB_BIND=0.0.0.0.
     ports:
       - "${WEB_BIND:-127.0.0.1}:3000:3000"
+
+  # Jalur kerja untuk mengedit: next dev, perubahan langsung terlihat di http://localhost:3001.
+  # Hanya berjalan bila diminta: docker compose --profile dev up -d web-dev
+  web-dev:
+    profiles: ["dev"]
+    build:
+      context: ../apps/web
+      target: dev
+    container_name: school_web_dev
+    restart: "no"
+    environment:
+      API_INTERNAL_URL: http://core-api:8000
+    depends_on:
+      - core-api
+    ports:
+      - "127.0.0.1:3001:3000"
     volumes:
       - ../apps/web:/app
       - /app/node_modules
@@ -71,6 +115,8 @@ services:
     restart: unless-stopped
     env_file:
       - ../services/ai-engine/.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
     depends_on:
       - db
       - redis
@@ -86,11 +132,13 @@ services:
       PGHOST: db
       PGDATABASE: school_platform
       PGUSER: school_admin
-      PGPASSWORD: school_password
+      PGPASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
       TZ: ${BACKUP_TZ:-Asia/Jayapura}
       BACKUP_HOUR: ${BACKUP_HOUR:-1}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-12}
+      BACKUP_SALINAN_AKTIF: ${BACKUP_SALINAN_DIR:+1}
+      BACKUP_SALINAN_KEEP: ${BACKUP_SALINAN_KEEP:-7}
     depends_on:
       - db
     volumes:
@@ -98,6 +146,8 @@ services:
       - ../services/core-api/storage/app:/storage:ro
       # Folder hasil backup di komputer host; arahkan ke disk lain/folder sinkron cloud lewat BACKUP_DIR
       - ${BACKUP_DIR:-../backups}:/backups
+      # Salinan kedua di luar laptop, mis. BACKUP_SALINAN_DIR=C:/Users/<nama>/My Drive/EduRapor-backup
+      - ${BACKUP_SALINAN_DIR:-../backups/.salinan-nonaktif}:/salinan
 
 volumes:
   pgdata:

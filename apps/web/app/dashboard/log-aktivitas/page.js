@@ -200,7 +200,7 @@ function DetailLog({ id, onTutup }) {
                   <pre className="small bg-body-tertiary border rounded-3 p-2 mt-2 mb-0 log-json">{JSON.stringify(log.meta, null, 2)}</pre>
                 </details>
               )}
-              <div className="small text-body-secondary"><i className="bi bi-lock me-1"></i>Log bersifat hanya-tambah: tidak dapat diubah atau dihapus lewat aplikasi.</div>
+              <div className="small text-body-secondary"><i className="bi bi-lock me-1"></i>Log bersifat hanya-tambah: tidak dapat diubah atau dihapus lewat aplikasi. Log lebih dari 12 bulan dipindah otomatis ke file arsip yang ikut backup.</div>
             </>
           )}
         </div>

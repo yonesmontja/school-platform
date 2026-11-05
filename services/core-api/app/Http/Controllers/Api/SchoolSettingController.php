@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class SchoolSettingController extends Controller
 {
-    public function show()
+    public function show(Request $request)
     {
         $setting = SchoolSetting::first();
         // Jika belum ada data, buatkan default kosong
@@ -16,6 +16,8 @@ class SchoolSettingController extends Controller
             // refresh: nilai bawaan kolom (KKTP, skala kokurikuler) ikut terkirim sejak pertama dibuat
             $setting = SchoolSetting::create(['nama_sekolah' => 'Nama Sekolah Default'])->refresh();
         }
+        // Nomor peringatan keamanan hanya untuk admin; /settings dibaca semua peran termasuk portal
+        if ($request->user()?->role !== 'admin') $setting->makeHidden('no_wa_admin');
         return response()->json($setting);
     }
 
@@ -28,6 +30,7 @@ class SchoolSettingController extends Controller
             'openkey_model_name' => 'nullable|string|max:100',
             'ai_model_name' => 'nullable|string|max:100',
             'no_wa_kepsek' => 'nullable|string|max:30',
+            'no_wa_admin' => 'nullable|string|max:30',
             'id_wa_group_guru' => 'nullable|string|max:100',
             'status_wa_api' => 'nullable|boolean',
             // Rentang KKTP harus naik: cukup < baik < sangat baik
