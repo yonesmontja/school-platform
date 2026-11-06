@@ -45,6 +45,32 @@ services:
       timeout: 10s
       retries: 3
 
+  # API untuk tes web end-to-end (tests/web): kode sama dengan core-api, tetapi memakai database
+  # terpisah berisi sekolah fiktif. Hanya berjalan bila diminta: docker compose --profile e2e up -d core-api-e2e
+  core-api-e2e:
+    profiles: ["e2e"]
+    build: ../services/core-api
+    container_name: school_core_api_e2e
+    restart: "no"
+    env_file:
+      - ../services/core-api/.env
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
+      DB_DATABASE: school_platform_e2e
+      APP_ENV: testing
+      APP_DEBUG: "true"
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      FILESYSTEM_DISK: local
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:8090:8000"
+    volumes:
+      - ../services/core-api:/var/www/html
+      - core_api_vendor:/var/www/html/vendor
+
   # Tugas terjadwal Laravel (routes/console.php): arsip Log Aktivitas, bersihkan token kedaluwarsa
   scheduler:
     build: ../services/core-api

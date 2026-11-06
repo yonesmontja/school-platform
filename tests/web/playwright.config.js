@@ -1,0 +1,28 @@
+// Tes end-to-end web EduRapor. Halaman dibuka dari WEB_URL (bawaan jalur kerja :3001), sedangkan
+// semua panggilan /api dialihkan ke API tes (core-api-e2e, database sekolah fiktif) — lihat bantu.js.
+const { defineConfig, devices } = require("@playwright/test");
+
+module.exports = defineConfig({
+  testDir: "./tes",
+  globalSetup: require.resolve("./siapkan.js"),
+  globalTeardown: require.resolve("./tutup.js"),
+  // Tes berbagi satu database: dijalankan berurutan agar hasilnya bisa diulang
+  workers: 1,
+  fullyParallel: false,
+  timeout: 90_000,
+  expect: { timeout: 15_000 },
+  retries: 0,
+  reporter: [["list"], ["html", { open: "never", outputFolder: "laporan" }]],
+  outputDir: "hasil",
+  use: {
+    baseURL: process.env.WEB_URL || "http://localhost:3001",
+    locale: "id-ID",
+    timezoneId: "Asia/Jayapura",
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
+  },
+  projects: [
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } } },
+    { name: "hp", use: { ...devices["Pixel 7"] }, testMatch: /halaman\.spec\.js/ },
+  ],
+});

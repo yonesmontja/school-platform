@@ -1,0 +1,12 @@
+{
+  "name": "school-web-e2e",
+  "private": true,
+  "description": "Tes end-to-end web EduRapor (Playwright) terhadap API tes berisi sekolah fiktif",
+  "scripts": {
+    "test": "playwright test",
+    "laporan": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

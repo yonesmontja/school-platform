@@ -52,7 +52,8 @@ school-platform/
 - **Asesmen Diagnostik** — pemetaan awal semester untuk pembelajaran berdiferensiasi. **Kognitif**: nilai dari aktivitas berjenis Diagnostik (diisi lewat Input Nilai/Import Excel; tidak masuk rapor, laporan, dasbor, maupun remedial) dikelompokkan otomatis menurut KKTP sekolah — *perlu pendampingan intensif*, *siap dengan penguatan*, *siap/mahir* — lengkap dengan rekomendasi pembelajaran per kelompok, kemampuan terlemah tiap siswa, rata-rata kelas per indikator prasyarat, daftar yang belum mengikuti, dan unduhan Excel pengelompokan. **Non-kognitif**: gaya belajar (visual/auditori/kinestetik), minat/bakat, kesejahteraan sosial-emosional, dukungan belajar di rumah, dan catatan per siswa per semester (diisi wali kelas/pengelola; data pribadi, tidak tampil di rapor/portal), dengan profil gaya belajar kelas beserta tips mengajar dan daftar siswa yang perlu perhatian. Wali kelas diingatkan lewat Perlu Tindakan bila belum lengkap
 - **Ekspor e-Rapor** — tombol **e-Rapor** di halaman Rapor mengunduh rekap satu kelas (Excel) untuk disalin ke format nilai aplikasi e-Rapor SD: lembar Petunjuk, satu lembar per mapel (NISN, nama, nilai akhir, ceklis TP — T tercapai/P perlu pendampingan — serta deskripsi capaian kompetensi tercapai & perlu pendampingan, maks. 300 karakter), Kehadiran (S/I/A), Kokurikuler, Catatan Wali, dan Referensi TP. Bukan format impor resmi (format resmi diunduh dari aplikasi e-Rapor tiap sekolah dan berubah tiap versi); kolomnya disusun agar mudah dicocokkan per NISN
 - **Pusat Notifikasi (Perlu Tindakan)** — lonceng di topbar (angka merah bila ada yang mendesak) dan halaman Perlu Tindakan. Notifikasi dihitung otomatis dari data sesuai peran dan hilang sendiri setelah pekerjaannya selesai: **guru** — remedial lewat tanggal, remedial hari ini/besok, nilai di bawah KKM tanpa rencana tindak lanjut, sesi mengajar hari ini, sesi lalu yang belum ditandai Selesai/Batal, presensi kelas binaan yang belum diisi, catatan wali kelas yang belum lengkap; **admin & kepsek** — rekap yang sama untuk seluruh sekolah, kelas yang belum presensi hari ini, dan (admin) percobaan login gagal berulang; **siswa & orang tua** — jadwal & hasil remedial anak serta ketidakhadiran tanpa keterangan. Status dibaca disimpan per pengguna; notifikasi yang isinya berubah muncul lagi sebagai baru. Opsional: notifikasi di perangkat (HP/laptop) untuk hal yang mendesak. "Hari ini" mengikuti zona waktu sekolah (`ZONA_SEKOLAH`, bawaan `Asia/Jayapura`)
-- **Aplikasi terpasang (PWA)** — EduRapor bisa dipasang ke layar utama HP/laptop (tombol **Pasang aplikasi** di topbar; iPhone lewat Bagikan → Tambah ke Layar Utama), terbuka layar penuh dengan ikon sendiri dan pintasan ke Perlu Tindakan, Input Nilai, Presensi, dan Jurnal. Service worker sengaja minimal: tidak menyimpan aset aplikasi (tampilan selalu versi terbaru), hanya menampilkan halaman offline saat koneksi putus dan meneruskan klik notifikasi perangkat
+- **Aplikasi terpasang (PWA)** — EduRapor bisa dipasang ke layar utama HP/laptop (tombol **Pasang aplikasi** di topbar; iPhone lewat Bagikan → Tambah ke Layar Utama), terbuka layar penuh dengan ikon sendiri dan pintasan ke Perlu Tindakan, Input Nilai, Presensi, dan Jurnal. Service worker ([public/sw.js](apps/web/public/sw.js), hanya di build produksi) menyimpan aset aplikasi berhash, dan memakai jaringan dulu untuk halaman & data `/api` dengan salinan terakhir sebagai cadangan, sehingga tampilan selalu terbaru saat online dan halaman yang pernah dibuka tetap terbuka saat offline. Salinan data dihapus saat keluar
+- **Mengisi saat offline** — nilai, jurnal, dan presensi yang disimpan tanpa sinyal masuk antrean IndexedDB per akun ([antrean.js](apps/web/app/lib/antrean.js)), terlihat lewat pita offline dan ikon awan di topbar, lalu terkirim otomatis saat tersambung (jurnal dianalisis STNKM saat terkirim). Kiriman yang ditolak server ditandai merah agar bisa diperiksa atau dibuang
 - **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Panduan** — menu Panduan (Akun & Sistem) berisi langkah singkat per peran: mulai di sini, guru, wali kelas, admin & kepala sekolah, orang tua & siswa; bisa dicari, tiap bagian menautkan ke halamannya, dan bisa dicetak. Isinya di [isiPanduan.js](apps/web/app/dashboard/panduan/isiPanduan.js); perbarui bila alur halaman berubah
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
@@ -426,3 +427,30 @@ docker compose exec core-api php artisan test --filter RemedialTest
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh
 [MembuatDataSekolah](services/core-api/tests/Concerns/MembuatDataSekolah.php). Jalankan tes sebelum commit,
 terutama setelah mengubah controller, aturan akses, atau migrasi.
+
+### Tes web (end-to-end)
+
+Tes Playwright di [tests/web](tests/web) membuka halaman dari jalur kerja (`localhost:3001`) seperti pengguna
+sungguhan, sedangkan semua panggilan `/api` dialihkan ke **API tes** (`core-api-e2e`, port 8090, profile `e2e`).
+API tes memakai kode yang sama dengan database terpisah `school_platform_e2e`, yang dikosongkan lalu diisi
+sekolah fiktif setiap kali tes jalan oleh `php artisan e2e:siapkan`. Perintah itu menolak berjalan bila nama
+database tidak berakhiran `_e2e`, jadi data sekolah tidak tersentuh. Semua akun tes memakai sandi `Uji-E2E-2026`.
+
+```bash
+# Sekali saja
+docker compose -f infra/docker-compose.yml exec db createdb -U school_admin school_platform_e2e
+cd tests/web && npm ci && npx playwright install chromium
+# Jalankan (API tes dinyalakan & dihentikan otomatis)
+npx playwright test                                   # semua (±10 menit)
+npx playwright test --project=desktop tes/alur.spec.js # alur kerja saja (±2 menit)
+npx playwright show-report laporan                    # laporan, termasuk trace tes yang gagal
+```
+
+| Berkas | Yang diuji |
+|---|---|
+| [masuk.spec.js](tests/web/tes/masuk.spec.js) | Login lewat formulir: admin ke Dashboard, orang tua ke Portal, sandi salah ditolak, halaman terlindung tanpa login |
+| [halaman.spec.js](tests/web/tes/halaman.spec.js) | Semua halaman admin, guru, dan orang tua terbuka tanpa error JavaScript dan tanpa geser ke samping, di desktop & HP; guru tidak bisa membuka halaman admin |
+| [offline.spec.js](tests/web/tes/offline.spec.js) | Sinyal putus: jurnal, nilai, dan presensi masuk antrean HP (lencana awan + pita offline), lalu terkirim otomatis saat online; jurnal dianalisis STNKM saat terkirim |
+| [alur.spec.js](tests/web/tes/alur.spec.js) | Guru menilai 2 indikator (nilai = rata-rata, tersimpan di API) → presensi + panel WA → jurnal muncul di linimasa → rapor memuat nilai & deskripsi capaian → portal orang tua → ganti gaya Klasik |
+
+`infra/terbitkan.sh` menjalankan tes backend dan tes web (login, alur, offline) sebelum menerbitkan; `--lengkap` menambah semua halaman.
