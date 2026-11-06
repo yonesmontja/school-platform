@@ -11,6 +11,7 @@ use App\Models\MasterPeriode;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransNilaiIndikator;
 use App\Models\TransRencanaRemedial;
@@ -37,7 +38,28 @@ class NilaiController extends Controller
                 ->orderBy('nama_mapel')->get(),
             'mbks' => MasterMBK::orderBy('kategori_penilaian')->get(),
             'opsi_remedial' => TransRencanaRemedial::OPSI,
+            'saran' => $this->saranDariJadwal($user),
         ]);
+    }
+
+    /**
+     * Kelas, mapel & materi yang disarankan untuk guru dari jadwalnya hari ini: sesi yang sedang berjalan,
+     * lalu sesi terakhir yang sudah lewat, lalu sesi berikutnya.
+     */
+    private function saranDariJadwal($user): ?array
+    {
+        if (!$user->id_guru) return null;
+        $sekarang = now(config('app.zona_sekolah'))->format('Y-m-d H:i:s');
+        $jadwal = TransJadwal::where('id_guru', $user->id_guru)
+            ->whereNotNull('id_kelas')->whereNotNull('id_mapel')
+            ->whereDate('mulai', substr($sekarang, 0, 10))
+            ->orderBy('mulai')->get(['id_kelas', 'id_mapel', 'id_materi', 'mulai', 'selesai']);
+        if ($jadwal->isEmpty()) return null;
+
+        $kini = fn($j) => $j->mulai->format('Y-m-d H:i:s') <= $sekarang;
+        $pilih = $jadwal->filter($kini)->last() ?? $jadwal->first();
+
+        return $pilih->only(['id_kelas', 'id_mapel', 'id_materi']) + ['mulai' => $pilih->mulai->format('H:i')];
     }
 
     public function getMateriByContext(Request $request)

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\TransJadwal;
 use App\Models\TransNilai;
+use App\Models\TransRencanaRemedial;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -136,5 +137,10 @@ class NotifikasiTest extends TestCase
         $res = $this->notif();
         $this->assertSame(['portal-remedial'], $this->jenis($res));
         $this->assertStringContainsString('Bimbingan Individual', $res['data'][0]['pesan']);
+
+        // "Buka" langsung ke kartu tindak lanjut ini di portal
+        $idRencana = TransRencanaRemedial::value('id_rencana');
+        $siswa = $this->sekolah->siswa->id_siswa;
+        $this->assertSame("/dashboard/portal?tab=tindak&siswa={$siswa}&periode=PER-T&rencana={$idRencana}", $res['data'][0]['tautan']);
     }
 }

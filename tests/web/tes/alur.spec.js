@@ -1,6 +1,6 @@
 // Alur kerja utama dari ujung ke ujung, berurutan karena saling memakai data:
 // guru menilai → presensi → jurnal → admin mencetak rapor → orang tua melihat portal.
-const { test, expect, api, pilih, selectBerlabel, hariIni } = require("../bantu");
+const { test, expect, api, pilih, selectBerlabel, hariIni, API } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });
 
@@ -36,6 +36,22 @@ test("guru mengisi nilai satu materi dengan 2 indikator", async ({ page, masuk }
   const abner = lembar.students.find((s) => s.id_siswa === "SIS-E1");
   expect(Number(abner.nilai)).toBe(65);
   expect(abner.nilai_indikator).toEqual({ "IND-E1": 60, "IND-E2": 70 });
+});
+
+test("parameter Input Nilai terisi dari jadwal guru hari ini atau mapel satu-satunya (G4)", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/nilai");
+  await expect(page.getByText(/diisi dari jadwal Anda hari ini/)).toBeVisible();
+  await expect(selectBerlabel(page, "Kelas")).toHaveValue("KLS-E4A");
+  await expect(selectBerlabel(page, "Mata Pelajaran")).toHaveValue("MPL-EMTK");
+  await expect(selectBerlabel(page, "Topik / Materi")).toHaveValue("MTR-E1");
+
+  // Guru tanpa jadwal hari ini: hanya mapel yang diampunya
+  await masuk("guru2");
+  await page.goto("/dashboard/nilai");
+  await expect(page.getByText(/hanya satu mapel yang Anda ampu/)).toBeVisible();
+  await expect(selectBerlabel(page, "Mata Pelajaran")).toHaveValue("MPL-EIPA");
+  await expect(selectBerlabel(page, "Kelas")).toHaveValue("");
 });
 
 test("wali kelas mengisi presensi dan panel WhatsApp muncul", async ({ page, masuk }) => {
@@ -139,6 +155,54 @@ test("orang tua melihat nilai dan kehadiran anak di portal", async ({ page, masu
   await page.goto("/dashboard/portal");
   await expect(page.getByText("Abner Kogoya").first()).toBeVisible();
   await expect(page.getByText("Matematika").first()).toBeVisible();
+});
+
+test("portal orang tua: Perlu didampingi, Buka dari Perlu Tindakan, filter, dan PDF (O2–O4)", async ({ page, masuk }) => {
+  // Guru menjadwalkan Tes Ulang untuk nilai Abner yang di bawah KKM (dari tes nilai di atas)
+  const guru = await masuk("guru");
+  const riwayat = await api(guru, "/nilai?id_kelas=KLS-E4A&id_periode=PER-E2E");
+  const nilaiAbner = riwayat.data.find((n) => n.id_siswa === "SIS-E1" && n.id_jenis === "JNS-UH" && !n.rencana);
+  expect(nilaiAbner, "nilai Abner di bawah KKM tanpa rencana").toBeTruthy();
+  const res = await page.request.post(`${API}/api/remedial`, {
+    headers: { Authorization: `Bearer ${guru.access_token}`, Accept: "application/json" },
+    data: { id_nilai: [nilaiAbner.id_nilai], opsi_tindakan: "Tes Ulang", tanggal_rencana: hariIni() },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+
+  await masuk("ortu");
+  await page.goto("/dashboard/portal");
+  // O2 & O4: kotak Perlu didampingi di paling atas, dengan tanggal remedial dan saran di rumah
+  const kotak = page.locator(".card", { has: page.getByRole("heading", { name: /Perlu didampingi/ }) });
+  await expect(kotak.getByText(/Remedial Matematika.*Tes Ulang/)).toBeVisible();
+  await expect(kotak.getByText("Di rumah:").first()).toBeVisible();
+
+  // Tombol Buka di Perlu Tindakan membuka kartu tindak lanjut itu
+  await page.goto("/dashboard/notifikasi");
+  await page.locator(".notif-kartu", { hasText: "tindak lanjut Matematika" }).getByRole("link", { name: /Buka/ }).click();
+  await expect(page).toHaveURL(/tab=tindak/);
+  await expect(page.locator(".portal-sorot")).toContainText("Tes Ulang");
+
+  // Daftar bisa difilter & dicari
+  await page.getByLabel("Filter daftar").selectOption("tuntas");
+  await expect(page.getByText("Tidak ada tindak lanjut yang cocok")).toBeVisible();
+  await page.getByLabel("Filter daftar").selectOption("semua");
+  await page.getByRole("searchbox", { name: /Cari mapel/ }).fill("pecahan");
+  await expect(page.locator(".portal-tindak")).toHaveCount(1);
+
+  // O3: Capaian TP menunjukkan indikator yang belum dikuasai, lalu diunduh sebagai PDF
+  await page.getByRole("button", { name: /Capaian TP/ }).click();
+  await page.getByLabel("Filter daftar").selectOption("belum");
+  await expect(page.getByText("belum dikuasai", { exact: true }).first()).toBeVisible();
+  const [unduhan] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Unduh PDF" }).click()]);
+  expect(unduhan.suggestedFilename()).toMatch(/^Capaian_TP_Abner_Kogoya\.pdf$/);
+});
+
+test("Akun Saya orang tua menampilkan nama dan kelas anak (O1)", async ({ page, masuk }) => {
+  await masuk("ortu");
+  await page.goto("/dashboard/akun");
+  await expect(page.getByText("Anak terhubung")).toBeVisible();
+  await expect(page.getByText("Abner Kogoya")).toBeVisible();
+  await expect(page.getByText("· Kelas 4A")).toBeVisible();
 });
 
 test("gaya tampilan bisa diganti ke Klasik dan tetap setelah dimuat ulang", async ({ page, masuk }) => {

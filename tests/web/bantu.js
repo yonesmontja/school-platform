@@ -65,4 +65,4 @@ const selectBerlabel = (page, teks) =>
 
 const hariIni = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
 
-module.exports = { test, expect: base.expect, api, pilih, selectBerlabel, hariIni, SANDI, AKUN };
+module.exports = { test, expect: base.expect, api, pilih, selectBerlabel, hariIni, SANDI, AKUN, API };

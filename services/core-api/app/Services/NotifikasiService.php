@@ -270,20 +270,22 @@ class NotifikasiService
         if (!$siswa) return [];
         $hasil = [];
 
-        $rencana = TransRencanaRemedial::with(['siswa:id_siswa,nama_siswa', 'mapel:id_mapel,nama_mapel,kkm', 'nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'jadwal:id_jadwal,mulai'])
+        $rencana = TransRencanaRemedial::with(['siswa:id_siswa,nama_siswa', 'mapel:id_mapel,nama_mapel,kkm', 'nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'jadwal:id_jadwal,mulai', 'nilaiAsal:id_nilai,id_periode'])
             ->whereIn('id_siswa', $siswa)
             ->where(fn($q) => $q->where(fn($w) => $w->where('status', 'DIRENCANAKAN')->where('tanggal_rencana', '>=', $this->hariIni))
                 ->orWhere(fn($w) => $w->where('status', 'SELESAI')->where('tanggal_selesai', '>=', $this->sekarang->copy()->subDays(7)->toDateString())))
             ->get();
         foreach ($rencana as $r) {
             $nama = $r->siswa?->nama_siswa;
+            // "Buka" langsung ke kartu tindak lanjut ini di portal (anak & periode yang sesuai)
+            $tautan = self::tautanPortal('tindak', $r->id_siswa, ['periode' => $r->nilaiAsal?->id_periode, 'rencana' => $r->id_rencana]);
             if ($r->status === 'DIRENCANAKAN') {
                 $jam = $r->jadwal ? ', pukul ' . $r->jadwal->mulai->format('H:i') : '';
                 $hasil[] = $this->buat('portal-remedial', [$r->id_rencana, $r->tanggal_rencana, $r->id_jadwal], [
                     'tingkat' => 'info', 'kategori' => 'Remedial', 'ikon' => 'bi-life-preserver',
                     'judul' => "{$nama}: tindak lanjut {$r->mapel?->nama_mapel}",
                     'pesan' => "{$r->opsi_tindakan} pada {$this->tanggal($r->tanggal_rencana->toDateString())}{$jam}. Mohon dampingi ananda belajar di rumah.",
-                    'tautan' => '/dashboard/portal', 'waktu' => $r->tanggal_rencana->toDateString() . 'T00:00:00',
+                    'tautan' => $tautan, 'waktu' => $r->tanggal_rencana->toDateString() . 'T00:00:00',
                 ]);
             } elseif ($r->nilaiRemedial) {
                 $tuntas = (float) $r->nilaiRemedial->nilai >= (float) ($r->mapel?->kkm ?? 75);
@@ -291,7 +293,7 @@ class NotifikasiService
                     'tingkat' => $tuntas ? 'success' : 'warning', 'kategori' => 'Remedial', 'ikon' => $tuntas ? 'bi-patch-check' : 'bi-arrow-repeat',
                     'judul' => "{$nama}: hasil remedial {$r->mapel?->nama_mapel}",
                     'pesan' => $tuntas ? 'Ananda sudah tuntas. Terima kasih atas dukungannya.' : 'Ananda belum tuntas; guru akan menyiapkan tindak lanjut berikutnya.',
-                    'tautan' => '/dashboard/portal', 'waktu' => $r->tanggal_selesai?->toDateString() . 'T00:00:00',
+                    'tautan' => $tautan, 'waktu' => $r->tanggal_selesai?->toDateString() . 'T00:00:00',
                 ]);
             }
         }
@@ -303,9 +305,14 @@ class NotifikasiService
                 'tingkat' => 'warning', 'kategori' => 'Presensi', 'ikon' => 'bi-person-x',
                 'judul' => "{$grup->first()->siswa?->nama_siswa}: tidak hadir tanpa keterangan",
                 'pesan' => "{$grup->count()} kali dalam 7 hari terakhir (" . self::daftarNama($grup->map(fn($p) => $this->tanggal($p->tanggal->toDateString())), 3) . '). Hubungi wali kelas bila ada keterangan.',
-                'jumlah' => $grup->count(), 'tautan' => '/dashboard/portal', 'waktu' => $grup->last()->tanggal->toDateString() . 'T00:00:00',
+                'jumlah' => $grup->count(), 'tautan' => self::tautanPortal('presensi', $grup->first()->id_siswa), 'waktu' => $grup->last()->tanggal->toDateString() . 'T00:00:00',
             ]);
         }
         return $hasil;
+    }
+
+    private static function tautanPortal(string $tab, string $idSiswa, array $lain = []): string
+    {
+        return '/dashboard/portal?' . http_build_query(['tab' => $tab, 'siswa' => $idSiswa] + array_filter($lain));
     }
 }

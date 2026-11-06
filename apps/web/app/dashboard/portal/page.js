@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
 import {
   DIMENSI, RAPOR_CSS, PREVIEW_CSS, hitungRapor, tanggalPanjang, todayYmd, deskripsiIndikator,
@@ -49,10 +52,39 @@ async function ambil(path) {
   return data;
 }
 
+// Status satu rencana tindak lanjut untuk label, warna, dan filter
+const statusTindak = (r) => {
+  if (r.nilai_remedial == null) return { kunci: "jadwal", t: "Dijadwalkan", w: "warning", i: "bi-hourglass-split" };
+  return r.nilai_remedial >= r.kkm ? { kunci: "tuntas", t: "Tuntas", w: "success", i: "bi-patch-check" } : { kunci: "belum", t: "Belum tuntas", w: "danger", i: "bi-arrow-repeat" };
+};
+const cocok = (teks, ...isi) => !teks || isi.some((v) => String(v ?? "").toLowerCase().includes(teks.toLowerCase()));
+// Huruf bawaan jsPDF hanya Latin-1
+const teksPdf = (v) => String(v ?? "-").replace(/[\u2013\u2014]/g, "-").replace(/\u00b7/g, "|");
+
+/** Daftar portal sebagai PDF: judul, identitas siswa, lalu tabel. */
+function unduhPdf({ judul, siswa, periode, head, body }) {
+  const doc = new jsPDF("portrait", "mm", "a4");
+  doc.setFont("helvetica", "bold").setFontSize(14).text(judul, 14, 16);
+  doc.setFont("helvetica", "normal").setFontSize(10);
+  doc.text(teksPdf(`${siswa?.nama_siswa || "-"} · Kelas ${siswa?.kelas?.nama_kelas || "-"} · ${periode}`), 14, 23);
+  doc.text(`Dicetak ${new Date().toLocaleString("id-ID")}`, 14, 28);
+  autoTable(doc, {
+    head: [head], body: body.map((b) => b.map(teksPdf)), startY: 33, theme: "grid",
+    styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [32, 107, 196], textColor: 255, fontStyle: "bold" },
+  });
+  doc.save(`${judul}_${siswa?.nama_siswa || "siswa"}.pdf`.replace(/[^\w.\-]+/g, "_"));
+}
+
 const warnaNilai = (nilai, kkm) => (nilai == null ? "secondary" : nilai >= 90 ? "success" : nilai >= kkm ? "primary" : "danger");
 
-export default function PortalPage() {
+export default function PortalPageBungkus() {
+  // useSearchParams perlu Suspense; tautan "Buka" dari Perlu Tindakan membawa ?tab=&siswa=&periode=&rencana=
+  return <Suspense fallback={null}><PortalPage /></Suspense>;
+}
+
+function PortalPage() {
   const { role, user } = useAkses();
+  const params = useSearchParams();
   const [anak, setAnak] = useState([]);
   const [periodes, setPeriodes] = useState([]);
   const [idSiswa, setIdSiswa] = useState("");
@@ -61,7 +93,12 @@ export default function PortalPage() {
   const [loading, setLoading] = useState(true);
   const [galat, setGalat] = useState("");
   const [tab, setTab] = useState("ringkasan");
+  const [sorot, setSorot] = useState(null); // id_rencana yang dibuka dari Perlu Tindakan
+  const [cari, setCari] = useState("");
+  const [saring, setSaring] = useState("semua");
   const previewRef = useRef(null);
+
+  const gantiTab = (t) => { setTab(t); setCari(""); setSaring("semua"); };
 
   useEffect(() => {
     ambil("/portal/anak").then((d) => {
@@ -73,6 +110,34 @@ export default function PortalPage() {
       if (!d.siswa?.length) setLoading(false);
     }).catch((e) => { setGalat(e.message); setLoading(false); });
   }, []);
+
+  // Tautan langsung: pilih anak, periode, dan tab yang dituju (juga saat sudah berada di portal)
+  useEffect(() => {
+    if (!anak.length) return;
+    const siswaTuju = params.get("siswa");
+    const periodeTuju = params.get("periode");
+    const tabTuju = params.get("tab");
+    if (siswaTuju && anak.some((s) => s.id_siswa === siswaTuju)) setIdSiswa(siswaTuju);
+    if (periodeTuju && periodes.some((p) => p.id_periode === periodeTuju)) setIdPeriode(periodeTuju);
+    if (tabTuju && TAB.some((t) => t.id === tabTuju)) gantiTab(tabTuju);
+    setSorot(params.get("rencana"));
+  }, [params, anak, periodes]);
+
+  // Di HP deretan tab bisa digeser: tab yang aktif selalu terlihat
+  const tabRef = useRef(null);
+  useEffect(() => {
+    const ul = tabRef.current;
+    const aktif = ul?.querySelector(".nav-link.active");
+    if (!aktif) return;
+    const geser = aktif.getBoundingClientRect().left - ul.getBoundingClientRect().left - (ul.clientWidth - aktif.offsetWidth) / 2;
+    ul.scrollTo({ left: ul.scrollLeft + geser, behavior: "smooth" });
+  }, [tab]);
+
+  // Gulir ke kartu tindak lanjut yang dibuka
+  useEffect(() => {
+    if (!sorot || loading || tab !== "tindak") return;
+    document.getElementById(`rencana-${sorot}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [sorot, loading, tab]);
 
   useEffect(() => {
     if (!idSiswa || !idPeriode) return;
@@ -118,7 +183,7 @@ export default function PortalPage() {
     return [...perMapel.values()].map((m) => {
       const indikator = [...m.ind.values()].map((i) => ({ ...i, nilai: i.remedial ?? rata(i.reguler), dariRemedial: i.remedial != null }))
         .sort((a, b) => a.materi.localeCompare(b.materi) || (a.urutan ?? 0) - (b.urutan ?? 0));
-      return { ...m, indikator, dikuasai: indikator.filter((i) => i.nilai >= m.kkm).length, deskripsi: deskripsiIndikator(m.baris, m.kkm, tingkat) };
+      return { ...m, indikator, total: indikator.length, dikuasai: indikator.filter((i) => i.nilai >= m.kkm).length, deskripsi: deskripsiIndikator(m.baris, m.kkm, tingkat) };
     }).sort((a, b) => a.nama.localeCompare(b.nama));
   }, [data, idSiswa, kkmMapel, tingkat]);
   const totalInd = capaian.reduce((a, m) => a + m.indikator.length, 0);
@@ -127,6 +192,36 @@ export default function PortalPage() {
   const remedial = data?.remedial || [];
   const remedialAktif = remedial.filter((r) => r.status === "DIRENCANAKAN");
   const jadwal = data?.jadwal_pekan || [];
+  const periodeTerpilih = periodes.find((p) => p.id_periode === idPeriode);
+  const labelPeriode = periodeTerpilih ? `${periodeTerpilih.tahun_ajaran} (${periodeTerpilih.semester})` : "-";
+
+  // Daftar setelah dicari & difilter
+  const capaianTampil = capaian.map((m) => ({
+    ...m,
+    indikator: m.indikator.filter((i) => (saring === "semua" || (saring === "belum") === (i.nilai < m.kkm)) && cocok(cari, m.nama, i.materi, i.deskripsi)),
+  })).filter((m) => m.indikator.length);
+  const remedialTampil = remedial.filter((r) => (saring === "semua" || statusTindak(r).kunci === saring) && cocok(cari, r.mapel, r.materi, r.opsi_tindakan, r.catatan));
+  const mapelNilai = [...new Set(rincianNilai.map((n) => n.mapel))].sort();
+  const nilaiTampil = rincianNilai.filter((n) => (saring === "semua" || n.mapel === saring) && cocok(cari, n.mapel, n.materi?.nama_materi));
+  const jumlahTab = { capaian: totalInd - totalDikuasai, tindak: remedialAktif.length };
+
+  const pdfCapaian = () => unduhPdf({
+    judul: "Capaian TP", siswa, periode: labelPeriode,
+    head: ["Mapel", "Materi", "Indikator (TP)", "Nilai", "Keterangan"],
+    body: capaianTampil.flatMap((m) => m.indikator.map((i) => [m.nama, i.materi, i.deskripsi, bulat(Math.round(i.nilai)),
+      `${i.nilai >= m.kkm ? "Dikuasai" : "Belum dikuasai"}${i.dariRemedial ? " (setelah remedial)" : ""}`])),
+  });
+  const pdfTindak = () => unduhPdf({
+    judul: "Tindak Lanjut", siswa, periode: labelPeriode,
+    head: ["Mapel", "Materi", "Bentuk", "Tanggal", "Nilai awal", "Remedial", "Status"],
+    body: remedialTampil.map((r) => [r.mapel, r.materi, r.opsi_tindakan, `${tanggalPanjang(r.tanggal_rencana)}${r.jam ? `, ${r.jam}` : ""}`,
+      bulat(r.nilai_asal), r.nilai_remedial != null ? bulat(r.nilai_remedial) : "belum", statusTindak(r).t]),
+  });
+  const pdfNilai = () => unduhPdf({
+    judul: "Riwayat Penilaian", siswa, periode: labelPeriode,
+    head: ["Tanggal", "Mapel", "Materi", "Nilai"],
+    body: nilaiTampil.map((n) => [tanggalPanjang(n.tanggal), n.mapel, n.materi?.nama_materi, Math.round(n.nilai)]),
+  });
 
   // Tren nilai per mapel (urut tanggal)
   const grafikTren = useMemo(() => {
@@ -229,11 +324,14 @@ export default function PortalPage() {
         </div>
       </div>
 
-      <ul className="nav nav-pills mb-3 gap-1 flex-nowrap overflow-auto">
+      <ul ref={tabRef} className="nav nav-pills mb-3 gap-1 flex-nowrap overflow-auto">
         {TAB.map((t) => (
           <li className="nav-item" key={t.id}>
-            <button type="button" className={`nav-link text-nowrap ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+            <button type="button" className={`nav-link text-nowrap ${tab === t.id ? "active" : ""}`} onClick={() => gantiTab(t.id)}>
               <i className={`bi ${t.icon} me-1`}></i>{t.label}
+              {jumlahTab[t.id] > 0 && (
+                <span className="badge rounded-pill text-bg-danger ms-1" title={t.id === "capaian" ? "TP belum dikuasai" : "Tindak lanjut dijadwalkan"}>{jumlahTab[t.id]}</span>
+              )}
             </button>
           </li>
         ))}
@@ -246,14 +344,14 @@ export default function PortalPage() {
         <>
           {tab === "ringkasan" && (
             <div className="row g-3">
+              <div className="col-12">
+                <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={(t, rencana) => { gantiTab(t); setSorot(rencana || null); }} sebutan={role === "ortu" ? "Ananda" : "Anda"} />
+              </div>
               <div className="col-6 col-lg-3"><Stat label="Rata-rata nilai" nilai={rapor.rataUmum} icon="bi-graph-up" warna="primary" /></div>
               <div className="col-6 col-lg-3"><Stat label="Kehadiran" nilai={persenHadir == null ? "-" : `${persenHadir}%`} icon="bi-calendar-check" warna="success" sub={`${rapor.presensi.hadir} dari ${totalHari} hari`} /></div>
               <div className="col-6 col-lg-3"><Stat label="Catatan positif" nilai={jurnalPositif.length} icon="bi-stars" warna="warning" /></div>
               <div className="col-6 col-lg-3"><Stat label="TP dikuasai" nilai={totalInd ? `${totalDikuasai}/${totalInd}` : "-"} icon="bi-bullseye" warna="info" sub="indikator capaian" /></div>
 
-              <div className="col-12">
-                <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={setTab} sebutan={role === "ortu" ? "Ananda" : "Anda"} />
-              </div>
               {grafikTren && (
                 <div className="col-12">
                   <div className="card border-0 shadow-sm p-3">
@@ -295,19 +393,22 @@ export default function PortalPage() {
               <Kosong ikon="bi-bullseye" teks="Belum ada penilaian per indikator (tujuan pembelajaran) pada periode ini." />
             ) : (
               <>
+                <AlatDaftar cari={cari} setCari={setCari} saring={saring} setSaring={setSaring} onPdf={pdfCapaian} kosong={!capaianTampil.length}
+                  opsi={[["semua", "Semua TP"], ["belum", `Belum dikuasai (${totalInd - totalDikuasai})`], ["sudah", "Sudah dikuasai"]]} placeholder="Cari mapel, materi, atau indikator" />
                 <div className="d-flex flex-wrap gap-2 mb-3 small">
                   {tingkat.map((t) => <span key={t.key} className={`badge bg-${t.color}-subtle text-${t.color}-emphasis border border-${t.color}-subtle fw-normal`}>{t.label} {t.range}</span>)}
                 </div>
+                {!capaianTampil.length && <Kosong ikon="bi-search" teks="Tidak ada indikator yang cocok dengan pencarian atau filter." />}
                 <div className="row g-3">
-                  {capaian.map((m) => (
+                  {capaianTampil.map((m) => (
                     <div key={m.id_mapel} className="col-lg-6">
                       <div className="card border-0 shadow-sm h-100">
                         <div className="card-body">
                           <div className="d-flex align-items-start gap-2 mb-2">
                             <h6 className="fw-bold mb-0 me-auto">{m.nama}</h6>
-                            <span className={`badge ${m.dikuasai === m.indikator.length ? "text-bg-success" : "text-bg-light border"}`}>{m.dikuasai}/{m.indikator.length} dikuasai</span>
+                            <span className={`badge ${m.dikuasai === m.total ? "text-bg-success" : "text-bg-light border"}`}>{m.dikuasai}/{m.total} dikuasai</span>
                           </div>
-                          <div className="progress mb-2" style={{ height: 6 }}><div className="progress-bar bg-success" style={{ width: `${(m.dikuasai / m.indikator.length) * 100}%` }}></div></div>
+                          <div className="progress mb-2" style={{ height: 6 }}><div className="progress-bar bg-success" style={{ width: `${(m.dikuasai / m.total) * 100}%` }}></div></div>
                           {m.deskripsi && (
                             <p className="small text-body-secondary mb-3">{m.deskripsi.map((s, i) => (s.b ? <b key={i}>{s.t}</b> : <span key={i}>{s.t}</span>))}</p>
                           )}
@@ -319,8 +420,8 @@ export default function PortalPage() {
                                 const ok = i.nilai >= m.kkm;
                                 return (
                                   <div key={i.deskripsi} className="d-flex align-items-center gap-2 py-1 border-bottom small">
-                                    <i className={`bi ${ok ? "bi-check-circle-fill text-success" : "bi-circle text-danger"}`}></i>
-                                    <span className="me-auto">{i.deskripsi}{i.dariRemedial && <span className="badge text-bg-light border ms-1 fw-normal">setelah remedial</span>}</span>
+                                    <i className={`bi ${ok ? "bi-check-circle-fill text-success" : "bi-exclamation-circle-fill text-danger"}`} title={ok ? "Sudah dikuasai" : "Belum dikuasai"}></i>
+                                    <span className="me-auto">{i.deskripsi}{!ok && <span className="badge text-bg-danger ms-1 fw-normal">belum dikuasai</span>}{i.dariRemedial && <span className="badge text-bg-light border ms-1 fw-normal">setelah remedial</span>}</span>
                                     <span className={`badge bg-${lv.color}-subtle text-${lv.color}-emphasis border border-${lv.color}-subtle fw-normal text-nowrap`}>{lv.label}</span>
                                     <b className="text-nowrap" style={{ minWidth: 28, textAlign: "right" }}>{bulat(Math.round(i.nilai))}</b>
                                   </div>
@@ -333,7 +434,7 @@ export default function PortalPage() {
                     </div>
                   ))}
                 </div>
-                <div className="small text-muted mt-2"><i className="bi bi-info-circle me-1"></i>Tanda <i className="bi bi-check-circle-fill text-success"></i> berarti sudah mencapai KKM mapel. Nilai setelah remedial menggantikan nilai sebelumnya.</div>
+                <div className="small text-muted mt-2"><i className="bi bi-info-circle me-1"></i>Tanda <i className="bi bi-check-circle-fill text-success"></i> berarti sudah mencapai KKM mapel; <i className="bi bi-exclamation-circle-fill text-danger"></i> berarti belum dikuasai dan perlu didampingi. Nilai setelah remedial menggantikan nilai sebelumnya.</div>
               </>
             )
           )}
@@ -342,15 +443,19 @@ export default function PortalPage() {
             remedial.length === 0 ? (
               <Kosong ikon="bi-emoji-smile" teks="Tidak ada tindak lanjut (remedial) pada periode ini." />
             ) : (
+              <>
+              <AlatDaftar cari={cari} setCari={setCari} saring={saring} setSaring={setSaring} onPdf={pdfTindak} kosong={!remedialTampil.length}
+                opsi={[["semua", "Semua"], ["jadwal", "Dijadwalkan"], ["tuntas", "Tuntas"], ["belum", "Belum tuntas"]]} placeholder="Cari mapel, materi, atau bentuk" />
+              {!remedialTampil.length && <Kosong ikon="bi-search" teks="Tidak ada tindak lanjut yang cocok dengan pencarian atau filter." />}
               <div className="row g-3">
-                {remedial.map((r) => {
+                {remedialTampil.map((r) => {
                   const selesai = r.nilai_remedial != null;
                   const tuntas = selesai && r.nilai_remedial >= r.kkm;
-                  const st = !selesai ? { t: "Dijadwalkan", w: "warning", i: "bi-hourglass-split" } : tuntas ? { t: "Tuntas", w: "success", i: "bi-patch-check" } : { t: "Belum tuntas", w: "danger", i: "bi-arrow-repeat" };
+                  const st = statusTindak(r);
                   const opsi = OPSI_TINDAK_LANJUT.find((o) => o.nama === r.opsi_tindakan);
                   return (
-                    <div key={r.id_rencana} className="col-lg-6">
-                      <div className="card border-0 shadow-sm h-100 portal-tindak" style={{ borderLeft: `4px solid var(--bs-${st.w})` }}>
+                    <div key={r.id_rencana} id={`rencana-${r.id_rencana}`} className="col-lg-6" style={{ scrollMarginTop: "5rem" }}>
+                      <div className={`card border-0 shadow-sm h-100 portal-tindak${sorot === r.id_rencana ? " portal-sorot" : ""}`} style={{ borderLeft: `4px solid var(--bs-${st.w})` }}>
                         <div className="card-body">
                           <div className="d-flex align-items-start gap-2 mb-2">
                             <div className="me-auto">
@@ -380,6 +485,7 @@ export default function PortalPage() {
                   );
                 })}
               </div>
+              </>
             )
           )}
 
@@ -429,9 +535,14 @@ export default function PortalPage() {
               <div className="col-lg-6">
                 <div className="card border-0 shadow-sm p-3 h-100">
                   <h6 className="fw-bold mb-3">Riwayat penilaian</h6>
-                  {rincianNilai.length === 0 ? <div className="text-muted small">Belum ada penilaian.</div> : (
+                  {rincianNilai.length > 0 && (
+                    <AlatDaftar cari={cari} setCari={setCari} saring={saring} setSaring={setSaring} onPdf={pdfNilai} kosong={!nilaiTampil.length}
+                      opsi={[["semua", "Semua mapel"], ...mapelNilai.map((m) => [m, m])]} placeholder="Cari mapel atau materi" />
+                  )}
+                  {rincianNilai.length === 0 ? <div className="text-muted small">Belum ada penilaian.</div>
+                    : nilaiTampil.length === 0 ? <div className="text-muted small">Tidak ada penilaian yang cocok.</div> : (
                     <div className="list-group list-group-flush" style={{ maxHeight: 460, overflowY: "auto" }}>
-                      {rincianNilai.map((n) => (
+                      {nilaiTampil.map((n) => (
                         <div key={n.id_nilai} className="list-group-item px-0 d-flex justify-content-between align-items-center">
                           <div className="small">
                             <div className="fw-semibold">{n.mapel}</div>
@@ -519,6 +630,24 @@ export default function PortalPage() {
   );
 }
 
+// Cari, filter, dan unduh PDF untuk daftar di portal
+function AlatDaftar({ cari, setCari, saring, setSaring, opsi, placeholder, onPdf, kosong }) {
+  return (
+    <div className="d-flex flex-wrap gap-2 mb-3">
+      <div className="input-group input-group-sm flex-grow-1" style={{ maxWidth: 360 }}>
+        <span className="input-group-text"><i className="bi bi-search"></i></span>
+        <input type="search" className="form-control" placeholder={placeholder} aria-label={placeholder} value={cari} onChange={(e) => setCari(e.target.value)} />
+      </div>
+      <select className="form-select form-select-sm w-auto" aria-label="Filter daftar" value={saring} onChange={(e) => setSaring(e.target.value)}>
+        {opsi.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <button type="button" className="btn btn-outline-primary btn-sm ms-auto" onClick={onPdf} disabled={kosong}>
+        <i className="bi bi-file-earmark-pdf me-1"></i>Unduh PDF
+      </button>
+    </div>
+  );
+}
+
 function Kosong({ ikon, teks }) {
   return (
     <div className="card border-0 shadow-sm p-5 text-center text-muted">
@@ -532,22 +661,32 @@ function PerluPerhatian({ rapor, capaian, remedialAktif, keTab, sebutan }) {
   const bawahKkm = rapor.mapelRows.filter((m) => m.nilai != null && m.nilai < m.kkm);
   const belumTp = capaian.flatMap((m) => m.indikator.filter((i) => i.nilai < m.kkm).map((i) => `${i.deskripsi} (${m.nama})`));
   const item = [
-    remedialAktif.length && { ikon: "bi-life-preserver", warna: "warning", teks: `${remedialAktif.length} tindak lanjut dijadwalkan: ${remedialAktif.map((r) => `${r.mapel} (${r.opsi_tindakan})`).join(", ")}.`, tab: "tindak" },
+    ...remedialAktif.map((r) => ({
+      ikon: "bi-life-preserver", warna: "warning", tab: "tindak", rencana: r.id_rencana,
+      teks: `Remedial ${r.mapel}${r.materi ? ` (${r.materi})` : ""}: ${r.opsi_tindakan}, ${tanggalPanjang(r.tanggal_rencana)}${r.jam ? `, ${r.jam}` : ""}.`,
+      saran: TIPS_RUMAH[r.opsi_tindakan],
+    })),
     bawahKkm.length && { ikon: "bi-graph-down-arrow", warna: "danger", teks: `Nilai sementara di bawah KKM: ${bawahKkm.map((m) => `${m.nama} ${m.nilai}`).join(", ")}.`, tab: "nilai" },
     belumTp.length && { ikon: "bi-bullseye", warna: "info", teks: `Belum dikuasai: ${belumTp.slice(0, 3).join("; ")}${belumTp.length > 3 ? `; dan ${belumTp.length - 3} lainnya` : ""}.`, tab: "capaian" },
     rapor.presensi.alpa > 0 && { ikon: "bi-person-x", warna: "danger", teks: `${rapor.presensi.alpa} hari tidak hadir tanpa keterangan.`, tab: "presensi" },
   ].filter(Boolean);
 
   return (
-    <div className="card border-0 shadow-sm p-3">
-      <h6 className="fw-bold mb-2"><i className="bi bi-flag text-primary me-1"></i>Perlu didampingi</h6>
+    <div className={`card shadow-sm p-3 ${item.length ? "border-warning border-2" : "border-0"}`}>
+      <h6 className="fw-bold mb-1"><i className="bi bi-flag-fill text-warning me-1"></i>Perlu didampingi{item.length > 0 && <span className="badge rounded-pill text-bg-warning ms-2">{item.length}</span>}</h6>
+      {item.length > 0 && <div className="small text-muted mb-2">Ketuk salah satu untuk melihat rinciannya.</div>}
       {item.length === 0 ? (
         <div className="small text-success"><i className="bi bi-emoji-smile me-1"></i>Semua baik! {sebutan} sudah mencapai KKM dan tidak ada tindak lanjut yang menunggu.</div>
       ) : (
         <div className="d-flex flex-column gap-2">
           {item.map((x, i) => (
-            <button key={i} type="button" className="btn btn-light border text-start d-flex align-items-start gap-2 small" onClick={() => keTab(x.tab)}>
-              <i className={`bi ${x.ikon} text-${x.warna} mt-1`}></i><span className="me-auto">{x.teks}</span><i className="bi bi-chevron-right text-muted mt-1"></i>
+            <button key={i} type="button" className="btn btn-light border text-start d-flex align-items-start gap-2 small" onClick={() => keTab(x.tab, x.rencana)}>
+              <i className={`bi ${x.ikon} text-${x.warna} mt-1`}></i>
+              <span className="me-auto">
+                {x.teks}
+                {x.saran && <span className="d-block text-primary-emphasis mt-1"><i className="bi bi-house-heart me-1"></i><b>Di rumah:</b> {x.saran}</span>}
+              </span>
+              <i className="bi bi-chevron-right text-muted mt-1"></i>
             </button>
           ))}
         </div>

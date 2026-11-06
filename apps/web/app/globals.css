@@ -714,6 +714,8 @@
 }
 
 /* ===== Portal siswa & orang tua ===== */
+/* Kartu tindak lanjut yang dibuka dari Perlu Tindakan */
+.portal-sorot { box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), .45) !important; }
 .portal-kal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .portal-kal-hari { font-size: 10px; text-align: center; color: var(--bs-secondary-color); padding-bottom: 2px; }
 .portal-kal-sel { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 6px;

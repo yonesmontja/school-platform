@@ -79,14 +79,14 @@ export const BAGIAN = [
     gambar: "/panduan/nilai.jpg",
     langkah: [
       "Buka TDU - Jadwal → Input Nilai.",
-      "Pilih Kelas, Mata Pelajaran, Periode Akademik, Jenis Penilaian, dan Topik/Materi. Biarkan tipe penilaian Reguler.",
+      "Pilih Kelas, Mata Pelajaran, Periode Akademik, Jenis Penilaian, dan Topik/Materi. Biarkan tipe penilaian Reguler. Bila Anda punya jadwal mengajar hari ini, kelas, mapel, dan materinya sudah terisi otomatis.",
       "Isi Tanggal Penilaian. Memilih tanggal yang sudah pernah dinilai membuka nilai lama untuk diedit.",
       "Centang indikator (IKTP) yang dinilai pada sesi ini. Indikator baru bisa ditambah langsung di sini.",
       "Isi nilai 0–100 per indikator. Tekan Enter untuk pindah ke siswa berikutnya. Kosongkan bila siswa tidak hadir.",
       "Tekan Simpan Nilai Kelas. Nilai materi = rata-rata indikator yang terisi.",
     ],
     tips: [
-      "Guru hanya bisa menilai mapel yang ia ampu.",
+      "Guru hanya bisa menilai mapel yang ia ampu. Guru yang mengampu satu mapel langsung mendapati mapelnya terpilih.",
       "Baris kuning berarti nilai sudah diubah tetapi belum disimpan.",
       "Predikat (Cukup/Baik/Sangat Baik) mengikuti batas KKTP sekolah; tuntas atau tidak mengikuti KKM mapel.",
     ],
@@ -286,13 +286,17 @@ export const BAGIAN = [
     href: "/dashboard/portal",
     langkah: [
       "Masuk dengan akun dari sekolah. Halaman Portal Siswa langsung terbuka.",
-      "Ringkasan: kotak Perlu didampingi (remedial terjadwal, mapel di bawah KKM, ketidakhadiran) dan grafik perkembangan nilai.",
-      "Capaian TP: per mapel dan materi, indikator mana yang sudah dan belum dikuasai.",
-      "Tindak Lanjut: jadwal remedial beserta tips mendampingi anak di rumah.",
+      "Ringkasan: kotak Perlu didampingi di paling atas berisi tanggal remedial beserta saran mendampingi di rumah, mapel di bawah KKM, TP yang belum dikuasai, dan ketidakhadiran. Ketuk salah satu untuk melihat rinciannya.",
+      "Capaian TP: per mapel dan materi, indikator mana yang sudah dan belum dikuasai. Angka merah pada tab menunjukkan jumlah TP yang belum dikuasai.",
+      "Tindak Lanjut: jadwal dan hasil remedial beserta tips mendampingi anak di rumah.",
       "Jadwal, Kehadiran, dan Catatan Positif dari guru.",
       "Rapor: pratinjau dan cetak rapor setelah dibagikan sekolah.",
     ],
-    tips: ["Portal hanya untuk melihat. Hubungi wali kelas bila ada data yang perlu diperbaiki."],
+    tips: [
+      "Tombol Buka di Perlu Tindakan (ikon lonceng) langsung membuka remedial atau kehadiran anak yang dimaksud.",
+      "Capaian TP, Tindak Lanjut, dan Riwayat penilaian bisa dicari, difilter, dan diunduh sebagai PDF.",
+      "Portal hanya untuk melihat. Hubungi wali kelas bila ada data yang perlu diperbaiki.",
+    ],
   },
 ];
 

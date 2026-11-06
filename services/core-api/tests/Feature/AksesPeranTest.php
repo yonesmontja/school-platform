@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\MasterKategoriPenilaian;
+use App\Models\TransJadwal;
 use App\Models\TransJurnal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -69,6 +70,27 @@ class AksesPeranTest extends TestCase
 
         $this->getJson('/api/nilai/students?' . http_build_query(['id_mapel' => 'MPL-B', 'tanggal' => '2030-01-05'] + $this->sekolah->meta))
             ->assertForbidden();
+    }
+
+    public function test_saran_parameter_nilai_dari_jadwal_guru_hari_ini(): void
+    {
+        $this->travelTo(now(config('app.zona_sekolah'))->setTime(9, 0));
+        $hari = now(config('app.zona_sekolah'))->toDateString();
+        $sesi = fn($id, $kelas, $mulai, $selesai, $materi = null) => TransJadwal::create([
+            'id_jadwal' => $id, 'id_periode' => 'PER-T', 'id_kelas' => $kelas, 'id_guru' => 'GR-A', 'id_mapel' => 'MPL-A',
+            'id_materi' => $materi, 'judul' => 'Matematika', 'mulai' => "{$hari} {$mulai}", 'selesai' => "{$hari} {$selesai}",
+        ]);
+        $sesi('JDW-1', 'KLS-B', '07:00', '08:00');
+        $sesi('JDW-2', 'KLS-A', '08:30', '09:30', 'MTR-T');
+        $sesi('JDW-3', 'KLS-B', '10:00', '11:00');
+
+        // Sesi yang sedang berjalan diutamakan
+        $saran = $this->sebagai($this->sekolah->guruA)->getJson('/api/nilai/filters')->json('saran');
+        $this->assertSame(['id_kelas' => 'KLS-A', 'id_mapel' => 'MPL-A', 'id_materi' => 'MTR-T', 'mulai' => '08:30'], $saran);
+
+        // Guru tanpa jadwal hari ini dan akun tanpa data guru tidak mendapat saran
+        $this->assertNull($this->sebagai($this->sekolah->guruB)->getJson('/api/nilai/filters')->json('saran'));
+        $this->assertNull($this->sebagai($this->sekolah->admin)->getJson('/api/nilai/filters')->json('saran'));
     }
 
     public function test_guru_hanya_mengelola_kelas_binaan(): void

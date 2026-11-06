@@ -24,6 +24,16 @@ export default function AkunSayaPage() {
 
   useEffect(() => { setAccordion(bacaAccordion()); }, []);
 
+  // Akun orang tua/siswa: nama & kelas siswa yang terhubung
+  const [anak, setAnak] = useState(null);
+  useEffect(() => {
+    if (!isPortal || !user || user.wajib_ganti_password) return;
+    fetch(`${API_URL}/portal/anak`, { headers: authHeaders() })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setAnak(data.siswa || []))
+      .catch(() => {});
+  }, [isPortal, user?.wajib_ganti_password]);
+
   const ubahAccordion = (aktif) => { setAccordion(aktif); simpanAccordion(aktif); };
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const syaratOk = SYARAT.every((s) => s.uji(form.password_baru));
@@ -87,7 +97,20 @@ export default function AkunSayaPage() {
                   <dt className="col-5 text-muted fw-semibold">Mapel diampu</dt><dd className="col-7 mb-0">{mapelDiampu.length} mata pelajaran</dd>
                 </>}
                 {isPortal && <>
-                  <dt className="col-5 text-muted fw-semibold">Siswa terhubung</dt><dd className="col-7 mb-0">{(user.siswa_terjangkau || []).length} siswa</dd>
+                  <dt className="col-5 text-muted fw-semibold">{role === "ortu" ? "Anak terhubung" : "Data siswa"}</dt>
+                  <dd className="col-7 mb-0">
+                    {anak?.length ? (
+                      <ul className="list-unstyled mb-0">
+                        {anak.map((s) => (
+                          <li key={s.id_siswa}>
+                            <i className="bi bi-person-fill text-primary me-1"></i>{s.nama_siswa}
+                            <span className="text-muted">{s.kelas?.nama_kelas ? ` · Kelas ${s.kelas.nama_kelas}` : " · Belum ada kelas"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (user.siswa_terjangkau || []).length ? `${user.siswa_terjangkau.length} siswa`
+                      : <span className="text-danger">Belum terhubung, hubungi sekolah</span>}
+                  </dd>
                 </>}
               </dl>
               <hr />

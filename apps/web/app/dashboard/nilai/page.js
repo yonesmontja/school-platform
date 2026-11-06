@@ -140,6 +140,7 @@ export default function InputNilaiPage() {
   // Indikator (IKTP) yang dinilai pada lembar reguler; kosong = nilai diisi langsung
   const [indikatorDipilih, setIndikatorDipilih] = useState([]);
   const [indikatorSesi, setIndikatorSesi] = useState([]);
+  const [terisiOtomatis, setTerisiOtomatis] = useState(null); // { jadwal, mulai } bila parameter diisi dari jadwal/mapel guru
   const { isAdmin, isGuru } = useAkses();
   const filterCardRef = useRef(null);
 
@@ -251,6 +252,15 @@ export default function InputNilaiPage() {
         setSettings(resS || null);
         const aktif = (resF.periodes || []).find((p) => p.status_aktif === "AKTIF");
         if (aktif) setFilters((f) => ({ ...f, id_periode: f.id_periode || aktif.id_periode }));
+        // Guru: kelas, mapel & materi dari jadwalnya hari ini; bila tidak ada, mapel satu-satunya yang diampu
+        const mapel = resF.subjects || [];
+        const saran = resF.saran && mapel.some((m) => m.id_mapel === resF.saran.id_mapel) ? resF.saran : null;
+        const isi = saran ? { id_kelas: saran.id_kelas, id_mapel: saran.id_mapel, id_materi: saran.id_materi || "" }
+          : mapel.length === 1 ? { id_mapel: mapel[0].id_mapel } : null;
+        if (isi) {
+          setFilters((f) => (f.id_kelas || f.id_mapel ? f : { ...f, ...isi }));
+          setTerisiOtomatis(saran ? { jadwal: true, mulai: saran.mulai, materi: !!saran.id_materi } : { jadwal: false });
+        }
       } catch (err) { swalGagalMuat(err); }
     })();
   }, []);
@@ -369,6 +379,7 @@ export default function InputNilaiPage() {
     if (memuatUlang && !(await konfirmasiBuangPerubahan())) return;
     // Mengganti parameter berarti membuka lembar lain, bukan lagi penilaian yang sedang diedit
     if (memuatUlang) setEditId(null);
+    if ("id_kelas" in patch || "id_mapel" in patch) setTerisiOtomatis(null);
     setFilters((f) => ({ ...f, ...patch }));
   };
 
@@ -543,6 +554,7 @@ export default function InputNilaiPage() {
   const handleEdit = async (r) => {
     if (!(await konfirmasiBuangPerubahan())) return;
     setEditId(r.id_nilai);
+    setTerisiOtomatis(null);
     setFilters({
       id_kelas: r.id_kelas, id_mapel: r.id_mapel, id_periode: r.id_periode,
       id_jenis: r.id_jenis, id_materi: r.id_materi, tanggal: String(r.tanggal).slice(0, 10),
@@ -746,6 +758,14 @@ export default function InputNilaiPage() {
           </div>
         </div>
         <div className="card-body">
+          {terisiOtomatis && (
+            <div className="small text-body-secondary mb-3" role="status">
+              <i className="bi bi-magic text-primary me-1"></i>
+              {terisiOtomatis.jadwal
+                ? `Kelas, mapel${terisiOtomatis.materi ? ", dan materi" : ""} diisi dari jadwal Anda hari ini (pukul ${terisiOtomatis.mulai}). Ubah bila perlu.`
+                : "Mata pelajaran diisi otomatis karena hanya satu mapel yang Anda ampu."}
+            </div>
+          )}
           <div className="row g-3">
             {selectField("id_kelas", "Kelas", "bi-building", options.classes, "id_kelas", (k) => k.nama_kelas, "— Pilih Kelas —")}
             {selectField("id_mapel", "Mata Pelajaran", "bi-book", options.subjects, "id_mapel", labelMapel, "— Pilih Mata Pelajaran —")}
