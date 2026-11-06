@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
+import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
-import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { galatJaringan, swalGagalMuat, pesanGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -75,6 +76,7 @@ export default function PresensiPage() {
   const [user, setUser] = useState(null);
   const [filters, setFilters] = useState({ id_kelas: "", id_periode: "", tanggal: todayYmd() });
   const [data, setData] = useState(null);
+  const [gagalMuat, setGagalMuat] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Lembar input: status per siswa untuk tanggal terpilih
@@ -83,6 +85,14 @@ export default function PresensiPage() {
   const [waGrup, setWaGrup] = useState(true);
   const [saving, setSaving] = useState(false);
   const [panelWA, setPanelWA] = useState(null);
+  // Panel WhatsApp terbuka → keadaan disimpan agar pulih bila halaman dimuat ulang saat kembali (lib/pulihHalaman)
+  const KUNCI_PULIH = "presensi_pulih";
+  useEffect(() => {
+    const simpanan = bacaPulih(KUNCI_PULIH);
+    if (simpanan?.panelWA) { setFilters(simpanan.filters); setPanelWA({ ...simpanan.panelWA, dipulihkan: true }); }
+  }, []);
+  useEffect(() => { if (panelWA) simpanPulih(KUNCI_PULIH, { filters, panelWA }); }, [panelWA, filters]);
+  const tutupPanelWA = () => { setPanelWA(null); hapusPulih(KUNCI_PULIH); };
 
   // Riwayat
   const [modeRiwayat, setModeRiwayat] = useState("TANGGAL");
@@ -116,8 +126,9 @@ export default function PresensiPage() {
         setPeriodes(resF.periodes || []);
         setSettings(resS || null);
         const aktif = (resF.periodes || []).find((p) => p.status_aktif === "AKTIF");
-        if (aktif) setFilters((f) => ({ ...f, id_periode: aktif.id_periode }));
-      } catch (err) { Swal.fire("Error", err.message, "error"); }
+        // Periode yang dipulihkan (lihat KUNCI_PULIH) tidak ditimpa periode aktif
+        if (aktif) setFilters((f) => (f.id_periode ? f : { ...f, id_periode: aktif.id_periode }));
+      } catch (err) { swalGagalMuat(err); }
     })();
   }, []);
 
@@ -129,14 +140,15 @@ export default function PresensiPage() {
 
   useEffect(() => {
     const { id_kelas, id_periode } = filters;
-    if (!id_kelas || !id_periode) { setData(null); return; }
+    if (!id_kelas || !id_periode) { setData(null); setGagalMuat(null); return; }
     let batal = false;
     (async () => {
       setLoading(true);
+      setGagalMuat(null);
       try {
         const res = await safeFetch(`${API_URL}/presensi?${new URLSearchParams({ id_kelas, id_periode })}`);
         if (!batal) { setData(res); setPage(1); }
-      } catch (err) { if (!batal) Swal.fire("Gagal Memuat Data", err.message, "error"); }
+      } catch (err) { if (!batal) { setData(null); setGagalMuat(pesanGagalMuat(err)); } }
       finally { if (!batal) setLoading(false); }
     })();
     return () => { batal = true; };
@@ -405,6 +417,10 @@ export default function PresensiPage() {
           <i className="bi bi-people display-5 text-primary opacity-50"></i>
           <h5 className="fw-semibold mt-3">Pilih kelas dan periode untuk memuat daftar siswa</h5>
         </div></div>
+      ) : gagalMuat && !loading ? (
+        <div className="card shadow-sm"><div className="card-body text-center py-5 text-muted">
+          <i className="bi bi-cloud-slash fs-2 d-block mb-2"></i><div className="mx-auto" style={{ maxWidth: 440 }}>{gagalMuat}</div>
+        </div></div>
       ) : loading || !data ? (
         <div className="card shadow-sm"><div className="card-body text-center py-5 text-muted">
           <div className="spinner-border text-primary mb-2"></div><div>Memuat data presensi...</div>
@@ -598,8 +614,11 @@ export default function PresensiPage() {
       )}
 
       {/* PANEL WA SETELAH SIMPAN */}
-      <Modal show={!!panelWA} title="Presensi Tersimpan!" icon="bi-check-circle" onClose={() => setPanelWA(null)}
-        footer={<button type="button" className="btn btn-success" onClick={() => setPanelWA(null)}>Selesai &amp; Tutup</button>}>
+      <Modal show={!!panelWA} title="Presensi Tersimpan!" icon="bi-check-circle" onClose={tutupPanelWA}
+        footer={<button type="button" className="btn btn-success" onClick={tutupPanelWA}>Selesai &amp; Tutup</button>}>
+        {panelWA?.dipulihkan && (
+          <div className="alert alert-info small py-2"><i className="bi bi-arrow-counterclockwise me-1"></i>{PESAN_PULIH}</div>
+        )}
         {panelWA && (
           <>
             <div className="small text-muted mb-2">{panelWA.pesan}</div>

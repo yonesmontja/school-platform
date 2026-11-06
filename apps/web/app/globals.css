@@ -728,3 +728,7 @@
 .antrean-daftar { max-height: 50vh; overflow-y: auto; }
 .antrean-daftar > div:last-child { border-bottom: 0 !important; }
 .antrean-putar { display: inline-block; animation: dashSpin .9s linear infinite; }
+@media (max-width: 575.98px) {
+  /* Di HP panel menempel selebar layar agar tidak terpotong di sisi kiri */
+  .antrean-panel { position: fixed !important; top: 3.75rem !important; left: .75rem; right: .75rem !important; width: auto; max-width: none; }
+}

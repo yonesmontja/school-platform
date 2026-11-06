@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from "react";
 import { API_URL } from "@/app/lib/config";
 import { AKSES_EVENT } from "@/app/lib/akses";
+import Swal from "sweetalert2";
 
 const DB = "edurapor-offline";
 const STORE = "antrean";
@@ -63,6 +64,16 @@ const ubah = (item) => transaksi("readwrite", (s) => s.put(item));
 
 /** Galat jaringan (offline, server tak terjangkau), bukan penolakan dari server. */
 export const galatJaringan = (err) => err instanceof TypeError || /Failed to fetch|NetworkError|Load failed/i.test(String(err?.message));
+
+/** Pesan saat data gagal dimuat: offline tanpa salinan di HP dijelaskan dengan bahasa sederhana. */
+export const pesanGagalMuat = (err) => (galatJaringan(err) || sedangOffline()
+  ? "Data ini belum tersimpan di HP ini. Saat ada sinyal, buka halaman ini dan pilih kelasnya sekali; setelah itu bisa dibuka walau offline."
+  : err?.message || "Terjadi kesalahan saat memuat data.");
+
+/** Popup gagal memuat: saat offline tanpa salinan tampil sebagai info, bukan error teknis. */
+export const swalGagalMuat = (err) => (galatJaringan(err) || sedangOffline()
+  ? Swal.fire({ icon: "info", title: "Belum tersedia offline", text: pesanGagalMuat(err), confirmButtonText: "Mengerti" })
+  : Swal.fire("Error", err?.message, "error"));
 
 export const sedangOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 

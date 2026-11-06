@@ -2,7 +2,7 @@
 // - Aset Next.js (/_next/static, nama berisi hash) → cache dulu; tidak pernah basi karena tiap versi beda nama.
 // - Halaman & data GET /api → jaringan dulu (selalu versi terbaru saat online), salinan terakhir saat offline.
 // - Kiriman (POST/PUT) tidak disentuh di sini; yang gagal karena offline diantrekan halaman (app/lib/antrean.js).
-const VERSI = "v2";
+const VERSI = "v3";
 const OFFLINE = "/offline.html";
 const CACHE_DASAR = `edurapor-dasar-${VERSI}`;
 const CACHE_STATIS = "edurapor-statis";
@@ -94,6 +94,25 @@ self.addEventListener("fetch", (event) => {
     const kunci = url.pathname + "?rsc";
     event.respondWith(jaringanDulu(request, CACHE_HALAMAN, kunci));
   }
+});
+
+// Persiapan offline dari halaman (app/lib/siapOffline.js): simpan halaman beserta skrip & gaya yang dirujuknya
+async function hangatkan(daftar) {
+  const halaman = await caches.open(CACHE_HALAMAN);
+  for (const path of daftar) {
+    try {
+      const res = await fetch(path, { credentials: "same-origin" });
+      if (!res.ok) continue;
+      const html = await res.clone().text();
+      await halaman.put(path, res);
+      const aset = [...new Set(html.match(/\/_next\/static\/[^"'\s)\\]+/g) || [])];
+      for (const url of aset) await cacheDulu(new Request(url)).catch(() => {});
+    } catch (e) { /* offline atau gagal: dicoba lagi lain kali */ }
+  }
+}
+
+self.addEventListener("message", (event) => {
+  if (event.data?.tipe === "hangatkan" && Array.isArray(event.data.halaman)) event.waitUntil(hangatkan(event.data.halaman));
 });
 
 // Klik notifikasi perangkat: fokuskan jendela aplikasi yang terbuka atau buka tautannya

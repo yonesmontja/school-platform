@@ -5,7 +5,8 @@ import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
-import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -168,7 +169,7 @@ export default function JurnalAnekdotalPage() {
       setMbks(resM.data || []);
       setTeachers(resT.data || []);
       setSettings(resS || null);
-    } catch (err) { Swal.fire("Error", err.message, "error"); }
+    } catch (err) { swalGagalMuat(err); }
   }, []);
 
   useEffect(() => {
@@ -193,7 +194,7 @@ export default function JurnalAnekdotalPage() {
         ]);
         setStudents(resS.data || []);
         setMateris(resM.data || []);
-      } catch (err) { Swal.fire("Error", err.message, "error"); }
+      } catch (err) { swalGagalMuat(err); }
     })();
   }, [formData.id_kelas]);
 
@@ -204,7 +205,7 @@ export default function JurnalAnekdotalPage() {
       const params = filterKelasFeed ? `?id_kelas=${encodeURIComponent(filterKelasFeed)}` : "";
       const data = await safeFetch(`${API_URL}/jurnal${params}`, { headers: authHeader() });
       setJournals(data.data || []);
-    } catch (err) { Swal.fire("Error", err.message, "error"); }
+    } catch (err) { swalGagalMuat(err); }
     finally { setLoadingFeed(false); }
   }, [filterKelasFeed]);
 
@@ -417,7 +418,10 @@ export default function JurnalAnekdotalPage() {
     setTimeout(() => Swal.resetValidationMessage(), 1800);
   };
 
-  const tampilkanPanelWA = (j, { judul, ortu = true, grup = true }) => {
+  // Panel WhatsApp terbuka → jurnalnya disimpan agar panel muncul lagi bila halaman dimuat ulang saat kembali
+  const KUNCI_PULIH = "jurnal_pulih";
+  const tampilkanPanelWA = (j, { judul, ortu = true, grup = true, dipulihkan = false }) => {
+    simpanPulih(KUNCI_PULIH, { j, judul, ortu, grup });
     const paket = susunPesanWA(j);
     const badge = paket.warning
       ? '<span class="badge text-bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>Pembinaan</span>'
@@ -431,6 +435,7 @@ export default function JurnalAnekdotalPage() {
       confirmButtonText: "Selesai & Tutup",
       html:
         `<div class="text-start">` +
+        (dipulihkan ? `<div class="alert alert-info small py-2"><i class="bi bi-arrow-counterclockwise me-1"></i>${PESAN_PULIH}</div>` : "") +
         `<div class="d-flex justify-content-between align-items-center gap-2 mb-3 p-2 bg-light rounded border">` +
         `<strong>${escapeHtml(paket.namaSiswa)}</strong>${badge}</div>` +
         (ortu
@@ -452,8 +457,17 @@ export default function JurnalAnekdotalPage() {
         popup.querySelector("#waGrup")?.addEventListener("click", () => bukaWhatsApp("", paket.pesanGrup));
         popup.querySelector("#salinGrup")?.addEventListener("click", () => salinTeks(paket.pesanGrup));
       },
+      didClose: () => hapusPulih(KUNCI_PULIH),
     });
   };
+  // Pulihkan panel setelah pengaturan sekolah termuat (nama sekolah dipakai di pesan)
+  const sudahPulih = useRef(false);
+  useEffect(() => {
+    if (!settings || sudahPulih.current) return;
+    sudahPulih.current = true;
+    const simpanan = bacaPulih(KUNCI_PULIH);
+    if (simpanan?.j) tampilkanPanelWA(simpanan.j, { ...simpanan, dipulihkan: true });
+  }, [settings]);
 
   // --- SIMPAN / PERBARUI JURNAL ---
   const handleSubmit = async (e) => {

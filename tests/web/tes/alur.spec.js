@@ -45,7 +45,17 @@ test("wali kelas mengisi presensi dan panel WhatsApp muncul", async ({ page, mas
   await page.locator('label[for="SAKIT_SIS-E2"]').click();
   await page.getByRole("button", { name: "Simpan Presensi" }).click();
   await expect(page.getByText("Debora Tabuni").last()).toBeVisible();
-  await expect(page.locator(".modal, .offcanvas, [role=dialog]").filter({ hasText: /WhatsApp|WA/ }).first()).toBeVisible();
+  const panel = page.locator(".modal").filter({ hasText: "Presensi Tersimpan" });
+  await expect(panel).toBeVisible();
+
+  // Kembali dari WhatsApp setelah HP menutup halaman → panel muncul lagi; hilang setelah Selesai & Tutup
+  await page.reload();
+  await expect(panel).toContainText("Melanjutkan dari tampilan terakhir");
+  await expect(panel).toContainText("Debora Tabuni");
+  await panel.getByRole("button", { name: "Selesai & Tutup" }).click();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Presensi Harian" })).toBeVisible();
+  await expect(panel).toHaveCount(0);
 });
 
 test("guru menulis jurnal anekdotal dan muncul di linimasa", async ({ page, masuk }) => {
@@ -57,6 +67,37 @@ test("guru menulis jurnal anekdotal dan muncul di linimasa", async ({ page, masu
   await form.getByPlaceholder("Ketik kejadian anekdotal").fill("Natan membantu temannya merapikan buku setelah pelajaran selesai.");
   await form.getByRole("button", { name: /Posting Jurnal/ }).click();
   await expect(page.getByText("Natan membantu temannya merapikan buku").first()).toBeVisible({ timeout: 30_000 });
+
+  // Panel WhatsApp jurnal juga pulih setelah halaman dimuat ulang, dan tidak lagi setelah ditutup
+  const panel = page.locator(".swal2-popup").filter({ hasText: "Chat WA Orang Tua" });
+  await expect(panel).toBeVisible();
+  await page.reload();
+  await expect(panel).toContainText("Melanjutkan dari tampilan terakhir");
+  await panel.getByRole("button", { name: "Selesai & Tutup" }).click();
+  await page.reload();
+  await expect(page.getByText("Natan membantu temannya merapikan buku").first()).toBeVisible();
+  await expect(panel).toHaveCount(0);
+});
+
+test("tombol remedial nonaktif untuk asesmen diagnostik di riwayat nilai (G7)", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/nilai");
+  await pilih(selectBerlabel(page, "Kelas"), "4A");
+  await pilih(selectBerlabel(page, "Mata Pelajaran"), "Matematika");
+  await pilih(selectBerlabel(page, "Jenis Penilaian"), "Tes Pemetaan Awal");
+  await pilih(selectBerlabel(page, "Topik / Materi"), "Pecahan Sederhana");
+  await expect(page.getByText("Asesmen diagnostik").first()).toBeVisible();
+  const isian = page.locator('input[aria-label="Nilai Abner Kogoya"]');
+  await expect(isian).toBeVisible();
+  await isian.fill("40");
+  await page.getByRole("button", { name: "Simpan Nilai Kelas" }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("Nilai disimpan");
+
+  const baris = page.locator("tr").filter({ hasText: "Tes Pemetaan Awal" }).filter({ hasText: "Abner Kogoya" });
+  await expect(baris.getByRole("button", { name: "Remedial tidak berlaku untuk asesmen diagnostik" })).toBeDisabled();
+  // Nilai formatif di bawah KKM tetap bisa ditindaklanjuti
+  const formatif = page.locator("tr").filter({ hasText: "Ulangan Harian" }).filter({ hasText: "Rahel Yikwa" }).first();
+  await expect(formatif.getByTitle(/rencana tindak lanjut/)).toBeEnabled();
 });
 
 test("admin membuka pratinjau rapor siswa", async ({ page, masuk }) => {
@@ -70,6 +111,27 @@ test("admin membuka pratinjau rapor siswa", async ({ page, masuk }) => {
   // Nilai dari tes pertama (rata-rata 60 & 70) dan deskripsi capaian yang disusun dari indikatornya
   await expect(rapor).toContainText(/Matematika\s*75\s*65/);
   await expect(rapor).toContainText("Perlu bimbingan dalam menyebutkan pembilang dan penyebut");
+});
+
+test("rapor kembali ke tampilan terakhir bila halaman dimuat ulang saat panel WhatsApp terbuka (W4)", async ({ page, masuk }) => {
+  await masuk("admin");
+  await page.goto("/dashboard/rapor");
+  await pilih(selectBerlabel(page, "Kelas"), "4A");
+  await pilih(selectBerlabel(page, "Peserta Didik"), "Abner Kogoya");
+  await page.getByTitle("Kirim ringkasan ke WhatsApp").click();
+  const panel = page.locator(".modal").filter({ hasText: "Distribusi Ringkasan Rapor" });
+  await expect(panel).toBeVisible();
+
+  // HP menutup halaman di latar belakang saat WhatsApp terbuka → dimuat ulang ketika kembali
+  await page.reload();
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Melanjutkan dari tampilan terakhir");
+  await expect(selectBerlabel(page, "Peserta Didik")).toHaveValue("SIS-E1");
+
+  await panel.getByRole("button", { name: "Selesai & Tutup" }).click();
+  await page.reload();
+  await expect(page.locator(".rapor-preview")).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
 });
 
 test("orang tua melihat nilai dan kehadiran anak di portal", async ({ page, masuk }) => {

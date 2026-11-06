@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
+import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 
 const getToken = () => localStorage.getItem("token");
 import {
@@ -60,6 +61,30 @@ export default function CetakRaporPage() {
 
   const previewRef = useRef(null);
 
+  // Panel WhatsApp terbuka → keadaan disimpan agar pulih bila halaman dimuat ulang saat kembali (lib/pulihHalaman)
+  const KUNCI_PULIH = "rapor_pulih";
+  const [dipulihkan, setDipulihkan] = useState(false);
+  useEffect(() => {
+    const simpanan = bacaPulih(KUNCI_PULIH);
+    if (simpanan?.filters?.id_siswa) {
+      setFilters(simpanan.filters);
+      setModeKalkulasi(simpanan.modeKalkulasi);
+      setJenisDokumen(simpanan.jenisDokumen);
+      setTampilanKokurikuler(simpanan.tampilanKokurikuler);
+      setTanggalRapor(simpanan.tanggalRapor);
+      setShowWA(true);
+      setDipulihkan(true);
+    }
+  }, []);
+  useEffect(() => {
+    if (showWA && filters.id_siswa) simpanPulih(KUNCI_PULIH, { filters, modeKalkulasi, jenisDokumen, tampilanKokurikuler, tanggalRapor });
+  }, [showWA, filters, modeKalkulasi, jenisDokumen, tampilanKokurikuler, tanggalRapor]);
+  const tutupWA = () => {
+    setShowWA(false);
+    setDipulihkan(false);
+    hapusPulih(KUNCI_PULIH);
+  };
+
   // Guru hanya membuka rapor kelas binaannya (wali kelas)
   const kelasTersedia = useMemo(() => classes.filter((k) => bolehKelolaKelas(k.id_kelas)), [classes, bolehKelolaKelas]);
   useEffect(() => {
@@ -88,7 +113,8 @@ export default function CetakRaporPage() {
         setClasses(res.classes || []);
         setPeriodes(res.periodes || []);
         const aktif = (res.periodes || []).find((p) => p.status_aktif === "AKTIF");
-        if (aktif) setFilters((f) => ({ ...f, id_periode: aktif.id_periode }));
+        // Periode yang dipulihkan (lihat KUNCI_PULIH) tidak ditimpa periode aktif
+        if (aktif) setFilters((f) => (f.id_periode ? f : { ...f, id_periode: aktif.id_periode }));
       } catch (err) { Swal.fire("Error", err.message, "error"); }
     })();
   }, []);
@@ -461,10 +487,13 @@ export default function CetakRaporPage() {
       </Modal>
 
       {/* MODAL WHATSAPP */}
-      <Modal show={showWA && !!wa} title="Distribusi Ringkasan Rapor (WA)" icon="bi-whatsapp" headerClass="bg-success text-white" onClose={() => setShowWA(false)}
-        footer={<button type="button" className="btn btn-success" onClick={() => setShowWA(false)}>Selesai &amp; Tutup</button>}>
+      <Modal show={showWA && !!wa} title="Distribusi Ringkasan Rapor (WA)" icon="bi-whatsapp" headerClass="bg-success text-white" onClose={tutupWA}
+        footer={<button type="button" className="btn btn-success" onClick={tutupWA}>Selesai &amp; Tutup</button>}>
         {wa && (
           <>
+            {dipulihkan && (
+              <div className="alert alert-info small py-2"><i className="bi bi-arrow-counterclockwise me-1"></i>{PESAN_PULIH}</div>
+            )}
             <div className="alert alert-secondary small py-2">
               <i className="bi bi-whatsapp text-success me-1"></i>Ringkasan berisi nilai mapel, indeks STNKM, kehadiran, dan Catatan Wali Kelas.
             </div>

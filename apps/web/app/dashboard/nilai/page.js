@@ -10,7 +10,7 @@ import PanelWaOrtu from "@/components/nilai/PanelWaOrtu";
 import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
-import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -251,7 +251,7 @@ export default function InputNilaiPage() {
         setSettings(resS || null);
         const aktif = (resF.periodes || []).find((p) => p.status_aktif === "AKTIF");
         if (aktif) setFilters((f) => ({ ...f, id_periode: f.id_periode || aktif.id_periode }));
-      } catch (err) { Swal.fire("Error", err.message, "error"); }
+      } catch (err) { swalGagalMuat(err); }
     })();
   }, []);
 
@@ -310,7 +310,7 @@ export default function InputNilaiPage() {
         setIndikatorSesi(data.indikator_sesi || []);
         setIndikatorDipilih((data.indikator_sesi || []).map((i) => i.id_indikator));
       }
-    } catch (err) { Swal.fire("Error", err.message, "error"); }
+    } catch (err) { swalGagalMuat(err); }
     finally { setLoadingSheet(false); }
   }, [filters.id_kelas, filters.id_mapel, filters.id_periode, filters.id_jenis, filters.id_materi, tanggalLembar, filters.tipe]);
 
@@ -323,7 +323,7 @@ export default function InputNilaiPage() {
       const params = new URLSearchParams({ id_kelas: filters.id_kelas, id_periode: filters.id_periode });
       const data = await safeFetch(`${API_URL}/nilai?${params}`, { headers: authHeader() });
       setRiwayat(data.data || []);
-    } catch (err) { Swal.fire("Error", err.message, "error"); }
+    } catch (err) { swalGagalMuat(err); }
     finally { setLoadingRiwayat(false); }
   }, [filters.id_kelas, filters.id_periode]);
 
@@ -1185,7 +1185,14 @@ export default function InputNilaiPage() {
                           </td>
                           <td className="text-center">
                             <div className="btn-group btn-group-sm">
-                              {(r.rencana || !tuntas) && (
+                              {r.jenis?.jenis_asesmen === "DIAGNOSTIK" ? (
+                                // Asesmen diagnostik (mis. Tes Pemetaan Awal) memetakan kemampuan awal, tidak diremedial
+                                <span className="d-inline-block" tabIndex={0} title="Asesmen diagnostik untuk pemetaan, tidak ditindaklanjuti remedial">
+                                  <button type="button" className="btn btn-outline-secondary btn-sm rounded-end-0" disabled aria-label="Remedial tidak berlaku untuk asesmen diagnostik" style={{ pointerEvents: "none" }}>
+                                    <i className="bi bi-life-preserver"></i>
+                                  </button>
+                                </span>
+                              ) : (r.rencana || !tuntas) && (
                                 <button type="button" className={`btn ${r.rencana ? "btn-outline-warning" : "btn-outline-danger"}`}
                                   title={r.rencana ? "Lihat / ubah rencana tindak lanjut" : "Atur rencana tindak lanjut"}
                                   onClick={() => (r.rencana

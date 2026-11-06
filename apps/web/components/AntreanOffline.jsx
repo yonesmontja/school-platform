@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { hapusAntrean, kirimAntrean, mulaiAntrean, useAntrean, useOnline } from "@/app/lib/antrean";
+import { siapkanOffline } from "@/app/lib/siapOffline";
+import { bacaUser } from "@/app/lib/akses";
 
 const waktu = (iso) => new Date(iso).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -27,6 +29,16 @@ export default function AntreanOffline() {
   const online = useOnline();
   const [buka, setBuka] = useState(false);
   const wadah = useRef(null);
+
+  // Siapkan salinan offline setelah service worker mengendalikan halaman (kunjungan pertama: setelah aktif)
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const siapkan = () => setTimeout(() => siapkanOffline(bacaUser()).catch(() => {}), 4000);
+    if (navigator.serviceWorker.controller) siapkan();
+    else navigator.serviceWorker.addEventListener("controllerchange", siapkan, { once: true });
+    window.addEventListener("online", siapkan);
+    return () => window.removeEventListener("online", siapkan);
+  }, []);
 
   useEffect(() => {
     mulaiAntrean(({ terkirim }) => Swal.fire({

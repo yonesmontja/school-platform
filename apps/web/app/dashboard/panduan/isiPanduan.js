@@ -40,7 +40,7 @@ export const BAGIAN = [
   {
     id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off",
     langkah: [
-      "Saat masih ada sinyal, buka sekali halaman yang akan dipakai (Input Nilai, Jurnal, Presensi) dan lembar kelasnya. Salinannya tersimpan di HP.",
+      "Saat aplikasi dibuka dengan sinyal, EduRapor otomatis menyiapkan halaman Input Nilai, Jurnal, dan Presensi beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
       "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, atau presensi seperti biasa lalu tekan Simpan.",
       "Muncul pesan Disimpan di HP, dan ikon awan dengan angka di bagian atas menunjukkan jumlah kiriman yang menunggu.",
       "Begitu tersambung lagi, kiriman terkirim otomatis dan muncul pesan berhasil dikirim. Tekan ikon awan untuk melihat daftarnya atau Kirim sekarang.",

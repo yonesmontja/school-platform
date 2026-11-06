@@ -58,6 +58,7 @@ class SiapkanE2e extends Command
             ]);
             MasterPeriode::create(['id_periode' => 'PER-E2E', 'tahun_ajaran' => '2026/2027', 'semester' => 'Ganjil', 'status_aktif' => 'AKTIF']);
             MasterMBK::create(['id_jenis' => 'JNS-UH', 'kategori_penilaian' => 'Ulangan Harian', 'jenis_asesmen' => 'FORMATIF']);
+            MasterMBK::create(['id_jenis' => 'JNS-TPA', 'kategori_penilaian' => 'Tes Pemetaan Awal', 'jenis_asesmen' => 'DIAGNOSTIK']);
             MasterKategoriPenilaian::create(['id_kategori' => 'KAT-E1', 'nama_kategori' => 'Pemahaman Konsep']);
 
             Teacher::create(['id_guru' => 'GR-E1', 'nama_guru' => 'Yakobus Wenda']);
