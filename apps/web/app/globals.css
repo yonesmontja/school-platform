@@ -720,3 +720,11 @@
   background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
 .portal-kal-sel:empty { background: transparent; }
 .portal-kal-titik { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+/* =========================================================================
+   ANTREAN OFFLINE (components/AntreanOffline.jsx)
+   ========================================================================= */
+.antrean-panel { width: 22rem; max-width: calc(100vw - 1.5rem); }
+.antrean-daftar { max-height: 50vh; overflow-y: auto; }
+.antrean-daftar > div:last-child { border-bottom: 0 !important; }
+.antrean-putar { display: inline-block; animation: dashSpin .9s linear infinite; }

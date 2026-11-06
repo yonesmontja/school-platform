@@ -6,6 +6,7 @@ import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
+import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -186,10 +187,25 @@ export default function PresensiPage() {
   // --- SIMPAN ---
   const handleSimpan = async () => {
     if (!data?.students.length) return;
+    const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR" }));
+    // Tanpa sinyal: presensi disimpan di HP dan dikirim otomatis saat tersambung (app/lib/antrean.js)
+    const simpanOffline = async () => {
+      await tambahAntrean({
+        jenis: "presensi", url: `${API_URL}/presensi/batch`, body: { ...filters, records },
+        label: `Presensi ${namaKelas} ${tanggalPanjang(filters.tanggal)} · ${hitungLembar.SAKIT + hitungLembar.IZIN + hitungLembar.ALPA} tidak hadir`,
+      });
+      Swal.fire({
+        icon: "info", title: "Presensi disimpan di HP",
+        html: "Anda sedang offline. Presensi <b>dikirim otomatis</b> saat tersambung lagi. Kabar WhatsApp ke orang tua bisa dikirim setelah tersambung.",
+        confirmButtonText: "Mengerti",
+      });
+    };
+    if (sedangOffline()) return simpanOffline();
     setSaving(true);
     try {
-      const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR" }));
-      const res = await sendJSON(`${API_URL}/presensi/batch`, "POST", { ...filters, records });
+      let res;
+      try { res = await sendJSON(`${API_URL}/presensi/batch`, "POST", { ...filters, records }); }
+      catch (err) { if (galatJaringan(err)) return await simpanOffline(); throw err; }
       await muatData(filters.id_kelas, filters.id_periode);
 
       const tidakHadir = data.students

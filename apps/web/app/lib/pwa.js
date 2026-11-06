@@ -8,6 +8,11 @@ const beritahu = () => pendengar.forEach((f) => f());
 export function daftarkanPwa() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
   if (!window.isSecureContext) return; // service worker hanya di HTTPS atau localhost
+  if (process.env.NODE_ENV !== "production") {
+    // Jalur kerja (next dev): aset tanpa hash akan basi bila di-cache service worker
+    navigator.serviceWorker.getRegistrations().then((list) => list.forEach((r) => r.unregister())).catch(() => {});
+    return;
+  }
   navigator.serviceWorker.register("/sw.js").catch(() => { /* PWA opsional */ });
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); promptPasang = e; beritahu(); });
   window.addEventListener("appinstalled", () => { promptPasang = null; beritahu(); });

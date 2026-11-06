@@ -18,7 +18,7 @@ export const BAGIAN = [
     gambar: "/panduan/akun.jpg",
     langkah: [
       "Buka web.saprapor.com di HP atau laptop.",
-      "Isi username dan kata sandi dari admin sekolah. Username guru biasanya NIP/NIK, username siswa adalah NISN.",
+      "Isi username dan kata sandi dari admin sekolah, lalu tekan Masuk. Username guru biasanya NIP/NIK, username siswa adalah NISN. Tekan ikon mata untuk melihat kata sandi yang Anda ketik.",
       "Saat pertama masuk, aplikasi langsung membuka Akun Saya. Isi kata sandi lama (dari admin), lalu kata sandi baru dua kali.",
       "Kata sandi baru minimal 8 karakter dan memuat huruf serta angka. Setelah disimpan, Anda diarahkan ke halaman awal.",
     ],
@@ -35,7 +35,21 @@ export const BAGIAN = [
       "Di iPhone: buka di Safari, tekan Bagikan, lalu Tambah ke Layar Utama.",
       "Ikon EduRapor muncul di layar utama dan terbuka layar penuh seperti aplikasi biasa.",
     ],
-    tips: ["Aplikasi tetap butuh internet. Bila sinyal putus, muncul halaman offline; data yang belum disimpan tidak ikut tersimpan."],
+    tips: ["Halaman yang pernah dibuka tetap bisa dibuka saat sinyal putus. Lihat bagian Mengisi saat sinyal putus."],
+  },
+  {
+    id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off",
+    langkah: [
+      "Saat masih ada sinyal, buka sekali halaman yang akan dipakai (Input Nilai, Jurnal, Presensi) dan lembar kelasnya. Salinannya tersimpan di HP.",
+      "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, atau presensi seperti biasa lalu tekan Simpan.",
+      "Muncul pesan Disimpan di HP, dan ikon awan dengan angka di bagian atas menunjukkan jumlah kiriman yang menunggu.",
+      "Begitu tersambung lagi, kiriman terkirim otomatis dan muncul pesan berhasil dikirim. Tekan ikon awan untuk melihat daftarnya atau Kirim sekarang.",
+    ],
+    tips: [
+      "Jangan keluar (logout) sebelum kiriman terkirim. Kiriman tersimpan per akun di HP itu.",
+      "Bila kiriman ditolak server (misalnya data sudah diubah orang lain), tandanya merah di daftar. Periksa lalu isi ulang atau buang.",
+      "Jurnal yang ditulis offline dianalisis STNKM saat terkirim. Kabar WhatsApp dikirim setelah tersambung, dari linimasa atau lembar presensi.",
+    ],
   },
   {
     id: "tindakan", kelompok: "mulai", judul: "Perlu Tindakan: daftar pekerjaan Anda", icon: "bi-bell",

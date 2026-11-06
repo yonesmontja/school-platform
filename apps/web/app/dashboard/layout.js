@@ -7,8 +7,11 @@ import { SIDEBAR_PREF_EVENT, bacaAccordion } from "@/app/lib/sidebarPrefs";
 import ThemeMenu from "@/components/ThemeMenu";
 import NotifikasiMenu from "@/components/NotifikasiMenu";
 import PasangAplikasi from "@/components/PasangAplikasi";
+import AntreanOffline, { PitaOffline } from "@/components/AntreanOffline";
+import Swal from "sweetalert2";
 import { API_URL, AKSES_EVENT, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal } from "@/app/lib/akses";
 import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
+import { hapusSalinanOffline, jumlahAntrean, kirimAntrean } from "@/app/lib/antrean";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
@@ -286,7 +289,18 @@ export default function DashboardLayout({ children }) {
   const batalTutupFlyout = () => clearTimeout(flyoutTimer.current);
   const flyoutGroup = flyout ? menuGroups.find((g) => g.id === flyout.id) : null;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Kiriman offline perlu token untuk dikirim: coba kirim dulu, lalu tanyakan bila masih ada sisa
+    await kirimAntrean().catch(() => {});
+    if (await jumlahAntrean().catch(() => 0)) {
+      const ok = await Swal.fire({
+        title: "Masih ada kiriman offline", icon: "warning",
+        text: "Nilai, jurnal, atau presensi yang disimpan di HP ini belum terkirim. Bila keluar sekarang, kiriman itu baru dikirim setelah Anda masuk lagi di HP ini.",
+        showCancelButton: true, confirmButtonText: "Tetap keluar", cancelButtonText: "Batal",
+      });
+      if (!ok.isConfirmed) return;
+    }
+    hapusSalinanOffline();
     // Cabut token di server; tetap keluar walau API tidak terjangkau
     const token = localStorage.getItem("token");
     if (token) fetch(`${API_URL}/logout`, { method: "POST", headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }).catch(() => {});
@@ -339,6 +353,12 @@ export default function DashboardLayout({ children }) {
             <li className="nav-item">
               <PasangAplikasi />
             </li>
+            {/* OFFLINE: kiriman nilai/jurnal yang menunggu sinyal */}
+            {user && (
+              <li className="nav-item">
+                <AntreanOffline />
+              </li>
+            )}
             {/* NOTIFIKASI: PERLU TINDAKAN */}
             {user && (
               <li className="nav-item">
@@ -505,6 +525,7 @@ export default function DashboardLayout({ children }) {
       <main className="app-main">
         <div className="app-content">
           <div className="container-fluid">
+            <PitaOffline />
             {siap ? children : (
               <div className="text-center text-muted py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memeriksa akses...</div>
             )}

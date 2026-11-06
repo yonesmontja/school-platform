@@ -5,6 +5,7 @@ import { useAkses } from "@/app/lib/akses";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -461,6 +462,31 @@ export default function JurnalAnekdotalPage() {
     if (!formData.id_siswa) return Swal.fire("Siswa Belum Dipilih", "Pilih siswa terlebih dahulu.", "warning");
     if (!validasiNarasi()) return;
 
+    // Tanpa sinyal: jurnal disimpan di HP; analisis STNKM dijalankan saat dikirim (app/lib/antrean.js)
+    const simpanOffline = async (ai) => {
+      const { konteks, ...form } = formData;
+      const siswa = students.find((x) => x.id_siswa === form.id_siswa)?.nama_siswa || form.id_siswa;
+      await tambahAntrean({
+        jenis: "jurnal", aiMode: aiModePilihan,
+        url: editId ? `${API_URL}/jurnal/${encodeURIComponent(editId)}` : `${API_URL}/jurnal/store`,
+        method: editId ? "PUT" : "POST",
+        label: `Jurnal ${siswa}: ${form.narasi_kejadian.slice(0, 40)}${form.narasi_kejadian.length > 40 ? "…" : ""}`,
+        body: {
+          ...form, id_guru: form.id_guru || null,
+          id_materi: konteks === "KBM" ? form.id_materi || null : null,
+          id_jenis: konteks === "OBSERVASI" ? form.id_jenis || null : null,
+          hapus_lampiran: hapusLampiran, ...(ai || {}),
+        },
+      });
+      resetForm();
+      Swal.fire({
+        icon: "info", title: "Jurnal disimpan di HP",
+        html: "Anda sedang offline. Jurnal <b>dikirim otomatis</b> saat tersambung lagi, lalu muncul di linimasa. Kabar WhatsApp bisa dikirim dari linimasa setelahnya.",
+        confirmButtonText: "Mengerti",
+      });
+    };
+    if (sedangOffline()) return simpanOffline(analyzed ? aiResult : null);
+
     setSaving(true);
     try {
       // Satu klik: jika narasi belum dianalisis (atau sudah diubah), analisis dulu baru simpan
@@ -504,6 +530,7 @@ export default function JurnalAnekdotalPage() {
         Swal.fire({ toast: true, position: "top-end", icon: "success", title: judul, showConfirmButton: false, timer: 2000 });
       }
     } catch (err) {
+      if (galatJaringan(err)) { Swal.close(); await simpanOffline(analyzed ? aiResult : null); return; }
       Swal.fire("Gagal Menyimpan", err.message, "error");
     } finally { setSaving(false); }
   };

@@ -10,6 +10,7 @@ import PanelWaOrtu from "@/components/nilai/PanelWaOrtu";
 import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
+import { galatJaringan, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -482,16 +483,43 @@ export default function InputNilaiPage() {
       if (!res.isConfirmed) return;
     }
 
+    const body = {
+      id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
+      id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, tipe_nilai: filters.tipe, records,
+    };
+    // Tanpa sinyal: simpan di HP, dikirim otomatis saat tersambung (app/lib/antrean.js)
+    const simpanOffline = async () => {
+      await tambahAntrean({
+        jenis: "nilai", url: `${API_URL}/nilai/batch`, body,
+        label: `Nilai ${modeRemedial ? "remedial " : ""}${mapelTerpilih?.nama_mapel || ""} ${kelasTerpilih?.nama_kelas || ""} · ${records.length} siswa`,
+      });
+      // Isian yang sudah diantrekan dianggap tersimpan agar tidak diperingatkan sebagai perubahan
+      const tersimpan = new Map(rows.filter((r) => typeof r.parsed === "number").map((r) => [r.key, r]));
+      setStudents((prev) => prev.map((s) => {
+        const r = tersimpan.get(s.key);
+        return r ? { ...s, nilai: r.parsed, nilai_indikator: r.petaIndikator || s.nilai_indikator, menunggu: true } : s;
+      }));
+      Swal.fire({
+        icon: "info", title: "Disimpan di HP",
+        html: "Anda sedang offline. Nilai disimpan di perangkat ini dan <b>dikirim otomatis</b> saat tersambung lagi. Lihat ikon <i class=\"bi bi-cloud-upload\"></i> di atas.",
+        confirmButtonText: "Mengerti",
+      });
+    };
+    if (sedangOffline()) return simpanOffline();
+
     setSaving(true);
     try {
-      const data = await safeFetch(`${API_URL}/nilai/batch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader() },
-        body: JSON.stringify({
-          id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
-          id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, tipe_nilai: filters.tipe, records,
-        }),
-      });
+      let data;
+      try {
+        data = await safeFetch(`${API_URL}/nilai/batch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader() },
+          body: JSON.stringify(body),
+        });
+      } catch (err) {
+        if (galatJaringan(err)) return await simpanOffline();
+        throw err;
+      }
       const belumTuntas = data.perlu_tindak_lanjut > 0
         ? `${data.perlu_tindak_lanjut} siswa masih di bawah KKM ${kkm}; atur tindak lanjut berikutnya lewat lembar nilai reguler atau riwayat.` : "";
       if (modeRemedial && kabariHasil) {
@@ -960,6 +988,7 @@ export default function InputNilaiPage() {
                           <td>
                             <div className="fw-semibold">{r.nama_siswa}</div>
                             <small className="text-muted">NISN: {r.nisn || r.id_siswa}</small>
+                            {r.menunggu && <small className="d-block text-warning-emphasis"><i className="bi bi-cloud-upload me-1"></i>Menunggu dikirim</small>}
                             {modeRemedial ? (
                               <small className="d-block text-danger-emphasis">
                                 <i className="bi bi-signpost-split me-1"></i>{r.rencana.opsi_tindakan} · {formatTanggal(r.rencana.tanggal_rencana)}
