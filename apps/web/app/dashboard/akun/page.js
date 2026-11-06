@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import { API_URL, ROLE_LABEL, ROLE_WARNA, authHeaders, simpanUser, halamanAwal, useAkses } from "@/app/lib/akses";
-import { ACCENTS, THEME_MODES, setAccent, setThemeMode, useAppTheme } from "@/app/lib/themePrefs";
+import { ACCENTS, GAYA, THEME_MODES, setAccent, setGaya, setThemeMode, useAppTheme } from "@/app/lib/themePrefs";
 import { bacaAccordion, simpanAccordion } from "@/app/lib/sidebarPrefs";
 
 const SYARAT = [
@@ -153,7 +153,17 @@ export default function AkunSayaPage() {
               <h5 className="fw-bold mb-1"><i className="bi bi-palette me-2 text-primary"></i>Preferensi Tampilan</h5>
               <p className="small text-muted mb-4">Berlaku untuk browser ini dan langsung diterapkan.</p>
               <div className="row g-4">
-                <div className="col-md-4">
+                <div className="col-md-6 col-xl-3">
+                  <div className="small fw-semibold mb-2">Gaya tampilan</div>
+                  <div className="btn-group w-100" role="group">
+                    {GAYA.map((g) => (
+                      <button key={g.id} type="button" className={`btn btn-sm ${tema.gaya === g.id ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => setGaya(g.id)}>
+                        <i className={`bi ${g.icon} me-1`}></i>{g.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="col-md-6 col-xl-3">
                   <div className="small fw-semibold mb-2">Tema</div>
                   <div className="btn-group w-100" role="group">
                     {THEME_MODES.map((m) => (
@@ -163,7 +173,7 @@ export default function AkunSayaPage() {
                     ))}
                   </div>
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-6 col-xl-3">
                   <div className="small fw-semibold mb-2">Warna aksen</div>
                   <div className="d-flex flex-wrap gap-2">
                     {ACCENTS.map((a) => (
@@ -175,7 +185,7 @@ export default function AkunSayaPage() {
                     ))}
                   </div>
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-6 col-xl-3">
                   <div className="small fw-semibold mb-2">Sidebar</div>
                   <div className="form-check form-switch m-0">
                     <input className="form-check-input" type="checkbox" role="switch" id="pref_accordion" checked={accordion} onChange={(e) => ubahAccordion(e.target.checked)} />

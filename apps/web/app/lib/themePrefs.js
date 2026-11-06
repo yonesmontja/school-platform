@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { KEY_MODE, KEY_ACCENT } from "./themeScript";
+import { KEY_MODE, KEY_ACCENT, KEY_GAYA } from "./themeScript";
 
 // Tema (terang/gelap/otomatis) dan warna aksen aplikasi, disimpan per browser
 export const THEME_EVENT = "app-theme-change";
@@ -20,6 +20,12 @@ export const THEME_MODES = [
   { id: "auto", label: "Otomatis", icon: "bi-circle-half" },
 ];
 
+// Gaya tampilan: Tabler (bawaan) atau Klasik (AdminLTE apa adanya)
+export const GAYA = [
+  { id: "tabler", label: "Tabler", icon: "bi-grid-1x2" },
+  { id: "klasik", label: "Klasik", icon: "bi-window" },
+];
+
 const baca = (key, fallback) => {
   try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
 };
@@ -29,6 +35,7 @@ export const resolveMode = (mode) => (mode === "auto" ? (sistemGelap() ? "dark" 
 export const applyTheme = () => {
   const mode = baca(KEY_MODE, "light");
   const accent = baca(KEY_ACCENT, "biru");
+  document.documentElement.setAttribute("data-gaya", baca(KEY_GAYA, "tabler") === "klasik" ? "klasik" : "tabler");
   document.documentElement.setAttribute("data-bs-theme", resolveMode(mode));
   document.documentElement.setAttribute("data-accent", ACCENTS.some((a) => a.id === accent) ? accent : "biru");
 };
@@ -40,14 +47,15 @@ const simpan = (key, value) => {
 };
 export const setThemeMode = (mode) => simpan(KEY_MODE, mode);
 export const setAccent = (id) => simpan(KEY_ACCENT, id);
+export const setGaya = (id) => simpan(KEY_GAYA, id);
 
 
 export function useAppTheme() {
-  const [state, setState] = useState({ mode: "light", accent: "biru", resolved: "light" });
+  const [state, setState] = useState({ mode: "light", accent: "biru", gaya: "tabler", resolved: "light" });
   useEffect(() => {
     const sync = () => {
       const mode = baca(KEY_MODE, "light");
-      setState({ mode, accent: baca(KEY_ACCENT, "biru"), resolved: resolveMode(mode) });
+      setState({ mode, accent: baca(KEY_ACCENT, "biru"), gaya: baca(KEY_GAYA, "tabler"), resolved: resolveMode(mode) });
     };
     sync();
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

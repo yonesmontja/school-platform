@@ -6,6 +6,7 @@ import './globals.css';
 import './dashboard-saas.css';
 import './theme-dark.css';
 import './jadwal.css';
+import './tema-tabler.css';
 import './mobile.css';
 import Script from 'next/script';
 import { THEME_INIT_SCRIPT } from './lib/themeScript';
@@ -31,8 +32,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    // data-bs-theme & data-accent diisi skrip tema sebelum halaman tampil
-    <html lang="id" data-bs-theme="light" data-accent="biru" suppressHydrationWarning>
+    // data-bs-theme, data-accent & data-gaya diisi skrip tema sebelum halaman tampil
+    <html lang="id" data-bs-theme="light" data-accent="biru" data-gaya="tabler" suppressHydrationWarning>
       <head>
         {/* beforeInteractive: disisipkan Next.js sebelum hidrasi, bukan dirender React (tag <script> biasa
             memicu peringatan saat pohon dibangun ulang di klien) */}
