@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
-import ModalTindakLanjut, { STATUS_RENCANA } from "@/components/nilai/ModalTindakLanjut";
+import ModalTindakLanjut, { STATUS_RENCANA, buktiRencana } from "@/components/nilai/ModalTindakLanjut";
 import PanelWaOrtu from "@/components/nilai/PanelWaOrtu";
 import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
@@ -109,7 +109,10 @@ const RencanaBadge = ({ rencana, kkm }) => {
   const rem = rencana.nilai_remedial;
   return (
     <div className="d-flex flex-column align-items-center gap-1">
-      <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.ikon} me-1`}></i>{st.label}</span>
+      <span className={`badge text-bg-${st.warna}`}>
+        <i className={`bi ${st.ikon} me-1`}></i>{st.label}
+        {buktiRencana(rencana) && <i className="bi bi-paperclip ms-1" title="Ada bukti pelaksanaan" aria-label="Ada bukti pelaksanaan"></i>}
+      </span>
       <small className="text-muted lh-sm text-center">
         {rencana.opsi_tindakan} · {formatTanggal(rencana.tanggal_rencana)}
         {rem && <> · nilai <b className={Number(rem.nilai) >= kkm ? "text-success" : "text-danger"}>{formatAngka(Number(rem.nilai))}</b></>}
@@ -118,8 +121,14 @@ const RencanaBadge = ({ rencana, kkm }) => {
   );
 };
 
-export default function InputNilaiPage() {
+export default function InputNilaiPageBungkus() {
+  // useSearchParams perlu Suspense; tautan "Buka" dari Perlu Tindakan membawa parameter lembar & siswa
+  return <Suspense fallback={null}><InputNilaiPage /></Suspense>;
+}
+
+function InputNilaiPage() {
   const router = useRouter();
+  const params = useSearchParams();
 
   // --- DATA REFERENSI ---
   const [options, setOptions] = useState({ periodes: [], classes: [], subjects: [], mbks: [] });
@@ -141,6 +150,9 @@ export default function InputNilaiPage() {
   const [indikatorDipilih, setIndikatorDipilih] = useState([]);
   const [indikatorSesi, setIndikatorSesi] = useState([]);
   const [terisiOtomatis, setTerisiOtomatis] = useState(null); // { jadwal, mulai } bila parameter diisi dari jadwal/mapel guru
+  // Dari Perlu Tindakan: siswa yang disorot di lembar, atau nilai yang ditampilkan di Riwayat bila lembarnya tidak tunggal
+  const [sorot, setSorot] = useState(null); // { siswa: Set, nilai: Set, lembar: bool, digulir: bool }
+  const riwayatRef = useRef(null);
   const { isAdmin, isGuru } = useAkses();
   const filterCardRef = useRef(null);
 
@@ -265,6 +277,21 @@ export default function InputNilaiPage() {
     })();
   }, []);
 
+  // Tautan langsung (?id_kelas=&id_mapel=&...&siswa=&nilai=): buka lembarnya, lalu sorot siswanya
+  useEffect(() => {
+    if (!options.periodes.length || !params.get("id_kelas")) return;
+    const patch = {};
+    ["id_kelas", "id_mapel", "id_periode", "id_jenis", "id_materi", "tanggal"].forEach((k) => { if (params.get(k)) patch[k] = params.get(k); });
+    patch.tipe = params.get("tipe") === "REMEDIAL" ? "REMEDIAL" : "NORMAL";
+    const daftar = (k) => new Set((params.get(k) || "").split(",").filter(Boolean));
+    setEditId(null);
+    setTerisiOtomatis(null);
+    setFilters((f) => ({ ...emptyFilters(), id_periode: f.id_periode, ...patch }));
+    // Lembar tunggal: periode boleh dari periode aktif, dan lembar remedial tidak bergantung tanggal
+    const lembar = FILTER_FIELDS.every((f) => patch[f.key] || f.key === "id_periode" || (f.key === "tanggal" && patch.tipe === "REMEDIAL"));
+    setSorot({ siswa: daftar("siswa"), nilai: daftar("nilai"), lembar, digulir: false });
+  }, [params, options.periodes.length]);
+
   // Materi bergantung pada kelas + mapel + periode
   useEffect(() => {
     const { id_kelas, id_mapel, id_periode } = filters;
@@ -339,6 +366,15 @@ export default function InputNilaiPage() {
 
   useEffect(() => { fetchRiwayat(); setPage(1); }, [fetchRiwayat]);
 
+  useEffect(() => {
+    if (!sorot || sorot.digulir) return;
+    if (sorot.lembar ? loadingSheet || !students.length : loadingRiwayat || !riwayat.length) return;
+    const el = sorot.lembar ? document.querySelector("tr.nilai-sorot") : riwayatRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: sorot.lembar ? "center" : "start" });
+    setSorot((x) => ({ ...x, digulir: true }));
+  }, [sorot, loadingSheet, students.length, loadingRiwayat, riwayat.length]);
+
   // Peringatan saat meninggalkan halaman dengan nilai yang belum disimpan
   useEffect(() => {
     if (jumlahBerubah === 0) return;
@@ -378,7 +414,7 @@ export default function InputNilaiPage() {
     const memuatUlang = Object.keys(patch).some((k) => k !== "tanggal" || filters.tipe === "NORMAL");
     if (memuatUlang && !(await konfirmasiBuangPerubahan())) return;
     // Mengganti parameter berarti membuka lembar lain, bukan lagi penilaian yang sedang diedit
-    if (memuatUlang) setEditId(null);
+    if (memuatUlang) { setEditId(null); setSorot(null); }
     if ("id_kelas" in patch || "id_mapel" in patch) setTerisiOtomatis(null);
     setFilters((f) => ({ ...f, ...patch }));
   };
@@ -600,13 +636,14 @@ export default function InputNilaiPage() {
       nilai: (r) => Number(r.nilai),
       guru: (r) => namaGuru(r).toLowerCase(),
     }[sortCol];
-    return (q ? riwayat.filter(cocok) : riwayat.slice()).sort((a, b) => {
+    const dariTautan = sorot && !sorot.lembar && sorot.nilai.size ? (r) => sorot.nilai.has(r.id_nilai) : () => true;
+    return riwayat.filter((r) => (!q || cocok(r)) && dariTautan(r)).sort((a, b) => {
       const va = nilaiSort(a), vb = nilaiSort(b);
       if (va < vb) return sortAsc ? -1 : 1;
       if (va > vb) return sortAsc ? 1 : -1;
       return 0;
     });
-  }, [riwayat, searchQuery, sortCol, sortAsc]);
+  }, [riwayat, searchQuery, sortCol, sortAsc, sorot]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRiwayat.length / ROWS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
@@ -1003,7 +1040,7 @@ export default function InputNilaiPage() {
                     </thead>
                     <tbody>
                       {rows.map((r, idx) => (
-                        <tr key={r.key} className={r.berubah ? "table-warning" : ""}>
+                        <tr key={r.key} className={r.berubah ? "table-warning" : sorot?.lembar && sorot.siswa.has(r.id_siswa) ? "table-info nilai-sorot" : ""}>
                           <td className="text-center fw-semibold text-muted">{idx + 1}</td>
                           <td>
                             <div className="fw-semibold">{r.nama_siswa}</div>
@@ -1111,7 +1148,7 @@ export default function InputNilaiPage() {
       )}
 
       {/* RIWAYAT INPUT NILAI */}
-      <div className="card card-outline card-secondary shadow-sm">
+      <div ref={riwayatRef} className="card card-outline card-secondary shadow-sm" style={{ scrollMarginTop: "1rem" }}>
         <div className="card-header d-flex flex-wrap align-items-center gap-2">
           <h3 className="card-title fw-semibold mb-0 me-auto">
             <i className="bi bi-clock-history me-2"></i>Riwayat Input Nilai
@@ -1137,8 +1174,17 @@ export default function InputNilaiPage() {
                   </div>
                 </div>
                 <div className="col-12 col-md-6 text-md-end align-self-center">
-                  <small className="text-muted">{filteredRiwayat.length} entri{searchQuery && ` dari ${riwayat.length}`}</small>
+                  <small className="text-muted">{filteredRiwayat.length} entri{(searchQuery || (sorot && !sorot.lembar && sorot.nilai.size > 0)) && ` dari ${riwayat.length}`}</small>
                 </div>
+                {sorot && !sorot.lembar && sorot.nilai.size > 0 && (
+                  <div className="col-12">
+                    <div className="alert alert-info py-2 mb-0 small d-flex flex-wrap align-items-center gap-2">
+                      <i className="bi bi-bell"></i>
+                      <span className="me-auto">Menampilkan nilai dari Perlu Tindakan. Tekan <b>Tindak Lanjut</b> pada barisnya untuk membuat atau melihat rencana.</span>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setSorot(null)}>Tampilkan semua</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="table-responsive">
@@ -1164,7 +1210,7 @@ export default function InputNilaiPage() {
                       const v = Number(r.nilai);
                       const tuntas = v >= kkmMapel(r.mapel);
                       return (
-                        <tr key={r.id_nilai} className={editId === r.id_nilai ? "table-warning" : ""}>
+                        <tr key={r.id_nilai} className={editId === r.id_nilai ? "table-warning" : sorot?.nilai.has(r.id_nilai) ? "table-info" : ""}>
                           <td className="text-nowrap">{formatTanggal(r.tanggal)}</td>
                           <td>
                             <div className="fw-semibold">{r.siswa?.nama_siswa || r.id_siswa}</div>
@@ -1195,6 +1241,7 @@ export default function InputNilaiPage() {
                                 <span className={`badge bg-${STATUS_RENCANA[r.rencana.status]?.warna || "warning"}-subtle text-${STATUS_RENCANA[r.rencana.status]?.warna || "warning"}-emphasis border fw-normal`}>
                                   {STATUS_RENCANA[r.rencana.status]?.label}
                                   {r.rencana.nilai_remedial && ` → ${formatAngka(Number(r.rencana.nilai_remedial.nilai))}`}
+                                  {buktiRencana(r.rencana) && <i className="bi bi-paperclip ms-1" title="Ada bukti pelaksanaan" aria-label="Ada bukti pelaksanaan"></i>}
                                 </span>
                               </div>
                             )}

@@ -197,6 +197,27 @@ test("portal orang tua: Perlu didampingi, Buka dari Perlu Tindakan, filter, dan 
   expect(unduhan.suggestedFilename()).toMatch(/^Capaian_TP_Abner_Kogoya\.pdf$/);
 });
 
+test("guru: Buka di Perlu Tindakan membuka lembar remedial siswanya, lalu bukti diunggah (G6)", async ({ page, masuk }) => {
+  const guru = await masuk("guru");
+  await page.goto("/dashboard/notifikasi");
+  await page.locator(".notif-kartu", { hasText: "Hari ini: remedial" }).getByRole("link", { name: /Buka/ }).click();
+  await expect(page).toHaveURL(/tipe=REMEDIAL/);
+  await expect(page.locator("tr.nilai-sorot")).toContainText("Abner Kogoya");
+
+  // Status rencana di Riwayat membuka rinciannya; bukti diunggah dari sana
+  const tombolRencana = page.getByTitle("Lihat / ubah rencana tindak lanjut").first();
+  await tombolRencana.click();
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+  await page.locator('[aria-label="Bukti pelaksanaan"] input[type=file]').setInputFiles({ name: "hasil-tes-ulang.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByRole("link", { name: "hasil-tes-ulang.png" })).toBeVisible();
+  await page.locator(".modal-footer").getByRole("button", { name: "Tutup" }).click();
+  await expect(page.getByLabel("Ada bukti pelaksanaan").first()).toBeVisible();
+
+  const riwayat = await api(guru, "/nilai?id_kelas=KLS-E4A&id_periode=PER-E2E");
+  const rencana = riwayat.data.find((n) => n.id_siswa === "SIS-E1" && n.rencana)?.rencana;
+  expect(rencana.bukti_nama).toBe("hasil-tes-ulang.png");
+});
+
 test("Akun Saya orang tua menampilkan nama dan kelas anak (O1)", async ({ page, masuk }) => {
   await masuk("ortu");
   await page.goto("/dashboard/akun");

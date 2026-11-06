@@ -15,6 +15,7 @@ use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransNilaiIndikator;
 use App\Models\TransRencanaRemedial;
+use App\Services\LampiranJadwalService;
 use App\Services\RemedialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ use Illuminate\Validation\Rule;
 
 class NilaiController extends Controller
 {
-    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'guru:id_guru,nama_guru', 'pengisi:id,name', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
+    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'guru:id_guru,nama_guru', 'pengisi:id,name', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi,lampiran_url,lampiran_nama', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
     private const META = ['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi'];
 
     public function getFilters(Request $request)
@@ -126,7 +127,7 @@ class NilaiController extends Controller
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
         $existing = $this->queryPenilaian($meta, $request->tanggal)
-            ->with('rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi', 'nilaiIndikator')
+            ->with('rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi,lampiran_url,lampiran_nama', 'nilaiIndikator')
             ->whereIn('id_siswa', $students->pluck('id_siswa'))
             ->get()
             ->keyBy('id_siswa');
@@ -177,7 +178,7 @@ class NilaiController extends Controller
                 'nilaiAsal.nilaiIndikator.indikator:id_indikator,deskripsi,urutan,aktif',
                 'nilaiRemedial:id_nilai,id_rencana,nilai,tanggal',
                 'nilaiRemedial.nilaiIndikator',
-                'jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi',
+                'jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi,lampiran_url,lampiran_nama',
             ])
             ->whereHas('nilaiAsal', fn($q) => $q->where($meta))
             ->orderBy('status')->orderBy('tanggal_rencana')
@@ -369,11 +370,12 @@ class NilaiController extends Controller
 
         DB::transaction(function () use ($nilai) {
             // Rencana yang dipicu nilai ini ikut terhapus (cascade); sesi jadwalnya dibersihkan bila tak terpakai
-            $jadwal = TransRencanaRemedial::where('id_nilai_asal', $nilai->id_nilai)->pluck('id_jadwal');
+            $rencana = TransRencanaRemedial::where('id_nilai_asal', $nilai->id_nilai)->get(['id_jadwal', 'bukti_url']);
             $rencanaAsal = $nilai->rencanaAsal;
             $nilai->delete();
             if ($rencanaAsal) RemedialService::bukaKembali($rencanaAsal);
-            RemedialService::bersihkanJadwal($jadwal);
+            RemedialService::bersihkanJadwal($rencana->pluck('id_jadwal'));
+            LampiranJadwalService::bersihkan($rencana->pluck('bukti_url'));
         });
 
         return response()->json(['success' => true, 'message' => 'Data nilai berhasil dihapus.']);

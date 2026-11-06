@@ -26,7 +26,7 @@ class TransRencanaRemedial extends Model
 
     protected $fillable = [
         'id_rencana', 'id_nilai_asal', 'id_siswa', 'id_mapel', 'opsi_tindakan', 'catatan',
-        'tanggal_rencana', 'status', 'tanggal_selesai', 'id_jadwal', 'dibuat_oleh',
+        'tanggal_rencana', 'status', 'tanggal_selesai', 'id_jadwal', 'bukti_url', 'bukti_nama', 'dibuat_oleh',
     ];
 
     protected $casts = [

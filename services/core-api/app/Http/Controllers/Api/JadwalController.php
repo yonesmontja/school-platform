@@ -11,11 +11,11 @@ use App\Models\SchoolSetting;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TransJadwal;
+use App\Services\LampiranJadwalService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,20 +26,6 @@ class JadwalController extends Controller
     private const MODE_BERANTAI = ['only_this', 'following', 'all'];
     private const FORMAT = 'Y-m-d\TH:i';
     private const MAKS_SESI = 300;
-
-    private const LAMPIRAN_MIME = [
-        'application/pdf' => 'pdf',
-        'image/jpeg' => 'jpg',
-        'image/png' => 'png',
-        'image/webp' => 'webp',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
-        'application/msword' => 'doc',
-        'application/vnd.ms-powerpoint' => 'ppt',
-        'application/zip' => 'zip',
-    ];
-    private const LAMPIRAN_MAX_BYTES = 10 * 1024 * 1024;
 
     private const RELASI = [
         'guru:id_guru,nama_guru,no_wa',
@@ -95,9 +81,7 @@ class JadwalController extends Controller
             'warna' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'catatan' => 'nullable|string|max:3000',
             'status_sesi' => ['nullable', Rule::in(self::STATUS)],
-            'lampiran_base64' => 'nullable|string',
-            'lampiran_nama' => 'nullable|string|max:255',
-            'lampiran_url' => 'nullable|url|max:500',
+            ...LampiranJadwalService::RULES,
             'hapus_lampiran' => 'nullable|boolean',
             'abaikan_bentrok' => 'nullable|boolean',
             ...($baru ? [
@@ -173,7 +157,7 @@ class JadwalController extends Controller
             return $this->responBentrok($bentrok);
         }
 
-        [$lampiranUrl, $lampiranNama] = $this->lampiranDariRequest($request);
+        [$lampiranUrl, $lampiranNama] = LampiranJadwalService::dariRequest($request);
         $idGroup = count($slot) > 1 ? 'GRP-' . Str::uuid() : null;
         $idPeriode = MasterPeriode::where('status_aktif', 'AKTIF')->value('id_periode');
 
@@ -232,7 +216,7 @@ class JadwalController extends Controller
 
         $lampiranBaru = null;
         if ($request->filled('lampiran_base64') || $request->filled('lampiran_url')) {
-            $lampiranBaru = $this->lampiranDariRequest($request);
+            $lampiranBaru = LampiranJadwalService::dariRequest($request);
         }
         $lampiranLama = $target->pluck('lampiran_url')->filter()->unique();
 
@@ -247,7 +231,7 @@ class JadwalController extends Controller
             }
         });
 
-        if ($lampiranBaru || $request->boolean('hapus_lampiran')) $this->bersihkanLampiran($lampiranLama);
+        if ($lampiranBaru || $request->boolean('hapus_lampiran')) LampiranJadwalService::bersihkan($lampiranLama);
 
         return response()->json([
             'success' => true,
@@ -310,8 +294,10 @@ class JadwalController extends Controller
 
         $target = $this->targetBerantai($request, $jadwal, $request->mode ?? 'only_this');
         $lampiran = $target->pluck('lampiran_url')->filter()->unique();
+        // Bukti remedial yang tersimpan di sesi ini tetap melekat pada rencananya
+        LampiranJadwalService::pindahkanKeRencana($target);
         TransJadwal::whereIn('id_jadwal', $target->pluck('id_jadwal'))->delete();
-        $this->bersihkanLampiran($lampiran);
+        LampiranJadwalService::bersihkan($lampiran);
 
         return response()->json(['success' => true, 'message' => $target->count() > 1 ? $target->count() . ' sesi dihapus.' : 'Jadwal dihapus.']);
     }
@@ -385,42 +371,5 @@ class JadwalController extends Controller
             'message' => 'Jadwal bentrok dengan ' . $bentrok->count() . ' sesi lain.',
             'bentrok' => $bentrok,
         ], 409);
-    }
-
-    /**
-     * Lampiran berupa file unggahan (base64) atau tautan eksternal (mis. Google Drive).
-     * @return array [url, nama]
-     */
-    private function lampiranDariRequest(Request $request): array
-    {
-        if ($request->filled('lampiran_base64')) {
-            $decoded = base64_decode(preg_replace('/^data:[^;]*;base64,/', '', $request->lampiran_base64), true);
-            if ($decoded === false || $decoded === '') throw ValidationException::withMessages(['lampiran_base64' => 'Lampiran tidak valid.']);
-            if (strlen($decoded) > self::LAMPIRAN_MAX_BYTES) throw ValidationException::withMessages(['lampiran_base64' => 'Ukuran lampiran maksimal 10MB.']);
-
-            $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($decoded);
-            if (!isset(self::LAMPIRAN_MIME[$mime])) {
-                throw ValidationException::withMessages(['lampiran_base64' => 'Format lampiran tidak didukung (PDF, gambar, Word, PowerPoint, Excel, ZIP).']);
-            }
-            $file = 'jadwal_' . Str::random(16) . '.' . self::LAMPIRAN_MIME[$mime];
-            Storage::disk('public')->put('jadwal/' . $file, $decoded);
-            $nama = Str::limit(basename((string) $request->lampiran_nama) ?: $file, 250, '');
-            return ['/storage/jadwal/' . $file, $nama];
-        }
-        if ($request->filled('lampiran_url')) {
-            return [$request->lampiran_url, Str::limit($request->lampiran_nama ?: 'Tautan lampiran', 250, '')];
-        }
-        return [null, null];
-    }
-
-    // Hapus file unggahan yang sudah tidak dipakai sesi mana pun
-    private function bersihkanLampiran(Collection $urls): void
-    {
-        foreach ($urls as $url) {
-            if (!Str::startsWith($url, '/storage/jadwal/')) continue;
-            if (!TransJadwal::where('lampiran_url', $url)->exists()) {
-                Storage::disk('public')->delete(Str::after($url, '/storage/'));
-            }
-        }
     }
 }

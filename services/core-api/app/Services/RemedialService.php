@@ -59,7 +59,10 @@ class RemedialService
     {
         foreach (collect($idJadwal)->filter()->unique() as $id) {
             if (TransRencanaRemedial::where('id_jadwal', $id)->exists()) continue;
-            TransJadwal::where('id_jadwal', $id)->where('status_sesi', 'Menunggu')->delete();
+            $jadwal = TransJadwal::where('id_jadwal', $id)->where('status_sesi', 'Menunggu')->first();
+            if (!$jadwal) continue;
+            $jadwal->delete();
+            LampiranJadwalService::bersihkan([$jadwal->lampiran_url]);
         }
     }
 }

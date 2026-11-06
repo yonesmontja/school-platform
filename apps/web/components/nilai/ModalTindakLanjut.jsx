@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { API_URL, authHeaders } from "@/app/lib/akses";
+import { API_ORIGIN } from "@/app/lib/config";
 
 // Opsi tindak lanjut bagi siswa yang belum mencapai KKM (nama harus sama dengan TransRencanaRemedial::OPSI)
 export const OPSI_TINDAK_LANJUT = [
@@ -24,6 +25,19 @@ const besok = () => {
   d.setDate(d.getDate() + 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+const BUKTI_MAX_MB = 10;
+
+/**
+ * Bukti pelaksanaan sebuah rencana: lampiran sesi Jadwal bila rencana punya sesi (satu berkas untuk
+ * semua siswa di sesi itu), atau bukti milik rencana sendiri.
+ */
+export const buktiRencana = (r) => {
+  if (!r) return null;
+  if (r.id_jadwal) return r.jadwal?.lampiran_url ? { url: r.jadwal.lampiran_url, nama: r.jadwal.lampiran_nama, di_jadwal: true } : null;
+  return r.bukti_url ? { url: r.bukti_url, nama: r.bukti_nama, di_jadwal: false } : null;
+};
+const urlBukti = (url) => (url?.startsWith("/storage/") ? `${API_ORIGIN}${url}` : url);
+
 const jamDari = (dt) => (dt ? String(dt).slice(11, 16) : "");
 const angka = (v) => (Number.isInteger(Number(v)) ? Number(v) : Number(v).toFixed(1));
 
@@ -48,12 +62,17 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
   const [ruangan, setRuangan] = useState([]);
   const [proses, setProses] = useState(false);
   const [kabariOrtu, setKabariOrtu] = useState(true);
+  const [bukti, setBukti] = useState(() => buktiRencana(rencana));
+  const [buktiBerubah, setBuktiBerubah] = useState(false);
+  const [tautanBukti, setTautanBukti] = useState("");
+  // Daftar di halaman dimuat ulang saat ditutup bila bukti berubah
+  const tutup = () => (buktiBerubah ? onTersimpan() : onTutup());
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onTutup(); };
+    const onKey = (e) => { if (e.key === "Escape") tutup(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onTutup]);
+  });
 
   useEffect(() => {
     fetch(`${API_URL}/ruangan`, { headers: authHeaders(false) })
@@ -89,6 +108,50 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
     finally { setProses(false); }
   };
 
+  const kirimBukti = async (body) => {
+    setProses(true);
+    try {
+      const data = await kirim("POST", `${API_URL}/remedial/${rencana.id_rencana}/bukti`, body);
+      setBukti(data.data);
+      setBuktiBerubah(true);
+      setTautanBukti("");
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: data.message, showConfirmButton: false, timer: 2500 });
+    } catch (err) { Swal.fire("Gagal Mengunggah", err.message, "error"); }
+    finally { setProses(false); }
+  };
+
+  const pilihBerkas = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > BUKTI_MAX_MB * 1024 * 1024) return Swal.fire("File Terlalu Besar", `Maksimal ${BUKTI_MAX_MB}MB`, "warning");
+    if (bukti?.di_jadwal) {
+      const ok = await Swal.fire({
+        title: "Ganti lampiran sesi?", icon: "question", showCancelButton: true, confirmButtonText: "Ya, ganti", cancelButtonText: "Batal",
+        text: `Bukti disimpan sebagai lampiran sesi di Jadwal. Lampiran "${bukti.nama || "sebelumnya"}" akan diganti untuk semua siswa di sesi ini.`,
+      });
+      if (!ok.isConfirmed) return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => kirimBukti({ lampiran_base64: reader.result, lampiran_nama: file.name });
+    reader.readAsDataURL(file);
+  };
+
+  const hapusBukti = async () => {
+    const ok = await Swal.fire({
+      title: "Hapus bukti?", icon: "warning", showCancelButton: true, confirmButtonText: "Ya, hapus", cancelButtonText: "Batal", confirmButtonColor: "#dc3545",
+      text: bukti?.di_jadwal ? "Lampiran sesi di Jadwal ikut terhapus untuk semua siswa di sesi ini." : "",
+    });
+    if (!ok.isConfirmed) return;
+    setProses(true);
+    try {
+      await kirim("DELETE", `${API_URL}/remedial/${rencana.id_rencana}/bukti`);
+      setBukti(null);
+      setBuktiBerubah(true);
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+    finally { setProses(false); }
+  };
+
   const batalkan = async () => {
     const ok = await Swal.fire({
       title: "Batalkan rencana ini?", text: rencana?.id_jadwal ? "Sesi jadwalnya ikut dihapus bila tidak dipakai siswa lain." : "",
@@ -114,7 +177,7 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
                 <i className="bi bi-life-preserver me-2 text-danger"></i>
                 {ubah ? "Ubah Rencana Tindak Lanjut" : "Rencana Tindak Lanjut"}
               </h5>
-              <button type="button" className="btn-close" onClick={onTutup} aria-label="Tutup"></button>
+              <button type="button" className="btn-close" onClick={tutup} aria-label="Tutup"></button>
             </div>
             <div className="modal-body">
               {/* SISWA */}
@@ -213,6 +276,42 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
                 )}
               </div>
 
+              {/* BUKTI PELAKSANAAN */}
+              {ubah && (
+                <div className="border rounded p-3 mt-3" aria-label="Bukti pelaksanaan">
+                  <div className="fw-semibold small mb-2"><i className="bi bi-paperclip text-primary me-1"></i>Bukti pelaksanaan</div>
+                  {bukti ? (
+                    <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                      <a href={urlBukti(bukti.url)} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary text-truncate" style={{ maxWidth: "100%" }}>
+                        <i className="bi bi-box-arrow-up-right me-1"></i>{bukti.nama || "Lihat bukti"}
+                      </a>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={hapusBukti} disabled={proses} aria-label="Hapus bukti">
+                        <i className="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  ) : <div className="small text-muted mb-2">Belum ada bukti. Unggah foto hasil kerja, lembar tes ulang, atau tautan Google Drive.</div>}
+                  <div className="d-flex flex-wrap gap-2">
+                    <label className={`btn btn-sm btn-primary mb-0${proses ? " disabled" : ""}`}>
+                      <i className="bi bi-upload me-1"></i>{bukti ? "Ganti berkas" : "Unggah berkas"}
+                      <input type="file" hidden accept="image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip" onChange={pilihBerkas} disabled={proses} />
+                    </label>
+                    <div className="input-group input-group-sm flex-grow-1" style={{ minWidth: 220 }}>
+                      <input type="url" className="form-control" placeholder="atau tempel tautan (https://...)" aria-label="Tautan bukti"
+                        value={tautanBukti} onChange={(e) => setTautanBukti(e.target.value)} />
+                      <button type="button" className="btn btn-outline-primary" disabled={proses || !/^https?:\/\/\S+$/.test(tautanBukti)}
+                        onClick={() => kirimBukti({ lampiran_url: tautanBukti, lampiran_nama: "Tautan bukti" })}>Simpan tautan</button>
+                    </div>
+                  </div>
+                  <small className="text-muted d-block mt-2">
+                    <i className="bi bi-info-circle me-1"></i>
+                    {rencana?.id_jadwal
+                      ? "Bukti disimpan sebagai lampiran sesi remedial di Jadwal, jadi terlihat juga di sana tanpa berkas ganda."
+                      : "Bukti disimpan pada rencana ini. Bila nanti dimasukkan ke Jadwal, bukti ikut menjadi lampiran sesinya."}
+                    {" "}Maksimal {BUKTI_MAX_MB}MB.
+                  </small>
+                </div>
+              )}
+
               {!ubah && (
                 <div className="form-check form-switch mt-3 mb-0">
                   <input className="form-check-input" type="checkbox" id="kabariOrtu" checked={kabariOrtu} onChange={(e) => setKabariOrtu(e.target.checked)} />
@@ -228,7 +327,7 @@ export default function ModalTindakLanjut({ target, kkm, onTutup, onTersimpan })
                   <i className="bi bi-x-circle me-1"></i>Batalkan Rencana
                 </button>
               )}
-              <button type="button" className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Tutup</button>
+              <button type="button" className="btn btn-outline-secondary" onClick={tutup} disabled={proses}>Tutup</button>
               <button type="submit" className="btn btn-danger fw-semibold" disabled={proses || (!ubah && jumlah === 0)}>
                 {proses ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-floppy me-1"></i>}
                 {ubah ? "Simpan Perubahan" : `Simpan Rencana${jumlah > 1 ? ` (${jumlah} siswa)` : ""}`}

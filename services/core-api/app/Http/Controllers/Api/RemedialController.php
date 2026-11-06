@@ -7,6 +7,7 @@ use App\Models\SchoolSetting;
 use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransRencanaRemedial;
+use App\Services\LampiranJadwalService;
 use App\Services\PesanRemedialService;
 use App\Services\RemedialService;
 use Carbon\Carbon;
@@ -19,6 +20,8 @@ use Illuminate\Validation\Rule;
 /**
  * Rencana tindak lanjut untuk siswa yang belum mencapai KKM. Rencana bisa dibuat untuk
  * satu siswa atau sekelompok siswa sekaligus; sesi pelaksanaannya otomatis masuk ke Jadwal.
+ * Bukti pelaksanaan disimpan sebagai lampiran sesi Jadwal bila rencana punya sesi, atau pada
+ * rencana itu sendiri bila tidak, sehingga satu bukti hanya tersimpan sebagai satu berkas.
  */
 class RemedialController extends Controller
 {
@@ -122,11 +125,21 @@ class RemedialController extends Controller
                 }
             }
 
+            // Bukti ikut rencana: lepas dari sesi lama → simpan rujukannya di rencana; sesi baru → jadi lampiran sesi itu
+            $bukti = [$rencana->bukti_url, $rencana->bukti_nama];
+            if ($jadwalLama && $jadwalLama->id_jadwal !== $idJadwal && !$bukti[0]) $bukti = [$jadwalLama->lampiran_url, $jadwalLama->lampiran_nama];
+            if ($idJadwal && $idJadwal !== $jadwalLama?->id_jadwal && $bukti[0]) {
+                TransJadwal::whereKey($idJadwal)->update(['lampiran_url' => $bukti[0], 'lampiran_nama' => $bukti[1]]);
+                $bukti = [null, null];
+            }
+
             $rencana->update([
                 'opsi_tindakan' => $request->opsi_tindakan,
                 'catatan' => $request->catatan,
                 'tanggal_rencana' => $request->tanggal_rencana,
                 'id_jadwal' => $idJadwal,
+                'bukti_url' => $bukti[0],
+                'bukti_nama' => $bukti[1],
             ]);
             if ($jadwalLama && $jadwalLama->id_jadwal !== $idJadwal) RemedialService::bersihkanJadwal([$jadwalLama->id_jadwal]);
         });
@@ -147,8 +160,59 @@ class RemedialController extends Controller
             $rencana->delete();
             RemedialService::bersihkanJadwal([$idJadwal]);
         });
+        LampiranJadwalService::bersihkan([$rencana->bukti_url]);
 
         return response()->json(['success' => true, 'message' => 'Rencana tindak lanjut dibatalkan.']);
+    }
+
+    /** Unggah atau ganti bukti pelaksanaan (file atau tautan). */
+    public function simpanBukti(Request $request, string $id)
+    {
+        $request->validate(LampiranJadwalService::RULES);
+        if (!$request->filled('lampiran_base64') && !$request->filled('lampiran_url')) {
+            return response()->json(['message' => 'Pilih berkas atau isi tautan bukti.'], 422);
+        }
+        $rencana = TransRencanaRemedial::with('jadwal')->findOrFail($id);
+        $this->cekMapel($request, $rencana->id_mapel);
+
+        [$url, $nama] = LampiranJadwalService::dariRequest($request);
+        $lama = $this->pasangBukti($rencana, $url, $nama);
+        LampiranJadwalService::bersihkan([$lama]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $rencana->jadwal ? 'Bukti disimpan sebagai lampiran sesi di Jadwal.' : 'Bukti disimpan.',
+            'data' => $this->bukti($rencana->fresh('jadwal')),
+        ]);
+    }
+
+    public function hapusBukti(Request $request, string $id)
+    {
+        $rencana = TransRencanaRemedial::with('jadwal')->findOrFail($id);
+        $this->cekMapel($request, $rencana->id_mapel);
+        LampiranJadwalService::bersihkan([$this->pasangBukti($rencana, null, null)]);
+
+        return response()->json(['success' => true, 'message' => 'Bukti dihapus.', 'data' => null]);
+    }
+
+    /** Pasang bukti di sesi Jadwal (bila ada) atau di rencana; mengembalikan url bukti sebelumnya. */
+    private function pasangBukti(TransRencanaRemedial $rencana, ?string $url, ?string $nama): ?string
+    {
+        if ($rencana->jadwal) {
+            $lama = $rencana->jadwal->lampiran_url;
+            $rencana->jadwal->update(['lampiran_url' => $url, 'lampiran_nama' => $nama]);
+            return $lama;
+        }
+        $lama = $rencana->bukti_url;
+        $rencana->update(['bukti_url' => $url, 'bukti_nama' => $nama]);
+        return $lama;
+    }
+
+    private function bukti(TransRencanaRemedial $r): ?array
+    {
+        $url = $r->jadwal?->lampiran_url ?? ($r->jadwal ? null : $r->bukti_url);
+        if (!$url) return null;
+        return ['url' => $url, 'nama' => $r->jadwal ? $r->jadwal->lampiran_nama : $r->bukti_nama, 'di_jadwal' => (bool) $r->jadwal];
     }
 
     /**

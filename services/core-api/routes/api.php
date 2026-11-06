@@ -160,6 +160,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/notifikasi', [RemedialController::class, 'notifikasi']);
             Route::put('/{id}', [RemedialController::class, 'update']);
             Route::delete('/{id}', [RemedialController::class, 'destroy']);
+            Route::post('/{id}/bukti', [RemedialController::class, 'simpanBukti']);
+            Route::delete('/{id}/bukti', [RemedialController::class, 'hapusBukti']);
         });
 
         // Jurnal: semua kelas; guru hanya mengubah/menghapus catatan miliknya

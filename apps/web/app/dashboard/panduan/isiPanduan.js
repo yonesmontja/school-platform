@@ -58,7 +58,7 @@ export const BAGIAN = [
     langkah: [
       "Lihat lonceng di kanan atas. Angka merah berarti ada hal mendesak.",
       "Buka Perlu Tindakan untuk melihat daftarnya: remedial yang jatuh tempo, nilai di bawah KKM yang belum punya rencana, presensi yang belum diisi, sesi jadwal yang belum ditandai, catatan wali yang belum lengkap.",
-      "Tekan salah satu notifikasi untuk langsung membuka halaman pekerjaannya.",
+      "Tekan Buka untuk langsung membuka pekerjaannya. Untuk nilai dan remedial, lembar nilai yang dimaksud langsung terbuka dengan siswanya disorot biru.",
       "Notifikasi hilang sendiri setelah pekerjaannya selesai.",
     ],
     tips: ["Nyalakan sakelar notifikasi perangkat di halaman Perlu Tindakan agar hal mendesak muncul di HP."],
@@ -101,10 +101,12 @@ export const BAGIAN = [
       "Pada hari pelaksanaan, buka Input Nilai dengan pilihan yang sama, lalu ubah tipe penilaian menjadi Remedial.",
       "Lembar remedial hanya memuat siswa yang punya rencana, dan hanya indikator yang belum tuntas. Isi nilai perbaikannya.",
       "Tekan Simpan Nilai Remedial. Centang kabari orang tua bila hasilnya ingin dikirim lewat WhatsApp.",
+      "Simpan bukti pelaksanaan: tekan status rencana di kolom Tindak Lanjut, lalu Unggah berkas (foto, PDF) atau tempel tautan Google Drive di bagian Bukti pelaksanaan.",
     ],
     tips: [
       "Nilai asli tetap tersimpan. Nilai remedial di rapor mengikuti kebijakan sekolah (bawaan: paling tinggi setinggi KKM).",
       "Remedial yang lewat tanggal muncul di Perlu Tindakan sampai nilainya diisi.",
+      "Bila rencana masuk Jadwal, bukti disimpan sebagai lampiran sesi itu: cukup satu berkas untuk semua siswa di sesi yang sama, dan terlihat juga di Jadwal. Ikon klip pada status rencana berarti buktinya sudah ada.",
     ],
   },
   {

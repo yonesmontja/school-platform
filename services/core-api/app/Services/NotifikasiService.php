@@ -26,6 +26,9 @@ use Illuminate\Support\Collection;
  */
 class NotifikasiService
 {
+    // Kolom nilai yang menentukan satu lembar Input Nilai (untuk tautan langsung)
+    private const KOLOM_LEMBAR = 'id_nilai,id_siswa,id_kelas,id_mapel,id_periode,id_jenis,id_materi,tanggal';
+
     private Carbon $sekarang;
     private string $hariIni;
     private ?string $periode;
@@ -91,7 +94,7 @@ class NotifikasiService
 
     private function remedial(?array $mapel): array
     {
-        $rencana = TransRencanaRemedial::with(['siswa:id_siswa,nama_siswa', 'mapel:id_mapel,nama_mapel'])
+        $rencana = TransRencanaRemedial::with(['siswa:id_siswa,nama_siswa', 'mapel:id_mapel,nama_mapel', 'nilaiAsal:' . self::KOLOM_LEMBAR])
             ->where('status', 'DIRENCANAKAN')
             ->when($mapel !== null, fn($q) => $q->whereIn('id_mapel', $mapel))
             ->where('tanggal_rencana', '<=', $this->sekarang->copy()->addDay()->toDateString())
@@ -105,7 +108,7 @@ class NotifikasiService
                 'judul' => "{$terlambat->count()} rencana remedial lewat tanggal",
                 'pesan' => 'Belum ada nilai remedial untuk ' . self::daftarNama($terlambat->map(fn($r) => $r->siswa?->nama_siswa))
                     . ' (' . self::daftarNama($terlambat->map(fn($r) => $r->mapel?->nama_mapel), 3) . '). Isi nilainya lewat mode Remedial di Input Nilai, atau jadwalkan ulang.',
-                'jumlah' => $terlambat->count(), 'tautan' => '/dashboard/nilai',
+                'jumlah' => $terlambat->count(), 'tautan' => self::tautanNilai($terlambat->pluck('nilaiAsal'), true),
                 'waktu' => $terlambat->first()->tanggal_rencana->toDateString() . 'T00:00:00',
             ]);
         }
@@ -115,7 +118,7 @@ class NotifikasiService
                 'tingkat' => $hariIni ? 'warning' : 'info', 'kategori' => 'Remedial', 'ikon' => 'bi-life-preserver',
                 'judul' => ($hariIni ? 'Hari ini' : 'Besok') . ": remedial {$grup->count()} siswa",
                 'pesan' => self::daftarNama($grup->map(fn($r) => "{$r->siswa?->nama_siswa} ({$r->opsi_tindakan}, {$r->mapel?->nama_mapel})"), 3) . '.',
-                'jumlah' => $grup->count(), 'tautan' => '/dashboard/nilai', 'waktu' => "{$tgl}T00:00:00",
+                'jumlah' => $grup->count(), 'tautan' => self::tautanNilai($grup->pluck('nilaiAsal'), true), 'waktu' => "{$tgl}T00:00:00",
             ]);
         }
         return $hasil;
@@ -129,7 +132,7 @@ class NotifikasiService
             ->where('id_periode', $this->periode)
             ->when($mapel !== null, fn($q) => $q->whereIn('id_mapel', $mapel))
             ->whereDoesntHave('rencana')
-            ->get(['id_nilai', 'id_siswa', 'id_mapel', 'id_kelas', 'nilai', 'tanggal'])
+            ->get(explode(',', self::KOLOM_LEMBAR . ',nilai'))
             ->filter(fn($n) => (float) $n->nilai < (float) ($n->mapel?->kkm ?? 75));
 
         return $nilai->groupBy(fn($n) => "{$n->id_kelas}|{$n->id_mapel}")->map(function ($grup) {
@@ -139,7 +142,7 @@ class NotifikasiService
                 'judul' => "{$grup->count()} nilai di bawah KKM belum ditindaklanjuti ({$grup->pluck('id_siswa')->unique()->count()} siswa)",
                 'pesan' => "{$n->mapel?->nama_mapel} · {$n->kelas?->nama_kelas}: " . self::daftarNama($grup->map(fn($x) => $x->siswa?->nama_siswa))
                     . '. Buat rencana lewat tombol Tindak Lanjut di Input Nilai.',
-                'jumlah' => $grup->count(), 'tautan' => '/dashboard/nilai',
+                'jumlah' => $grup->count(), 'tautan' => self::tautanNilai($grup),
                 'waktu' => Carbon::parse($grup->max('tanggal'))->toDateString() . 'T00:00:00',
             ]);
         })->values()->all();
@@ -314,5 +317,25 @@ class NotifikasiService
     private static function tautanPortal(string $tab, string $idSiswa, array $lain = []): string
     {
         return '/dashboard/portal?' . http_build_query(['tab' => $tab, 'siswa' => $idSiswa] + array_filter($lain));
+    }
+
+    /**
+     * Tautan "Buka" ke Input Nilai: parameter lembar yang sama untuk semua nilai ikut dikirim (lengkap → lembar
+     * itu langsung terbuka), beserta siswa & nilai yang dimaksud untuk disorot atau menyaring Riwayat.
+     */
+    private static function tautanNilai(Collection $nilai, bool $remedial = false): string
+    {
+        $nilai = $nilai->filter();
+        $q = [];
+        foreach (['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi'] as $k) {
+            $nilaiKolom = $nilai->pluck($k)->unique();
+            if ($nilaiKolom->count() === 1 && $nilaiKolom->first()) $q[$k] = $nilaiKolom->first();
+        }
+        $tanggal = $nilai->map(fn($n) => Carbon::parse($n->tanggal)->toDateString())->unique();
+        if ($remedial) $q['tipe'] = 'REMEDIAL';
+        elseif ($tanggal->count() === 1) $q['tanggal'] = $tanggal->first();
+        $q['siswa'] = $nilai->pluck('id_siswa')->unique()->take(50)->implode(',');
+        $q['nilai'] = $nilai->pluck('id_nilai')->take(50)->implode(',');
+        return '/dashboard/nilai?' . http_build_query($q);
     }
 }

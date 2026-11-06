@@ -7,6 +7,7 @@ use App\Models\TransNilai;
 use App\Models\TransRencanaRemedial;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\MembuatDataSekolah;
 use Tests\TestCase;
@@ -176,6 +177,51 @@ class RemedialTest extends TestCase
         $this->deleteJson("/api/nilai/$n1")->assertOk();
         $this->assertFalse(TransRencanaRemedial::whereKey($r1->id_rencana)->exists());
         $this->assertFalse(TransJadwal::whereKey($r1->id_jadwal)->exists());
+    }
+
+    public function test_bukti_tersimpan_sekali_di_jadwal_atau_rencana(): void
+    {
+        Storage::fake('public');
+        $png = 'data:image/png;base64,' . base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='));
+        [$n1, $n2] = $this->siapkanNilaiBelumTuntas();
+        $this->postJson('/api/remedial', self::RENCANA + ['id_nilai' => [$n1, $n2]])->assertOk();
+        [$r1, $r2] = TransRencanaRemedial::orderBy('id_nilai_asal')->get()->all();
+
+        // Rencana kelompok dengan sesi Jadwal: bukti menjadi lampiran sesi bersama, bukan berkas per siswa
+        $res = $this->postJson("/api/remedial/{$r1->id_rencana}/bukti", ['lampiran_base64' => $png, 'lampiran_nama' => 'hasil.png'])->assertOk();
+        $this->assertTrue($res->json('data.di_jadwal'));
+        $url = TransJadwal::find($r1->id_jadwal)->lampiran_url;
+        $this->assertSame($url, $res->json('data.url'));
+        $this->assertNull($r1->fresh()->bukti_url);
+        $this->assertCount(1, Storage::disk('public')->files('jadwal'));
+
+        // Siswa ini dilepas dari Jadwal: rujukan bukti pindah ke rencananya, berkasnya tetap satu
+        $this->putJson("/api/remedial/{$r1->id_rencana}", array_merge(self::RENCANA, ['masuk_jadwal' => false]))->assertOk();
+        $this->assertSame($url, $r1->fresh()->bukti_url);
+        $this->assertSame($url, TransJadwal::find($r2->id_jadwal)->lampiran_url);
+        $this->assertCount(1, Storage::disk('public')->files('jadwal'));
+
+        // Berkas baru terhapus setelah tidak dirujuk sesi maupun rencana mana pun
+        $this->deleteJson("/api/remedial/{$r1->id_rencana}/bukti")->assertOk();
+        $this->assertCount(1, Storage::disk('public')->files('jadwal'));
+        $this->deleteJson("/api/remedial/{$r2->id_rencana}/bukti")->assertOk();
+        $this->assertCount(0, Storage::disk('public')->files('jadwal'));
+
+        // Rencana tanpa Jadwal menyimpan bukti sendiri (tautan), dan tetap dibatasi mapel guru
+        $this->postJson("/api/remedial/{$r1->id_rencana}/bukti", ['lampiran_url' => 'https://drive.example/bukti'])->assertOk()->assertJsonPath('data.di_jadwal', false);
+        $this->assertSame('https://drive.example/bukti', $r1->fresh()->bukti_url);
+        $this->sebagai($this->sekolah->guruB)->postJson("/api/remedial/{$r1->id_rencana}/bukti", ['lampiran_url' => 'https://x.example'])->assertForbidden();
+    }
+
+    public function test_tautan_perlu_tindakan_membuka_lembar_nilai_yang_dimaksud(): void
+    {
+        [$n1, $n2] = $this->siapkanNilaiBelumTuntas();
+        $item = collect($this->getJson('/api/notifikasi')->json('data'))->firstWhere('jenis', 'tindak-lanjut');
+        parse_str(parse_url($item['tautan'], PHP_URL_QUERY), $q);
+        $this->assertSame('/dashboard/nilai', parse_url($item['tautan'], PHP_URL_PATH));
+        $this->assertSame($this->sekolah->meta + ['tanggal' => '2030-01-05'], array_intersect_key($q, $this->sekolah->meta + ['tanggal' => 1]));
+        $this->assertSame('SIS-1,SIS-2', $q['siswa']);
+        $this->assertEqualsCanonicalizing([$n1, $n2], explode(',', $q['nilai']));
     }
 
     public function test_rencana_dari_admin_masuk_jadwal_guru_pengampu(): void
