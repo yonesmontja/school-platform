@@ -4,6 +4,7 @@ import Swal from "sweetalert2";
 import { BENTUK, DIMENSI, HURUF, KESULITAN, LEVEL, STATUS } from "./konstanta";
 import PratinjauSoal, { srcGambar, srcSvg } from "./PratinjauSoal";
 import { bacaBerkas, minta } from "./api";
+import ModalGambarAI from "./ModalGambarAI";
 
 // Isi & kunci awal per bentuk (aturan sama dengan BankSoalService::normalisasi)
 const isiAwal = (bentuk) => ({
@@ -40,15 +41,16 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
   // Guru dengan satu mapel langsung mendapati mapelnya terpilih
   const [f, setF] = useState(() => dariSoal(soal, { id_mapel: referensi.mapel.length === 1 ? referensi.mapel[0].id_mapel : "", ...bawaan }));
   const [proses, setProses] = useState(false);
+  const [gambarAi, setGambarAi] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const setIsi = (k, v) => setF((x) => ({ ...x, isi: { ...x.isi, [k]: v } }));
   const setKunci = (v) => setF((x) => ({ ...x, kunci: { ...x.kunci, jawaban: v } }));
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onTutup(); };
+    const onKey = (e) => { if (e.key === "Escape" && !gambarAi) onTutup(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onTutup]);
+  }, [onTutup, gambarAi]);
 
   const materiMapel = useMemo(() => (referensi.materi || []).filter((m) => m.id_mapel === f.id_mapel && (!f.id_kelas || !m.id_kelas || m.id_kelas === f.id_kelas)), [referensi, f.id_mapel, f.id_kelas]);
   const tpMateri = materiMapel.find((m) => m.id_materi === f.id_materi)?.indikator || [];
@@ -201,11 +203,14 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                   <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
                     <label className="btn btn-sm btn-outline-primary mb-0"><i className="bi bi-image me-1"></i>{f.gambar_url || f.gambar_svg ? "Ganti gambar" : "Tambah gambar"}
                       <input type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={unggahGambar} /></label>
+                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setGambarAi(true)} disabled={!f.pertanyaan.trim()}
+                      title={f.pertanyaan.trim() ? "Buat ilustrasi atau diagram dengan AI" : "Tulis pertanyaannya dulu"}><i className="bi bi-stars me-1"></i>Gambar AI</button>
                     {(f.gambar_url || f.gambar_svg) && (
                       <>
                         <img src={f.gambar_svg ? srcSvg(f.gambar_svg) : srcGambar(f.gambar_url)} alt="Gambar soal" className="border rounded bg-white" style={{ height: 48 }} />
                         <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setF((x) => ({ ...x, gambar_url: null, gambar_svg: null }))}><i className="bi bi-trash"></i></button>
                         {f.gambar_svg && <span className="small text-muted">Diagram dari AI</span>}
+                        {f.gambar_url?.includes("/soal_ai_") && <span className="small text-muted">Ilustrasi dari AI</span>}
                       </>
                     )}
                   </div>
@@ -308,6 +313,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
         </div>
       </div>
       <div className="modal-backdrop show"></div>
+      {gambarAi && <ModalGambarAI soal={f} onTutup={() => setGambarAi(false)} onPakai={(g) => { setF((x) => ({ ...x, ...g })); setGambarAi(false); }} />}
     </>
   );
 }

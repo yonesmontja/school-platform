@@ -13,6 +13,7 @@ use App\Models\SchoolSetting;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Services\PaketSoalService;
+use App\Services\StatistikSoalService;
 use App\Services\SoalAIService;
 use App\Services\UjianService;
 use Illuminate\Http\Request;
@@ -316,6 +317,10 @@ class PaketSoalController extends Controller
         $perMateri = PaketSoalService::nilaiPerMateri($paket->butir, $lengkap);
         if (!$perMateri) return response()->json(['message' => 'Butir paket ini belum berlabel materi/TP, jadi nilainya tidak bisa dikirim.'], 422);
 
+        // Hasil analisis butir ikut disimpan agar bank soal & draf AI belajar dari ulangan ini
+        $paket->load('jawaban.siswa:id_siswa,nama_siswa');
+        StatistikSoalService::simpan($paket, PaketSoalService::analisis($paket, 75));
+
         $nilai = app(NilaiController::class);
         $pesan = [];
         $tindakLanjut = 0;
@@ -352,7 +357,79 @@ class PaketSoalController extends Controller
         $this->cekAkses($request, $paket);
         UjianService::tutupKedaluwarsa($paket);
         $paket->load('jawaban.siswa:id_siswa,nama_siswa');
-        return response()->json(['data' => PaketSoalService::analisis($paket, (float) ($paket->mapel?->kkm ?? 75))]);
+        $hasil = PaketSoalService::analisis($paket, (float) ($paket->mapel?->kkm ?? 75));
+        StatistikSoalService::simpan($paket, $hasil);
+        return response()->json(['data' => $hasil]);
+    }
+
+    /**
+     * Usulan skor uraian dari AI untuk satu siswa: jawaban yang diketik (tes online / catatan guru) dan foto
+     * lembar jawaban (Gemini/Claude). Tidak disimpan; guru memeriksa lalu menyimpan lewat simpanJawaban.
+     */
+    public function nilaiUraianAI(Request $request, string $id, string $idSiswa, SoalAIService $ai)
+    {
+        $paket = PaketSoal::with('butir')->findOrFail($id);
+        $this->cekAkses($request, $paket);
+        $request->validate([
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+            'jawaban' => 'nullable|array',
+            'jawaban.*' => 'nullable|string|max:5000',
+        ]);
+        $this->cekSiswa($paket, collect([$idSiswa]));
+        $uraian = $paket->butir->values()->map(fn($b, $i) => ['b' => $b, 'nomor' => $i + 1])->filter(fn($x) => $x['b']->soal['bentuk'] === 'URAIAN')->values();
+        if ($uraian->isEmpty()) return response()->json(['message' => 'Paket ini tidak berisi soal uraian.'], 422);
+
+        $jwb = PaketSoalJawaban::where('id_paket', $id)->where('id_siswa', $idSiswa)->first();
+        if ($jwb?->sedangDikerjakan()) return response()->json(['message' => 'Siswa ini masih mengerjakan tes online.'], 422);
+
+        $teks = fn($b) => trim((string) ($request->input('jawaban.' . $b->id) ?? (is_string($jwb?->jawaban[(string) $b->id] ?? null) ? $jwb->jawaban[(string) $b->id] : '')));
+        $adaTeks = $uraian->contains(fn($x) => $teks($x['b']) !== '');
+        $berkas = [];
+        if (in_array($request->ai_mode, SoalAIService::MODES_BERKAS, true)) {
+            foreach (array_slice($jwb?->foto ?? [], 0, 4) as $url) {
+                $path = Str::after($url, '/storage/');
+                if (!Storage::disk('public')->exists($path)) continue;
+                $data = Storage::disk('public')->get($path);
+                $berkas[] = ['mime' => (new \finfo(FILEINFO_MIME_TYPE))->buffer($data), 'data' => base64_encode($data)];
+            }
+        }
+        if (!$adaTeks && !$berkas) {
+            return response()->json(['message' => ($jwb?->foto ? 'Foto lembar jawaban hanya bisa dibaca dengan Gemini atau Claude.' : 'Belum ada jawaban uraian atau foto lembar jawaban untuk siswa ini.')], 422);
+        }
+
+        // Tanpa foto, hanya butir yang ada jawabannya yang dinilai
+        $dinilai = $berkas ? $uraian : $uraian->filter(fn($x) => $teks($x['b']) !== '')->values();
+        $daftar = $dinilai->map(fn($x) => array_filter([
+            'nomor' => $x['nomor'],
+            'pertanyaan' => $x['b']->soal['pertanyaan'] ?? '',
+            'skor_maks' => $x['b']->skor_maks,
+            'rubrik' => $x['b']->soal['rubrik'] ?? null,
+            'contoh_jawaban' => $x['b']->soal['kunci']['jawaban'] ?? null,
+            'jawaban_siswa' => $teks($x['b']) ?: null,
+        ], fn($v) => $v !== null && $v !== ''))->all();
+
+        $hasil = $ai->nilaiUraian($daftar, $berkas, $request->ai_mode);
+        if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
+
+        $perNomor = $dinilai->keyBy('nomor');
+        $saran = [];
+        foreach ($hasil as $h) {
+            $x = $perNomor->get((int) $h['nomor']);
+            if (!$x) continue;
+            $maks = $x['b']->skor_maks;
+            $skor = is_numeric($h['skor'] ?? null) ? min(max(round((float) $h['skor'] * 2) / 2, 0), $maks) : null;
+            $saran[(string) $x['b']->id] = [
+                'skor' => $skor,
+                'alasan' => mb_substr(trim((string) ($h['alasan'] ?? '')), 0, 500),
+                'transkrip' => is_string($h['transkrip'] ?? null) && trim($h['transkrip']) !== '' ? mb_substr(trim($h['transkrip']), 0, 5000) : null,
+            ];
+        }
+        $diberi = collect($saran)->whereNotNull('skor')->count();
+        return response()->json([
+            'success' => true,
+            'message' => "AI mengusulkan skor untuk {$diberi} dari {$uraian->count()} soal uraian. Periksa sebelum menyimpan.",
+            'saran' => $saran,
+        ]);
     }
 
     /** Pengaturan tes online: jadwal buka-tutup, acak, token, dan apakah siswa melihat nilainya. */

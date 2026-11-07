@@ -233,6 +233,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/ai/draf', [BankSoalController::class, 'drafAI']);
             Route::post('/impor', [BankSoalController::class, 'impor']);
             Route::post('/gambar', [BankSoalController::class, 'unggahGambar']);
+            Route::post('/ai/gambar', [BankSoalController::class, 'gambarAI'])->middleware('throttle:20,1');
             Route::get('/{id}', [BankSoalController::class, 'show']);
             Route::put('/{id}', [BankSoalController::class, 'update']);
             Route::delete('/{id}', [BankSoalController::class, 'destroy']);
@@ -256,6 +257,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/jawaban/{idSiswa}/foto', [PaketSoalController::class, 'unggahFoto']);
             Route::delete('/{id}/jawaban/{idSiswa}/foto', [PaketSoalController::class, 'hapusFoto']);
             Route::post('/{id}/jawaban/{idSiswa}/baca', [PaketSoalController::class, 'bacaFoto']);
+            Route::post('/{id}/jawaban/{idSiswa}/nilai-ai', [PaketSoalController::class, 'nilaiUraianAI']);
             Route::post('/{id}/kirim-nilai', [PaketSoalController::class, 'kirimNilai']);
             Route::get('/{id}/analisis', [PaketSoalController::class, 'analisis']);
             Route::put('/{id}/online', [PaketSoalController::class, 'aturOnline']);

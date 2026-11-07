@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\StatistikSoalService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -55,6 +56,10 @@ class BankSoalController extends Controller
         $hasil = $query->orderByRaw("CASE status WHEN 'DIAJUKAN' THEN 0 WHEN 'REVISI' THEN 1 WHEN 'DRAF' THEN 2 ELSE 3 END")
             ->orderByDesc('updated_at')->paginate($request->integer('per_halaman', 25));
 
+        // Hasil analisis butir dari paket yang pernah memakai soal ini
+        $stat = StatistikSoalService::untukSoal(collect($hasil->items())->pluck('id_soal')->all());
+        foreach ($hasil->items() as $soal) $soal->setAttribute('statistik', $stat[$soal->id_soal] ?? null);
+
         $ringkas = $this->terjangkau($request)->selectRaw('status, count(*) as jumlah')->groupBy('status')->pluck('jumlah', 'status');
         return response()->json(['data' => $hasil->items(), 'meta' => [
             'halaman' => $hasil->currentPage(), 'jumlah_halaman' => $hasil->lastPage(), 'total' => $hasil->total(), 'per_status' => $ringkas,
@@ -81,6 +86,8 @@ class BankSoalController extends Controller
             'kesulitan' => BankSoal::KESULITAN,
             'ai_modes' => SoalAIService::MODES,
             'ai_modes_berkas' => SoalAIService::MODES_BERKAS,
+            'ai_modes_gambar' => SoalAIService::MODES_GAMBAR,
+            'model_gambar' => SoalAIService::MODEL_GAMBAR,
             'boleh_setujui' => $user->isKepsek(),
             // Untuk paket soal: periode, jenis penilaian (saat dikirim ke Input Nilai)
             'periode' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(['id_periode', 'tahun_ajaran', 'semester', 'status_aktif']),
@@ -234,22 +241,59 @@ class BankSoalController extends Controller
             'catatan_guru' => $request->catatan,
             'gambar' => $request->boolean('gambar') || $p['bentuk'] === 'LENGKAPI_GAMBAR',
         ];
-        // AI belajar dari gaya sekolah: contoh soal yang sudah disetujui untuk TP (atau materi) & bentuk yang sama
-        $contoh = BankSoal::where('status', 'DISETUJUI')->where('bentuk', $p['bentuk'])
-            ->when($p['id_indikator'], fn($q) => $q->where('id_indikator', $p['id_indikator']), fn($q) => $q->where('id_materi', $p['id_materi']))
-            ->latest('disetujui_pada')->limit(3)->get(['pertanyaan', 'isi', 'kunci', 'level_kognitif'])
-            ->map(fn($s) => $s->only(['pertanyaan', 'isi', 'kunci', 'level_kognitif']))->all();
+        // AI belajar dari sekolah: contoh soal disetujui (yang teruji baik didahulukan), soal bermasalah menurut
+        // analisis butir, dan capaian siswa pada TP/materi ini
+        $belajar = StatistikSoalService::bahanBelajar($p['bentuk'], $p['id_indikator'], $p['id_materi']);
+        if ($belajar['capaian']) $konteks['capaian_siswa_sekolah'] = $belajar['capaian'];
 
-        $mentah = $ai->drafSoal($konteks, $contoh, $request->ai_mode);
+        $mentah = $ai->drafSoal($konteks, $belajar['contoh'], $request->ai_mode, $belajar['hindari']);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 
         $tetap = $p + ['id_kisi_baris' => $baris?->id, 'sumber' => 'AI', 'ai_mode' => $request->ai_mode];
         [$tersimpan, $gagal] = $this->simpanMentah($request, array_slice($mentah, 0, $p['jumlah']), $tetap, $materi);
         return response()->json([
             'success' => true,
-            'message' => count($tersimpan) . ' draf soal dibuat oleh AI' . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '') . '. Periksa dan edit sebelum mengajukan.',
+            'message' => count($tersimpan) . ' draf soal dibuat oleh AI' . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '') . '. Periksa dan edit sebelum mengajukan.'
+                . self::catatanBelajar($belajar),
             'data' => $tersimpan,
+            'belajar' => ['contoh' => count($belajar['contoh']), 'teruji' => $belajar['teruji'], 'hindari' => count($belajar['hindari']), 'capaian' => $belajar['capaian']],
         ]);
+    }
+
+    private static function catatanBelajar(array $b): string
+    {
+        $bagian = array_filter([
+            $b['contoh'] ? count($b['contoh']) . ' contoh soal sekolah' . ($b['teruji'] ? " ({$b['teruji']} teruji baik)" : '') : null,
+            $b['hindari'] ? count($b['hindari']) . ' catatan soal bermasalah' : null,
+            $b['capaian'] ? 'capaian siswa ' . round($b['capaian']['proporsi_benar'] * 100) . '% pada TP ini' : null,
+        ]);
+        return $bagian ? ' AI memakai ' . implode(', ', $bagian) . ' dari analisis butir.' : '';
+    }
+
+    /**
+     * Gambar soal dari AI: ilustrasi (Gemini, OpenKey, OpenRouter) disimpan seperti gambar unggahan,
+     * atau diagram SVG (semua penyedia). Hasilnya dipasang ke soal lewat simpan/ubah.
+     */
+    public function gambarAI(Request $request, SoalAIService $ai)
+    {
+        $request->validate([
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+            'jenis' => ['required', Rule::in(['ILUSTRASI', 'DIAGRAM'])],
+            'deskripsi' => 'required|string|min:5|max:1500',
+            'model' => ['nullable', 'string', 'max:100', 'regex:#^[A-Za-z0-9._:/@-]+$#'],
+        ]);
+        if ($request->jenis === 'DIAGRAM') {
+            $svg = $ai->buatDiagram($request->ai_mode, $request->deskripsi);
+            $svg = $svg ? BankSoalService::sanitasiSvg($svg) : null;
+            if (!$svg) return response()->json(['message' => $ai->galat() ?? 'Diagram dari AI tidak bisa dipakai. Coba lagi.'], 422);
+            return response()->json(['success' => true, 'gambar_svg' => $svg]);
+        }
+
+        $hasil = $ai->buatGambar($request->ai_mode, $request->deskripsi, $request->model);
+        if (!$hasil) return response()->json(['message' => $ai->galat()], 422);
+        $file = 'soal/soal_ai_' . Str::random(16) . '.' . self::GAMBAR_MIME[$hasil['mime']];
+        Storage::disk('public')->put($file, $hasil['data']);
+        return response()->json(['success' => true, 'url' => '/storage/' . $file, 'model' => $hasil['model']]);
     }
 
     /** Impor paket soal lama (teks tempel, Word, PDF, atau foto) menjadi draf soal. */

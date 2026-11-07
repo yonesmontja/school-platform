@@ -17,6 +17,14 @@ test("guru menulis soal pilihan ganda per TP dan mengajukannya", async ({ page, 
   }
   await editor.getByLabel("Kunci A").check();
   await expect(editor.locator(".pratinjau-soal")).toContainText("Manakah yang lebih besar");
+  // Gambar AI: penyedia yang tidak bisa membuat ilustrasi hanya menawarkan diagram (AI tidak dipanggil di sini)
+  await editor.getByRole("button", { name: "Gambar AI" }).click();
+  const gambar = page.getByRole("dialog", { name: "Buat gambar dengan AI" });
+  await expect(gambar.getByLabel("Gambarkan apa yang diinginkan")).toHaveValue(/Manakah yang lebih besar/);
+  await pilih(gambar.getByLabel("Penyedia AI"), "DeepSeek (diagram saja)");
+  await expect(gambar.getByLabel("Ilustrasi")).toBeDisabled();
+  await gambar.getByRole("button", { name: "Batal" }).click();
+  await expect(gambar).toHaveCount(0);
   await editor.getByRole("button", { name: "Simpan" }).click();
   await expect(editor).toHaveCount(0);
 

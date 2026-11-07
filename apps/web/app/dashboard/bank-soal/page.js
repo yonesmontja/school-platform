@@ -21,6 +21,19 @@ const TAB = [
 ];
 const FILTER_AWAL = { id_mapel: "", status: "", bentuk: "", level_kognitif: "", cari: "", milik: false };
 
+/** Hasil analisis butir dari paket yang pernah memakai soal ini. */
+function LencanaTeruji({ stat }) {
+  const warna = stat.teruji_baik ? "success" : stat.daya_beda === "JELEK" || stat.p < 0.2 || stat.p > 0.9 ? "danger" : "warning";
+  const kesukaran = { MUDAH: "mudah", SEDANG: "sedang", SUKAR: "sukar" }[stat.kesukaran];
+  return (
+    <span className={`badge text-bg-${warna}-subtle border border-${warna}-subtle text-${warna}-emphasis fw-normal lencana-teruji`}
+      title={`Dipakai di ${stat.paket} paket, ${stat.n} siswa.\nProporsi menjawab benar ${stat.p} (${kesukaran}), daya beda ${stat.d}.\n${stat.saran || ""}`}>
+      <i className={`bi ${stat.teruji_baik ? "bi-patch-check" : "bi-graph-down"} me-1`}></i>
+      {stat.teruji_baik ? "Teruji baik" : "Perlu ditinjau"} · {Math.round(stat.p * 100)}% benar · D {stat.d}
+    </span>
+  );
+}
+
 export default function BankSoalBungkus() {
   // useSearchParams perlu Suspense; tautan Perlu Tindakan membawa ?status=&milik=
   return <Suspense fallback={null}><BankSoalPage /></Suspense>;
@@ -218,6 +231,7 @@ function BankSoalPage() {
                               <LencanaStnkm soal={s} />
                               {s.sumber !== "MANUAL" && <span className="badge text-bg-light border fw-normal"><i className={`bi ${s.sumber === "AI" ? "bi-magic" : "bi-box-arrow-in-down"} me-1`}></i>{SUMBER[s.sumber]}</span>}
                               {(s.gambar_svg || s.gambar_url) && <i className="bi bi-image text-muted" title="Bergambar"></i>}
+                              {s.statistik && <LencanaTeruji stat={s.statistik} />}
                             </div>
                             {terbuka[s.id_soal] ? <div className="py-1"><PratinjauSoal soal={s} /></div>
                               : <div className="text-truncate">{s.pertanyaan}</div>}

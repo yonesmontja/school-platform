@@ -43,13 +43,16 @@ export const STATUS = {
 
 export const SUMBER = { MANUAL: "Ditulis guru", AI: "Draf AI", IMPOR: "Impor paket" };
 
+// berkas: bisa membaca PDF/foto; gambar: bisa dicoba membuat ilustrasi (sama dengan SoalAIService::MODES_GAMBAR)
 export const AI_MODES = [
-  { value: "GEMINI", label: "Google Gemini", berkas: true },
+  { value: "GEMINI", label: "Google Gemini", berkas: true, gambar: true },
   { value: "CLAUDE", label: "Anthropic Claude", berkas: true },
-  { value: "QWEN", label: "Qwen (OpenRouter)" },
+  { value: "QWEN", label: "Qwen (OpenRouter)", gambar: true },
   { value: "DEEPSEEK", label: "DeepSeek" },
-  { value: "OPENKEY", label: "OpenKey" },
+  { value: "OPENKEY", label: "OpenKey", gambar: true },
 ];
+// Model gambar bawaan per penyedia (SoalAIService::MODEL_GAMBAR); guru boleh menggantinya
+export const MODEL_GAMBAR = { GEMINI: "gemini-2.5-flash-image", OPENKEY: "gpt-image-1", QWEN: "google/gemini-2.5-flash-image" };
 
 // Pilihan AI terakhir diingat per perangkat
 const KUNCI_AI = "banksoal_ai";

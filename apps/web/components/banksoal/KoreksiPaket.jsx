@@ -26,7 +26,8 @@ const kunciTeks = (b) => {
 
 /**
  * Koreksi cepat: satu baris per siswa. Pilihan ganda, benar/salah, dan isian cukup diketik (A / AC / BSB / teks)
- * dan langsung dinilai; uraian, menjodohkan, dan mengurutkan diisi skornya. Foto lembar jawaban bisa dibaca AI.
+ * dan langsung dinilai; uraian, menjodohkan, dan mengurutkan diisi skornya. Foto lembar jawaban bisa dibaca AI,
+ * dan skor uraian bisa diusulkan AI (dari jawaban online/catatan atau foto) untuk diperiksa guru.
  */
 export default function KoreksiPaket({ paket, onBerubah }) {
   const butir = paket.butir || [];
@@ -37,6 +38,8 @@ export default function KoreksiPaket({ paket, onBerubah }) {
   const [menyimpan, setMenyimpan] = useState(false);
   const [lihatKunci, setLihatKunci] = useState(false);
   const [detail, setDetail] = useState(null); // id_siswa
+  const [saranAi, setSaranAi] = useState({}); // id_siswa → id_butir → {skor, alasan, transkrip}
+  const adaUraian = butir.some((b) => b.soal.bentuk === "URAIAN");
   const tabel = useRef(null);
   // Muat ulang hanya bila susunan butir berubah, agar isian yang belum disimpan tidak hilang saat paket disegarkan
   const butirRef = useRef(butir);
@@ -89,6 +92,56 @@ export default function KoreksiPaket({ paket, onBerubah }) {
     finally { setMenyimpan(false); }
   };
 
+  /** Minta usulan skor uraian untuk satu siswa lalu isi ke lembar (belum disimpan). */
+  const nilaiUraianAi = async (idSiswa, mode) => {
+    const r = baris[idSiswa] || kosong();
+    const jawaban = Object.fromEntries(butir.filter((b) => b.soal.bentuk === "URAIAN" && typeof r.jawaban?.[b.id] === "string" && r.jawaban[b.id].trim())
+      .map((b) => [b.id, r.jawaban[b.id]]));
+    const res = await minta("POST", `/paket-soal/${paket.id_paket}/jawaban/${idSiswa}/nilai-ai`, { ai_mode: mode, jawaban });
+    setSaranAi((s) => ({ ...s, [idSiswa]: { ...s[idSiswa], ...res.saran } }));
+    ubah(idSiswa, (x) => {
+      const sm = { ...x.skor_manual };
+      const jw = { ...x.jawaban };
+      const tk = { ...x.teks };
+      for (const [idB, sr] of Object.entries(res.saran)) {
+        if (sr.skor != null) sm[idB] = sr.skor;
+        // Transkrip dari foto mengisi jawaban yang masih kosong
+        if (sr.transkrip && !String(jw[idB] ?? "").trim()) { jw[idB] = sr.transkrip; tk[idB] = sr.transkrip; }
+      }
+      return { ...x, skor_manual: sm, jawaban: jw, teks: tk };
+    });
+    return { pesan: res.message };
+  };
+
+  // Semua siswa yang punya jawaban uraian (online/catatan) atau foto dan masih ada uraian tanpa skor
+  const nilaiSemuaUraian = async () => {
+    const uraian = butir.filter((b) => b.soal.bentuk === "URAIAN");
+    const calon = siswa.filter((s) => {
+      const r = baris[s.id_siswa];
+      if (!r || r.sedang) return false;
+      const adaBahan = (r.foto || []).length > 0 || uraian.some((b) => typeof r.jawaban?.[b.id] === "string" && r.jawaban[b.id].trim());
+      return adaBahan && uraian.some((b) => r.skor_manual?.[b.id] == null);
+    });
+    if (!calon.length) return Swal.fire("Tidak ada yang perlu dinilai", "Belum ada siswa dengan jawaban uraian atau foto lembar jawaban yang uraiannya belum diberi skor.", "info");
+    const pilihan = await Swal.fire({
+      title: "Nilai uraian dengan AI",
+      html: `AI mengusulkan skor uraian untuk <b>${calon.length} siswa</b> sesuai rubrik. Skor terisi di lembar tetapi <b>belum disimpan</b>; periksa dulu, lalu tekan Simpan.<br><small class="text-muted">Foto lembar jawaban hanya dibaca Gemini atau Claude.</small>`,
+      input: "select", inputOptions: Object.fromEntries(AI_MODES.map((m) => [m.value, m.label])), inputValue: bacaAiMode(),
+      showCancelButton: true, confirmButtonText: "Mulai", cancelButtonText: "Batal",
+    });
+    if (!pilihan.isConfirmed) return;
+    simpanAiMode(pilihan.value);
+    let berhasil = 0;
+    const gagal = [];
+    for (const [i, s] of calon.entries()) {
+      Swal.fire({ title: "AI sedang menilai…", html: `${i + 1} dari ${calon.length}: <b>${s.nama_siswa}</b>`, allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+      try { await nilaiUraianAi(s.id_siswa, pilihan.value); berhasil++; }
+      catch (err) { gagal.push(`${s.nama_siswa}: ${err.message}`); }
+    }
+    Swal.fire({ icon: gagal.length ? "warning" : "success", title: `Usulan skor untuk ${berhasil} siswa`,
+      html: `Baris berwarna kuning belum disimpan. Arahkan kursor ke kolom uraian bertanda <i class="bi bi-stars"></i> untuk melihat alasan AI, atau buka rincian siswa.${gagal.length ? `<br><br><small class="text-start d-block">${gagal.slice(0, 5).join("<br>")}</small>` : ""}` });
+  };
+
   const kirimNilai = async () => {
     if (kotor.size && !(await simpan())) return;
     if (!paket.id_jenis || !paket.tanggal) return Swal.fire("Lengkapi pengaturan paket", "Isi jenis penilaian dan tanggal pada pengaturan paket (tombol Ubah) sebelum mengirim nilai.", "info");
@@ -133,6 +186,7 @@ export default function KoreksiPaket({ paket, onBerubah }) {
         <button className="btn btn-sm btn-primary" disabled={!kotor.size || menyimpan} onClick={() => simpan()}>
           {menyimpan ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-save me-1"></i>}Simpan{kotor.size ? ` (${kotor.size})` : ""}
         </button>
+        {adaUraian && <button className="btn btn-sm btn-outline-primary" onClick={nilaiSemuaUraian} disabled={menyimpan}><i className="bi bi-stars me-1"></i>Nilai uraian (AI)</button>}
         <button className="btn btn-sm btn-success" onClick={kirimNilai} disabled={menyimpan}><i className="bi bi-send-check me-1"></i>Kirim ke Input Nilai</button>
       </div>
       {paket.terkirim_pada && <div className="small text-success-emphasis mb-2"><i className="bi bi-check2-circle me-1"></i>Terakhir dikirim ke Input Nilai {new Date(paket.terkirim_pada).toLocaleString("id-ID")}. Kirim lagi setelah ada koreksi baru.</div>}
@@ -170,8 +224,10 @@ export default function KoreksiPaket({ paket, onBerubah }) {
                       const sk = diisi ? skorButir(b, r.jawaban, r.skor_manual, r.online) : null;
                       const auto = skorButir(b, r.jawaban, {}, r.online);
                       const warna = sk == null ? "" : sk >= b.skor_maks ? "bg-success-subtle" : sk > 0 ? "bg-warning-subtle" : "bg-danger-subtle";
+                      const sr = saranAi[s.id_siswa]?.[b.id];
                       return (
-                        <td key={b.id} className={`p-0 ${warna}`} title={sk != null ? `Skor ${sk}/${b.skor_maks}${r.skor_manual?.[b.id] != null && otomatis ? " (ditetapkan guru)" : ""}` : undefined}>
+                        <td key={b.id} className={`p-0 position-relative ${warna}`} title={sr ? `Usulan AI: ${sr.skor ?? "–"}/${b.skor_maks}. ${sr.alasan}` : sk != null ? `Skor ${sk}/${b.skor_maks}${r.skor_manual?.[b.id] != null && otomatis ? " (ditetapkan guru)" : ""}` : undefined}>
+                          {sr && <i className="bi bi-stars text-primary position-absolute" style={{ fontSize: ".6rem", top: 1, right: 2 }} aria-hidden="true"></i>}
                           {otomatis ? (
                             <input className="form-control form-control-sm border-0 bg-transparent text-center px-1" style={{ width: ["ISIAN", "LENGKAPI_GAMBAR"].includes(b.soal.bentuk) ? 90 : 52 }}
                               aria-label={`Jawaban ${s.nama_siswa} nomor ${bi + 1}`} value={r.teks?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah} disabled={r.sedang}
@@ -204,6 +260,7 @@ export default function KoreksiPaket({ paket, onBerubah }) {
 
       {detail && (
         <RincianSiswa paket={paket} siswa={siswa.find((s) => s.id_siswa === detail)} baris={baris[detail] || kosong()}
+          saran={saranAi[detail] || {}} onNilaiUraian={(mode) => nilaiUraianAi(detail, mode)}
           onTeks={(b, v) => isiTeks(detail, b, v)} onSkor={(b, v) => isiSkor(detail, b, v)}
           onJawabanAi={(jawaban) => ubah(detail, (r) => ({ ...r, jawaban: { ...r.jawaban, ...jawaban }, teks: { ...r.teks, ...Object.fromEntries(butir.map((b) => [b.id, keTeks(b.soal, jawaban[b.id] ?? r.jawaban[b.id])])) } }))}
           onFoto={(foto) => setBaris((b) => ({ ...b, [detail]: { ...(b[detail] || kosong()), foto } }))}
@@ -215,9 +272,11 @@ export default function KoreksiPaket({ paket, onBerubah }) {
 }
 
 /** Rincian satu siswa: foto lembar jawaban (unggah, baca AI), jawaban dan skor per butir (skor guru menggantikan otomatis). */
-function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto, onSimpan, menyimpan, onTutup }) {
+function RincianSiswa({ paket, siswa, baris, saran, onNilaiUraian, onTeks, onSkor, onJawabanAi, onFoto, onSimpan, menyimpan, onTutup }) {
   const butir = paket.butir || [];
-  const [aiMode, setAiMode] = useState(() => (["GEMINI", "CLAUDE"].includes(bacaAiMode()) ? bacaAiMode() : "GEMINI"));
+  const [aiMode, setAiMode] = useState(bacaAiMode);
+  const bisaBaca = AI_MODES.find((m) => m.value === aiMode)?.berkas;
+  const adaUraian = butir.some((b) => b.soal.bentuk === "URAIAN");
   const [proses, setProses] = useState(null); // "unggah" | url yang sedang dibaca
   const berkas = useRef(null);
   const rk = ringkas(butir, baris.jawaban, baris.skor_manual, baris.online);
@@ -261,6 +320,16 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
     finally { setProses(null); }
   };
 
+  const nilaiUraian = async () => {
+    simpanAiMode(aiMode);
+    setProses("uraian");
+    try {
+      const { pesan } = await onNilaiUraian(aiMode);
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: pesan, showConfirmButton: false, timer: 3500 });
+    } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }
+    finally { setProses(null); }
+  };
+
   return (
     <>
       <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Koreksi ${siswa.nama_siswa}`}>
@@ -283,7 +352,7 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
                             : <img src={srcGambar(url)} alt="Lembar jawaban" style={{ width: "100%", height: 120, objectFit: "cover" }} />}
                         </a>
                         <div className="d-flex gap-1 mt-1">
-                          <button className="btn btn-sm btn-primary flex-grow-1" disabled={!!proses} onClick={() => bacaAi(url)}>
+                          <button className="btn btn-sm btn-primary flex-grow-1" disabled={!!proses || !bisaBaca} onClick={() => bacaAi(url)} title={bisaBaca ? undefined : "Foto hanya bisa dibaca Gemini atau Claude"}>
                             {proses === url ? <span className="spinner-border spinner-border-sm"></span> : <><i className="bi bi-magic me-1"></i>Baca AI</>}
                           </button>
                           <button className="btn btn-sm btn-outline-danger" disabled={!!proses} onClick={() => hapusFoto(url)} aria-label="Hapus foto"><i className="bi bi-trash"></i></button>
@@ -296,11 +365,16 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
                     {proses === "unggah" ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-upload me-1"></i>}Unggah / foto lembar
                   </label>
                   <div className="mt-2">
-                    <label className="form-label small mb-1" htmlFor="aiBaca">AI pembaca foto</label>
+                    <label className="form-label small mb-1" htmlFor="aiBaca">Penyedia AI</label>
                     <select id="aiBaca" className="form-select form-select-sm" value={aiMode} onChange={(e) => setAiMode(e.target.value)}>
-                      {AI_MODES.filter((m) => m.berkas).map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      {AI_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}{m.berkas ? "" : " (tanpa foto)"}</option>)}
                     </select>
-                    <div className="form-text">AI hanya mengisi usulan jawaban. Periksa, lalu tekan Simpan.</div>
+                    {adaUraian && (
+                      <button type="button" className="btn btn-sm btn-outline-primary mt-2 w-100" disabled={!!proses || baris.sedang} onClick={nilaiUraian}>
+                        {proses === "uraian" ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-stars me-1"></i>}Nilai uraian dengan AI
+                      </button>
+                    )}
+                    <div className="form-text">AI hanya mengisi usulan jawaban dan skor. Foto hanya dibaca Gemini atau Claude. Periksa, lalu tekan Simpan.</div>
                   </div>
                 </div>
                 <div className="col-lg-7">
@@ -336,6 +410,12 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
                             </div>
                           </div>
                           {b.soal.bentuk === "URAIAN" && b.soal.rubrik && <div className="text-body-secondary mt-1" style={{ whiteSpace: "pre-wrap" }}><b>Rubrik:</b> {b.soal.rubrik}</div>}
+                          {saran[b.id] && (
+                            <div className="alert alert-primary py-1 px-2 mt-1 mb-0 saran-ai">
+                              <i className="bi bi-stars me-1"></i><b>Usulan AI {saran[b.id].skor ?? "–"}/{b.skor_maks}:</b> {saran[b.id].alasan}
+                              {saran[b.id].transkrip && <div className="text-body-secondary mt-1" style={{ whiteSpace: "pre-wrap" }}><b>Tulisan siswa:</b> {saran[b.id].transkrip}</div>}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
