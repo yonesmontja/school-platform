@@ -291,6 +291,12 @@ class BankSoalController extends Controller
 
         $hasil = $ai->buatGambar($request->ai_mode, $request->deskripsi, $request->model);
         if (!$hasil) return response()->json(['message' => $ai->galat()], 422);
+        if (isset($hasil['svg'])) {
+            $svg = BankSoalService::sanitasiSvg($hasil['svg']);
+            if (!$svg) return response()->json(['message' => "Model {$hasil['model']} tidak membuat gambar ilustrasi dan kode SVG-nya tidak bisa dipakai. Pilih jenis Diagram (SVG) atau model gambar lain."], 422);
+            return response()->json(['success' => true, 'gambar_svg' => $svg, 'model' => $hasil['model'],
+                'catatan' => "Model {$hasil['model']} hanya membuat teks, jadi hasilnya berupa diagram SVG, bukan ilustrasi berwarna."]);
+        }
         $file = 'soal/soal_ai_' . Str::random(16) . '.' . self::GAMBAR_MIME[$hasil['mime']];
         Storage::disk('public')->put($file, $hasil['data']);
         return response()->json(['success' => true, 'url' => '/storage/' . $file, 'model' => $hasil['model']]);

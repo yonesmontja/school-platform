@@ -102,6 +102,7 @@ export default function ModalGambarAI({ soal, onPakai, onTutup }) {
                 <div className="text-center border rounded p-2 bg-white">
                   <img src={hasil.gambar_svg ? srcSvg(hasil.gambar_svg) : srcGambar(hasil.url)} alt="Hasil gambar AI" style={{ maxWidth: "100%", maxHeight: 360 }} />
                   {hasil.model && <div className="small text-muted mt-1">Model: {hasil.model}</div>}
+                  {hasil.catatan && <div className="small text-warning-emphasis mt-1"><i className="bi bi-info-circle me-1"></i>{hasil.catatan}</div>}
                 </div>
               )}
             </div>

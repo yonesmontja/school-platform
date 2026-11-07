@@ -68,6 +68,8 @@ TXT;
     private ?SchoolSetting $settings = null;
     private ?string $galat = null;
     private float $suhu = 0.6;
+    // SVG yang dikembalikan model teks saat diminta gambar; dipakai sebagai diagram
+    private ?string $svgCadangan = null;
 
     /** Pesan galat terakhir (untuk ditampilkan ke guru). */
     public function galat(): ?string { return $this->galat; }
@@ -207,11 +209,13 @@ TXT;
     /**
      * Gambar ilustrasi dari penyedia yang sama dengan rapor/jurnal (Gemini, OpenKey, OpenRouter).
      * Pesan galat menyebutkan jawaban penyedia apa adanya, agar sekolah tahu penyedia/model mana yang bisa dipakai.
-     * @return array|null ['data' => biner, 'mime' => ..., 'model' => ...]
+     * @return array|null ['data' => biner, 'mime' => ..., 'model' => ...], atau ['svg' => ..., 'model' => ...]
+     *                    bila model hanya membuat teks dan membalas dengan kode SVG
      */
     public function buatGambar(string $mode, string $deskripsi, ?string $model = null): ?array
     {
         $this->galat = null;
+        $this->svgCadangan = null;
         if (!in_array($mode, self::MODES_GAMBAR, true)) {
             $this->galat = (self::LABEL[$mode] ?? $mode) . ' tidak bisa membuat gambar ilustrasi. Pilih jenis "Diagram (SVG)" untuk penyedia ini, atau pilih Gemini, OpenKey, atau OpenRouter.';
             return null;
@@ -225,6 +229,10 @@ TXT;
             'QWEN' => $this->gambarChat('QWEN', 'https://openrouter.ai/api/v1/chat/completions', $this->apiKey('api_key_qwen', 'openrouter_key'), $model, $prompt, ['X-Title' => 'EduRapor']),
             'OPENKEY' => $this->gambarOpenKey($model, $prompt),
         };
+        if ($url === null && $this->svgCadangan) {
+            $this->galat = null;
+            return ['svg' => $this->svgCadangan, 'model' => $model];
+        }
         if ($url === null) {
             $this->galat ??= self::LABEL[$mode] . ' belum diatur. Periksa API key di Pengaturan Sekolah.';
             return null;
@@ -260,6 +268,7 @@ TXT;
                 if (!empty($inline['data'])) return 'data:' . ($inline['mimeType'] ?? $inline['mime_type'] ?? 'image/png') . ';base64,' . $inline['data'];
             }
             $teks = $response->json('candidates.0.content.parts.0.text');
+            if ($this->ambilSvg($teks)) return null;
             $this->galat = "Gemini (model {$model}) tidak mengembalikan gambar" . ($teks ? ': ' . mb_substr($teks, 0, 200) : '. Model ini mungkin hanya membuat teks; coba model gambar, mis. gemini-2.5-flash-image.');
             return null;
         } catch (\Exception $e) {
@@ -315,6 +324,7 @@ TXT;
             $gambar = $pesan['images'][0]['image_url']['url'] ?? $pesan['images'][0]['url'] ?? null;
             if ($gambar) return $gambar;
             $teks = is_string($pesan['content'] ?? null) ? $pesan['content'] : '';
+            if ($this->ambilSvg($teks)) return null;
             if (preg_match('#(data:image/[a-z]+;base64,[A-Za-z0-9+/=]+|https://[^\s)"\']+\.(?:png|jpe?g|webp)[^\s)"\']*)#i', $teks, $m)) return $m[1];
             $this->galat = self::LABEL[$mode] . " (model {$model}) tidak mengembalikan gambar" . ($teks ? ': ' . mb_substr($teks, 0, 160) : '. Pilih model yang bisa membuat gambar.');
             return null;
@@ -323,6 +333,16 @@ TXT;
             $this->galat = self::LABEL[$mode] . ' tidak bisa dihubungi: ' . mb_substr($e->getMessage(), 0, 150);
             return null;
         }
+    }
+
+    /** Simpan kode SVG dari jawaban teks (mis. dalam blok ```svg) sebagai cadangan diagram. */
+    private function ambilSvg(?string $teks): bool
+    {
+        if ($teks && preg_match('#<svg\b.*?</svg>#is', $teks, $m)) {
+            $this->svgCadangan = $m[0];
+            return true;
+        }
+        return false;
     }
 
     /** Data URL atau tautan https dari penyedia → biner gambar (maks. 8MB). */

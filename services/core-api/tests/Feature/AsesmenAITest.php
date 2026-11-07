@@ -107,7 +107,12 @@ class AsesmenAITest extends TestCase
                 ->push(['candidates' => [['content' => ['parts' => [['text' => 'ini gambarnya'], ['inlineData' => ['mimeType' => 'image/png', 'data' => self::PNG]]]]]]])
                 ->push(['error' => ['message' => 'Quota exceeded for image model']], 429),
             'openkey.test/v1/images/generations' => Http::response(['error' => ['message' => 'model not supported']], 400),
-            'openkey.test/v1/chat/completions' => Http::response(['choices' => [['message' => ['content' => 'Berikut: ![g](data:image/png;base64,' . self::PNG . ')']]]]),
+            'openkey.test/v1/chat/completions' => Http::sequence()
+                ->push(['choices' => [['message' => ['content' => 'Berikut: ![g](data:image/png;base64,' . self::PNG . ')']]]])
+                ->push(['choices' => [['message' => ['content' => "Berikut:
+```svg
+<svg viewBox=\"0 0 10 10\"><rect width=\"5\" height=\"5\"/></svg>
+```"]]]]),
             'api.anthropic.com/*' => Http::response(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => json_encode(['gambar_svg' => '<svg viewBox="0 0 10 10"><script>x</script><circle cx="5" cy="5" r="4"/></svg>'])]]]),
         ]);
 
@@ -118,6 +123,11 @@ class AsesmenAITest extends TestCase
         // OpenKey: endpoint gambar menolak, lalu chat completions mengembalikan gambar; model pilihan guru dipakai
         $res = $this->postJson('/api/bank-soal/ai/gambar', ['ai_mode' => 'OPENKEY', 'jenis' => 'ILUSTRASI', 'deskripsi' => 'Kue dipotong', 'model' => 'nano-banana'])->assertOk();
         $this->assertSame('nano-banana', $res->json('model'));
+
+        // Model teks yang membalas dengan kode SVG: dipakai sebagai diagram, bukan galat
+        $res = $this->postJson('/api/bank-soal/ai/gambar', ['ai_mode' => 'OPENKEY', 'jenis' => 'ILUSTRASI', 'deskripsi' => 'Kotak', 'model' => 'teks-saja'])->assertOk();
+        $this->assertStringContainsString('<rect', $res->json('gambar_svg'));
+        $this->assertStringContainsString('hanya membuat teks', $res->json('catatan'));
 
         // Claude tidak membuat ilustrasi, tetapi bisa membuat diagram SVG yang dibersihkan
         $this->postJson('/api/bank-soal/ai/gambar', ['ai_mode' => 'CLAUDE', 'jenis' => 'ILUSTRASI', 'deskripsi' => 'Kue dipotong'])
