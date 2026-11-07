@@ -58,3 +58,54 @@ test("guru menyusun kisi-kisi per TP dengan sebaran level dan STNKM", async ({ p
   await expect(page.getByText("3 soal direncanakan")).toBeVisible();
   await expect(page.getByRole("button", { name: "Buat dengan AI" }).first()).toBeEnabled();
 });
+
+test("guru memperbaiki dan mengajukan lagi, kepala sekolah menyetujui", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  const kartu = page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" });
+  await kartu.getByRole("button", { name: "Ajukan soal" }).click();
+  await expect(kartu).toContainText("Menunggu persetujuan");
+
+  await masuk("kepsek");
+  await page.goto("/dashboard/bank-soal?status=DIAJUKAN");
+  await page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" }).getByRole("button", { name: "Setujui soal" }).click();
+  await expect(page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" })).toHaveCount(0);
+});
+
+test("guru menyusun paket, mengoreksi, mengirim nilai, dan melihat analisis butir", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  await page.getByRole("button", { name: /Paket Soal/ }).click();
+  await page.getByRole("button", { name: "Paket baru" }).click();
+  const editor = page.getByRole("dialog", { name: "Paket soal baru" });
+  await editor.getByLabel("Judul paket").fill("PH Pecahan E2E");
+  await pilih(editor.getByLabel("Kelas yang mengerjakan"), "4A");
+  await pilih(editor.getByLabel("Jenis penilaian di Input Nilai"), "Ulangan Harian");
+  await editor.getByLabel("Tanggal").fill("2026-01-05");
+  await editor.getByRole("button", { name: "Simpan paket" }).click();
+  await expect(editor).toHaveCount(0);
+
+  // Hanya soal yang sudah disetujui yang bisa dipilih
+  await page.getByRole("button", { name: "Tambah soal" }).click();
+  const pilihan = page.getByRole("dialog", { name: "Tambah soal ke paket" });
+  await pilihan.locator(".pilih-soal", { hasText: "Manakah yang lebih besar" }).getByLabel("Pilih soal").check();
+  await pilihan.getByRole("button", { name: /Tambahkan 1 soal/ }).click();
+  await expect(page.locator(".butir-paket")).toHaveCount(1);
+
+  // Koreksi: ketik jawaban, nilai langsung terhitung
+  await page.getByRole("button", { name: "Koreksi" }).click();
+  await page.getByLabel("Jawaban Abner Kogoya nomor 1").fill("a");
+  await page.getByLabel("Jawaban Debora Tabuni nomor 1").fill("A");
+  await expect(page.locator("tr", { hasText: "Abner Kogoya" })).toContainText("100");
+  await page.getByRole("button", { name: /Simpan \(2\)/ }).click();
+  await expect(page.locator(".swal2-toast")).toContainText("2 jawaban disimpan");
+
+  await page.getByRole("button", { name: "Kirim ke Input Nilai" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".swal2-popup")).toContainText("Nilai 2 siswa dikirim");
+  await page.locator(".swal2-confirm").click();
+
+  await page.getByRole("button", { name: "Analisis" }).click();
+  await expect(page.locator(".analisis-butir")).toContainText("Manakah yang lebih besar");
+  await expect(page.getByText("Profil STNKM kelas")).toBeVisible();
+});

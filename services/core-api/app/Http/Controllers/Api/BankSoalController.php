@@ -8,6 +8,8 @@ use App\Models\Classes;
 use App\Models\KisiKisiBaris;
 use App\Models\MasterIndikator;
 use App\Models\MasterMateri;
+use App\Models\MasterMBK;
+use App\Models\MasterPeriode;
 use App\Models\Subject;
 use App\Services\BankSoalService;
 use App\Services\SoalAIService;
@@ -80,6 +82,9 @@ class BankSoalController extends Controller
             'ai_modes' => SoalAIService::MODES,
             'ai_modes_berkas' => SoalAIService::MODES_BERKAS,
             'boleh_setujui' => $user->isKepsek(),
+            // Untuk paket soal: periode, jenis penilaian (saat dikirim ke Input Nilai)
+            'periode' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(['id_periode', 'tahun_ajaran', 'semester', 'status_aktif']),
+            'jenis' => MasterMBK::orderBy('kategori_penilaian')->get(['id_jenis', 'kategori_penilaian', 'keterangan', 'jenis_asesmen']),
         ]);
     }
 

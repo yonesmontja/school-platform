@@ -129,6 +129,26 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "paket-soal", kelompok: "guru", judul: "Paket soal: cetak, koreksi, dan analisis butir", icon: "bi-journal-text",
+    href: "/dashboard/bank-soal",
+    langkah: [
+      "Buka Bank Soal → tab Paket Soal, lalu tekan Paket baru. Isi judul, kelas, jenis penilaian, dan tanggal; pilih kisi-kisi bila ada agar soal langsung terisi.",
+      "Di bagian Susun, tambahkan soal yang sudah disetujui, atur urutan dan skor maksimal, lalu tekan Simpan susunan.",
+      "Tekan Cetak → Naskah + lembar jawaban (pilih Simpan sebagai PDF bila ingin berkasnya). Kunci & rubrik dicetak terpisah untuk guru.",
+      "Setelah ujian, buka bagian Koreksi. Ketik jawaban tiap siswa: A untuk pilihan ganda, AC untuk pilihan ganda kompleks, BSB untuk benar/salah, teks untuk isian; nilai langsung terhitung. Uraian, menjodohkan, dan mengurutkan diisi skornya.",
+      "Atau tekan ikon kamera di baris siswa, unggah foto lembar jawabannya, lalu Baca AI. Periksa hasil bacaan AI sebelum Simpan.",
+      "Tekan Kirim ke Input Nilai: nilai per TP masuk ke Input Nilai pada tanggal paket, termasuk perhitungan STNKM dan tanda remedial untuk nilai di bawah KKM.",
+      "Buka bagian Analisis untuk melihat tingkat kesukaran, daya beda, pengecoh yang tidak dipilih siswa, capaian per TP, dan profil STNKM kelas.",
+    ],
+    tips: [
+      "Isi baris siswa dan tekan Enter untuk turun ke siswa berikutnya pada nomor yang sama, sehingga koreksi bisa per nomor.",
+      "Siswa yang barisnya kosong dianggap tidak ikut dan tidak dikirim ke Input Nilai.",
+      "Soal dalam paket adalah salinan saat ditambahkan; mengubah soal di bank tidak mengubah naskah yang sudah dicetak.",
+      "Baca foto hanya bisa dengan Gemini atau Claude. Foto yang terang dan lurus memberi hasil terbaik.",
+      "Daya beda dihitung bila minimal 4 siswa selesai dikoreksi. Butir bertanda Perlu diperbaiki sebaiknya direvisi sebelum dipakai lagi.",
+    ],
+  },
+  {
     id: "import", kelompok: "guru", judul: "Import nilai atau jurnal dari Excel", icon: "bi-file-earmark-arrow-up",
     href: "/dashboard/import-excel",
     langkah: [

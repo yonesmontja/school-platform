@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
 use App\Http\Controllers\Api\BankSoalController;
 use App\Http\Controllers\Api\KisiKisiController;
+use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
@@ -228,6 +229,26 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/tarik', [BankSoalController::class, 'tarik']);
         });
         Route::apiResource('/kisi-kisi', KisiKisiController::class)->parameters(['kisi-kisi' => 'id']);
+        // Paket soal (Fase 16 Tahap B): naskah, koreksi, kirim nilai ke Input Nilai, analisis butir
+        Route::prefix('paket-soal')->group(function () {
+            Route::get('/', [PaketSoalController::class, 'index']);
+            Route::post('/', [PaketSoalController::class, 'store']);
+            Route::get('/{id}', [PaketSoalController::class, 'show']);
+            Route::put('/{id}', [PaketSoalController::class, 'update']);
+            Route::delete('/{id}', [PaketSoalController::class, 'destroy']);
+            Route::post('/{id}/butir', [PaketSoalController::class, 'tambahButir']);
+            Route::put('/{id}/butir', [PaketSoalController::class, 'aturButir']);
+            Route::delete('/{id}/butir/{idButir}', [PaketSoalController::class, 'hapusButir'])->whereNumber('idButir');
+            Route::post('/{id}/isi-kisi', [PaketSoalController::class, 'isiDariKisi']);
+            Route::get('/{id}/jawaban', [PaketSoalController::class, 'jawaban']);
+            Route::put('/{id}/jawaban', [PaketSoalController::class, 'simpanJawaban']);
+            Route::delete('/{id}/jawaban/{idSiswa}', [PaketSoalController::class, 'hapusJawaban']);
+            Route::post('/{id}/jawaban/{idSiswa}/foto', [PaketSoalController::class, 'unggahFoto']);
+            Route::delete('/{id}/jawaban/{idSiswa}/foto', [PaketSoalController::class, 'hapusFoto']);
+            Route::post('/{id}/jawaban/{idSiswa}/baca', [PaketSoalController::class, 'bacaFoto']);
+            Route::post('/{id}/kirim-nilai', [PaketSoalController::class, 'kirimNilai']);
+            Route::get('/{id}/analisis', [PaketSoalController::class, 'analisis']);
+        });
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);

@@ -29,6 +29,8 @@ class AuditTrail
         'TransJurnal' => 'Jurnal', 'TransPresensi' => 'Presensi', 'TransJadwal' => 'Jadwal',
         'TransNilaiP5' => 'Proyek', 'TransCatatanP5' => 'Proyek', 'TransCatatanWali' => 'Rapor',
         'SchoolSetting' => 'Pengaturan Sekolah', 'User' => 'Pengguna', 'TransDiagnostikNonkognitif' => 'Asesmen Diagnostik',
+        'BankSoal' => 'Bank Soal', 'KisiKisi' => 'Bank Soal', 'KisiKisiBaris' => 'Bank Soal',
+        'PaketSoal' => 'Paket Soal', 'PaketSoalButir' => 'Paket Soal', 'PaketSoalJawaban' => 'Paket Soal',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit

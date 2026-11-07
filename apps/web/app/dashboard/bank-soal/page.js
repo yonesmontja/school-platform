@@ -10,11 +10,13 @@ import EditorSoal from "@/components/banksoal/EditorSoal";
 import ModalDrafAI from "@/components/banksoal/ModalDrafAI";
 import KisiKisi from "@/components/banksoal/KisiKisi";
 import ImporSoal from "@/components/banksoal/ImporSoal";
+import PaketSoal from "@/components/banksoal/PaketSoal";
 import { minta } from "@/components/banksoal/api";
 
 const TAB = [
   { id: "soal", label: "Bank Soal", icon: "bi-collection" },
   { id: "kisi", label: "Kisi-kisi", icon: "bi-grid-3x3" },
+  { id: "paket", label: "Paket Soal", icon: "bi-journal-text" },
   { id: "impor", label: "Impor Paket", icon: "bi-box-arrow-in-down" },
 ];
 const FILTER_AWAL = { id_mapel: "", status: "", bentuk: "", level_kognitif: "", cari: "", milik: false };
@@ -114,7 +116,7 @@ function BankSoalPage() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
           <h3 className="fw-bold text-primary mb-0"><i className="bi bi-patch-question me-2"></i>Bank Soal</h3>
-          <small className="text-muted">Kisi-kisi dan soal per TP dalam kerangka STNKM, disusun bersama AI dan disetujui kepala sekolah</small>
+          <small className="text-muted">Kisi-kisi, soal per TP, dan paket ujian dalam kerangka STNKM: disusun bersama AI, disetujui kepala sekolah, dikoreksi, dan dianalisis</small>
         </div>
         <ol className="breadcrumb mb-0 small">
           <li className="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
@@ -140,6 +142,8 @@ function BankSoalPage() {
         <div className="alert alert-info"><i className="bi bi-info-circle me-2"></i>Akun Anda belum mengampu mata pelajaran. Minta admin menautkan mapel di Master Mapel.</div>
       ) : tab === "kisi" ? (
         <KisiKisi referensi={referensi} onSoalBerubah={muat} />
+      ) : tab === "paket" ? (
+        <PaketSoal referensi={referensi} />
       ) : tab === "impor" ? (
         <ImporSoal referensi={referensi} onSelesai={() => { setTab("soal"); ubahFilter({ ...FILTER_AWAL, status: "DRAF", milik: true }); }} />
       ) : (
