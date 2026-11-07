@@ -127,6 +127,11 @@ test("admin membuka pratinjau rapor siswa", async ({ page, masuk }) => {
   // Nilai dari tes pertama (rata-rata 60 & 70) dan deskripsi capaian yang disusun dari indikatornya
   await expect(rapor).toContainText(/Matematika\s*75\s*65/);
   await expect(rapor).toContainText("Perlu bimbingan dalam menyebutkan pembilang dan penyebut");
+
+  // W6: penjelasan cara membaca deskripsi, di luar kertas rapor (tidak ikut tercetak)
+  await page.getByRole("button", { name: /Cara membaca deskripsi capaian/ }).click();
+  await expect(page.getByText(/paling banyak dua TP dengan nilai terendah/)).toBeVisible();
+  await expect(rapor).not.toContainText("Cara membaca deskripsi");
 });
 
 test("rapor kembali ke tampilan terakhir bila halaman dimuat ulang saat panel WhatsApp terbuka (W4)", async ({ page, masuk }) => {

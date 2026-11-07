@@ -63,6 +63,8 @@ services:
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       FILESYSTEM_DISK: local
+      # artisan serve melayani beberapa permintaan sekaligus (satu halaman memanggil 5–10 API)
+      PHP_CLI_SERVER_WORKERS: "6"
     depends_on:
       - db
     ports:

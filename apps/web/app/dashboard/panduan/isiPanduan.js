@@ -206,6 +206,7 @@ export const BAGIAN = [
     tips: [
       "Catatan wali yang belum lengkap muncul di Perlu Tindakan.",
       "Setelah menyimpan catatan, panel WhatsApp bisa langsung mengirim ringkasan ke orang tua.",
+      "Deskripsi capaian tiap mapel disusun otomatis dari nilai per TP: dua TP terkuat yang sudah mencapai KKM dan dua TP terendah yang belum. Buka Cara membaca deskripsi capaian di atas pratinjau untuk penjelasan lengkap.",
     ],
   },
 
@@ -297,6 +298,7 @@ export const BAGIAN = [
     tips: [
       "Tombol Buka di Perlu Tindakan (ikon lonceng) langsung membuka remedial atau kehadiran anak yang dimaksud.",
       "Capaian TP, Tindak Lanjut, dan Riwayat penilaian bisa dicari, difilter, dan diunduh sebagai PDF.",
+      "Bingung membaca deskripsi di rapor? Buka Cara membaca deskripsi capaian di tab Capaian TP atau Rapor.",
       "Portal hanya untuk melihat. Hubungi wali kelas bila ada data yang perlu diperbaiki.",
     ],
   },

@@ -11,6 +11,7 @@ import {
   Sampul, Biodata, Akademik, RaporP5,
 } from "@/components/rapor/raporDokumen";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
+import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
 import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 
@@ -434,6 +435,7 @@ function PortalPage() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-3"><PenjelasanDeskripsi settings={data?.settings} untukOrtu={role === "ortu"} /></div>
                 <div className="small text-muted mt-2"><i className="bi bi-info-circle me-1"></i>Tanda <i className="bi bi-check-circle-fill text-success"></i> berarti sudah mencapai KKM mapel; <i className="bi bi-exclamation-circle-fill text-danger"></i> berarti belum dikuasai dan perlu didampingi. Nilai setelah remedial menggantikan nilai sebelumnya.</div>
               </>
             )
@@ -616,6 +618,7 @@ function PortalPage() {
                 <div className="small text-muted"><i className="bi bi-info-circle me-1"></i>Pratinjau rapor berdasarkan data terkini. Rapor resmi bertanda tangan dibagikan oleh sekolah.</div>
                 <button className="btn btn-primary btn-sm fw-bold" onClick={cetak}><i className="bi bi-printer me-1"></i>Cetak / Simpan PDF</button>
               </div>
+              <PenjelasanDeskripsi settings={data?.settings} untukOrtu={role === "ortu"} />
               <div className="rapor-preview" ref={previewRef}>
                 <Sampul r={rapor} pecah />
                 <Biodata r={rapor} tanggal={todayYmd()} pecah />

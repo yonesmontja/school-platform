@@ -312,8 +312,14 @@ function InputNilaiPage() {
 
   // Lembar reguler: baris per siswa (key = id_siswa). Lembar remedial: baris per rencana tindak lanjut (key = id_rencana),
   // nilai yang diisi adalah nilai remedialnya.
+  // Pilihan bisa berganti sebelum lembar sebelumnya selesai dimuat: hanya jawaban permintaan terakhir yang dipakai
+  const permintaanLembar = useRef(0);
+  const permintaanRiwayat = useRef(0);
+
   const fetchStudents = useCallback(async () => {
-    if (!FILTER_FIELDS.every((f) => filters[f.key])) { setStudents([]); setTanggalTersedia([]); return; }
+    const ke = ++permintaanLembar.current;
+    const usang = () => ke !== permintaanLembar.current;
+    if (!FILTER_FIELDS.every((f) => filters[f.key])) { setStudents([]); setTanggalTersedia([]); setLoadingSheet(false); return; }
     setLoadingSheet(true);
     try {
       const params = new URLSearchParams({
@@ -322,6 +328,7 @@ function InputNilaiPage() {
       });
       if (filters.tipe === "REMEDIAL") {
         const data = await safeFetch(`${API_URL}/nilai/remedial?${params}`, { headers: authHeader() });
+        if (usang()) return;
         setStudents((data.data || []).map((r) => {
           const rem = r.nilai_remedial;
           return {
@@ -339,6 +346,7 @@ function InputNilaiPage() {
       } else {
         params.set("tanggal", tanggalLembar);
         const data = await safeFetch(`${API_URL}/nilai/students?${params}`, { headers: authHeader() });
+        if (usang()) return;
         setStudents((data.students || []).map((s) => ({
           ...s, tipe: "NORMAL", key: s.id_siswa, inputNilai: s.nilai ?? "", inputIndikator: { ...(s.nilai_indikator || {}) },
         })));
@@ -347,21 +355,23 @@ function InputNilaiPage() {
         setIndikatorSesi(data.indikator_sesi || []);
         setIndikatorDipilih((data.indikator_sesi || []).map((i) => i.id_indikator));
       }
-    } catch (err) { swalGagalMuat(err); }
-    finally { setLoadingSheet(false); }
+    } catch (err) { if (!usang()) swalGagalMuat(err); }
+    finally { if (!usang()) setLoadingSheet(false); }
   }, [filters.id_kelas, filters.id_mapel, filters.id_periode, filters.id_jenis, filters.id_materi, tanggalLembar, filters.tipe]);
 
   useEffect(() => { fetchStudents(); }, [fetchStudents]);
 
   const fetchRiwayat = useCallback(async () => {
-    if (!filters.id_kelas || !filters.id_periode) { setRiwayat([]); return; }
+    const ke = ++permintaanRiwayat.current;
+    const usang = () => ke !== permintaanRiwayat.current;
+    if (!filters.id_kelas || !filters.id_periode) { setRiwayat([]); setLoadingRiwayat(false); return; }
     setLoadingRiwayat(true);
     try {
       const params = new URLSearchParams({ id_kelas: filters.id_kelas, id_periode: filters.id_periode });
       const data = await safeFetch(`${API_URL}/nilai?${params}`, { headers: authHeader() });
-      setRiwayat(data.data || []);
-    } catch (err) { swalGagalMuat(err); }
-    finally { setLoadingRiwayat(false); }
+      if (!usang()) setRiwayat(data.data || []);
+    } catch (err) { if (!usang()) swalGagalMuat(err); }
+    finally { if (!usang()) setLoadingRiwayat(false); }
   }, [filters.id_kelas, filters.id_periode]);
 
   useEffect(() => { fetchRiwayat(); setPage(1); }, [fetchRiwayat]);

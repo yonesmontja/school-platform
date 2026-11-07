@@ -11,6 +11,7 @@ import {
 } from "@/components/rapor/raporDokumen";
 import { API_URL } from "@/app/lib/config";
 import { eksporErapor } from "@/components/rapor/eksporErapor";
+import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
 
 // Modal sederhana berbasis state agar tidak bergantung pada JS Bootstrap
 const Modal = ({ show, title, icon, headerClass = "bg-primary text-white", size = "modal-lg", onClose, children, footer }) => {
@@ -437,6 +438,7 @@ export default function CetakRaporPage() {
             )}
           </div>
           <div className="card-body bg-body-secondary">
+            {jenisDokumen !== "p5" && <PenjelasanDeskripsi settings={data?.settings} />}
             <div className="rapor-preview" ref={previewRef}>
               {halaman.map((h, i) => {
                 const pecah = i < halaman.length - 1;

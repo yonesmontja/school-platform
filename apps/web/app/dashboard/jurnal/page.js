@@ -457,7 +457,7 @@ export default function JurnalAnekdotalPage() {
         popup.querySelector("#waGrup")?.addEventListener("click", () => bukaWhatsApp("", paket.pesanGrup));
         popup.querySelector("#salinGrup")?.addEventListener("click", () => salinTeks(paket.pesanGrup));
       },
-      didClose: () => hapusPulih(KUNCI_PULIH),
+      willClose: () => hapusPulih(KUNCI_PULIH),
     });
   };
   // Pulihkan panel setelah pengaturan sekolah termuat (nama sekolah dipakai di pesan)
