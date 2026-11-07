@@ -39,6 +39,7 @@ school-platform/
 - **Master Guru, Kelas, Mata Pelajaran** — CRUD; mata pelajaran memiliki KKM per mapel
 - **Referensi Penilaian (selaras kurikulum nasional)** — Semester; High Level = Elemen CP, bisa khusus satu mapel atau semua mapel; Aktivitas dengan jenis asesmen (diagnostik/formatif/sumatif); Materi memuat Tujuan Pembelajaran (TP) dan banyak Indikator Ketercapaian TP (IKTP) yang bisa diurutkan dan dinonaktifkan. Indikator dan aktivitas ditambah admin atau guru (guru hanya mapel yang diampu), kepsek melihat saja; indikator dihapus admin dan hanya bila belum pernah dipakai menilai
 - **Input Nilai** — filter per periode/kelas/mapel/materi, simpan nilai secara batch (nilai bertanggal), dilengkapi analitik kelas dan riwayat nilai; mode remedial dengan rencana tindak lanjut per siswa; **penilaian per indikator**: satu sesi memilih satu atau lebih indikator (IKTP) materi, termasuk menambah indikator baru di tempat, lalu nilai 0–100 diisi per indikator dan nilai materi = rata-rata indikator yang terisi (mengalir ke STNKM, KKM, dan remedial seperti biasa); predikat capaian mengikuti **KKTP** sekolah (batas Cukup/Baik/Sangat Baik diatur di Pengaturan Sekolah, bawaan 70/80/90; tuntas tetap KKM mapel); remedial per indikator: hanya indikator di bawah KKM yang diulang, nilai remedial = rata-rata indikator setelah perbaikan; setiap nilai mencatat **guru penilai** (ID Master Guru: guru pemilik akun, atau guru pengampu mapel bila diisi admin/kepsek) dan **akun pengisinya** secara terpisah; **siklus remedial**: kebijakan nilai remedial di rapor diatur di Pengaturan Sekolah (bawaan dibatasi setinggi KKM mapel, atau apa adanya; nilai asli tetap tersimpan dan status tuntas mengikuti nilai sebenarnya), dan orang tua/wali bisa dikabari lewat WhatsApp saat rencana tindak lanjut dibuat maupun saat hasil remedial dicatat (otomatis via Fonnte bila aktif, selain itu tombol chat WA per siswa)
+- **Bank Soal & Kisi-kisi (Fase 16 Tahap A)** — soal berlabel TP/indikator, bobot dimensi STNKM (0–1, bawaan dari bobot materi), level kognitif C1–C6, tingkat kesulitan, dan bentuk: pilihan ganda, pilihan ganda kompleks, benar/salah, isian, uraian (dengan rubrik), menjodohkan, mengurutkan. **Kisi-kisi** per TP (bentuk, level, kesulitan, dimensi STNKM yang ditonjolkan, jumlah) dengan sebaran level & STNKM dan unduhan PDF. **AI** (penyedia yang sama dengan jurnal & rapor: Gemini, Claude, Qwen, DeepSeek, OpenKey) membuat draf soal per baris kisi-kisi atau per TP — kunci, pengecoh, rubrik, dan diagram SVG bila diminta (dibersihkan di server dan ditampilkan sebagai gambar) — serta memecah paket soal lama (tempel teks, Word, PDF/foto lewat Gemini/Claude) menjadi draf yang dipasangkan ke TP. AI diberi contoh soal sekolah yang sudah disetujui untuk TP yang sama. Semua soal melalui alur **Draf → Diajukan → Disetujui / Perlu revisi** oleh kepala sekolah (dengan catatan), mengubah soal yang disetujui membuatnya kembali draf (versi naik), dan pengajuan/revisi muncul di Perlu Tindakan. Guru menyusun soal untuk mapel yang diampu dan melihat soalnya sendiri serta soal yang disetujui untuk mapelnya
 - **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal. Guru jurnal: akun guru = dirinya sendiri; bila diisi admin/kepsek = guru yang dipilih di form, atau guru pengampu mapel materinya, atau wali kelas (jurnal observasi tanpa materi)
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa); template nilai otomatis memuat satu kolom per indikator aktif materi (judul berkode `[IND-…]`)
 - **Presensi** — input kehadiran siswa per tanggal secara batch
@@ -334,6 +335,15 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/remedial` | Tambah rencana tindak lanjut remedial | staf | ✔ |
 | POST | `/remedial/notifikasi` | Susun pesan WA orang tua: rencana tindak lanjut atau hasil remedial | staf | ✔ |
 | PUT/DELETE | `/remedial/{id}` | Ubah/hapus rencana remedial | staf | ✔ |
+| GET | `/bank-soal` | Daftar soal (filter mapel/status/bentuk/level/cari/milik, per halaman) + jumlah per status | staf | ✔ |
+| GET | `/bank-soal/referensi` | Mapel (guru: diampu), kelas, materi + TP, konstanta, penyedia AI | staf | ✔ |
+| POST/PUT/DELETE | `/bank-soal`, `/bank-soal/{id}` | Tulis/ubah/hapus soal (isi & kunci divalidasi per bentuk) | staf | ✔ |
+| POST | `/bank-soal/ajukan`, `/bank-soal/{id}/tarik` | Ajukan soal ke kepala sekolah / tarik pengajuan | staf | ✔ |
+| POST | `/bank-soal/setujui`, `/bank-soal/revisi` | Setujui / kembalikan dengan catatan | kepsek | ✔ |
+| POST | `/bank-soal/ai/draf` | Draf soal oleh AI untuk satu baris kisi-kisi atau satu TP (disimpan sebagai draf) | staf | ✔ |
+| POST | `/bank-soal/impor` | Pecah paket soal lama (teks/Word/PDF/foto) menjadi draf | staf | ✔ |
+| POST | `/bank-soal/gambar` | Unggah gambar soal (PNG/JPG/WEBP, maks. 2MB) | staf | ✔ |
+| GET/POST/PUT/DELETE | `/kisi-kisi`, `/kisi-kisi/{id}` | Kisi-kisi beserta barisnya (dan soal per baris) | staf | ✔ |
 | GET | `/jurnal` | Daftar jurnal anekdotal | staf | ✔ |
 | POST | `/jurnal/analyze` | Analisis narasi (STNKM) dengan AI | staf | ✔ |
 | POST | `/jurnal/store` | Simpan jurnal | staf | ✔ |
@@ -381,6 +391,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/master-materi`| Materi (admin & guru tambah/ubah, guru hanya mapel diampu; kepsek lihat; hapus khusus admin) |
 | `/dashboard/jadwal`       | Jadwal (grup menu "TDU - Jadwal") |
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
+| `/dashboard/bank-soal`    | Bank Soal: daftar & persetujuan soal, kisi-kisi, impor paket soal |
 | `/dashboard/jurnal`       | Jurnal (anekdotal & observasi) |
 | `/dashboard/presensi`     | Presensi             |
 | `/dashboard/p5`           | Proyek (kegiatan kokurikuler) |

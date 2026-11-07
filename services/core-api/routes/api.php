@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Response;
 use App\Http\Controllers\Api\ClassesController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
+use App\Http\Controllers\Api\BankSoalController;
+use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
@@ -208,6 +210,24 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/{id}', [JadwalController::class, 'destroy']);
         });
         Route::get('/ruangan', [RuanganController::class, 'index']);
+
+        // Bank soal & kisi-kisi (Fase 16): guru untuk mapel yang diampu, persetujuan oleh kepala sekolah (dicek di controller)
+        Route::prefix('bank-soal')->group(function () {
+            Route::get('/', [BankSoalController::class, 'index']);
+            Route::get('/referensi', [BankSoalController::class, 'referensi']);
+            Route::post('/', [BankSoalController::class, 'store']);
+            Route::post('/ajukan', [BankSoalController::class, 'ajukan']);
+            Route::post('/setujui', [BankSoalController::class, 'setujui']);
+            Route::post('/revisi', [BankSoalController::class, 'revisi']);
+            Route::post('/ai/draf', [BankSoalController::class, 'drafAI']);
+            Route::post('/impor', [BankSoalController::class, 'impor']);
+            Route::post('/gambar', [BankSoalController::class, 'unggahGambar']);
+            Route::get('/{id}', [BankSoalController::class, 'show']);
+            Route::put('/{id}', [BankSoalController::class, 'update']);
+            Route::delete('/{id}', [BankSoalController::class, 'destroy']);
+            Route::post('/{id}/tarik', [BankSoalController::class, 'tarik']);
+        });
+        Route::apiResource('/kisi-kisi', KisiKisiController::class)->parameters(['kisi-kisi' => 'id']);
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);

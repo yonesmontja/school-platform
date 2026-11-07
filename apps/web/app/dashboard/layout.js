@@ -46,6 +46,7 @@ const MENU_GROUPS = [
     items: [
       { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
+      { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
       { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
       { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },

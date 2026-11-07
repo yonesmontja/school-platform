@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BankSoal;
 use App\Models\Classes;
 use App\Models\LogAktivitas;
 use App\Models\MasterPeriode;
@@ -56,6 +57,7 @@ class NotifikasiService
             if ($kelas = $u->kelasBinaan()) $item = $item->merge($this->kelasBinaan($kelas));
             if ($u->isPengelola()) $item = $item->merge($this->presensiSekolah());
             if ($u->isAdmin()) $item = $item->merge($this->loginGagal());
+            $item = $item->merge($this->bankSoal());
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -337,5 +339,33 @@ class NotifikasiService
         $q['siswa'] = $nilai->pluck('id_siswa')->unique()->take(50)->implode(',');
         $q['nilai'] = $nilai->pluck('id_nilai')->take(50)->implode(',');
         return '/dashboard/nilai?' . http_build_query($q);
+    }
+
+    /** Kepala sekolah: soal yang menunggu persetujuan. Guru: soalnya yang dikembalikan untuk direvisi. */
+    private function bankSoal(): array
+    {
+        $hasil = [];
+        $waktu = fn($grup) => Carbon::parse($grup->max('updated_at'))->timezone(config('app.zona_sekolah'))->format('Y-m-d\TH:i:s');
+        if ($this->user->isKepsek()) {
+            $diajukan = BankSoal::where('status', 'DIAJUKAN')->get(['id_soal', 'updated_at']);
+            if ($diajukan->isNotEmpty()) {
+                $hasil[] = $this->buat('soal-persetujuan', $diajukan->pluck('id_soal')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Bank Soal', 'ikon' => 'bi-patch-question',
+                    'judul' => "{$diajukan->count()} soal menunggu persetujuan",
+                    'pesan' => 'Periksa soal yang diajukan guru, lalu setujui atau kembalikan dengan catatan perbaikan.',
+                    'jumlah' => $diajukan->count(), 'tautan' => '/dashboard/bank-soal?status=DIAJUKAN', 'waktu' => $waktu($diajukan),
+                ]);
+            }
+        }
+        $revisi = BankSoal::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_soal', 'catatan_revisi', 'updated_at']);
+        if ($revisi->isNotEmpty()) {
+            $hasil[] = $this->buat('soal-revisi', $revisi->pluck('id_soal')->sort()->values()->all(), [
+                'tingkat' => 'warning', 'kategori' => 'Bank Soal', 'ikon' => 'bi-pencil-square',
+                'judul' => "{$revisi->count()} soal perlu direvisi",
+                'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $revisi->first()->catatan_revisi, 120) . '"',
+                'jumlah' => $revisi->count(), 'tautan' => '/dashboard/bank-soal?status=REVISI&milik=1', 'waktu' => $waktu($revisi),
+            ]);
+        }
+        return $hasil;
     }
 }

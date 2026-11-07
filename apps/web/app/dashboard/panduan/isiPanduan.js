@@ -110,6 +110,25 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "bank-soal", kelompok: "guru", judul: "Bank soal, kisi-kisi, dan AI", icon: "bi-patch-question",
+    href: "/dashboard/bank-soal",
+    langkah: [
+      "Buka TDU - Jadwal → Bank Soal.",
+      "Kisi-kisi: tekan Kisi-kisi baru, isi judul dan mapel, lalu tambahkan baris per TP (bentuk soal, level kognitif C1–C6, tingkat kesulitan, dimensi STNKM yang ditonjolkan, dan jumlah soal).",
+      "Pada kisi-kisi yang sudah disimpan, tekan Buat dengan AI di setiap baris. AI menyusun draf soal lengkap dengan kunci, pengecoh, rubrik, dan diagram bila diminta.",
+      "Bisa juga menulis soal sendiri (Tulis soal) atau memindahkan paket soal lama di tab Impor Paket (tempel teks, Word, PDF, atau foto).",
+      "Periksa setiap draf: tekan ikon pensil untuk mengedit pertanyaan, pilihan, kunci, gambar, dan bobot STNKM.",
+      "Tekan ikon kirim (atau centang beberapa soal lalu Ajukan ke kepala sekolah). Soal baru bisa dipakai setelah disetujui.",
+    ],
+    tips: [
+      "Semua hasil AI masuk sebagai draf; tidak ada soal yang dipakai tanpa diperiksa guru dan disetujui kepala sekolah.",
+      "Makin banyak soal yang disetujui, makin mirip gaya draf AI dengan standar sekolah, karena AI diberi contoh soal yang sudah disetujui untuk TP yang sama.",
+      "PDF dan foto paket soal hanya bisa dibaca dengan Gemini atau Claude.",
+      "Soal yang dikembalikan kepala sekolah muncul di Perlu Tindakan beserta catatannya. Perbaiki, lalu ajukan lagi.",
+      "Mengubah soal yang sudah disetujui membuatnya kembali menjadi draf dan perlu disetujui ulang.",
+    ],
+  },
+  {
     id: "import", kelompok: "guru", judul: "Import nilai atau jurnal dari Excel", icon: "bi-file-earmark-arrow-up",
     href: "/dashboard/import-excel",
     langkah: [
@@ -260,6 +279,17 @@ export const BAGIAN = [
       "Isi nomor WA kepala sekolah dan Nomor WA Admin (penerima peringatan login gagal). Aktifkan Fonnte bila ingin WhatsApp terkirim otomatis.",
       "Isi API key AI bila ingin memakai analisis AI. Kunci tersimpan terenkripsi.",
     ],
+  },
+  {
+    id: "setujui-soal", kelompok: "pengelola", judul: "Menyetujui soal dari guru", icon: "bi-patch-check", peran: ["kepsek"],
+    href: "/dashboard/bank-soal?status=DIAJUKAN",
+    langkah: [
+      "Soal yang diajukan guru muncul di Perlu Tindakan. Tekan Buka, atau buka Bank Soal dengan status Menunggu persetujuan.",
+      "Tekan ikon mata untuk melihat soal beserta kuncinya, gambar, TP, dan bobot STNKM.",
+      "Setujui satu per satu (ikon centang), atau centang beberapa soal lalu tekan Setujui.",
+      "Bila perlu perbaikan, centang soalnya, tekan Kembalikan, lalu tulis catatan untuk guru.",
+    ],
+    tips: ["Kepala sekolah juga bisa langsung memperbaiki soal; soal yang diperbaiki kepala sekolah tetap berstatus disetujui."],
   },
   {
     id: "pantau", kelompok: "pengelola", judul: "Memantau sekolah", icon: "bi-speedometer2",

@@ -30,6 +30,8 @@ services:
       - ../services/core-api/.env
     environment:
       DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
+      # artisan serve melayani beberapa permintaan sekaligus: panggilan AI (bisa 30–90 detik) tidak menahan pengguna lain
+      PHP_CLI_SERVER_WORKERS: "4"
     depends_on:
       - db
       - redis
