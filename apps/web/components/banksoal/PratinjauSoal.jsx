@@ -98,6 +98,19 @@ export default function PratinjauSoal({ soal, nomor, kunci = true }) {
         </ol>
       )}
 
+      {soal.bentuk === "LENGKAPI_GAMBAR" && (
+        <div className="mt-2 small">
+          {(soal.isi?.bank_kata || []).filter(Boolean).length > 0 && (
+            <div className="mb-1">Bank kata: {(soal.isi.bank_kata || []).filter(Boolean).map((w, i) => <span key={i} className="badge text-bg-light border fw-normal me-1">{w}</span>)}</div>
+          )}
+          <ol className="mb-0">
+            {(k.jawaban || []).map((j, i) => (
+              <li key={i}>____________ {kunci && <span className="text-success-emphasis">({Array.isArray(j) ? j.join(" / ") : j})</span>}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
       {kunci && soal.pembahasan && <div className="small text-body-secondary mt-2"><i className="bi bi-lightbulb me-1"></i>{soal.pembahasan}</div>}
     </div>
   );

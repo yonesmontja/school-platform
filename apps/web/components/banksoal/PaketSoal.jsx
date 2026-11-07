@@ -7,11 +7,13 @@ import EditorPaket from "./EditorPaket";
 import PilihSoal from "./PilihSoal";
 import KoreksiPaket from "./KoreksiPaket";
 import AnalisisPaket from "./AnalisisPaket";
+import TesOnline from "./TesOnline";
 import { cetakPaket } from "./cetakPaket";
 import { minta } from "./api";
 
 const BAGIAN = [
   { id: "susun", label: "Susun", icon: "bi-list-ol" },
+  { id: "online", label: "Tes Online", icon: "bi-phone" },
   { id: "koreksi", label: "Koreksi", icon: "bi-check2-square" },
   { id: "analisis", label: "Analisis", icon: "bi-graph-up" },
 ];
@@ -80,11 +82,13 @@ export default function PaketSoal({ referensi }) {
           <ul className="nav nav-tabs mb-3">
             {BAGIAN.map((b) => (
               <li key={b.id} className="nav-item">
-                <button type="button" className={`nav-link ${bagian === b.id ? "active" : ""}`} onClick={() => setBagian(b.id)}><i className={`bi ${b.icon} me-1`}></i>{b.label}</button>
+                <button type="button" className={`nav-link ${bagian === b.id ? "active" : ""}`} onClick={() => setBagian(b.id)}><i className={`bi ${b.icon} me-1`}></i>{b.label}
+                  {b.id === "online" && paket.online && <span className="badge rounded-pill text-bg-success ms-1">aktif</span>}</button>
               </li>
             ))}
           </ul>
           {bagian === "susun" ? <SusunPaket paket={paket} onPaket={setPaket} onTambah={() => setPilih(true)} />
+            : bagian === "online" ? <TesOnline paket={paket} onPaket={setPaket} />
             : bagian === "koreksi" ? <KoreksiPaket paket={paket} onBerubah={segarkan} />
             : <AnalisisPaket paket={paket} />}
         </div>
@@ -119,6 +123,7 @@ export default function PaketSoal({ referensi }) {
                     </div>
                   </button>
                   <span className="badge text-bg-light border">{p.jawaban_lengkap_count}/{p.jawaban_count} dikoreksi</span>
+                  {p.online && <span className="badge text-bg-primary"><i className="bi bi-phone me-1"></i>Tes online dibuka</span>}
                   {p.terkirim_pada && <span className="badge text-bg-success"><i className="bi bi-send-check me-1"></i>Nilai terkirim</span>}
                   <button className="btn btn-sm btn-outline-primary" onClick={() => buka(p.id_paket, "koreksi")}><i className="bi bi-check2-square me-1"></i>Koreksi</button>
                 </div>

@@ -14,6 +14,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Services\PaketSoalService;
 use App\Services\SoalAIService;
+use App\Services\UjianService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -158,6 +159,7 @@ class PaketSoalController extends Controller
     {
         $paket = PaketSoal::findOrFail($id);
         $this->cekAkses($request, $paket);
+        UjianService::tutupKedaluwarsa($paket);
         $siswa = $paket->id_kelas ? Student::where('id_kelas', $paket->id_kelas)->orderBy('nama_siswa')->get(['id_siswa', 'nisn', 'nama_siswa']) : collect();
         return response()->json(['siswa' => $siswa, 'jawaban' => $paket->jawaban()->get()->keyBy('id_siswa')]);
     }
@@ -177,6 +179,12 @@ class PaketSoalController extends Controller
             'records.*.skor_manual' => 'nullable|array',
         ]);
         $this->cekSiswa($paket, collect($request->records)->pluck('id_siswa'));
+
+        $sedang = PaketSoalJawaban::where('id_paket', $paket->id_paket)->whereIn('id_siswa', collect($request->records)->pluck('id_siswa'))
+            ->where('sumber', 'ONLINE')->whereNull('selesai_pada')->with('siswa:id_siswa,nama_siswa')->get();
+        if ($sedang->isNotEmpty()) {
+            return response()->json(['message' => $sedang->pluck('siswa.nama_siswa')->implode(', ') . ' masih mengerjakan tes online. Tunggu selesai atau akhiri sesinya di bagian Tes Online.'], 422);
+        }
 
         $butir = $paket->butir->keyBy(fn($b) => (string) $b->id);
         $hasil = DB::transaction(function () use ($request, $paket, $butir) {
@@ -301,7 +309,9 @@ class PaketSoalController extends Controller
             ->filter(fn($label, $k) => !$paket->$k)->values();
         if ($kurang->isNotEmpty()) return response()->json(['message' => 'Lengkapi dulu ' . $kurang->implode(', ') . ' pada pengaturan paket.'], 422);
 
-        $lengkap = $paket->jawaban->where('lengkap', true)->values();
+        UjianService::tutupKedaluwarsa($paket);
+        $paket->load('jawaban');
+        $lengkap = $paket->jawaban->filter(fn($j) => $j->lengkap && !$j->sedangDikerjakan())->values();
         if ($lengkap->isEmpty()) return response()->json(['message' => 'Belum ada siswa yang selesai dikoreksi.'], 422);
         $perMateri = PaketSoalService::nilaiPerMateri($paket->butir, $lengkap);
         if (!$perMateri) return response()->json(['message' => 'Butir paket ini belum berlabel materi/TP, jadi nilainya tidak bisa dikirim.'], 422);
@@ -326,7 +336,7 @@ class PaketSoalController extends Controller
             $paket->update(['terkirim_pada' => now()]);
         });
 
-        $belum = $paket->jawaban->where('lengkap', false)->count();
+        $belum = $paket->jawaban->filter(fn($j) => !$j->lengkap || $j->sedangDikerjakan())->count();
         return response()->json([
             'success' => true,
             'message' => "Nilai {$lengkap->count()} siswa dikirim ke Input Nilai untuk " . count($perMateri) . ' materi.'
@@ -338,9 +348,66 @@ class PaketSoalController extends Controller
 
     public function analisis(Request $request, string $id)
     {
-        $paket = PaketSoal::with(['butir', 'jawaban.siswa:id_siswa,nama_siswa', 'mapel:id_mapel,kkm'])->findOrFail($id);
+        $paket = PaketSoal::with(['butir', 'mapel:id_mapel,kkm'])->findOrFail($id);
         $this->cekAkses($request, $paket);
+        UjianService::tutupKedaluwarsa($paket);
+        $paket->load('jawaban.siswa:id_siswa,nama_siswa');
         return response()->json(['data' => PaketSoalService::analisis($paket, (float) ($paket->mapel?->kkm ?? 75))]);
+    }
+
+    /** Pengaturan tes online: jadwal buka-tutup, acak, token, dan apakah siswa melihat nilainya. */
+    public function aturOnline(Request $request, string $id)
+    {
+        $paket = PaketSoal::withCount('butir')->findOrFail($id);
+        $this->cekAkses($request, $paket);
+        $request->validate([
+            'online' => 'required|boolean',
+            'online_mulai' => 'nullable|date',
+            'online_selesai' => 'nullable|date|after:online_mulai',
+            'durasi_menit' => 'nullable|integer|min:5|max:600',
+            'acak_soal' => 'boolean', 'acak_pilihan' => 'boolean', 'tampilkan_nilai' => 'boolean',
+            'token' => ['nullable', 'string', 'max:12', 'regex:/^[A-Za-z0-9]+$/'],
+        ], ['online_selesai.after' => 'Waktu tutup harus setelah waktu buka.', 'token.regex' => 'Token hanya huruf dan angka.']);
+        if ($request->boolean('online') && !$paket->butir_count) return response()->json(['message' => 'Tambahkan soal dulu sebelum membuka tes online.'], 422);
+        if ($request->boolean('online') && !$paket->id_kelas) return response()->json(['message' => 'Pilih kelas paket dulu.'], 422);
+
+        $paket->update($request->only(['online', 'online_mulai', 'online_selesai', 'durasi_menit', 'acak_soal', 'acak_pilihan', 'tampilkan_nilai'])
+            + ['token' => $request->filled('token') ? mb_strtoupper($request->token) : null]);
+        return response()->json(['success' => true, 'message' => $paket->online ? 'Tes online dibuka untuk siswa kelas ini.' : 'Tes online ditutup.', 'data' => $paket->fresh([...self::RELASI, 'butir'])]);
+    }
+
+    /** Pantau tes online: status tiap siswa, jumlah terjawab, sisa waktu, dan berapa kali keluar dari halaman tes. */
+    public function pantau(Request $request, string $id)
+    {
+        $paket = PaketSoal::with('butir')->findOrFail($id);
+        $this->cekAkses($request, $paket);
+        UjianService::tutupKedaluwarsa($paket);
+        $siswa = Student::where('id_kelas', $paket->id_kelas)->orderBy('nama_siswa')->get(['id_siswa', 'nama_siswa']);
+        $jawaban = $paket->jawaban()->get()->keyBy('id_siswa');
+        $terjawab = fn($j) => collect($j->jawaban ?? [])->filter(fn($v) => $v !== null && $v !== [] && (!is_array($v) || array_filter($v, fn($x) => $x !== null)))->count();
+
+        return response()->json(['data' => $siswa->map(function ($s) use ($paket, $jawaban, $terjawab) {
+            $j = $jawaban->get($s->id_siswa);
+            $batas = $j && $j->sedangDikerjakan() ? UjianService::batas($paket, $j) : null;
+            return [
+                'id_siswa' => $s->id_siswa, 'nama_siswa' => $s->nama_siswa,
+                'status' => !$j ? 'BELUM' : ($j->sumber === 'KERTAS' ? 'KERTAS' : ($j->selesai_pada ? 'SELESAI' : 'MENGERJAKAN')),
+                'terjawab' => $j ? $terjawab($j) : 0, 'jumlah_soal' => $paket->butir->count(),
+                'mulai_pada' => $j?->mulai_pada, 'selesai_pada' => $j?->selesai_pada, 'terakhir_aktif' => $j?->terakhir_aktif,
+                'sisa_detik' => $batas ? max(0, (int) floor(now()->diffInSeconds($batas, false))) : null,
+                'pelanggaran' => $j?->pelanggaran ?? 0, 'nilai' => $j && !$j->sedangDikerjakan() ? $j->nilai : null, 'lengkap' => (bool) $j?->lengkap,
+            ];
+        }), 'server' => now()->toIso8601String()]);
+    }
+
+    /** Akhiri sesi online seorang siswa (mis. waktu habis tetapi HP-nya mati). */
+    public function akhiriSesi(Request $request, string $id, string $idSiswa)
+    {
+        $paket = PaketSoal::with('butir')->findOrFail($id);
+        $this->cekAkses($request, $paket);
+        $j = PaketSoalJawaban::where('id_paket', $id)->where('id_siswa', $idSiswa)->where('sumber', 'ONLINE')->whereNull('selesai_pada')->firstOrFail();
+        UjianService::selesaikan($paket, $j);
+        return response()->json(['success' => true, 'message' => 'Sesi siswa diakhiri; jawaban yang tersimpan dikumpulkan.']);
     }
 
     // ===== bantu =====

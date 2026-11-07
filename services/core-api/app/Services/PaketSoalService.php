@@ -16,12 +16,17 @@ use Illuminate\Support\Collection;
  * - PG_KOMPLEKS  [indeks, ...]                       → otomatis, sebagian: (benar dipilih − salah dipilih) / jumlah kunci
  * - BENAR_SALAH  [true/false/null, ...]              → otomatis, sebanding pernyataan yang benar
  * - ISIAN        teks                                → otomatis bila cocok salah satu jawaban yang diterima
- * - URAIAN, MENJODOHKAN, MENGURUTKAN                 → skor diisi guru (jawaban boleh berupa catatan/transkrip)
+ * - LENGKAPI_GAMBAR [teks per bagian, ...]           → otomatis, sebanding bagian yang cocok
+ * - MENJODOHKAN  online: [indeks pasangan kanan untuk tiap kiri]   → otomatis, sebanding pasangan benar
+ * - MENGURUTKAN  online: [indeks langkah dalam urutan pilihan siswa] → otomatis, sebanding posisi benar
+ *                kertas: teks catatan → skor diisi guru
+ * - URAIAN                                           → skor diisi guru (jawaban boleh berupa catatan/transkrip)
  * Skor yang ditetapkan guru selalu menggantikan skor otomatis.
  */
 class PaketSoalService
 {
-    public const OTOMATIS = ['PG', 'PG_KOMPLEKS', 'BENAR_SALAH', 'ISIAN'];
+    // Bentuk yang selalu dinilai otomatis (juga di koreksi kertas)
+    public const OTOMATIS = ['PG', 'PG_KOMPLEKS', 'BENAR_SALAH', 'ISIAN', 'LENGKAPI_GAMBAR'];
 
     /** Bersihkan jawaban sesuai bentuk soal. */
     public static function normalisasiJawaban(array $soal, mixed $jawaban): mixed
@@ -44,6 +49,24 @@ class PaketSoalService
                     $hasil[] = $v === null || $v === '' ? null : filter_var($v, FILTER_VALIDATE_BOOLEAN);
                 }
                 return $hasil;
+            case 'LENGKAPI_GAMBAR':
+                $n = count($soal['kunci']['jawaban'] ?? []);
+                $j = is_array($jawaban) ? array_values($jawaban) : [];
+                $hasil = [];
+                for ($i = 0; $i < $n; $i++) {
+                    $t = trim((string) (is_scalar($j[$i] ?? null) ? $j[$i] : ''));
+                    $hasil[] = $t === '' ? null : mb_substr($t, 0, 200);
+                }
+                return $hasil;
+            case 'MENJODOHKAN':
+            case 'MENGURUTKAN':
+                // Online: daftar indeks; kertas: catatan teks
+                if (is_array($jawaban)) {
+                    $n = count($soal['isi'][$soal['bentuk'] === 'MENJODOHKAN' ? 'pasangan' : 'urutan'] ?? []);
+                    return array_map(fn($v) => is_numeric($v) && (int) $v >= 0 && (int) $v < $n ? (int) $v : null, array_slice(array_values($jawaban), 0, $n));
+                }
+                $t = trim((string) (is_scalar($jawaban) ? $jawaban : ''));
+                return $t === '' ? null : mb_substr($t, 0, 5000);
             default:
                 $t = trim((string) (is_scalar($jawaban) ? $jawaban : ''));
                 return $t === '' ? null : mb_substr($t, 0, 5000);
@@ -63,6 +86,8 @@ class PaketSoalService
                 fn($c) => in_array($c, ['B', 'T'], true) ? true : (in_array($c, ['S', 'F'], true) ? false : null),
                 preg_match_all('/./', preg_replace('/BENAR/', 'B', preg_replace('/SALAH/', 'S', preg_replace('/[^A-Z?]/', '', $t))), $m) ? $m[0] : []
             )),
+            'LENGKAPI_GAMBAR' => self::normalisasiJawaban($soal, preg_split('/\s*[;
+]\s*|\s*,\s*/u', trim((string) $teks))),
             default => self::normalisasiJawaban($soal, (string) $teks),
         };
     }
@@ -93,6 +118,26 @@ class PaketSoalService
                 $j = self::ratakan((string) $jawaban);
                 foreach ((array) $kunci as $terima) if (self::ratakan((string) $terima) === $j) return (float) $maks;
                 return 0.0;
+            case 'LENGKAPI_GAMBAR':
+                $k = array_values((array) $kunci);
+                if (!$k) return 0.0;
+                $j = array_values((array) $jawaban);
+                $cocok = 0;
+                foreach ($k as $i => $terima) {
+                    if (!isset($j[$i]) || $j[$i] === null) continue;
+                    $t = self::ratakan((string) $j[$i]);
+                    foreach ((array) $terima as $x) if (self::ratakan((string) $x) === $t) { $cocok++; break; }
+                }
+                return round($cocok / count($k) * $maks, 2);
+            case 'MENJODOHKAN':
+            case 'MENGURUTKAN':
+                if (!is_array($jawaban)) return null; // kertas: dinilai guru
+                $n = count($soal['isi'][$soal['bentuk'] === 'MENJODOHKAN' ? 'pasangan' : 'urutan'] ?? []);
+                if (!$n) return 0.0;
+                $benar = 0;
+                // Menjodohkan: kiri ke-i dipasangkan dengan kanan ke-i; mengurutkan: posisi ke-i berisi langkah ke-i
+                foreach (array_values($jawaban) as $i => $v) if ($v !== null && (int) $v === $i) $benar++;
+                return round($benar / $n * $maks, 2);
         }
         return null;
     }
@@ -125,6 +170,8 @@ class PaketSoalService
                 $s = min(max((float) $manual[$id], 0), $b->skor_maks);
             } else {
                 $s = self::skorOtomatis($b->soal, $jawaban[$id] ?? null, $b->skor_maks);
+                // Tes online: menjodohkan/mengurutkan yang tidak dijawab bernilai 0 (di kertas, guru yang menilai)
+                if ($s === null && $jwb->sumber === 'ONLINE' && in_array($b->soal['bentuk'], ['MENJODOHKAN', 'MENGURUTKAN'], true)) $s = 0.0;
             }
             if ($s === null) { $lengkap = false; continue; }
             $skor[$id] = round($s, 2);
@@ -168,7 +215,7 @@ class PaketSoalService
     public static function analisis(PaketSoal $paket, float $kkm): array
     {
         $butir = $paket->butir;
-        $jawaban = $paket->jawaban->where('lengkap', true)->values();
+        $jawaban = $paket->jawaban->filter(fn($j) => $j->lengkap && !$j->sedangDikerjakan())->values();
         $n = $jawaban->count();
         $skorButir = fn($j, $b) => (float) ($j->skor[(string) $b->id] ?? 0);
 
@@ -259,7 +306,8 @@ class PaketSoalService
 
         return [
             'jumlah_siswa' => $n,
-            'belum_lengkap' => $paket->jawaban->where('lengkap', false)->count(),
+            'belum_lengkap' => $paket->jawaban->filter(fn($j) => !$j->lengkap && !$j->sedangDikerjakan())->count(),
+            'sedang_mengerjakan' => $paket->jawaban->filter(fn($j) => $j->sedangDikerjakan())->count(),
             'kkm' => $kkm,
             'rata_nilai' => $n ? round($jawaban->avg('nilai'), 1) : null,
             'tertinggi' => $n ? (float) $jawaban->max('nilai') : null,

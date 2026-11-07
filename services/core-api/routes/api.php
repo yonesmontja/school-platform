@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\NilaiController;
 use App\Http\Controllers\Api\BankSoalController;
 use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
+use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
@@ -97,6 +98,15 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/rapor', [PortalController::class, 'rapor']);
+    });
+
+    // ===== TES ONLINE SISWA (Fase 16 Tahap C) =====
+    Route::middleware('role:siswa')->prefix('ujian')->group(function () {
+        Route::get('/', [UjianController::class, 'index']);
+        Route::get('/{id}', [UjianController::class, 'show']);
+        Route::post('/{id}/mulai', [UjianController::class, 'mulai']);
+        Route::put('/{id}/jawaban', [UjianController::class, 'simpan']);
+        Route::post('/{id}/selesai', [UjianController::class, 'selesai']);
     });
 
     // ===== KHUSUS ADMIN: master data inti, pengaturan sistem, akun pengguna =====
@@ -248,6 +258,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/jawaban/{idSiswa}/baca', [PaketSoalController::class, 'bacaFoto']);
             Route::post('/{id}/kirim-nilai', [PaketSoalController::class, 'kirimNilai']);
             Route::get('/{id}/analisis', [PaketSoalController::class, 'analisis']);
+            Route::put('/{id}/online', [PaketSoalController::class, 'aturOnline']);
+            Route::get('/{id}/pantau', [PaketSoalController::class, 'pantau']);
+            Route::post('/{id}/jawaban/{idSiswa}/akhiri', [PaketSoalController::class, 'akhiriSesi']);
         });
 
         Route::get('/dashboard', [DashboardController::class, 'index']);

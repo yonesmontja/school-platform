@@ -109,3 +109,39 @@ test("guru menyusun paket, mengoreksi, mengirim nilai, dan melihat analisis buti
   await expect(page.locator(".analisis-butir")).toContainText("Manakah yang lebih besar");
   await expect(page.getByText("Profil STNKM kelas")).toBeVisible();
 });
+
+test("guru membuka tes online, siswa mengerjakan di HP, guru memantau", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  await page.getByRole("button", { name: /Paket Soal/ }).click();
+  await page.locator(".kartu-paket", { hasText: "PH Pecahan E2E" }).getByRole("button").first().click();
+  await page.getByRole("button", { name: /Tes Online/ }).click();
+  await page.getByLabel("Token (opsional)").fill("UJI42");
+  await page.getByRole("button", { name: "Buka tes online" }).click();
+  await expect(page.locator(".swal2-toast")).toContainText("dibuka");
+  await expect(page.locator(".pantau-tes")).toContainText("Natan Murib");
+
+  // Siswa: pengingat di portal → daftar tes → token → jawab → kumpulkan
+  await masuk("siswa");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard/portal");
+  await page.locator(".tes-tersedia").getByRole("link", { name: "Buka Tes Online" }).click();
+  await page.locator(".kartu-ujian", { hasText: "PH Pecahan E2E" }).getByRole("link", { name: /Mulai/ }).click();
+  await page.getByLabel("Token dari guru").fill("uji42");
+  await page.getByRole("button", { name: "Mulai mengerjakan" }).click();
+  await expect(page.getByText("Manakah yang lebih besar")).toBeVisible();
+  await expect(page.getByRole("timer")).toBeVisible();
+  await page.getByRole("radio", { name: /1\/2/ }).click();
+  await expect(page.getByText("tersimpan")).toBeVisible();
+  await page.getByRole("button", { name: "Kumpulkan" }).last().click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.getByText("Jawabanmu sudah terkumpul")).toBeVisible();
+
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  await page.getByRole("button", { name: /Paket Soal/ }).click();
+  await page.locator(".kartu-paket", { hasText: "PH Pecahan E2E" }).getByRole("button").first().click();
+  await page.getByRole("button", { name: /Tes Online/ }).click();
+  await expect(page.locator(".pantau-tes tr", { hasText: "Natan Murib" })).toContainText("Selesai");
+  await expect(page.locator(".pantau-tes tr", { hasText: "Natan Murib" })).toContainText("100");
+});

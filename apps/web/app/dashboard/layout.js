@@ -15,6 +15,7 @@ import { hapusSalinanOffline, jumlahAntrean, kirimAntrean } from "@/app/lib/antr
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
+const UJIAN_ITEM = { href: "/dashboard/ujian", label: "Tes Online", icon: "bi-pencil-square", peran: ["siswa"] };
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
 const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
 const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
@@ -75,10 +76,13 @@ const MENU_GROUPS = [
 ];
 
 // Portal siswa & orang tua hanya berisi halaman baca miliknya
-const PORTAL_GROUPS = [{ id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] }];
+const PORTAL_GROUPS = [
+  { id: "belajar", label: "Belajar", icon: "bi-journal-check", items: [UJIAN_ITEM] },
+  { id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] },
+];
 
 const menuUntuk = (role) => (role === "siswa" || role === "ortu")
-  ? PORTAL_GROUPS
+  ? PORTAL_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.peran || it.peran.includes(role)) })).filter((g) => g.items.length)
   : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.peran || it.peran.includes(role)) })).filter((g) => g.items.length);
 
 // Status sidebar disimpan per browser
@@ -87,7 +91,7 @@ const KEY_MINI = "sidebar_mini";
 const DESKTOP_QUERY = "(min-width: 992px)";
 
 // Nama halaman untuk audit trail (Log Aktivitas)
-const SEMUA_HALAMAN = [DASHBOARD_ITEM, PORTAL_ITEM, ...MENU_GROUPS.flatMap((g) => g.items)];
+const SEMUA_HALAMAN = [DASHBOARD_ITEM, PORTAL_ITEM, UJIAN_ITEM, ...MENU_GROUPS.flatMap((g) => g.items)];
 const namaHalaman = (pathname) =>
   [...SEMUA_HALAMAN].sort((a, b) => b.href.length - a.href.length)
     .find((it) => pathname === it.href || pathname.startsWith(`${it.href}/`))?.label || pathname;

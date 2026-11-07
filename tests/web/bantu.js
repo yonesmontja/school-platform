@@ -3,7 +3,7 @@ const base = require("@playwright/test");
 
 const API = process.env.API_E2E || "http://127.0.0.1:8090";
 const SANDI = "Uji-E2E-2026";
-const AKUN = { admin: "admin.e2e", kepsek: "kepsek.e2e", guru: "guru.e2e", guru2: "guru2.e2e", ortu: "ortu.e2e" };
+const AKUN = { admin: "admin.e2e", kepsek: "kepsek.e2e", guru: "guru.e2e", guru2: "guru2.e2e", ortu: "ortu.e2e", siswa: "siswa.e2e" };
 
 async function masukApi(peran) {
   const res = await fetch(`${API}/api/login`, {

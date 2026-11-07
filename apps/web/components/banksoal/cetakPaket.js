@@ -51,6 +51,13 @@ function isiNaskah(b, kunci) {
       if (kunci) return `<div class="ok">Urutan benar: ${(isi.urutan || []).map((_, i) => HURUF[acak.findIndex((x) => x.i === i)]).join(" → ")}</div>`;
       return `<div class="ket">Tulis urutan yang benar dengan huruf.</div><ol class="pil">${acak.map((x, i) => `<li>${HURUF[i]}. ${esc(x.v)}</li>`).join("")}</ol><div class="garis">Urutan: ........ → ........ → ........ → ........</div>`;
     }
+    case "LENGKAPI_GAMBAR": {
+      const bagian = k.jawaban || [];
+      const bank = (isi.bank_kata || []).filter(Boolean);
+      if (kunci) return `<div class="ok">Kunci: ${bagian.map((j, i) => `${i + 1}. ${esc(Array.isArray(j) ? j.join(" / ") : j)}`).join("; ")}</div>`;
+      return `${bank.length ? `<div class="bank">Pilih dari: ${acakTetap(bank, b.id).map((x) => esc(x.v)).join(" · ")}</div>` : ""}
+        <div class="ket">Lengkapi bagian bernomor pada gambar.</div>${bagian.map((_, i) => `<div class="garis">${i + 1}. ........................................</div>`).join("")}`;
+    }
     default: return "";
   }
 }
@@ -66,6 +73,7 @@ function lembarJawaban(butir) {
       case "MENJODOHKAN": isian = (isi.pasangan || []).map((_, i) => `<span class="bs">${i + 1}–<span class="titik"></span></span>`).join(""); break;
       case "MENGURUTKAN": isian = (isi.urutan || []).map(() => `<span class="kotak">&nbsp;</span>`).join(" → "); break;
       case "URAIAN": isian = `<div class="kotak-uraian kecil"></div>`; break;
+      case "LENGKAPI_GAMBAR": isian = (s.kunci?.jawaban || []).map((_, i) => `<span class="bs">${i + 1}. <span class="titik panjang-kecil"></span></span>`).join(""); break;
       default: isian = `<span class="panjang"></span>`;
     }
     return `<tr><td class="no">${n + 1}</td><td>${isian}</td></tr>`;
@@ -96,6 +104,8 @@ const GAYA = `
   .bulat { border-radius: 50%; } .bs { display: inline-block; margin-right: 14px; } .titik { display: inline-block; width: 26px; border-bottom: 1px dotted #000; }
   .panjang { display: inline-block; width: 90%; border-bottom: 1px dotted #000; height: 16px; }
   .catatan { font-size: 9.5pt; margin-top: 6px; }
+  .bank { border: 1px dashed #000; padding: 3px 6px; margin: 4px 0; font-size: 11pt; }
+  .titik.panjang-kecil { width: 110px; }
   .halaman-baru { break-before: page; }
 `;
 

@@ -17,9 +17,14 @@ class PaketSoal extends Model
     protected $fillable = [
         'id_paket', 'judul', 'id_mapel', 'id_kelas', 'id_periode', 'id_kisi', 'id_jenis',
         'tanggal', 'durasi_menit', 'petunjuk', 'terkirim_pada', 'dibuat_oleh',
+        'online', 'online_mulai', 'online_selesai', 'acak_soal', 'acak_pilihan', 'token', 'tampilkan_nilai',
     ];
 
-    protected $casts = ['tanggal' => 'date:Y-m-d', 'terkirim_pada' => 'datetime', 'durasi_menit' => 'integer'];
+    protected $casts = [
+        'tanggal' => 'date:Y-m-d', 'terkirim_pada' => 'datetime', 'durasi_menit' => 'integer',
+        'online' => 'boolean', 'online_mulai' => 'datetime', 'online_selesai' => 'datetime',
+        'acak_soal' => 'boolean', 'acak_pilihan' => 'boolean', 'tampilkan_nilai' => 'boolean',
+    ];
 
     public function butir(): HasMany { return $this->hasMany(PaketSoalButir::class, 'id_paket', 'id_paket')->orderBy('urutan')->orderBy('id'); }
     public function jawaban(): HasMany { return $this->hasMany(PaketSoalJawaban::class, 'id_paket', 'id_paket'); }

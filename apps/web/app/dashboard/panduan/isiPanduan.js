@@ -149,6 +149,24 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "tes-online", kelompok: "guru", judul: "Tes online di HP siswa", icon: "bi-phone",
+    href: "/dashboard/bank-soal",
+    langkah: [
+      "Siapkan paket soal (Bank Soal → Paket Soal), lalu buka bagian Tes Online.",
+      "Atur waktu mengerjakan, jadwal buka-tutup (boleh dikosongkan), acak soal & pilihan, dan token. Tekan Buat token acak bila perlu.",
+      "Tekan Buka tes online, lalu tulis token di papan. Siswa masuk dengan akun siswa → menu Tes Online → Mulai → masukkan token.",
+      "Pantau siswa: status, jumlah soal terjawab, sisa waktu, dan berapa kali siswa keluar dari halaman tes. Halaman pantau menyegarkan diri tiap 15 detik.",
+      "Siswa yang HP-nya mati atau kehabisan waktu bisa diakhiri sesinya (Akhiri). Siswa yang perlu mengulang: tekan Ulang (jawabannya dihapus).",
+      "Setelah selesai, nilai uraian di bagian Koreksi, lalu Kirim ke Input Nilai dan buka Analisis seperti biasa. Tekan Tutup tes bila sudah selesai.",
+    ],
+    tips: [
+      "Pilihan ganda, benar/salah, isian, menjodohkan, mengurutkan, dan melengkapi gambar langsung dinilai; uraian menunggu skor guru.",
+      "Waktu dihitung server sejak siswa menekan Mulai. Jawaban tersimpan otomatis; bila sinyal putus, HP mencoba menyimpan lagi.",
+      "Satu paket bisa dicampur: sebagian siswa online, sebagian kertas yang dikoreksi di bagian Koreksi.",
+      "Bentuk Melengkapi gambar memerlukan gambar bernomor 1, 2, 3…; minta AI membuat diagramnya atau unggah gambar sendiri.",
+    ],
+  },
+  {
     id: "import", kelompok: "guru", judul: "Import nilai atau jurnal dari Excel", icon: "bi-file-earmark-arrow-up",
     href: "/dashboard/import-excel",
     langkah: [
@@ -334,6 +352,21 @@ export const BAGIAN = [
   },
 
   // ---------- Orang tua & siswa ----------
+  {
+    id: "kerjakan-tes", kelompok: "ortu", judul: "Mengerjakan tes online", icon: "bi-pencil-square", peran: ["siswa", "admin", "kepsek"],
+    href: "/dashboard/ujian",
+    langkah: [
+      "Buka menu Tes Online (atau tekan Buka Tes Online di Portal Siswa).",
+      "Pilih tes yang bertanda Bisa dikerjakan, baca petunjuknya, masukkan token dari guru bila diminta, lalu tekan Mulai mengerjakan.",
+      "Jawab satu per satu. Tekan Ragu-ragu untuk menandai soal yang ingin diperiksa lagi; nomor soal di bawah menunjukkan mana yang sudah dijawab.",
+      "Menjodohkan: ketuk kotak di kiri, lalu ketuk pasangannya. Mengurutkan: pakai tombol panah. Melengkapi gambar: pilih atau tulis nama bagian bernomor.",
+      "Tekan Kumpulkan bila sudah selesai. Saat waktu habis, jawaban dikumpulkan otomatis.",
+    ],
+    tips: [
+      "Jawaban tersimpan otomatis. Bila tulisan belum tersimpan muncul, periksa sinyal; HP akan mencoba lagi.",
+      "Jangan keluar dari halaman tes saat mengerjakan; guru dapat melihatnya.",
+    ],
+  },
   {
     id: "portal", kelompok: "ortu", judul: "Melihat perkembangan anak", icon: "bi-house-heart",
     href: "/dashboard/portal",

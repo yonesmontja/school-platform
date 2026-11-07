@@ -14,11 +14,16 @@ const isiAwal = (bentuk) => ({
   URAIAN: [{}, { jawaban: "" }],
   MENJODOHKAN: [{ pasangan: [{ kiri: "", kanan: "" }, { kiri: "", kanan: "" }, { kiri: "", kanan: "" }] }, {}],
   MENGURUTKAN: [{ urutan: ["", "", ""] }, {}],
+  LENGKAPI_GAMBAR: [{ bank_kata: [] }, { jawaban: ["", ""] }],
 }[bentuk]);
+
+// Melengkapi gambar: jawaban per bagian disunting sebagai teks "a / b"
+const teksBagian = (j) => (Array.isArray(j) ? j.join(" / ") : j || "");
 
 const dariSoal = (s, bawaan) => {
   const bentuk = s?.bentuk || bawaan?.bentuk || "PG";
-  const [isi, kunci] = s ? [s.isi || {}, s.kunci || {}] : isiAwal(bentuk);
+  let [isi, kunci] = s ? [s.isi || {}, s.kunci || {}] : isiAwal(bentuk);
+  if (bentuk === "LENGKAPI_GAMBAR") kunci = { jawaban: (kunci.jawaban || []).map(teksBagian) };
   return {
     id_mapel: s?.id_mapel || bawaan?.id_mapel || "", id_kelas: s?.id_kelas || bawaan?.id_kelas || "",
     id_materi: s?.id_materi || bawaan?.id_materi || "", id_indikator: s?.id_indikator || bawaan?.id_indikator || "",
@@ -224,6 +229,31 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                       <textarea className="form-control form-control-sm mb-2" rows={3} value={f.rubrik} onChange={(e) => set("rubrik", e.target.value)}
                         placeholder={"4 = ...\n3 = ...\n2 = ...\n1 = ..."} />
                     </>
+                  )}
+                  {f.bentuk === "LENGKAPI_GAMBAR" && (
+                    <div className="mb-2">
+                      <div className="alert alert-light border small py-2 mb-2">
+                        <i className="bi bi-info-circle me-1"></i>Pasang gambar dengan nomor 1, 2, 3, … pada bagian yang harus dilengkapi siswa (unggah gambar, atau minta AI membuat diagramnya).
+                      </div>
+                      {!(f.gambar_url || f.gambar_svg) && <div className="small text-danger mb-2"><i className="bi bi-exclamation-triangle me-1"></i>Soal ini memerlukan gambar.</div>}
+                      <label className="form-label small fw-semibold mb-1">Jawaban tiap bagian</label>
+                      {(f.kunci.jawaban || []).map((v, i) => (
+                        <div key={i} className="input-group input-group-sm mb-1">
+                          <span className="input-group-text">Bagian {i + 1}</span>
+                          <input className="form-control" value={v} placeholder="mis. kelopak / mahkota bunga" aria-label={`Jawaban bagian ${i + 1}`}
+                            onChange={(e) => setKunci(f.kunci.jawaban.map((x, j) => (j === i ? e.target.value : x)))} />
+                          <button type="button" className="btn btn-outline-secondary" aria-label="Hapus bagian" disabled={f.kunci.jawaban.length <= 1}
+                            onClick={() => setKunci(f.kunci.jawaban.filter((_, j) => j !== i))}><i className="bi bi-x"></i></button>
+                        </div>
+                      ))}
+                      <button type="button" className="btn btn-sm btn-link px-0" disabled={(f.kunci.jawaban || []).length >= 10}
+                        onClick={() => setKunci([...(f.kunci.jawaban || []), ""])}><i className="bi bi-plus-lg me-1"></i>Tambah bagian</button>
+                      <div className="small text-muted mb-2">Pisahkan beberapa jawaban yang benar dengan tanda /</div>
+                      <label className="form-label small fw-semibold mb-1">Bank kata <span className="text-muted fw-normal">(opsional; siswa memilih dari daftar ini)</span></label>
+                      <input className="form-control form-control-sm" value={(f.isi.bank_kata || []).join(", ")} aria-label="Bank kata"
+                        onChange={(e) => setIsi("bank_kata", e.target.value.split(",").map((x) => x.trimStart()))} placeholder="mis. kelopak, putik, benang sari, akar" />
+                      <div className="small text-muted">Pisahkan dengan koma. Masukkan semua jawaban benar dan beberapa pengecoh.</div>
+                    </div>
                   )}
                   {f.bentuk === "MENJODOHKAN" && (
                     <div className="mb-2">

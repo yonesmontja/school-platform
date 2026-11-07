@@ -78,6 +78,23 @@ function unduhPdf({ judul, siswa, periode, head, body }) {
 
 const warnaNilai = (nilai, kkm) => (nilai == null ? "secondary" : nilai >= 90 ? "success" : nilai >= kkm ? "primary" : "danger");
 
+/** Pengingat tes online yang bisa dikerjakan siswa sekarang. */
+function TesTersedia() {
+  const [daftar, setDaftar] = useState([]);
+  useEffect(() => {
+    fetch(`${API_URL}/ujian`, { headers: authHeaders() }).then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((r) => setDaftar((r.data || []).filter((u) => u.status === "TERSEDIA" || u.status === "MENGERJAKAN"))).catch(() => {});
+  }, []);
+  if (!daftar.length) return null;
+  return (
+    <div className="alert alert-primary d-flex flex-wrap align-items-center gap-2 shadow-sm tes-tersedia">
+      <i className="bi bi-pencil-square fs-4"></i>
+      <div className="me-auto"><b>{daftar.length} tes online</b> bisa kamu kerjakan: {daftar.map((u) => u.judul).join(", ")}</div>
+      <a href="/dashboard/ujian" className="btn btn-primary">Buka Tes Online</a>
+    </div>
+  );
+}
+
 export default function PortalPageBungkus() {
   // useSearchParams perlu Suspense; tautan "Buka" dari Perlu Tindakan membawa ?tab=&siswa=&periode=&rencana=
   return <Suspense fallback={null}><PortalPage /></Suspense>;
@@ -293,6 +310,7 @@ function PortalPage() {
   return (
     <div className="container-fluid mt-4 mb-5">
       <style>{RAPOR_CSS + PREVIEW_CSS}</style>
+      {role === "siswa" && <TesTersedia />}
 
       {/* SAMBUTAN & PILIHAN */}
       <div className="card border-0 shadow-sm mb-4 overflow-hidden">

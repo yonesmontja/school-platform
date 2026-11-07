@@ -109,6 +109,7 @@ class SiapkanE2e extends Command
             ['Yakobus Wenda', 'guru.e2e', 'guru', ['id_guru' => 'GR-E1']],
             ['Ester Rumbiak', 'guru2.e2e', 'guru', ['id_guru' => 'GR-E2']],
             ['Paulus Kogoya', 'ortu.e2e', 'ortu', ['id_ortu' => 'ORT-E1']],
+            ['Natan Murib', 'siswa.e2e', 'siswa', ['id_siswa' => 'SIS-E3']],
         ];
         foreach ($akun as [$nama, $username, $role, $extra]) {
             User::create($extra + [

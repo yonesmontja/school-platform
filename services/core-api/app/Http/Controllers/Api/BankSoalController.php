@@ -232,7 +232,7 @@ class BankSoalController extends Controller
             'dimensi_utama' => $p['dimensi'],
             'jumlah' => $p['jumlah'],
             'catatan_guru' => $request->catatan,
-            'gambar' => $request->boolean('gambar'),
+            'gambar' => $request->boolean('gambar') || $p['bentuk'] === 'LENGKAPI_GAMBAR',
         ];
         // AI belajar dari gaya sekolah: contoh soal yang sudah disetujui untuk TP (atau materi) & bentuk yang sama
         $contoh = BankSoal::where('status', 'DISETUJUI')->where('bentuk', $p['bentuk'])
@@ -342,7 +342,7 @@ class BankSoalController extends Controller
         return $data + [
             'isi' => $isi, 'kunci' => $kunci,
             'gambar_svg' => BankSoalService::sanitasiSvg($request->gambar_svg),
-            'skor_maks' => $request->integer('skor_maks') ?: BankSoalService::skorBawaan($request->bentuk, $isi),
+            'skor_maks' => $request->integer('skor_maks') ?: BankSoalService::skorBawaan($request->bentuk, $isi, $kunci),
         ];
     }
 
@@ -381,7 +381,7 @@ class BankSoalController extends Controller
                     'isi' => $isi, 'kunci' => $kunci,
                     'rubrik' => isset($m['rubrik']) ? mb_substr((string) $m['rubrik'], 0, 5000) : null,
                     'pembahasan' => isset($m['pembahasan']) ? mb_substr((string) $m['pembahasan'], 0, 5000) : null,
-                    'skor_maks' => BankSoalService::skorBawaan($bentuk, $isi),
+                    'skor_maks' => BankSoalService::skorBawaan($bentuk, $isi, $kunci),
                     'status' => 'DRAF',
                     'dibuat_oleh' => $request->user()->id,
                 ])->load(self::RELASI);

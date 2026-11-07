@@ -134,7 +134,7 @@ export default function ModalDrafAI({ referensi, baris, kisi, onTutup, onSelesai
                 </div>
                 <div className="col-12">
                   <div className="form-check form-switch">
-                    <input className="form-check-input" type="checkbox" id="aiGambar" checked={f.gambar} onChange={(e) => set("gambar", e.target.checked)} />
+                    <input className="form-check-input" type="checkbox" id="aiGambar" checked={f.gambar || f.bentuk === "LENGKAPI_GAMBAR"} disabled={f.bentuk === "LENGKAPI_GAMBAR"} onChange={(e) => set("gambar", e.target.checked)} />
                     <label className="form-check-label small" htmlFor="aiGambar">Sertakan diagram bila membantu (bangun datar, pecahan, grafik, tabel)</label>
                   </div>
                 </div>

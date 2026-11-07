@@ -31,7 +31,7 @@ class SoalAIService
 Keluarkan HANYA JSON valid berbentuk {"soal": [ ... ]} tanpa teks lain. Setiap soal:
 {
   "pertanyaan": "teks soal, bahasa Indonesia sesuai usia SD",
-  "bentuk": "PG | PG_KOMPLEKS | BENAR_SALAH | ISIAN | URAIAN | MENJODOHKAN | MENGURUTKAN",
+  "bentuk": "PG | PG_KOMPLEKS | BENAR_SALAH | ISIAN | URAIAN | MENJODOHKAN | MENGURUTKAN | LENGKAPI_GAMBAR",
   "level_kognitif": "C1..C6",
   "tingkat_kesulitan": "MUDAH | SEDANG | SULIT",
   "dimensi": {"S": 0-1, "T": 0-1, "N": 0-1, "K": 0-1, "M": 0-1},
@@ -48,6 +48,9 @@ Aturan isi/kunci per bentuk:
 - URAIAN: isi {}, kunci {"jawaban": "contoh jawaban lengkap"}, plus "rubrik".
 - MENJODOHKAN: isi {"pasangan": [{"kiri": "...", "kanan": "..."}, ...]} 3-6 pasangan benar, kunci {}.
 - MENGURUTKAN: isi {"urutan": [langkah dalam urutan benar]} 3-6 langkah, kunci {}.
+- LENGKAPI_GAMBAR: "gambar_svg" WAJIB berisi gambar dengan penanda angka 1, 2, 3, ... pada bagian yang harus dilengkapi siswa
+  (bagian itu dibiarkan tanpa tulisan); isi {"bank_kata": [jawaban benar + 1-3 pengecoh, diacak]},
+  kunci {"jawaban": [[jawaban diterima untuk bagian 1, termasuk variasi penulisan], [untuk bagian 2], ...]} 2-6 bagian.
 TXT;
 
     private const ATURAN_GAMBAR = 'Aturan gambar: bila gambar membantu (bangun datar, pecahan, garis bilangan, grafik, tabel, '

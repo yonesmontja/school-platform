@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
  * - URAIAN       isi {}                             kunci {jawaban: contoh jawaban} + rubrik
  * - MENJODOHKAN  isi {pasangan: [{kiri, kanan}, ...]} (2–8 pasangan; urutan diacak saat ditampilkan)
  * - MENGURUTKAN  isi {urutan: [teks, ...]} dalam urutan benar (2–8 langkah)
+ * - LENGKAPI_GAMBAR isi {bank_kata: [teks, ...]} (opsional, termasuk pengecoh)
+ *                kunci {jawaban: [[jawaban diterima untuk bagian 1, ...], ...]} (1–10 bagian bernomor pada gambar)
  */
 class BankSoalService
 {
@@ -69,6 +71,19 @@ class BankSoalService
                 $urutan = $daftar($isi['urutan'] ?? []);
                 if (count($urutan) < 2 || count($urutan) > 8) self::gagal('Isi 2–8 langkah dalam urutan yang benar.');
                 return [['urutan' => $urutan], []];
+
+            case 'LENGKAPI_GAMBAR':
+                // Setiap bagian: daftar jawaban yang diterima (teks "a / b" juga diterima)
+                $bagian = array_map(fn($b) => $daftar(is_array($b) ? $b : preg_split('#\s*/\s*#', (string) $b)), (array) ($kunci['jawaban'] ?? []));
+                if (count($bagian) < 1 || count($bagian) > 10) self::gagal('Isi 1–10 bagian gambar yang dilengkapi.');
+                if (array_filter($bagian, fn($b) => !$b)) self::gagal('Setiap bagian gambar perlu jawaban yang diterima.');
+                $bank = array_slice($daftar($isi['bank_kata'] ?? []), 0, 15);
+                foreach ($bagian as $b) {
+                    if ($bank && !array_intersect(array_map('mb_strtolower', $b), array_map('mb_strtolower', $bank))) {
+                        self::gagal('Setiap jawaban harus ada di bank kata (atau kosongkan bank kata).');
+                    }
+                }
+                return [$bank ? ['bank_kata' => $bank] : [], ['jawaban' => $bagian]];
         }
         self::gagal('Bentuk soal tidak dikenal.');
     }
@@ -79,11 +94,12 @@ class BankSoalService
     }
 
     /** Skor maksimal bawaan: banyaknya bagian yang dinilai (uraian ditentukan guru). */
-    public static function skorBawaan(string $bentuk, array $isi): int
+    public static function skorBawaan(string $bentuk, array $isi, array $kunci = []): int
     {
         return match ($bentuk) {
             'BENAR_SALAH' => count($isi['pernyataan'] ?? []) ?: 1,
             'MENJODOHKAN' => count($isi['pasangan'] ?? []) ?: 1,
+            'LENGKAPI_GAMBAR' => count($kunci['jawaban'] ?? []) ?: 1,
             'URAIAN' => 4,
             default => 1,
         };

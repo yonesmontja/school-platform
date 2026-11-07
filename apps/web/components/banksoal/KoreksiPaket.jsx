@@ -9,6 +9,7 @@ import { bacaBerkas, minta } from "./api";
 const kosong = () => ({ jawaban: {}, skor_manual: {}, foto: [], teks: {} });
 const dariServer = (butir, j) => ({
   jawaban: j?.jawaban || {}, skor_manual: j?.skor_manual || {}, foto: j?.foto || [],
+  online: j?.sumber === "ONLINE", sedang: j?.sumber === "ONLINE" && !j?.selesai_pada, pelanggaran: j?.pelanggaran || 0,
   teks: Object.fromEntries(butir.map((b) => [b.id, keTeks(b.soal, j?.jawaban?.[b.id])])),
 });
 const kunciTeks = (b) => {
@@ -18,6 +19,7 @@ const kunciTeks = (b) => {
     case "PG_KOMPLEKS": return (k || []).map((i) => HURUF[i]).join("");
     case "BENAR_SALAH": return (k || []).map((v) => (v ? "B" : "S")).join("");
     case "ISIAN": return (k || [])[0] || "";
+    case "LENGKAPI_GAMBAR": return (k || []).map((x) => (Array.isArray(x) ? x[0] : x)).join("; ");
     default: return `0–${b.skor_maks}`;
   }
 };
@@ -108,12 +110,12 @@ export default function KoreksiPaket({ paket, onBerubah }) {
     tabel.current?.querySelector(`[data-baris="${Number(br) + 1}"][data-kolom="${kolom}"]`)?.focus();
   };
 
-  const ringkasan = useMemo(() => Object.fromEntries(siswa.map((s) => [s.id_siswa, ringkas(butir, baris[s.id_siswa]?.jawaban, baris[s.id_siswa]?.skor_manual)])), [siswa, baris, butir]);
+  const ringkasan = useMemo(() => Object.fromEntries(siswa.map((s) => [s.id_siswa, ringkas(butir, baris[s.id_siswa]?.jawaban, baris[s.id_siswa]?.skor_manual, baris[s.id_siswa]?.online)])), [siswa, baris, butir]);
   const sudahDiisi = (id) => {
     const r = baris[id];
     return r && (Object.values(r.teks || {}).some((t) => t) || Object.keys(r.skor_manual || {}).length > 0 || (r.foto || []).length > 0);
   };
-  const jumlahLengkap = siswa.filter((s) => sudahDiisi(s.id_siswa) && ringkasan[s.id_siswa]?.lengkap).length;
+  const jumlahLengkap = siswa.filter((s) => sudahDiisi(s.id_siswa) && ringkasan[s.id_siswa]?.lengkap && !baris[s.id_siswa]?.sedang).length;
 
   if (!butir.length) return <div className="text-center text-muted py-5"><i className="bi bi-journal-x fs-1 d-block mb-2"></i>Paket belum berisi soal. Tambahkan soal di bagian Susun.</div>;
   if (!paket.id_kelas) return <div className="alert alert-info">Pilih kelas pada pengaturan paket untuk mulai mengoreksi.</div>;
@@ -158,27 +160,33 @@ export default function KoreksiPaket({ paket, onBerubah }) {
                 const diisi = sudahDiisi(s.id_siswa);
                 return (
                   <tr key={s.id_siswa} className={kotor.has(s.id_siswa) ? "table-warning" : ""}>
-                    <td style={{ position: "sticky", left: 0, zIndex: 1 }} className="bg-body text-nowrap">{s.nama_siswa}</td>
+                    <td style={{ position: "sticky", left: 0, zIndex: 1 }} className="bg-body text-nowrap">
+                      {s.nama_siswa}
+                      {r.online && <i className={`bi ${r.sedang ? "bi-phone-vibrate text-primary" : "bi-phone text-muted"} ms-1`} title={r.sedang ? "Sedang mengerjakan tes online" : "Dikerjakan online"}></i>}
+                      {r.pelanggaran > 0 && <span className="badge text-bg-warning ms-1" title="Berapa kali keluar dari halaman tes">{r.pelanggaran}×</span>}
+                    </td>
                     {butir.map((b, bi) => {
                       const otomatis = OTOMATIS.includes(b.soal.bentuk);
-                      const sk = diisi ? skorButir(b, r.jawaban, r.skor_manual) : null;
+                      const sk = diisi ? skorButir(b, r.jawaban, r.skor_manual, r.online) : null;
+                      const auto = skorButir(b, r.jawaban, {}, r.online);
                       const warna = sk == null ? "" : sk >= b.skor_maks ? "bg-success-subtle" : sk > 0 ? "bg-warning-subtle" : "bg-danger-subtle";
                       return (
                         <td key={b.id} className={`p-0 ${warna}`} title={sk != null ? `Skor ${sk}/${b.skor_maks}${r.skor_manual?.[b.id] != null && otomatis ? " (ditetapkan guru)" : ""}` : undefined}>
                           {otomatis ? (
-                            <input className="form-control form-control-sm border-0 bg-transparent text-center px-1" style={{ width: b.soal.bentuk === "ISIAN" ? 90 : 52 }}
-                              aria-label={`Jawaban ${s.nama_siswa} nomor ${bi + 1}`} value={r.teks?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah}
-                              onChange={(e) => isiTeks(s.id_siswa, b, b.soal.bentuk === "ISIAN" ? e.target.value : e.target.value.toUpperCase())} />
+                            <input className="form-control form-control-sm border-0 bg-transparent text-center px-1" style={{ width: ["ISIAN", "LENGKAPI_GAMBAR"].includes(b.soal.bentuk) ? 90 : 52 }}
+                              aria-label={`Jawaban ${s.nama_siswa} nomor ${bi + 1}`} value={r.teks?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah} disabled={r.sedang}
+                              onChange={(e) => isiTeks(s.id_siswa, b, ["ISIAN", "LENGKAPI_GAMBAR"].includes(b.soal.bentuk) ? e.target.value : e.target.value.toUpperCase())} />
                           ) : (
                             <input type="number" min={0} max={b.skor_maks} step="0.5" className="form-control form-control-sm border-0 bg-transparent text-center px-1" style={{ width: 52 }}
-                              aria-label={`Skor ${s.nama_siswa} nomor ${bi + 1}`} placeholder="–" value={r.skor_manual?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah}
-                              onChange={(e) => isiSkor(s.id_siswa, b, e.target.value)} />
+                              aria-label={`Skor ${s.nama_siswa} nomor ${bi + 1}`} placeholder={diisi && auto != null ? String(auto) : "–"} value={r.skor_manual?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah}
+                              disabled={r.sedang} onChange={(e) => isiSkor(s.id_siswa, b, e.target.value)} />
                           )}
                         </td>
                       );
                     })}
                     <td className="text-center text-nowrap">
-                      {diisi ? <><b>{rk.nilai}</b>{!rk.lengkap && <i className="bi bi-hourglass-split text-warning ms-1" title="Ada butir yang belum diberi skor"></i>}</> : <span className="text-muted">–</span>}
+                      {r.sedang ? <span className="badge text-bg-primary">Mengerjakan</span>
+                        : diisi ? <><b>{rk.nilai}</b>{!rk.lengkap && <i className="bi bi-hourglass-split text-warning ms-1" title="Ada butir yang belum diberi skor"></i>}</> : <span className="text-muted">–</span>}
                     </td>
                     <td className="text-nowrap">
                       <button className="btn btn-sm btn-link p-0 px-1" onClick={() => setDetail(s.id_siswa)} aria-label={`Rincian & foto ${s.nama_siswa}`} title="Rincian, foto lembar jawaban, dan baca dengan AI">
@@ -212,7 +220,7 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
   const [aiMode, setAiMode] = useState(() => (["GEMINI", "CLAUDE"].includes(bacaAiMode()) ? bacaAiMode() : "GEMINI"));
   const [proses, setProses] = useState(null); // "unggah" | url yang sedang dibaca
   const berkas = useRef(null);
-  const rk = ringkas(butir, baris.jawaban, baris.skor_manual);
+  const rk = ringkas(butir, baris.jawaban, baris.skor_manual, baris.online);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape" && !proses) onTutup(); };
@@ -300,7 +308,8 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
                   <div className="d-flex flex-column gap-2">
                     {butir.map((b, i) => {
                       const otomatis = OTOMATIS.includes(b.soal.bentuk);
-                      const sk = skorButir(b, baris.jawaban, baris.skor_manual);
+                      const sk = skorButir(b, baris.jawaban, {}, baris.online);
+                      const hanyaBaca = Array.isArray(baris.jawaban?.[b.id]) && ["MENJODOHKAN", "MENGURUTKAN"].includes(b.soal.bentuk);
                       return (
                         <div key={b.id} className="border rounded p-2 small">
                           <div className="d-flex gap-2">
@@ -314,10 +323,10 @@ function RincianSiswa({ paket, siswa, baris, onTeks, onSkor, onJawabanAi, onFoto
                             <div className="col-7">
                               {b.soal.bentuk === "URAIAN" || !otomatis ? (
                                 <input className="form-control form-control-sm" placeholder="Catatan/jawaban siswa (opsional)" aria-label={`Jawaban nomor ${i + 1}`}
-                                  value={baris.teks?.[b.id] ?? ""} onChange={(e) => onTeks(b, e.target.value)} />
+                                  value={baris.teks?.[b.id] ?? ""} readOnly={hanyaBaca} title={hanyaBaca ? "Jawaban tes online (dinilai otomatis)" : undefined} onChange={(e) => onTeks(b, e.target.value)} />
                               ) : (
                                 <input className="form-control form-control-sm" aria-label={`Jawaban nomor ${i + 1}`} value={baris.teks?.[b.id] ?? ""}
-                                  onChange={(e) => onTeks(b, b.soal.bentuk === "ISIAN" ? e.target.value : e.target.value.toUpperCase())} />
+                                  onChange={(e) => onTeks(b, ["ISIAN", "LENGKAPI_GAMBAR"].includes(b.soal.bentuk) ? e.target.value : e.target.value.toUpperCase())} />
                               )}
                             </div>
                             <div className="col-5 d-flex align-items-center gap-1">

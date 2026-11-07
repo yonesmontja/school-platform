@@ -26,6 +26,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL] },
   { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL] },
   { awalan: "/dashboard/portal", peran: PORTAL },
+  { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },
   // Master data & semester hanya untuk pengelola; guru tetap membacanya lewat dropdown di halaman lain

@@ -2,7 +2,8 @@
 // Harus sama dengan App\Services\PaketSoalService di backend; skor yang tersimpan tetap dihitung server.
 import { HURUF } from "./konstanta";
 
-export const OTOMATIS = ["PG", "PG_KOMPLEKS", "BENAR_SALAH", "ISIAN"];
+// Bentuk yang selalu dinilai otomatis (juga di koreksi kertas). Menjodohkan & mengurutkan otomatis bila dikerjakan online.
+export const OTOMATIS = ["PG", "PG_KOMPLEKS", "BENAR_SALAH", "ISIAN", "LENGKAPI_GAMBAR"];
 
 const indeksHuruf = (t) => (String(t || "").toUpperCase().match(/[A-H]/g) || []).map((c) => c.charCodeAt(0) - 65);
 
@@ -21,6 +22,10 @@ export function dariTeks(soal, teks) {
       const huruf = t.toUpperCase().replace(/SALAH/g, "S").replace(/BENAR/g, "B").replace(/[^A-Z?-]/g, "").split("");
       return (isi.pernyataan || []).map((_, i) => (["B", "T"].includes(huruf[i]) ? true : ["S", "F"].includes(huruf[i]) ? false : null));
     }
+    case "LENGKAPI_GAMBAR": {
+      const bagian = t.split(/\s*[;\n]\s*|\s*,\s*/);
+      return (soal.kunci?.jawaban || []).map((_, i) => bagian[i]?.trim() || null);
+    }
     default:
       return t || null;
   }
@@ -33,6 +38,12 @@ export function keTeks(soal, jawaban) {
     case "PG": return HURUF[jawaban] || "";
     case "PG_KOMPLEKS": return (jawaban || []).map((i) => HURUF[i]).join("");
     case "BENAR_SALAH": return (jawaban || []).some((v) => v != null) ? jawaban.map((v) => (v == null ? "-" : v ? "B" : "S")).join("") : "";
+    case "LENGKAPI_GAMBAR": return (jawaban || []).some((v) => v) ? jawaban.map((v) => v || "").join("; ") : "";
+    case "MENJODOHKAN":
+      // Online: [indeks kanan untuk tiap kiri] → "1-A, 2-C"
+      return Array.isArray(jawaban) ? jawaban.map((v, i) => `${i + 1}-${v == null ? "?" : HURUF[v]}`).join(", ") : String(jawaban);
+    case "MENGURUTKAN":
+      return Array.isArray(jawaban) ? jawaban.map((v) => (v == null ? "?" : v + 1)).join(" → ") : String(jawaban);
     default: return String(jawaban);
   }
 }
@@ -64,23 +75,39 @@ export function skorOtomatis(soal, jawaban, maks) {
     }
     case "ISIAN":
       return jawaban != null && (kunci || []).some((x) => ratakan(x) === ratakan(jawaban)) ? maks : 0;
+    case "LENGKAPI_GAMBAR": {
+      const k = kunci || [];
+      if (!k.length) return 0;
+      const cocok = k.filter((terima, i) => jawaban?.[i] != null && (Array.isArray(terima) ? terima : [terima]).some((x) => ratakan(x) === ratakan(jawaban[i]))).length;
+      return Math.round((cocok / k.length) * maks * 100) / 100;
+    }
+    case "MENJODOHKAN":
+    case "MENGURUTKAN": {
+      if (!Array.isArray(jawaban)) return null; // kertas: dinilai guru
+      const n = (soal.isi?.[soal.bentuk === "MENJODOHKAN" ? "pasangan" : "urutan"] || []).length;
+      if (!n) return 0;
+      const benar = jawaban.filter((v, i) => v != null && Number(v) === i).length;
+      return Math.round((benar / n) * maks * 100) / 100;
+    }
     default: return null;
   }
 }
 
 /** Skor akhir satu butir: skor guru bila ada, selain itu otomatis. */
-export function skorButir(butir, jawaban, skorManual) {
+export function skorButir(butir, jawaban, skorManual, online = false) {
   const m = skorManual?.[butir.id];
   if (m !== undefined && m !== null && m !== "") return Math.min(Math.max(Number(m), 0), butir.skor_maks);
-  return skorOtomatis(butir.soal, jawaban?.[butir.id], butir.skor_maks);
+  const s = skorOtomatis(butir.soal, jawaban?.[butir.id], butir.skor_maks);
+  // Tes online: menjodohkan/mengurutkan yang tidak dijawab bernilai 0
+  return s == null && online && ["MENJODOHKAN", "MENGURUTKAN"].includes(butir.soal.bentuk) ? 0 : s;
 }
 
 /** Ringkasan satu baris jawaban: total, nilai 0–100, dan apakah semua butir sudah dinilai. */
-export function ringkas(butir, jawaban, skorManual) {
+export function ringkas(butir, jawaban, skorManual, online = false) {
   let total = 0, maks = 0, lengkap = butir.length > 0;
   for (const b of butir) {
     maks += b.skor_maks;
-    const s = skorButir(b, jawaban, skorManual);
+    const s = skorButir(b, jawaban, skorManual, online);
     if (s == null) lengkap = false; else total += s;
   }
   return { total: Math.round(total * 100) / 100, nilai: maks ? Math.round((total / maks) * 10000) / 100 : 0, lengkap, maks };
