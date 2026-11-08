@@ -153,3 +153,52 @@ test("guru membuka tes online, siswa mengerjakan di HP, guru memantau", async ({
   await expect(page.locator(".pantau-tes tr", { hasText: "Natan Murib" })).toContainText("Selesai");
   await expect(page.locator(".pantau-tes tr", { hasText: "Natan Murib" })).toContainText("100");
 });
+
+test("siswa membaca nyaring dan merekam suara, guru mendengarkan dan menilai", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  await page.getByRole("button", { name: /Paket Soal/ }).click();
+  await page.getByRole("button", { name: "Paket baru" }).click();
+  const editor = page.getByRole("dialog", { name: "Paket soal baru" });
+  await editor.getByLabel("Judul paket").fill("Membaca E2E");
+  await pilih(editor.getByLabel("Kelas yang mengerjakan"), "4A");
+  await pilih(editor.getByLabel("Jenis penilaian di Input Nilai"), "Ulangan Harian");
+  await editor.getByLabel("Tanggal").fill("2026-01-06");
+  await editor.getByRole("button", { name: "Simpan paket" }).click();
+  await page.getByRole("button", { name: "Tambah soal" }).click();
+  const pilihan = page.getByRole("dialog", { name: "Tambah soal ke paket" });
+  await pilihan.locator(".pilih-soal", { hasText: "Bacalah cerita pecahan" }).getByLabel("Pilih soal").check();
+  await pilihan.getByRole("button", { name: /Tambahkan 1 soal/ }).click();
+  await page.getByRole("button", { name: /Tes Online/ }).click();
+  await page.getByRole("button", { name: "Buka tes online" }).click();
+  await expect(page.locator(".swal2-toast")).toContainText("dibuka");
+
+  // Siswa merekam dengan mikrofon (tiruan Chromium)
+  await masuk("siswa");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/dashboard/ujian");
+  await page.locator(".kartu-ujian", { hasText: "Membaca E2E" }).getByRole("link", { name: /Mulai/ }).click();
+  await page.getByRole("button", { name: "Mulai mengerjakan" }).click();
+  await expect(page.getByText("seperempat kue")).toBeVisible();
+  await page.getByRole("button", { name: "Mulai merekam" }).click();
+  await expect(page.getByText(/Merekam…/)).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Selesai membaca" }).click();
+  await expect(page.getByText("Rekaman tersimpan")).toBeVisible();
+  await page.getByRole("button", { name: "Kumpulkan" }).last().click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.getByText("Jawabanmu sudah terkumpul")).toBeVisible();
+
+  // Guru mendengarkan rekaman di Koreksi lalu memberi skor
+  await masuk("guru");
+  await page.goto("/dashboard/bank-soal");
+  await page.getByRole("button", { name: /Paket Soal/ }).click();
+  await page.locator(".kartu-paket", { hasText: "Membaca E2E" }).getByRole("button").first().click();
+  await page.getByRole("button", { name: "Koreksi" }).click();
+  await page.getByRole("button", { name: "Dengarkan rekaman Natan Murib nomor 1" }).click();
+  const rincian = page.getByRole("dialog", { name: "Koreksi Natan Murib" });
+  await expect(rincian.getByLabel("Rekaman nomor 1")).toBeVisible();
+  await rincian.getByLabel("Skor nomor 1").fill("3");
+  await rincian.getByRole("button", { name: "Simpan jawaban" }).click();
+  await expect(page.locator("tr", { hasText: "Natan Murib" })).toContainText("75");
+});

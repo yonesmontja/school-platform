@@ -95,6 +95,7 @@ class UjianService
                 'BENAR_SALAH' => ['pernyataan' => $isi['pernyataan'] ?? []],
                 'MENJODOHKAN' => ['kiri' => array_column($isi['pasangan'] ?? [], 'kiri'), 'kanan' => $susun($isi['pasangan'] ?? [], fn($p) => $p['kanan'])],
                 'MENGURUTKAN' => ['langkah' => $susun($isi['urutan'] ?? [], fn($t) => $t)],
+                'MEMBACA_NYARING' => ['teks' => $isi['teks'] ?? ''],
                 'LENGKAPI_GAMBAR' => ['jumlah_bagian' => count($s['kunci']['jawaban'] ?? []), 'bank_kata' => array_column($susun($isi['bank_kata'] ?? [], fn($t) => $t), 'teks')],
                 default => [],
             };

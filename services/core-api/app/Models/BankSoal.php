@@ -16,7 +16,7 @@ class BankSoal extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    public const BENTUK = ['PG', 'PG_KOMPLEKS', 'BENAR_SALAH', 'ISIAN', 'URAIAN', 'MENJODOHKAN', 'MENGURUTKAN', 'LENGKAPI_GAMBAR'];
+    public const BENTUK = ['PG', 'PG_KOMPLEKS', 'BENAR_SALAH', 'ISIAN', 'URAIAN', 'MENJODOHKAN', 'MENGURUTKAN', 'LENGKAPI_GAMBAR', 'MEMBACA_NYARING'];
     public const LEVEL = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'];
     public const KESULITAN = ['MUDAH', 'SEDANG', 'SULIT'];
     public const STATUS = ['DRAF', 'DIAJUKAN', 'DISETUJUI', 'REVISI'];

@@ -85,7 +85,7 @@ class PaketSoalController extends Controller
     {
         $paket = PaketSoal::with('jawaban')->findOrFail($id);
         $this->cekAkses($request, $paket);
-        $foto = $paket->jawaban->flatMap(fn($j) => $j->foto ?? []);
+        $foto = $paket->jawaban->flatMap(fn($j) => array_merge($j->foto ?? [], self::rekaman($j)));
         $paket->delete();
         $this->hapusFotoBerkas($foto);
         return response()->json(['success' => true, 'message' => 'Paket soal dihapus. Nilai yang sudah dikirim ke Input Nilai tetap tersimpan.']);
@@ -216,7 +216,7 @@ class PaketSoalController extends Controller
         $paket = PaketSoal::findOrFail($id);
         $this->cekAkses($request, $paket);
         $jwb = PaketSoalJawaban::where('id_paket', $id)->where('id_siswa', $idSiswa)->firstOrFail();
-        $foto = $jwb->foto ?? [];
+        $foto = array_merge($jwb->foto ?? [], self::rekaman($jwb));
         $jwb->delete();
         $this->hapusFotoBerkas($foto);
         return response()->json(['success' => true, 'message' => 'Jawaban siswa dihapus.']);
@@ -589,7 +589,13 @@ class PaketSoalController extends Controller
     private function hapusFotoBerkas(iterable $urls): void
     {
         foreach ($urls as $url) {
-            if (Str::startsWith($url, '/storage/lembar/')) Storage::disk('public')->delete(Str::after($url, '/storage/'));
+            if (Str::startsWith($url, ['/storage/lembar/', '/storage/rekaman/'])) Storage::disk('public')->delete(Str::after($url, '/storage/'));
         }
+    }
+
+    /** Url rekaman membaca nyaring dalam jawaban siswa. */
+    private static function rekaman(PaketSoalJawaban $j): array
+    {
+        return array_values(array_filter($j->jawaban ?? [], fn($v) => is_string($v) && Str::startsWith($v, '/storage/rekaman/')));
     }
 }

@@ -10,7 +10,7 @@ const HEADER_KEAMANAN = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Content-Security-Policy", value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" }, // mikrofon: soal membaca nyaring
 ];
 
 /** @type {import('next').NextConfig} */

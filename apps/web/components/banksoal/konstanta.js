@@ -8,6 +8,7 @@ export const BENTUK = [
   { value: "MENJODOHKAN", label: "Menjodohkan", icon: "bi-arrow-left-right" },
   { value: "MENGURUTKAN", label: "Mengurutkan", icon: "bi-sort-numeric-down" },
   { value: "LENGKAPI_GAMBAR", label: "Melengkapi gambar", icon: "bi-image-alt" },
+  { value: "MEMBACA_NYARING", label: "Membaca nyaring", icon: "bi-mic" },
 ];
 export const labelBentuk = (v) => BENTUK.find((b) => b.value === v)?.label || v;
 

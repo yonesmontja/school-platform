@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
  * - MENGURUTKAN  isi {urutan: [teks, ...]} dalam urutan benar (2–8 langkah)
  * - LENGKAPI_GAMBAR isi {bank_kata: [teks, ...]} (opsional, termasuk pengecoh)
  *                kunci {jawaban: [[jawaban diterima untuk bagian 1, ...], ...]} (1–10 bagian bernomor pada gambar)
+ * - MEMBACA_NYARING isi {teks: bacaan}                kunci {} + rubrik (kelancaran, lafal, intonasi); dinilai guru
+ *                dari rekaman suara siswa (tes online) atau langsung di kelas
  */
 class BankSoalService
 {
@@ -72,6 +74,12 @@ class BankSoalService
                 if (count($urutan) < 2 || count($urutan) > 8) self::gagal('Isi 2–8 langkah dalam urutan yang benar.');
                 return [['urutan' => $urutan], []];
 
+            case 'MEMBACA_NYARING':
+                $bacaan = trim((string) ($isi['teks'] ?? ''));
+                if (mb_strlen($bacaan) < 10) self::gagal('Isi teks bacaan yang dibaca nyaring siswa.');
+                if (mb_strlen($bacaan) > 3000) self::gagal('Teks bacaan maksimal 3000 karakter.');
+                return [['teks' => $bacaan], []];
+
             case 'LENGKAPI_GAMBAR':
                 // Setiap bagian: daftar jawaban yang diterima (teks "a / b" juga diterima)
                 $bagian = array_map(fn($b) => $daftar(is_array($b) ? $b : preg_split('#\s*/\s*#', (string) $b)), (array) ($kunci['jawaban'] ?? []));
@@ -100,7 +108,7 @@ class BankSoalService
             'BENAR_SALAH' => count($isi['pernyataan'] ?? []) ?: 1,
             'MENJODOHKAN' => count($isi['pasangan'] ?? []) ?: 1,
             'LENGKAPI_GAMBAR' => count($kunci['jawaban'] ?? []) ?: 1,
-            'URAIAN' => 4,
+            'URAIAN', 'MEMBACA_NYARING' => 4,
             default => 1,
         };
     }

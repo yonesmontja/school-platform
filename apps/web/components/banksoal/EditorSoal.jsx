@@ -16,6 +16,7 @@ const isiAwal = (bentuk) => ({
   MENJODOHKAN: [{ pasangan: [{ kiri: "", kanan: "" }, { kiri: "", kanan: "" }, { kiri: "", kanan: "" }] }, {}],
   MENGURUTKAN: [{ urutan: ["", "", ""] }, {}],
   LENGKAPI_GAMBAR: [{ bank_kata: [] }, { jawaban: ["", ""] }],
+  MEMBACA_NYARING: [{ teks: "" }, {}],
 }[bentuk]);
 
 // Melengkapi gambar: jawaban per bagian disunting sebagai teks "a / b"
@@ -233,6 +234,17 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                       <label className="form-label small fw-semibold mb-1">Rubrik penilaian</label>
                       <textarea className="form-control form-control-sm mb-2" rows={3} value={f.rubrik} onChange={(e) => set("rubrik", e.target.value)}
                         placeholder={"4 = ...\n3 = ...\n2 = ...\n1 = ..."} />
+                    </>
+                  )}
+                  {f.bentuk === "MEMBACA_NYARING" && (
+                    <>
+                      <label className="form-label small fw-semibold mb-1" htmlFor="teksBacaan">Teks bacaan</label>
+                      <textarea id="teksBacaan" className="form-control mb-1" rows={5} maxLength={3000} value={f.isi.teks || ""} onChange={(e) => setIsi("teks", e.target.value)}
+                        placeholder="Teks yang dibaca nyaring oleh siswa" />
+                      <div className="small text-muted mb-2">Tes online: siswa merekam suaranya di HP dan guru mendengarkan rekamannya saat mengoreksi. Di kelas: guru menilai langsung.</div>
+                      <label className="form-label small fw-semibold mb-1">Rubrik penilaian</label>
+                      <textarea className="form-control form-control-sm mb-2" rows={3} value={f.rubrik} onChange={(e) => set("rubrik", e.target.value)}
+                        placeholder={"4 = lancar, lafal tepat, intonasi dan jeda sesuai tanda baca\n3 = ...\n2 = ...\n1 = ..."} />
                     </>
                   )}
                   {f.bentuk === "LENGKAPI_GAMBAR" && (

@@ -38,12 +38,12 @@ class SoalAIService
 Keluarkan HANYA JSON valid berbentuk {"soal": [ ... ]} tanpa teks lain. Setiap soal:
 {
   "pertanyaan": "teks soal, bahasa Indonesia sesuai usia SD",
-  "bentuk": "PG | PG_KOMPLEKS | BENAR_SALAH | ISIAN | URAIAN | MENJODOHKAN | MENGURUTKAN | LENGKAPI_GAMBAR",
+  "bentuk": "PG | PG_KOMPLEKS | BENAR_SALAH | ISIAN | URAIAN | MENJODOHKAN | MENGURUTKAN | LENGKAPI_GAMBAR | MEMBACA_NYARING",
   "level_kognitif": "C1..C6",
   "tingkat_kesulitan": "MUDAH | SEDANG | SULIT",
   "dimensi": {"S": 0-1, "T": 0-1, "N": 0-1, "K": 0-1, "M": 0-1},
   "isi": ..., "kunci": ...,
-  "rubrik": "khusus URAIAN: kriteria skor 1-4",
+  "rubrik": "khusus URAIAN dan MEMBACA_NYARING: kriteria skor 1-4",
   "pembahasan": "penjelasan singkat jawaban",
   "gambar_svg": "opsional, lihat aturan gambar"
 }
@@ -58,6 +58,8 @@ Aturan isi/kunci per bentuk:
 - LENGKAPI_GAMBAR: "gambar_svg" WAJIB berisi gambar dengan penanda angka 1, 2, 3, ... pada bagian yang harus dilengkapi siswa
   (bagian itu dibiarkan tanpa tulisan); isi {"bank_kata": [jawaban benar + 1-3 pengecoh, diacak]},
   kunci {"jawaban": [[jawaban diterima untuk bagian 1, termasuk variasi penulisan], [untuk bagian 2], ...]} 2-6 bagian.
+- MEMBACA_NYARING: "pertanyaan" berisi perintah (mis. "Bacalah teks berikut dengan nyaring"), isi {"teks": bacaan 30-150 kata
+  sesuai kelas dengan kosakata yang dikenal anak}, kunci {}, plus "rubrik" skor 1-4 untuk kelancaran, ketepatan lafal, intonasi, dan jeda.
 TXT;
 
     private const ATURAN_GAMBAR = 'Aturan gambar: bila gambar membantu (bangun datar, pecahan, garis bilangan, grafik, tabel, '

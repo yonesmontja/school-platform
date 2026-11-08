@@ -35,6 +35,7 @@ export function dariTeks(soal, teks) {
 export function keTeks(soal, jawaban) {
   if (jawaban == null) return "";
   switch (soal.bentuk) {
+    case "MEMBACA_NYARING": return typeof jawaban === "string" && jawaban.startsWith("/storage/rekaman/") ? "" : String(jawaban);
     case "PG": return HURUF[jawaban] || "";
     case "PG_KOMPLEKS": return (jawaban || []).map((i) => HURUF[i]).join("");
     case "BENAR_SALAH": return (jawaban || []).some((v) => v != null) ? jawaban.map((v) => (v == null ? "-" : v ? "B" : "S")).join("") : "";

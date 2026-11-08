@@ -21,6 +21,7 @@ use Illuminate\Support\Collection;
  * - MENGURUTKAN  online: [indeks langkah dalam urutan pilihan siswa] → otomatis, sebanding posisi benar
  *                kertas: teks catatan → skor diisi guru
  * - URAIAN                                           → skor diisi guru (jawaban boleh berupa catatan/transkrip)
+ * - MEMBACA_NYARING online: url rekaman /storage/rekaman/… (hanya dari unggahan siswa); kertas: catatan → skor diisi guru
  * Skor yang ditetapkan guru selalu menggantikan skor otomatis.
  */
 class PaketSoalService

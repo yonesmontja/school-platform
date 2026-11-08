@@ -106,6 +106,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/{id}', [UjianController::class, 'show']);
         Route::post('/{id}/mulai', [UjianController::class, 'mulai']);
         Route::put('/{id}/jawaban', [UjianController::class, 'simpan']);
+        Route::post('/{id}/rekaman', [UjianController::class, 'rekam'])->middleware('throttle:30,1');
         Route::post('/{id}/selesai', [UjianController::class, 'selesai']);
     });
 

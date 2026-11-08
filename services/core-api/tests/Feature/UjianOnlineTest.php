@@ -163,4 +163,42 @@ class UjianOnlineTest extends TestCase
         $this->assertNull(PaketSoalService::skorOtomatis($jodoh, '1-A, 2-C', 3)); // kertas: dinilai guru
         $this->assertSame([2, null, 0], PaketSoalService::normalisasiJawaban($jodoh, [2, 9, 0]));
     }
+
+    public function test_membaca_nyaring_merekam_suara_dan_dinilai_guru(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $idSoal = BankSoal::create([
+            'id_soal' => 'SOAL-' . Str::uuid(), 'id_mapel' => 'MPL-A', 'id_materi' => 'MTR-T', 'bentuk' => 'MEMBACA_NYARING', 'level_kognitif' => 'C3',
+            'tingkat_kesulitan' => 'SEDANG', 'status' => 'DISETUJUI', 'sumber' => 'MANUAL', 'dibuat_oleh' => $this->sekolah->guruA->id, 'skor_maks' => 4,
+            'pertanyaan' => 'Bacalah dengan nyaring', 'isi' => ['teks' => 'Ani pergi ke pasar membeli sayur.'], 'kunci' => [], 'rubrik' => '4: lancar',
+        ])->id_soal;
+        // Bentuk baru tervalidasi saat guru menyimpan soal
+        $this->sebagai($this->sekolah->guruA)->postJson('/api/bank-soal', ['id_mapel' => 'MPL-A', 'bentuk' => 'MEMBACA_NYARING', 'level_kognitif' => 'C3',
+            'tingkat_kesulitan' => 'SEDANG', 'pertanyaan' => 'Bacalah', 'isi' => ['teks' => 'pendek'], 'kunci' => []])->assertUnprocessable();
+
+        $id = $this->postJson('/api/paket-soal', ['judul' => 'Membaca', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_jenis' => 'JNS-T', 'tanggal' => '2030-03-02'])->json('data.id_paket');
+        $idB = (string) $this->postJson("/api/paket-soal/{$id}/butir", ['id_soal' => [$idSoal]])->json('data.butir.0.id');
+        $this->putJson("/api/paket-soal/{$id}/online", ['online' => true, 'durasi_menit' => 10])->assertOk();
+
+        $this->sebagai($this->sekolah->siswa)->postJson("/api/ujian/{$id}/mulai")->assertOk()->assertJsonPath('data.soal.0.teks', 'Ani pergi ke pasar membeli sayur.');
+        $wav = 'RIFF' . pack('V', 36) . 'WAVEfmt ' . pack('VvvVVvv', 16, 1, 1, 8000, 8000, 1, 8) . 'data' . pack('V', 0);
+        $url1 = $this->postJson("/api/ujian/{$id}/rekaman", ['id_butir' => (int) $idB, 'audio_base64' => 'data:audio/wav;base64,' . base64_encode($wav)])->assertOk()->json('url');
+        $this->assertStringStartsWith("/storage/rekaman/{$id}_SIS-1_", $url1);
+        // Rekam ulang mengganti berkas lama; bukan audio ditolak; url tidak bisa dipalsukan lewat simpan jawaban
+        $url2 = $this->postJson("/api/ujian/{$id}/rekaman", ['id_butir' => (int) $idB, 'audio_base64' => base64_encode($wav)])->json('url');
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing(Str::after($url1, '/storage/'));
+        $this->postJson("/api/ujian/{$id}/rekaman", ['id_butir' => (int) $idB, 'audio_base64' => base64_encode('bukan audio')])->assertUnprocessable();
+        $this->putJson("/api/ujian/{$id}/jawaban", ['jawaban' => [$idB => '/storage/rekaman/orang_lain.webm']])->assertOk();
+        $this->postJson("/api/ujian/{$id}/selesai")->assertOk();
+
+        $j = PaketSoalJawaban::where('id_paket', $id)->where('id_siswa', 'SIS-1')->first();
+        $this->assertSame($url2, $j->jawaban[$idB]);
+        $this->assertFalse($j->lengkap); // menunggu skor guru
+
+        $this->sebagai($this->sekolah->guruA)->putJson("/api/paket-soal/{$id}/jawaban", ['records' => [['id_siswa' => 'SIS-1', 'jawaban' => $j->jawaban, 'skor_manual' => [$idB => 3]]]])->assertOk();
+        $this->assertEquals(75, $j->fresh()->nilai);
+        // Menghapus jawaban (Ulang) ikut menghapus rekaman
+        $this->deleteJson("/api/paket-soal/{$id}/jawaban/SIS-1")->assertOk();
+        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing(Str::after($url2, '/storage/'));
+    }
 }

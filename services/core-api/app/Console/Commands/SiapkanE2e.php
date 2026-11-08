@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\BankSoal;
 use App\Models\Classes;
 use App\Models\MasterIndikator;
 use App\Models\MasterKategoriPenilaian;
@@ -117,5 +118,17 @@ class SiapkanE2e extends Command
                 'aktif' => true, 'wajib_ganti_password' => false,
             ]);
         }
+
+        // Soal membaca nyaring yang sudah disetujui, untuk tes rekaman suara siswa
+        BankSoal::create([
+            'id_soal' => 'SOAL-E2E-BACA', 'id_mapel' => 'MPL-EMTK', 'id_kelas' => 'KLS-E4A', 'id_materi' => 'MTR-E1', 'bentuk' => 'MEMBACA_NYARING',
+            'level_kognitif' => 'C3', 'tingkat_kesulitan' => 'SEDANG', 'pertanyaan' => 'Bacalah cerita pecahan berikut dengan nyaring.',
+            'isi' => ['teks' => 'Ibu memotong kue menjadi empat bagian sama besar. Adik mendapat satu bagian, yaitu seperempat kue.'],
+            'kunci' => [], 'rubrik' => "4 = lancar, lafal tepat, jeda sesuai tanda baca
+2 = tersendat
+1 = belum lancar", 'skor_maks' => 4,
+            'status' => 'DISETUJUI', 'sumber' => 'MANUAL', 'dibuat_oleh' => User::where('username', 'guru.e2e')->value('id'),
+            'disetujui_oleh' => User::where('username', 'kepsek.e2e')->value('id'), 'disetujui_pada' => now(),
+        ]);
     }
 }

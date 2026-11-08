@@ -75,6 +75,14 @@ export default function PratinjauSoal({ soal, nomor, kunci = true }) {
         </div>
       )}
 
+      {soal.bentuk === "MEMBACA_NYARING" && (
+        <div className="mt-2">
+          <div className="border rounded p-2 bg-body-tertiary fs-6" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{soal.isi?.teks}</div>
+          <div className="small text-muted mt-1"><i className="bi bi-mic me-1"></i>Dibaca nyaring oleh siswa</div>
+          {kunci && soal.rubrik && <div className="small text-body-secondary mt-1" style={{ whiteSpace: "pre-wrap" }}><b>Rubrik:</b> {soal.rubrik}</div>}
+        </div>
+      )}
+
       {soal.bentuk === "URAIAN" && kunci && (k.jawaban || soal.rubrik) && (
         <div className="mt-2 small">
           {k.jawaban && <div><b>Contoh jawaban:</b> {k.jawaban}</div>}

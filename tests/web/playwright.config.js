@@ -23,6 +23,9 @@ module.exports = defineConfig({
     trace: "retain-on-failure",
     // Build produksi mendaftarkan service worker; permintaannya tidak lewat page.route (pengalihan ke API tes)
     serviceWorkers: "block",
+    // Mikrofon tiruan untuk soal membaca nyaring (izin otomatis, suara uji Chromium)
+    launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] },
+    permissions: ["microphone"],
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 860 } } },

@@ -10,6 +10,9 @@ use App\Services\PaketSoalService;
 use App\Services\UjianService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Tes online untuk akun siswa (Fase 16 Tahap C). Siswa hanya melihat paket online untuk kelasnya,
@@ -17,6 +20,13 @@ use Illuminate\Support\Facades\DB;
  */
 class UjianController extends Controller
 {
+    private const MAKS_REKAMAN = 8 * 1024 * 1024;
+    // Rekaman MediaRecorder: Chrome/Android = webm (kadang terbaca video/webm), Safari/iPhone = mp4
+    private const MIME_REKAMAN = [
+        'audio/webm' => 'webm', 'video/webm' => 'webm', 'audio/ogg' => 'ogg', 'audio/mp4' => 'm4a', 'video/mp4' => 'm4a',
+        'audio/x-m4a' => 'm4a', 'audio/mpeg' => 'mp3', 'audio/wav' => 'wav', 'audio/x-wav' => 'wav', 'audio/aac' => 'aac',
+    ];
+
     public function index(Request $request)
     {
         $siswa = $this->siswa($request);
@@ -92,7 +102,10 @@ class UjianController extends Controller
         $butir = $paket->butir->keyBy(fn($b) => (string) $b->id);
         $jawaban = $j->jawaban ?? [];
         foreach ((array) $request->jawaban as $idB => $v) {
-            if (isset($butir[(string) $idB])) $jawaban[(string) $idB] = PaketSoalService::normalisasiJawaban($butir[(string) $idB]->soal, $v);
+            // Rekaman membaca nyaring hanya diisi lewat unggahan rekaman, bukan dari jawaban yang dikirim
+            if (isset($butir[(string) $idB]) && $butir[(string) $idB]->soal['bentuk'] !== 'MEMBACA_NYARING') {
+                $jawaban[(string) $idB] = PaketSoalService::normalisasiJawaban($butir[(string) $idB]->soal, $v);
+            }
         }
         $j->jawaban = $jawaban;
         $j->pelanggaran = min(999, $j->pelanggaran + $request->integer('pelanggaran'));
@@ -100,6 +113,36 @@ class UjianController extends Controller
         PaketSoalService::hitung($j, $paket->butir);
         $j->save();
         return response()->json(['success' => true, 'tersimpan' => now()->toIso8601String(), 'sisa_detik' => $this->sisa($paket, $j)]);
+    }
+
+    /** Unggah rekaman suara membaca nyaring (maks. 8MB); rekaman lama untuk soal itu diganti. */
+    public function rekam(Request $request, string $id)
+    {
+        $siswa = $this->siswa($request);
+        $paket = $this->paket($siswa, $id);
+        $request->validate(['id_butir' => 'required|integer', 'audio_base64' => 'required|string']);
+        $j = $this->sesiBerjalan($paket, $siswa);
+        $b = $paket->butir->firstWhere('id', $request->integer('id_butir'));
+        abort_unless($b && $b->soal['bentuk'] === 'MEMBACA_NYARING', 422, 'Soal ini bukan soal membaca nyaring.');
+
+        $data = base64_decode(preg_replace('/^data:[^,]*,/', '', $request->audio_base64), true);
+        if (!$data) throw ValidationException::withMessages(['audio_base64' => 'Rekaman tidak valid.']);
+        if (strlen($data) > self::MAKS_REKAMAN) throw ValidationException::withMessages(['audio_base64' => 'Rekaman terlalu panjang (maks. 8MB). Rekam ulang lebih singkat.']);
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($data);
+        $ext = self::MIME_REKAMAN[$mime] ?? null;
+        if (!$ext) throw ValidationException::withMessages(['audio_base64' => "Format rekaman tidak didukung ({$mime})."]);
+
+        $file = "rekaman/{$paket->id_paket}_{$siswa->id_siswa}_" . Str::random(20) . ".{$ext}";
+        Storage::disk('public')->put($file, $data);
+        $jawaban = $j->jawaban ?? [];
+        $lama = $jawaban[(string) $b->id] ?? null;
+        $jawaban[(string) $b->id] = '/storage/' . $file;
+        $j->jawaban = $jawaban;
+        $j->terakhir_aktif = now();
+        PaketSoalService::hitung($j, $paket->butir);
+        $j->save();
+        if (is_string($lama) && Str::startsWith($lama, '/storage/rekaman/')) Storage::disk('public')->delete(Str::after($lama, '/storage/'));
+        return response()->json(['success' => true, 'url' => '/storage/' . $file, 'sisa_detik' => $this->sisa($paket, $j)]);
     }
 
     public function selesai(Request $request, string $id)

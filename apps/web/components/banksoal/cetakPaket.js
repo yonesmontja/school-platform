@@ -36,6 +36,10 @@ function isiNaskah(b, kunci) {
         `<tr><td>${esc(p)}</td><td class="c">${kunci && k.jawaban?.[i] ? "✔" : "☐"}</td><td class="c">${kunci && k.jawaban?.[i] === false ? "✔" : "☐"}</td></tr>`).join("")}</table>`;
     case "ISIAN":
       return kunci ? `<div class="ok">Kunci: ${esc((k.jawaban || []).join(" / "))}</div>` : `<div class="garis">Jawab: ..................................................</div>`;
+    case "MEMBACA_NYARING":
+      return `<div class="bacaan">${teks(isi.teks || "")}</div>` + (kunci
+        ? (s.rubrik ? `<div><b>Rubrik:</b> ${teks(s.rubrik)}</div>` : "")
+        : `<div class="ket">Bacakan teks di atas dengan nyaring di depan guru.</div>`);
     case "URAIAN":
       return kunci
         ? `${k.jawaban ? `<div><b>Contoh jawaban:</b> ${teks(k.jawaban)}</div>` : ""}${s.rubrik ? `<div><b>Rubrik:</b> ${teks(s.rubrik)}</div>` : ""}`
@@ -73,6 +77,7 @@ function lembarJawaban(butir) {
       case "MENJODOHKAN": isian = (isi.pasangan || []).map((_, i) => `<span class="bs">${i + 1}–<span class="titik"></span></span>`).join(""); break;
       case "MENGURUTKAN": isian = (isi.urutan || []).map(() => `<span class="kotak">&nbsp;</span>`).join(" → "); break;
       case "URAIAN": isian = `<div class="kotak-uraian kecil"></div>`; break;
+      case "MEMBACA_NYARING": isian = `<span class="ket">Dinilai guru saat membaca · skor: <span class="titik"></span></span>`; break;
       case "LENGKAPI_GAMBAR": isian = (s.kunci?.jawaban || []).map((_, i) => `<span class="bs">${i + 1}. <span class="titik panjang-kecil"></span></span>`).join(""); break;
       default: isian = `<span class="panjang"></span>`;
     }
@@ -96,6 +101,7 @@ const GAYA = `
   .gb img { max-width: 70mm; max-height: 55mm; margin: 4px 0; }
   .ket { font-style: italic; font-size: 10.5pt; } .garis { margin-top: 6px; }
   .kotak-uraian { border: 1px solid #000; height: 38mm; margin-top: 4px; } .kotak-uraian.kecil { height: 26mm; }
+  .bacaan { border: 1px solid #555; padding: 6px 8px; margin: 4px 0; line-height: 1.7; font-size: 12.5pt; }
   .ok { color: #0a6b2c; font-weight: bold; } li.ok { text-decoration: underline; }
   .info { font-size: 9.5pt; color: #444; margin-top: 2px; }
   .lj { width: 100%; border-collapse: collapse; } .lj td { border: 1px solid #000; padding: 5px 6px; vertical-align: middle; }

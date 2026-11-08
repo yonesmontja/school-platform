@@ -4,6 +4,8 @@ import Swal from "sweetalert2";
 import { AI_MODES, HURUF, bacaAiMode, labelBentuk, simpanAiMode } from "./konstanta";
 import { OTOMATIS, dariTeks, keTeks, ringkas, skorButir } from "./skor";
 import { srcGambar } from "./PratinjauSoal";
+
+const rekaman = (v) => typeof v === "string" && v.startsWith("/storage/rekaman/");
 import { bacaBerkas, minta } from "./api";
 
 const kosong = () => ({ jawaban: {}, skor_manual: {}, foto: [], teks: {} });
@@ -228,6 +230,10 @@ export default function KoreksiPaket({ paket, onBerubah }) {
                       return (
                         <td key={b.id} className={`p-0 position-relative ${warna}`} title={sr ? `Usulan AI: ${sr.skor ?? "–"}/${b.skor_maks}. ${sr.alasan}` : sk != null ? `Skor ${sk}/${b.skor_maks}${r.skor_manual?.[b.id] != null && otomatis ? " (ditetapkan guru)" : ""}` : undefined}>
                           {sr && <i className="bi bi-stars text-primary position-absolute" style={{ fontSize: ".6rem", top: 1, right: 2 }} aria-hidden="true"></i>}
+                          {rekaman(r.jawaban?.[b.id]) && (
+                            <button type="button" className="btn btn-link p-0 position-absolute text-danger" style={{ fontSize: ".7rem", top: 0, left: 2, zIndex: 1 }}
+                              onClick={() => setDetail(s.id_siswa)} title="Dengarkan rekaman" aria-label={`Dengarkan rekaman ${s.nama_siswa} nomor ${bi + 1}`}><i className="bi bi-mic-fill"></i></button>
+                          )}
                           {otomatis ? (
                             <input className="form-control form-control-sm border-0 bg-transparent text-center px-1" style={{ width: ["ISIAN", "LENGKAPI_GAMBAR"].includes(b.soal.bentuk) ? 90 : 52 }}
                               aria-label={`Jawaban ${s.nama_siswa} nomor ${bi + 1}`} value={r.teks?.[b.id] ?? ""} data-baris={si} data-kolom={bi} onKeyDown={pindah} disabled={r.sedang}
@@ -395,7 +401,9 @@ function RincianSiswa({ paket, siswa, baris, saran, onNilaiUraian, onTeks, onSko
                           </div>
                           <div className="row g-2 mt-1 align-items-center">
                             <div className="col-7">
-                              {b.soal.bentuk === "URAIAN" || !otomatis ? (
+                              {rekaman(baris.jawaban?.[b.id]) ? (
+                                <audio controls preload="none" src={srcGambar(baris.jawaban[b.id])} className="w-100" style={{ height: 34 }} aria-label={`Rekaman nomor ${i + 1}`} />
+                              ) : b.soal.bentuk === "URAIAN" || !otomatis ? (
                                 <input className="form-control form-control-sm" placeholder="Catatan/jawaban siswa (opsional)" aria-label={`Jawaban nomor ${i + 1}`}
                                   value={baris.teks?.[b.id] ?? ""} readOnly={hanyaBaca} title={hanyaBaca ? "Jawaban tes online (dinilai otomatis)" : undefined} onChange={(e) => onTeks(b, e.target.value)} />
                               ) : (
@@ -409,7 +417,7 @@ function RincianSiswa({ paket, siswa, baris, saran, onNilaiUraian, onTeks, onSko
                               <span className="text-muted text-nowrap">/ {b.skor_maks}</span>
                             </div>
                           </div>
-                          {b.soal.bentuk === "URAIAN" && b.soal.rubrik && <div className="text-body-secondary mt-1" style={{ whiteSpace: "pre-wrap" }}><b>Rubrik:</b> {b.soal.rubrik}</div>}
+                          {["URAIAN", "MEMBACA_NYARING"].includes(b.soal.bentuk) && b.soal.rubrik && <div className="text-body-secondary mt-1" style={{ whiteSpace: "pre-wrap" }}><b>Rubrik:</b> {b.soal.rubrik}</div>}
                           {saran[b.id] && (
                             <div className="alert alert-primary py-1 px-2 mt-1 mb-0 saran-ai">
                               <i className="bi bi-stars me-1"></i><b>Usulan AI {saran[b.id].skor ?? "–"}/{b.skor_maks}:</b> {saran[b.id].alasan}

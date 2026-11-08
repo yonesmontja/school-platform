@@ -7,6 +7,7 @@ import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { HURUF } from "@/components/banksoal/konstanta";
 import { srcGambar, srcSvg } from "@/components/banksoal/PratinjauSoal";
+import PerekamSuara from "@/components/banksoal/PerekamSuara";
 
 const JEDA_SIMPAN = 1200;
 
@@ -258,7 +259,16 @@ export default function KerjakanUjian() {
               <img src={s.gambar_svg ? srcSvg(s.gambar_svg) : srcGambar(s.gambar_url)} alt="Gambar soal" className="border rounded bg-white img-fluid" style={{ maxHeight: 340 }} />
             </div>
           )}
-          <Jawab soal={s} nilai={jawaban[s.id]} ubah={(v) => ubah(s.id, v)} />
+          {s.bentuk === "MEMBACA_NYARING" ? (
+            <>
+              <div className="border rounded-3 p-3 mb-3 bg-white fs-4" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>{s.teks}</div>
+              <PerekamSuara key={s.id} idPaket={id} idButir={s.id} url={jawaban[s.id]}
+                onTersimpan={(url, sisaDetik) => {
+                  setJawaban((j) => ({ ...j, [s.id]: url }));
+                  if (sisaDetik != null) batas.current = Date.now() + sisaDetik * 1000;
+                }} />
+            </>
+          ) : <Jawab soal={s} nilai={jawaban[s.id]} ubah={(v) => ubah(s.id, v)} />}
         </div>
       </div>
 

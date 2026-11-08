@@ -166,7 +166,8 @@ export const BAGIAN = [
       "Setelah selesai, nilai uraian di bagian Koreksi, lalu Kirim ke Input Nilai dan buka Analisis seperti biasa. Tekan Tutup tes bila sudah selesai.",
     ],
     tips: [
-      "Pilihan ganda, benar/salah, isian, menjodohkan, mengurutkan, dan melengkapi gambar langsung dinilai; uraian menunggu skor guru.",
+      "Pilihan ganda, benar/salah, isian, menjodohkan, mengurutkan, dan melengkapi gambar langsung dinilai; uraian dan membaca nyaring menunggu skor guru.",
+      "Membaca nyaring: siswa merekam suaranya di HP. Di bagian Koreksi, tekan ikon mikrofon merah di baris siswa untuk mendengarkan rekamannya, lalu isi skornya sesuai rubrik.",
       "Waktu dihitung server sejak siswa menekan Mulai. Jawaban tersimpan otomatis; bila sinyal putus, HP mencoba menyimpan lagi.",
       "Satu paket bisa dicampur: sebagian siswa online, sebagian kertas yang dikoreksi di bagian Koreksi.",
       "Bentuk Melengkapi gambar memerlukan gambar bernomor 1, 2, 3…; minta AI membuat diagramnya atau unggah gambar sendiri.",
@@ -366,6 +367,7 @@ export const BAGIAN = [
       "Pilih tes yang bertanda Bisa dikerjakan, baca petunjuknya, masukkan token dari guru bila diminta, lalu tekan Mulai mengerjakan.",
       "Jawab satu per satu. Tekan Ragu-ragu untuk menandai soal yang ingin diperiksa lagi; nomor soal di bawah menunjukkan mana yang sudah dijawab.",
       "Menjodohkan: ketuk kotak di kiri, lalu ketuk pasangannya. Mengurutkan: pakai tombol panah. Melengkapi gambar: pilih atau tulis nama bagian bernomor.",
+      "Membaca nyaring: tekan Mulai merekam, izinkan mikrofon bila diminta, bacakan teksnya dengan jelas, lalu tekan Selesai membaca. Dengarkan hasilnya; tekan Rekam ulang bila ingin mengulang.",
       "Tekan Kumpulkan bila sudah selesai. Saat waktu habis, jawaban dikumpulkan otomatis.",
     ],
     tips: [
