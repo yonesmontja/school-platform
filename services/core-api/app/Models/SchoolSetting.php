@@ -14,6 +14,7 @@ class SchoolSetting extends Model
         'api_key_deepseek',
         'api_key_openkey',
         'wa_api_token',
+        'api_key_elevenlabs',
     ];
 
     protected $fillable = [
@@ -42,6 +43,10 @@ class SchoolSetting extends Model
         'kktp_sangat_baik',
         'skala_kokurikuler',
         'batas_nilai_remedial',
+        'api_key_elevenlabs',
+        'elevenlabs_voice_netral',
+        'elevenlabs_voice_klon',
+        'gemini_tts_voice',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;
@@ -54,6 +59,7 @@ class SchoolSetting extends Model
         'has_api_key_deepseek',
         'has_api_key_openkey',
         'has_wa_api_token',
+        'has_api_key_elevenlabs',
     ];
 
     protected $casts = [
@@ -63,6 +69,7 @@ class SchoolSetting extends Model
         'api_key_deepseek' => 'encrypted',
         'api_key_openkey' => 'encrypted',
         'wa_api_token' => 'encrypted',
+        'api_key_elevenlabs' => 'encrypted',
         'status_wa_api' => 'boolean',
         'kktp_cukup' => 'integer',
         'kktp_baik' => 'integer',
@@ -80,4 +87,5 @@ class SchoolSetting extends Model
     public function getHasApiKeyDeepseekAttribute(): bool { return $this->hasKey('api_key_deepseek'); }
     public function getHasApiKeyOpenkeyAttribute(): bool { return $this->hasKey('api_key_openkey'); }
     public function getHasWaApiTokenAttribute(): bool { return $this->hasKey('wa_api_token'); }
+    public function getHasApiKeyElevenlabsAttribute(): bool { return $this->hasKey('api_key_elevenlabs'); }
 }

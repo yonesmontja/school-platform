@@ -25,14 +25,22 @@ export function KartuVideo({ video, onHapus, kecil = false }) {
     title: video.judul, width: 860, showConfirmButton: false, showCloseButton: true,
     html: `<video controls autoplay playsinline style="width:100%;max-height:70vh;background:#000;border-radius:8px" src="${srcGambar(video.file_url)}"${video.poster_url ? ` poster="${srcGambar(video.poster_url)}"` : ""}></video>`,
   });
+  const belum = !video.file_url || ["ANTRE", "PROSES", "GAGAL"].includes(video.render_status);
   return (
     <div className="kartu-video border rounded overflow-hidden bg-body d-flex flex-column" style={{ width: kecil ? 150 : 200 }}>
+      {belum ? (
+        <div className="d-flex flex-column align-items-center justify-content-center text-white bg-secondary small text-center p-2" style={{ aspectRatio: "16/9" }}>
+          {video.render_status === "GAGAL" ? <><i className="bi bi-exclamation-octagon fs-3"></i>Render gagal</>
+            : <><span className="spinner-border spinner-border-sm mb-1"></span>{video.render_status === "PROSES" ? "Sedang dirender…" : "Menunggu antrean render"}</>}
+        </div>
+      ) : (
       <button type="button" className="btn p-0 border-0 position-relative" onClick={putar} aria-label={`Putar video ${video.judul}`}>
         {video.poster_url ? <img src={srcGambar(video.poster_url)} alt="" className="w-100" style={{ aspectRatio: "16/9", objectFit: "cover" }} />
           : <div className="bg-dark w-100" style={{ aspectRatio: "16/9" }}></div>}
         <span className="position-absolute top-50 start-50 translate-middle text-white fs-1" style={{ textShadow: "0 0 8px #000" }}><i className="bi bi-play-circle-fill"></i></span>
         {video.durasi_detik > 0 && <span className="position-absolute bottom-0 end-0 m-1 badge text-bg-dark">{durasi(video.durasi_detik)}</span>}
       </button>
+      )}
       <div className="p-1 small d-flex gap-1 align-items-start">
         <span className="flex-grow-1 text-truncate" title={video.judul}>{video.judul}</span>
         {video.status && video.status !== "DISETUJUI" && <span className="badge text-bg-light border fw-normal" title="Siswa baru bisa melihatnya setelah disetujui">{STATUS_VIDEO[video.status]?.[0]}</span>}
@@ -54,7 +62,7 @@ export function PemilihVideo({ idMapel, onPilih, onTutup }) {
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onTutup]);
-  const tampil = (data || []).filter((v) => !cari || v.judul.toLowerCase().includes(cari.toLowerCase()));
+  const tampil = (data || []).filter((v) => v.file_url && (!cari || v.judul.toLowerCase().includes(cari.toLowerCase())));
   return (
     <>
       <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Pilih video belajar" style={{ zIndex: 1080 }}>

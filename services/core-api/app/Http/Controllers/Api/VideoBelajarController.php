@@ -11,6 +11,7 @@ use App\Models\Student;
 use App\Models\TransJadwal;
 use App\Models\VideoBelajar;
 use App\Models\VideoTautan;
+use App\Services\SuaraService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -100,6 +101,7 @@ class VideoBelajarController extends Controller
         $video = VideoBelajar::findOrFail($id);
         $this->cekPengubah($request, $video);
         abort_unless(in_array($video->status, ['DRAF', 'REVISI'], true), 422, 'Video ini sudah diajukan atau disetujui.');
+        abort_if(!$video->file_url || in_array($video->render_status, ['ANTRE', 'PROSES', 'GAGAL'], true), 422, 'Video belum selesai dirender.');
         $video->update(['status' => 'DIAJUKAN']);
         return response()->json(['success' => true, 'message' => 'Video diajukan ke kepala sekolah.']);
     }
@@ -121,6 +123,74 @@ class VideoBelajarController extends Controller
         abort_unless($video->status === 'DIAJUKAN', 422, 'Video ini tidak sedang diajukan.');
         $video->update(['status' => 'REVISI', 'catatan_revisi' => $request->catatan]);
         return response()->json(['success' => true, 'message' => 'Video dikembalikan ke guru dengan catatan.']);
+    }
+
+    // ===== Jalur B: video dari templat, dirender di server dengan narasi suara =====
+
+    public const TEMPLAT = ['KartuGambar', 'Berhitung', 'Urutan', 'Pecahan'];
+
+    /** Pilihan suara narasi beserta ketersediaannya. */
+    public function suara()
+    {
+        return response()->json(['data' => SuaraService::tersedia()]);
+    }
+
+    /** Buat video dari templat: disimpan sebagai draf dan masuk antrean render. */
+    public function dariTemplat(Request $request)
+    {
+        $data = $this->validasiTemplat($request, true);
+        $video = VideoBelajar::create($data + [
+            'id_video' => 'VID-' . Str::upper(Str::random(10)), 'file_url' => '', 'sumber' => 'RENDER', 'status' => 'DRAF',
+            'render_status' => 'ANTRE', 'dibuat_oleh' => $request->user()->id,
+        ]);
+        return response()->json(['success' => true, 'message' => 'Video masuk antrean render. Biasanya selesai dalam beberapa menit; Anda bisa meninggalkan halaman ini.', 'data' => $video->fresh(self::RELASI)], 201);
+    }
+
+    /** Ubah isian templat lalu render ulang. */
+    public function renderUlang(Request $request, string $id)
+    {
+        $video = VideoBelajar::findOrFail($id);
+        $this->cekPengubah($request, $video);
+        abort_unless($video->sumber === 'RENDER', 422, 'Hanya video dari templat yang bisa dirender ulang.');
+        abort_if($video->render_status === 'PROSES', 422, 'Video sedang dirender. Tunggu sampai selesai.');
+        $data = $this->validasiTemplat($request, false);
+        $video->update($data + ['render_status' => 'ANTRE', 'render_pesan' => null, 'status' => 'DRAF', 'disetujui_oleh' => null, 'disetujui_pada' => null]);
+        return response()->json(['success' => true, 'message' => 'Video masuk antrean render ulang.', 'data' => $video->fresh(self::RELASI)]);
+    }
+
+    private function validasiTemplat(Request $request, bool $baru): array
+    {
+        $data = $request->validate([
+            'templat' => [$baru ? 'required' : 'sometimes', Rule::in(self::TEMPLAT)],
+            'judul' => [$baru ? 'required' : 'sometimes', 'string', 'max:200'],
+            'deskripsi' => 'nullable|string|max:3000',
+            'id_mapel' => 'nullable|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'id_materi' => 'nullable|exists:master_materi,id_materi',
+            'suara' => ['required', Rule::in(SuaraService::PILIHAN)],
+            'props' => 'required|array',
+            'props.adegan' => 'required|array|min:1|max:15',
+            'props.adegan.*' => 'array',
+            'props.adegan.*.narasi' => 'nullable|string|max:600',
+        ], ['props.adegan.required' => 'Tambahkan minimal satu adegan.', 'props.adegan.max' => 'Maksimal 15 adegan (sekitar 2 menit).']);
+        if (!empty($data['id_mapel']) && !$request->user()->bolehNilaiMapel($data['id_mapel'])) {
+            abort(403, 'Anda hanya dapat membuat video untuk mata pelajaran yang Anda ampu.');
+        }
+        $pilihan = collect(SuaraService::tersedia())->keyBy('kode');
+        abort_unless($pilihan[$data['suara']]['aktif'] ?? false, 422, $pilihan[$data['suara']]['catatan'] ?? 'Suara ini belum tersedia.');
+        if (array_key_exists('id_kelas', $data)) {
+            $data['fase'] = $data['id_kelas'] ? CapaianPembelajaran::faseKelas(Classes::find($data['id_kelas'])?->nama_kelas) : null;
+        }
+        // Isian adegan dibatasi panjangnya; props dirender apa adanya oleh templat. Ambil utuh dari permintaan
+        // (hasil validate() hanya memuat kolom yang punya aturan, sehingga kata, gambar, warna, dsb. akan hilang).
+        $props = (array) $request->input('props');
+        $props['judul'] = mb_substr((string) (($props['judul'] ?? '') ?: ($data['judul'] ?? '')), 0, 120);
+        if (isset($props['penutup']) && is_array($props['penutup'])) $props['penutup'] = ['teks' => mb_substr((string) ($props['penutup']['teks'] ?? ''), 0, 120)];
+        if (isset($props['warna']) && !preg_match('/^#[0-9a-fA-F]{6}$/', (string) $props['warna'])) unset($props['warna']);
+        $props['adegan'] = array_map(fn($a) => array_map(fn($v) => is_string($v) ? mb_substr($v, 0, 600) : $v, array_filter($a, fn($v) => is_scalar($v) || $v === null)), array_values($props['adegan']));
+        $data['props'] = array_intersect_key($props, array_flip(['judul', 'emoji', 'warna', 'adegan', 'penutup']));
+        if (isset($data['templat'])) $data['komposisi'] = $data['templat'];
+        return $data;
     }
 
     // ===== Tautan ke modul ajar & sesi jadwal =====

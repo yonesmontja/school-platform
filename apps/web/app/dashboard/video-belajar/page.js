@@ -7,6 +7,7 @@ import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
 import { minta } from "@/components/banksoal/api";
 import { KartuVideo, PutarVideo, STATUS_VIDEO, bacaVideo, durasi } from "@/components/video/video";
 import { srcGambar } from "@/components/banksoal/PratinjauSoal";
+import BuatDariTemplat from "@/components/video/BuatDariTemplat";
 
 const SUMBER = { REMOTION: "Motion graphic (dibuat Claude/Remotion)", RENDER: "Dari templat aplikasi", UNGGAH: "Unggahan guru" };
 const MAKS_MB = 20;
@@ -128,8 +129,15 @@ function ModalUnggah({ referensi, video, onTutup, onSelesai }) {
 function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
   const [v, setV] = useState(null);
   const [ubah, setUbah] = useState(false);
+  const [templat, setTemplat] = useState(false);
   const muat = useCallback(() => minta("GET", `/video-belajar/${id}`).then((r) => setV(r.data)).catch((err) => Swal.fire("Gagal", err.message, "error")), [id]);
   useEffect(() => { muat(); }, [muat]);
+  // Segarkan selama video masih dirender
+  useEffect(() => {
+    if (!v || !["ANTRE", "PROSES"].includes(v.render_status)) return;
+    const t = setInterval(() => { muat(); onBerubah(); }, 8000);
+    return () => clearInterval(t);
+  }, [v, muat, onBerubah]);
   if (!v) return null;
   const bisa = akses.isAdmin || v.dibuat_oleh === akses.user?.id;
   const aksi = async (jalur, body, konfirmasi) => {
@@ -158,7 +166,12 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
               <button type="button" className="btn-close" onClick={onTutup} aria-label="Tutup"></button>
             </div>
             <div className="modal-body">
-              <PutarVideo video={v} tinggi={420} />
+              {["ANTRE", "PROSES"].includes(v.render_status) ? (
+                <div className="alert alert-info d-flex align-items-center gap-2 mb-0"><span className="spinner-border spinner-border-sm"></span>
+                  {v.render_status === "PROSES" ? "Server sedang membuat narasi suara dan merender video…" : "Menunggu giliran render."} Halaman ini menyegarkan diri; Anda juga boleh menutupnya.</div>
+              ) : v.render_status === "GAGAL" ? (
+                <div className="alert alert-danger small mb-0"><b>Render gagal:</b> {v.render_pesan} <div>Periksa isian lalu tekan <b>Ubah & render ulang</b>.</div></div>
+              ) : <PutarVideo video={v} tinggi={420} />}
               {v.status === "REVISI" && v.catatan_revisi && <div className="alert alert-danger py-1 px-2 small mt-2"><b>Catatan kepala sekolah:</b> {v.catatan_revisi}</div>}
               {v.deskripsi && <p className="small mt-2 mb-1" style={{ whiteSpace: "pre-wrap" }}>{v.deskripsi}</p>}
               <div className="small text-muted mt-2">{SUMBER[v.sumber]}{v.komposisi && ` · komposisi ${v.komposisi}`}</div>
@@ -170,15 +183,17 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
                 <button className="btn btn-success" onClick={() => aksi("setujui", undefined, "Setujui video ini? Siswa akan bisa melihatnya.")}><i className="bi bi-patch-check me-1"></i>Setujui</button>
                 <button className="btn btn-outline-danger" onClick={kembalikan}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
               </>}
-              {bisa && <button className="btn btn-outline-secondary" onClick={() => setUbah(true)}><i className="bi bi-pencil me-1"></i>Ubah</button>}
+              {bisa && v.sumber === "RENDER" && v.render_status !== "PROSES" && <button className="btn btn-outline-primary" onClick={() => setTemplat(true)}><i className="bi bi-magic me-1"></i>Ubah & render ulang</button>}
+              {bisa && v.sumber !== "RENDER" && <button className="btn btn-outline-secondary" onClick={() => setUbah(true)}><i className="bi bi-pencil me-1"></i>Ubah</button>}
               {bisa && <button className="btn btn-outline-danger me-auto" onClick={hapus} aria-label="Hapus video"><i className="bi bi-trash"></i></button>}
-              <a className="btn btn-outline-secondary" href={srcGambar(v.file_url)} download><i className="bi bi-download me-1"></i>Unduh</a>
+              {v.file_url && <a className="btn btn-outline-secondary" href={srcGambar(v.file_url)} download><i className="bi bi-download me-1"></i>Unduh</a>}
             </div>
           </div>
         </div>
       </div>
       <div className="modal-backdrop show"></div>
       {ubah && <ModalUnggah referensi={referensi} video={v} onTutup={() => setUbah(false)} onSelesai={() => { setUbah(false); muat(); onBerubah(); }} />}
+      {templat && <BuatDariTemplat referensi={referensi} video={v} onTutup={() => setTemplat(false)} onSelesai={() => { setTemplat(false); muat(); onBerubah(); }} />}
     </>
   );
 }
@@ -190,6 +205,7 @@ function PustakaVideo() {
   const [data, setData] = useState(null);
   const [referensi, setReferensi] = useState(null);
   const [unggah, setUnggah] = useState(false);
+  const [buat, setBuat] = useState(false);
   const [buka, setBuka] = useState(null);
 
   const muat = useCallback(() => {
@@ -197,6 +213,11 @@ function PustakaVideo() {
   }, [status]);
   useEffect(() => { muat(); }, [muat]);
   useEffect(() => { minta("GET", "/perangkat-ajar/referensi").then(setReferensi).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!data?.some((v) => ["ANTRE", "PROSES"].includes(v.render_status))) return;
+    const t = setInterval(muat, 10000);
+    return () => clearInterval(t);
+  }, [data, muat]);
 
   return (
     <div className="container-fluid mt-3 mb-5">
@@ -205,7 +226,8 @@ function PustakaVideo() {
           <h3 className="fw-bold text-primary mb-1"><i className="bi bi-play-btn me-2"></i>Video Belajar</h3>
           <p className="text-muted small mb-0">Video motion graphic untuk anak yang belajar lewat gambar. Satu video bisa ditautkan ke modul ajar, sesi jadwal, soal, dan tampil di Portal Siswa setelah disetujui kepala sekolah.</p>
         </div>
-        {!akses.isKepsek && <button className="btn btn-primary" onClick={() => setUnggah(true)} disabled={!referensi}><i className="bi bi-cloud-arrow-up me-1"></i>Unggah video</button>}
+        {!akses.isKepsek && <button className="btn btn-primary" onClick={() => setBuat(true)} disabled={!referensi}><i className="bi bi-magic me-1"></i>Buat video motion graphic</button>}
+        {!akses.isKepsek && <button className="btn btn-outline-primary" onClick={() => setUnggah(true)} disabled={!referensi}><i className="bi bi-cloud-arrow-up me-1"></i>Unggah video</button>}
       </div>
       <div className="btn-group btn-group-sm mb-3" role="group" aria-label="Saring status video">
         {[["", "Semua"], ...Object.entries(STATUS_VIDEO).map(([k, [l]]) => [k, l])].map(([k, l]) => (
@@ -213,7 +235,7 @@ function PustakaVideo() {
         ))}
       </div>
       {!data ? <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
-        : !data.length ? <div className="text-center text-muted py-5"><i className="bi bi-film fs-1 d-block mb-2"></i>{status ? "Tidak ada video dengan status ini." : <>Belum ada video. Tekan <b>Unggah video</b>, atau minta Claude membuat motion graphic di folder <code>remotion-video</code>.</>}</div>
+        : !data.length ? <div className="text-center text-muted py-5"><i className="bi bi-film fs-1 d-block mb-2"></i>{status ? "Tidak ada video dengan status ini." : <>Belum ada video. Tekan <b>Buat video motion graphic</b> untuk membuat dari templat, atau <b>Unggah video</b>.</>}</div>
         : (
           <div className="d-flex flex-wrap gap-3">
             {data.map((v) => (
@@ -228,6 +250,7 @@ function PustakaVideo() {
             ))}
           </div>
         )}
+      {buat && referensi && <BuatDariTemplat referensi={referensi} onTutup={() => setBuat(false)} onSelesai={(v) => { setBuat(false); muat(); setBuka(v.id_video); }} />}
       {unggah && referensi && <ModalUnggah referensi={referensi} onTutup={() => setUnggah(false)} onSelesai={(v) => { setUnggah(false); muat(); setBuka(v.id_video); }} />}
       {buka && referensi && <DetailVideo id={buka} akses={akses} referensi={referensi} onTutup={() => setBuka(null)} onBerubah={muat} />}
     </div>

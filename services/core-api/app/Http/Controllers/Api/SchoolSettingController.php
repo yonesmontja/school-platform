@@ -28,6 +28,9 @@ class SchoolSettingController extends Controller
         $request->validate([
             'openkey_base_url' => 'nullable|url:https|max:255',
             'openkey_model_name' => 'nullable|string|max:100',
+            'elevenlabs_voice_netral' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+$/'],
+            'elevenlabs_voice_klon' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]+$/'],
+            'gemini_tts_voice' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z]+$/'],
             'ai_model_name' => 'nullable|string|max:100',
             'no_wa_kepsek' => 'nullable|string|max:30',
             'no_wa_admin' => 'nullable|string|max:30',

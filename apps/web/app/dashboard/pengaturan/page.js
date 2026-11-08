@@ -11,6 +11,7 @@ const AI_PROVIDERS = [
   { field: 'api_key_qwen', label: 'Qwen (via OpenRouter)', placeholder: 'Tempel API key dari OpenRouter' },
   { field: 'api_key_deepseek', label: 'DeepSeek', placeholder: 'Tempel API key dari DeepSeek Platform' },
   { field: 'api_key_openkey', label: 'OpenKey (API kustom kompatibel OpenAI)', placeholder: 'Tempel API key endpoint kustom' },
+  { field: 'api_key_elevenlabs', label: 'ElevenLabs (suara narasi video)', placeholder: 'Tempel API key dari ElevenLabs' },
 ];
 
 // Token WhatsApp diperlakukan sama seperti API key (terenkripsi, tidak dikirim balik)
@@ -371,6 +372,26 @@ export default function PengaturanSekolahPage() {
                 <option value="gemini-2.5-pro" />
               </datalist>
               <div className="form-text">Pilih dari daftar atau ketik nama model lain. Kosongkan untuk tetap memakai model saat ini.</div>
+            </div>
+
+            <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Suara Narasi Video Belajar</h5>
+            <p className="small text-muted mb-0">
+              Suara AI lokal (Piper) selalu tersedia tanpa biaya. ElevenLabs memakai API key di atas; Gemini memakai API key Gemini.
+              Klon suara guru dibuat di situs ElevenLabs (Voices → Instant Voice Clone, dengan rekaman 1–3 menit dan persetujuan pemilik suara), lalu tempel ID suaranya di sini.
+            </p>
+            <div className="col-md-4">
+              <label className="form-label fw-bold small text-muted" htmlFor="elNetral">ElevenLabs: ID suara netral</label>
+              <input id="elNetral" type="text" className="form-control" name="elevenlabs_voice_netral" placeholder="kosong = suara bawaan" value={formData.elevenlabs_voice_netral || ''} onChange={handleInputChange} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label fw-bold small text-muted" htmlFor="elKlon">ElevenLabs: ID suara klon</label>
+              <input id="elKlon" type="text" className="form-control" name="elevenlabs_voice_klon" placeholder="ID suara hasil klon" value={formData.elevenlabs_voice_klon || ''} onChange={handleInputChange} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label fw-bold small text-muted" htmlFor="gmSuara">Gemini: nama suara</label>
+              <input id="gmSuara" type="text" className="form-control" name="gemini_tts_voice" list="gemini-suara" placeholder="Kore" value={formData.gemini_tts_voice || ''} onChange={handleInputChange} />
+              <datalist id="gemini-suara"><option value="Kore" /><option value="Puck" /><option value="Leda" /><option value="Aoede" /><option value="Zephyr" /></datalist>
             </div>
 
             <hr className="my-4" />

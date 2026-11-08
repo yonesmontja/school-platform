@@ -410,6 +410,15 @@ class NotifikasiService
                 ]);
             }
         }
+        $renderGagal = \App\Models\VideoBelajar::where('render_status', 'GAGAL')->where('dibuat_oleh', $this->user->id)->get(['id_video', 'judul', 'render_pesan', 'updated_at']);
+        if ($renderGagal->isNotEmpty()) {
+            $hasil[] = $this->buat('video-render-gagal', $renderGagal->pluck('id_video')->sort()->values()->all(), [
+                'tingkat' => 'danger', 'kategori' => 'Video Belajar', 'ikon' => 'bi-exclamation-octagon',
+                'judul' => "{$renderGagal->count()} video gagal dirender",
+                'pesan' => '"' . \Illuminate\Support\Str::limit((string) $renderGagal->first()->judul, 60) . '": ' . \Illuminate\Support\Str::limit((string) $renderGagal->first()->render_pesan, 120) . ' Buka videonya lalu tekan Render ulang.',
+                'jumlah' => $renderGagal->count(), 'tautan' => '/dashboard/video-belajar', 'waktu' => $waktu($renderGagal),
+            ]);
+        }
         $videoRevisi = \App\Models\VideoBelajar::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_video', 'catatan_revisi', 'updated_at']);
         if ($videoRevisi->isNotEmpty()) {
             $hasil[] = $this->buat('video-revisi', $videoRevisi->pluck('id_video')->sort()->values()->all(), [

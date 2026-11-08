@@ -37,6 +37,11 @@ return [
         'openkey_key' => env('OPENKEY_API_KEY'),
     ],
 
+    // Layanan render video (services/video-render): kunci bersama untuk endpoint /api/internal/render
+    'video_render' => [
+        'secret' => env('RENDER_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

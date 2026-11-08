@@ -167,3 +167,25 @@ test("guru mengunggah video belajar, kepala sekolah menyetujui, siswa menontonny
   await expect(page.locator(".video-portal")).toContainText("Pecahan seperempat (kue)");
   await expect(page.locator(".video-portal video")).toHaveCount(1);
 });
+
+test("guru membuat video motion graphic dari templat dengan pratinjau langsung", async ({ page, masuk }) => {
+  test.setTimeout(150_000);
+  await masuk("guru");
+  await page.goto("/dashboard/video-belajar");
+  await page.getByRole("button", { name: "Buat video motion graphic" }).click();
+  const jendela = page.getByRole("dialog", { name: "Buat video dari templat" });
+  await jendela.locator(".pilih-templat", { hasText: "Berhitung dengan Benda" }).click();
+  // Pratinjau Remotion Player tampil dan berisi contoh
+  await expect(jendela.locator(".__remotion-player, [class*='remotion']").first()).toBeVisible({ timeout: 30_000 });
+  await expect(jendela.locator(".adegan-templat")).toHaveCount(3);
+  await jendela.getByLabel("Judul video").fill("Berhitung Pisang Kelas 1");
+  await jendela.locator(".adegan-templat").first().getByLabel("Jumlah benda (1–10)").fill("4");
+  await jendela.locator(".adegan-templat").first().getByLabel("Narasi yang dibacakan").fill("Mari kita hitung pisang. Satu, dua, tiga, empat.");
+  await expect(jendela.getByLabel("Suara narasi")).toHaveValue("LOKAL");
+  await jendela.getByRole("button", { name: "Buat video" }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("antrean render");
+  await page.locator(".swal2-confirm").click();
+  const detail = page.getByRole("dialog", { name: /Video Berhitung Pisang/ });
+  await expect(detail).toContainText(/Menunggu giliran render|sedang membuat narasi/);
+  await expect(detail.getByRole("button", { name: "Ajukan" })).toHaveCount(1); // tombol ada, server menolak sampai render selesai
+});

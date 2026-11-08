@@ -18,9 +18,9 @@ class VideoBelajar extends Model
     protected $fillable = [
         'id_video', 'judul', 'deskripsi', 'id_mapel', 'id_kelas', 'fase', 'id_materi', 'tp', 'file_url', 'poster_url',
         'durasi_detik', 'ukuran_kb', 'sumber', 'komposisi', 'props', 'narasi', 'status', 'catatan_revisi',
-        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada',
+        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'templat', 'suara', 'render_status', 'render_pesan', 'render_mulai',
     ];
-    protected $casts = ['tp' => 'array', 'props' => 'array', 'durasi_detik' => 'integer', 'ukuran_kb' => 'integer', 'disetujui_pada' => 'datetime'];
+    protected $casts = ['tp' => 'array', 'props' => 'array', 'durasi_detik' => 'integer', 'ukuran_kb' => 'integer', 'disetujui_pada' => 'datetime', 'render_mulai' => 'datetime'];
 
     public function mapel(): BelongsTo { return $this->belongsTo(Subject::class, 'id_mapel', 'id_mapel'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }

@@ -1,0 +1,7 @@
+# Konteks build dari akar repo hanya dipakai layanan video-render: kirim berkas yang dibutuhkan saja
+*
+!services/video-render/package.json
+!services/video-render/package-lock.json
+!services/video-render/src
+!services/video-render/worker.mjs
+!apps/web/components/video/templat

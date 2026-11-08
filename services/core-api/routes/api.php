@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\PemakaianController;
 use App\Http\Controllers\Api\VideoBelajarController;
+use App\Http\Controllers\Api\RenderInternalController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -51,6 +52,14 @@ use App\Http\Controllers\Api\PortalController;
 */
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// Internal: layanan video-render (kunci bersama RENDER_SECRET, dicek di controller)
+Route::prefix('internal/render')->middleware('throttle:120,1')->group(function () {
+    Route::get('/berikut', [RenderInternalController::class, 'berikut']);
+    Route::post('/suara', [RenderInternalController::class, 'suara']);
+    Route::post('/{id}/selesai', [RenderInternalController::class, 'selesai']);
+    Route::post('/{id}/gagal', [RenderInternalController::class, 'gagal']);
+});
 
 // Pemantau uptime (mis. UptimeRobot) dan healthcheck Docker: API hidup dan database terjangkau
 Route::get('/health', function () {
@@ -283,6 +292,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/', [VideoBelajarController::class, 'index']);
             Route::post('/', [VideoBelajarController::class, 'store'])->middleware('throttle:20,1');
             Route::get('/tautan', [VideoBelajarController::class, 'tautan']);
+            Route::get('/suara', [VideoBelajarController::class, 'suara']);
+            Route::post('/templat', [VideoBelajarController::class, 'dariTemplat'])->middleware('throttle:20,1');
+            Route::post('/{id}/render', [VideoBelajarController::class, 'renderUlang'])->middleware('throttle:20,1');
             Route::post('/tautan', [VideoBelajarController::class, 'tautkan']);
             Route::delete('/tautan/{id}', [VideoBelajarController::class, 'lepas'])->whereNumber('id');
             Route::get('/{id}', [VideoBelajarController::class, 'show']);

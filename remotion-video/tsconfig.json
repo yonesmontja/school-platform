@@ -7,7 +7,16 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "lib": ["DOM", "ES2020"]
+    "lib": [
+      "DOM",
+      "ES2020"
+    ],
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["src", "remotion.config.ts"]
+  "include": [
+    "src",
+    "remotion.config.ts"
+  ]
 }

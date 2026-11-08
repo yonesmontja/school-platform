@@ -25,3 +25,13 @@ Pedoman: tulisan sesedikit mungkin dan besar, gerak pelan, satu gagasan per adeg
 
 Remotion gratis untuk perorangan, organisasi nirlaba, dan perusahaan kecil; organisasi lebih besar memerlukan
 lisensi perusahaan. Pastikan status sekolah di https://www.remotion.dev/license.
+
+## Templat bersama (jalur B) & suara
+
+- Templat guru ada di `apps/web/components/video/templat` dan tampil di Studio sebagai `Templat-…`. Mengubah
+  templat di sana mengubah pratinjau di aplikasi, layanan render server, dan Studio sekaligus.
+- Narasi video khusus dibuat dengan Piper (suara Indonesia) memakai image layanan render, contoh untuk Siklus Air:
+  teks per baris di `public/narasi/siklus-air/teks.txt` → `s1.wav … s8.wav` + `durasi.json` (lihat riwayat commit).
+- Video contoh jalur A: `SiklusAir` (±75 detik, narasi Piper), `PecahanKue`.
+- Suara Piper `id_ID-news_tts-medium`: lisensi data latihnya tidak dicantumkan jelas di model card; dipakai untuk
+  pendidikan nirlaba. Untuk suara yang lebih natural atau klon suara guru, isi API key ElevenLabs/Gemini di Pengaturan.

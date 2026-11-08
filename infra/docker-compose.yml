@@ -30,6 +30,7 @@ services:
       - ../services/core-api/.env
     environment:
       DB_PASSWORD: ${DB_PASSWORD:?isi DB_PASSWORD di infra/.env}
+      RENDER_SECRET: ${RENDER_SECRET:-}
       # artisan serve melayani beberapa permintaan sekaligus: panggilan AI (bisa 30–90 detik) tidak menahan pengguna lain
       PHP_CLI_SERVER_WORKERS: "4"
     depends_on:
@@ -46,6 +47,23 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
+
+  # Layanan render Video Belajar (jalur B): mengambil antrean dari core-api, membuat narasi suara (Piper lokal atau
+  # ElevenLabs/Gemini lewat core-api), merender MP4 dengan Remotion ke storage core-api. Tanpa port terbuka.
+  video-render:
+    build:
+      context: ..
+      dockerfile: services/video-render/Dockerfile
+    container_name: school_video_render
+    restart: unless-stopped
+    environment:
+      API_INTERNAL: http://core-api:8000
+      RENDER_SECRET: ${RENDER_SECRET:-}
+      KONKURENSI: "2"
+    depends_on:
+      - core-api
+    volumes:
+      - ../services/core-api/storage/app/public:/hasil
 
   # API untuk tes web end-to-end (tests/web): kode sama dengan core-api, tetapi memakai database
   # terpisah berisi sekolah fiktif. Hanya berjalan bila diminta: docker compose --profile e2e up -d core-api-e2e

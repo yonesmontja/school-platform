@@ -95,8 +95,8 @@ class DokumentasiApiController extends Controller
             'deskripsi' => $this->deskripsi($kelas, $method, $metode, $uri, $readme),
             'butuh_login' => $butuhLogin,
             'peran' => $peran ?: ($butuhLogin ? ['admin', 'kepsek', 'guru'] : []),
-            'akses_label' => !$butuhLogin ? 'Publik (tanpa login)'
-                : ($peran ? collect($peran)->map(fn($p) => self::PERAN[$p] ?? $p)->implode(', ') : 'Staf (admin, kepala sekolah, guru)'),
+            'akses_label' => Str::startsWith($uri, '/internal/') ? 'Layanan internal (kunci RENDER_SECRET)' : (!$butuhLogin ? 'Publik (tanpa login)'
+                : ($peran ? collect($peran)->map(fn($p) => self::PERAN[$p] ?? $p)->implode(', ') : 'Staf (admin, kepala sekolah, guru)')),
             'batas' => $batas,
             'aksi' => class_basename($kelas) . ($method ? "@{$method}" : ''),
         ];
@@ -138,6 +138,7 @@ class DokumentasiApiController extends Controller
         return match (true) {
             in_array($awal, ['login', 'logout', 'me', 'user', 'akun', 'health', 'signature'], true) => 'Akun & sistem',
             in_array($awal, ['bank-soal', 'kisi-kisi', 'paket-soal'], true) => 'Bank soal & paket',
+            in_array($awal, ['video-belajar', 'internal'], true) => 'Video belajar',
             $awal === 'ujian' => 'Tes online (siswa)',
             $awal === 'perangkat-ajar' => 'Perangkat ajar',
             in_array($awal, ['nilai', 'nilai-indikator', 'remedial', 'import'], true) => 'Penilaian',
