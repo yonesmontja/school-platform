@@ -31,7 +31,7 @@ class AuditTrail
         'SchoolSetting' => 'Pengaturan Sekolah', 'User' => 'Pengguna', 'TransDiagnostikNonkognitif' => 'Asesmen Diagnostik',
         'BankSoal' => 'Bank Soal', 'KisiKisi' => 'Bank Soal', 'KisiKisiBaris' => 'Bank Soal',
         'PaketSoal' => 'Paket Soal', 'PaketSoalButir' => 'Paket Soal', 'PaketSoalJawaban' => 'Paket Soal',
-        'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar',
+        'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar', 'VideoBelajar' => 'Video Belajar', 'VideoTautan' => 'Video Belajar',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit

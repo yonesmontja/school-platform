@@ -134,6 +134,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "video-belajar", kelompok: "guru", judul: "Video belajar", icon: "bi-play-btn",
+    href: "/dashboard/video-belajar",
+    langkah: [
+      "Buka TDU - Jadwal → Video Belajar, tekan Unggah video, pilih berkas MP4 (maks. 20MB, 1–2 menit di 720p sudah cukup), isi judul, mapel, dan kelas.",
+      "Video motion graphic bisa dibuatkan Claude di folder remotion-video lalu diunggah di sini dengan Asal video = Motion graphic.",
+      "Buka video, tekan Ajukan. Kepala sekolah menonton lalu menyetujui; siswa baru bisa melihatnya setelah disetujui.",
+      "Tautkan video yang sama ke mana saja: di modul ajar (Video belajar pertemuan …), di detail sesi Jadwal (Video untuk sesi ini), atau sebagai Video stimulus di editor soal.",
+      "Siswa dan orang tua melihat video di Portal (Video Belajar) dan bisa mengunduhnya untuk ditonton tanpa sinyal.",
+    ],
+    tips: [
+      "Video untuk anak yang belum lancar membaca: sedikit tulisan, gambar besar, gerak pelan, dan narasi suara yang jelas.",
+      "Video stimulus ikut ke tes online: siswa menonton dulu, lalu menjawab.",
+      "Mengubah video yang sudah disetujui menjadikannya draf lagi dan perlu disetujui ulang.",
+    ],
+  },
+  {
     id: "bank-soal", kelompok: "guru", judul: "Bank soal, kisi-kisi, dan AI", icon: "bi-patch-question",
     href: "/dashboard/bank-soal",
     langkah: [

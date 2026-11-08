@@ -15,6 +15,20 @@ async function masukApi(peran) {
   return res.json();
 }
 
+/**
+ * Unggah berkas lewat API tes (multipart). Dipakai untuk unggahan berkas karena Chromium tidak menyerahkan isi berkas
+ * ke permintaan yang disadap tes; di situs sebenarnya halaman & /api satu origin sehingga unggahan dari halaman berjalan.
+ */
+async function unggahApi(sesi, path, kolom, berkas) {
+  const fs = require("fs");
+  const form = new FormData();
+  for (const [k, v] of Object.entries(kolom)) form.append(k, v);
+  form.append(berkas.nama, new Blob([fs.readFileSync(berkas.path)], { type: berkas.tipe }), require("path").basename(berkas.path));
+  const res = await fetch(`${API}/api${path}`, { method: "POST", headers: { Authorization: `Bearer ${sesi.access_token}`, Accept: "application/json" }, body: form });
+  if (!res.ok) throw new Error(`Unggah gagal: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 /** Panggil API tes langsung (untuk memeriksa data yang disimpan lewat halaman). */
 async function api(sesi, path) {
   const res = await fetch(`${API}/api${path}`, { headers: { Authorization: `Bearer ${sesi.access_token}`, Accept: "application/json" } });
@@ -65,4 +79,4 @@ const selectBerlabel = (page, teks) =>
 
 const hariIni = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
 
-module.exports = { test, expect: base.expect, api, pilih, selectBerlabel, hariIni, SANDI, AKUN, API };
+module.exports = { test, expect: base.expect, api, unggahApi, pilih, selectBerlabel, hariIni, SANDI, AKUN, API };

@@ -399,6 +399,26 @@ class NotifikasiService
                 ]);
             }
         }
+        if ($this->user->isKepsek()) {
+            $video = \App\Models\VideoBelajar::where('status', 'DIAJUKAN')->get(['id_video', 'updated_at']);
+            if ($video->isNotEmpty()) {
+                $hasil[] = $this->buat('video-persetujuan', $video->pluck('id_video')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Video Belajar', 'ikon' => 'bi-play-btn',
+                    'judul' => "{$video->count()} video belajar menunggu persetujuan",
+                    'pesan' => 'Tonton video yang diajukan guru, lalu setujui agar bisa dilihat siswa, atau kembalikan dengan catatan.',
+                    'jumlah' => $video->count(), 'tautan' => '/dashboard/video-belajar?status=DIAJUKAN', 'waktu' => $waktu($video),
+                ]);
+            }
+        }
+        $videoRevisi = \App\Models\VideoBelajar::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_video', 'catatan_revisi', 'updated_at']);
+        if ($videoRevisi->isNotEmpty()) {
+            $hasil[] = $this->buat('video-revisi', $videoRevisi->pluck('id_video')->sort()->values()->all(), [
+                'tingkat' => 'warning', 'kategori' => 'Video Belajar', 'ikon' => 'bi-pencil-square',
+                'judul' => "{$videoRevisi->count()} video belajar perlu direvisi",
+                'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $videoRevisi->first()->catatan_revisi, 120) . '"',
+                'jumlah' => $videoRevisi->count(), 'tautan' => '/dashboard/video-belajar?status=REVISI', 'waktu' => $waktu($videoRevisi),
+            ]);
+        }
         $modulRevisi = ModulAjar::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_modul', 'catatan_revisi', 'updated_at']);
         if ($modulRevisi->isNotEmpty()) {
             $hasil[] = $this->buat('modul-revisi', $modulRevisi->pluck('id_modul')->sort()->values()->all(), [

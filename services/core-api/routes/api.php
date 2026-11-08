@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\PemakaianController;
+use App\Http\Controllers\Api\VideoBelajarController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -103,6 +104,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     // ===== PORTAL SISWA & ORANG TUA =====
     Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
+        Route::get('/video', [VideoBelajarController::class, 'portal']);
         Route::get('/rapor', [PortalController::class, 'rapor']);
     });
 
@@ -275,6 +277,20 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::put('/{id}/online', [PaketSoalController::class, 'aturOnline']);
             Route::get('/{id}/pantau', [PaketSoalController::class, 'pantau']);
             Route::post('/{id}/jawaban/{idSiswa}/akhiri', [PaketSoalController::class, 'akhiriSesi']);
+        });
+        // Video Belajar (Fase 19): pustaka video, tautan ke modul ajar & jadwal, persetujuan kepala sekolah (dicek di controller)
+        Route::prefix('video-belajar')->group(function () {
+            Route::get('/', [VideoBelajarController::class, 'index']);
+            Route::post('/', [VideoBelajarController::class, 'store'])->middleware('throttle:20,1');
+            Route::get('/tautan', [VideoBelajarController::class, 'tautan']);
+            Route::post('/tautan', [VideoBelajarController::class, 'tautkan']);
+            Route::delete('/tautan/{id}', [VideoBelajarController::class, 'lepas'])->whereNumber('id');
+            Route::get('/{id}', [VideoBelajarController::class, 'show']);
+            Route::post('/{id}', [VideoBelajarController::class, 'update']); // multipart (berkas pengganti)
+            Route::delete('/{id}', [VideoBelajarController::class, 'destroy']);
+            Route::post('/{id}/ajukan', [VideoBelajarController::class, 'ajukan']);
+            Route::post('/{id}/setujui', [VideoBelajarController::class, 'setujui']);
+            Route::post('/{id}/revisi', [VideoBelajarController::class, 'revisi']);
         });
         // Perangkat ajar (Fase 17): CP & ATP; guru untuk mapel diampu, persetujuan ATP oleh kepala sekolah (dicek di controller)
         Route::prefix('perangkat-ajar')->group(function () {

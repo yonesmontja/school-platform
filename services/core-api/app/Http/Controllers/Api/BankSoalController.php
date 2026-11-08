@@ -31,6 +31,7 @@ class BankSoalController extends Controller
     private const RELASI = [
         'mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi',
         'indikator:id_indikator,deskripsi,urutan', 'pembuat:id,name', 'penyetuju:id,name',
+        'video:id_video,judul,file_url,poster_url,durasi_detik,status',
     ];
     private const MAKS_DRAF = 10;
     private const GAMBAR_MIME = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
@@ -376,6 +377,7 @@ class BankSoalController extends Controller
             'pertanyaan' => 'required|string|max:5000',
             'gambar_svg' => 'nullable|string|max:60000',
             'gambar_url' => ['nullable', 'string', 'max:500', 'regex:#^/storage/soal/#'],
+            'id_video' => 'nullable|exists:video_belajar,id_video',
             'isi' => 'nullable|array',
             'kunci' => 'nullable|array',
             'rubrik' => 'nullable|string|max:5000',
@@ -385,7 +387,7 @@ class BankSoalController extends Controller
         $this->cekMapel($request, $request->id_mapel);
 
         [$isi, $kunci] = BankSoalService::normalisasi($request->bentuk, $request->isi, $request->kunci);
-        $data = $request->only(['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'pertanyaan', 'rubrik', 'pembahasan', 'gambar_url']);
+        $data = $request->only(['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'pertanyaan', 'rubrik', 'pembahasan', 'gambar_url', 'id_video']);
         foreach (BankSoal::DIMENSI as $d) $data["dim_{$d}"] = round((float) $request->input("dim_{$d}", 0), 2);
         // TP menentukan materinya
         if ($data['id_indikator'] ?? null) $data['id_materi'] = MasterIndikator::find($data['id_indikator'])->id_materi;

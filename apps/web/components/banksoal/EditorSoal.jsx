@@ -5,6 +5,7 @@ import { BENTUK, DIMENSI, HURUF, KESULITAN, LEVEL, STATUS } from "./konstanta";
 import PratinjauSoal, { srcGambar, srcSvg } from "./PratinjauSoal";
 import { bacaBerkas, minta } from "./api";
 import ModalGambarAI from "./ModalGambarAI";
+import { KartuVideo, PemilihVideo } from "@/components/video/video";
 
 // Isi & kunci awal per bentuk (aturan sama dengan BankSoalService::normalisasi)
 const isiAwal = (bentuk) => ({
@@ -33,6 +34,7 @@ const dariSoal = (s, bawaan) => {
     bentuk, level_kognitif: s?.level_kognitif || bawaan?.level_kognitif || "C2", tingkat_kesulitan: s?.tingkat_kesulitan || bawaan?.tingkat_kesulitan || "SEDANG",
     ...Object.fromEntries(DIMENSI.map((d) => [`dim_${d.key}`, s ? Number(s[`dim_${d.key}`]) : 0])),
     pertanyaan: s?.pertanyaan || "", gambar_svg: s?.gambar_svg || null, gambar_url: s?.gambar_url || null,
+    id_video: s?.id_video || null, video: s?.video || null,
     isi, kunci, rubrik: s?.rubrik || "", pembahasan: s?.pembahasan || "", skor_maks: s?.skor_maks || "",
   };
 };
@@ -43,6 +45,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
   const [f, setF] = useState(() => dariSoal(soal, { id_mapel: referensi.mapel.length === 1 ? referensi.mapel[0].id_mapel : "", ...bawaan }));
   const [proses, setProses] = useState(false);
   const [gambarAi, setGambarAi] = useState(false);
+  const [pilihVideo, setPilihVideo] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const setIsi = (k, v) => setF((x) => ({ ...x, isi: { ...x.isi, [k]: v } }));
   const setKunci = (v) => setF((x) => ({ ...x, kunci: { ...x.kunci, jawaban: v } }));
@@ -206,6 +209,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                       <input type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={unggahGambar} /></label>
                     <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setGambarAi(true)} disabled={!f.pertanyaan.trim()}
                       title={f.pertanyaan.trim() ? "Buat ilustrasi atau diagram dengan AI" : "Tulis pertanyaannya dulu"}><i className="bi bi-stars me-1"></i>Gambar AI</button>
+                    {!f.id_video && <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setPilihVideo(true)} title="Video ditonton siswa sebelum menjawab"><i className="bi bi-play-btn me-1"></i>Video stimulus</button>}
                     {(f.gambar_url || f.gambar_svg) && (
                       <>
                         <img src={f.gambar_svg ? srcSvg(f.gambar_svg) : srcGambar(f.gambar_url)} alt="Gambar soal" className="border rounded bg-white" style={{ height: 48 }} />
@@ -216,6 +220,12 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                     )}
                   </div>
 
+                  {f.id_video && f.video && (
+                    <div className="mb-3 d-flex gap-2 align-items-center">
+                      <KartuVideo video={f.video} kecil onHapus={() => setF((x) => ({ ...x, id_video: null, video: null }))} />
+                      <span className="small text-muted">Video stimulus: siswa menontonnya sebelum menjawab.</span>
+                    </div>
+                  )}
                   {(f.bentuk === "PG" || f.bentuk === "PG_KOMPLEKS") && daftar("pilihan", "Pilihan jawaban", "Teks pilihan")}
                   {f.bentuk === "BENAR_SALAH" && daftar("pernyataan", "Pernyataan", "Pernyataan")}
                   {f.bentuk === "MENGURUTKAN" && daftar("urutan", "Langkah dalam urutan yang benar", "Langkah")}
@@ -325,6 +335,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
         </div>
       </div>
       <div className="modal-backdrop show"></div>
+      {pilihVideo && <PemilihVideo idMapel={f.id_mapel} onTutup={() => setPilihVideo(false)} onPilih={(v) => { setF((x) => ({ ...x, id_video: v.id_video, video: v })); setPilihVideo(false); }} />}
       {gambarAi && <ModalGambarAI soal={f} onTutup={() => setGambarAi(false)} onPakai={(g) => { setF((x) => ({ ...x, ...g })); setGambarAi(false); }} />}
     </>
   );

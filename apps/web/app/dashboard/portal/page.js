@@ -78,6 +78,40 @@ function unduhPdf({ judul, siswa, periode, head, body }) {
 
 const warnaNilai = (nilai, kkm) => (nilai == null ? "secondary" : nilai >= 90 ? "success" : nilai >= kkm ? "primary" : "danger");
 
+/** Pustaka Video Belajar untuk kelas anak; bisa ditonton atau diunduh untuk ditonton tanpa sinyal. */
+function VideoPortal() {
+  const [data, setData] = useState([]);
+  const [buka, setBuka] = useState(false);
+  useEffect(() => {
+    fetch(`${API_URL}/portal/video`, { headers: authHeaders() }).then((r) => (r.ok ? r.json() : { data: [] })).then((r) => setData(r.data || [])).catch(() => {});
+  }, []);
+  if (!data.length) return null;
+  const src = (u) => (u?.startsWith("/storage/") ? `${API_URL.replace(/\/api$/, "")}${u}` : u);
+  return (
+    <div className="card border-0 shadow-sm mb-4 video-portal">
+      <button type="button" className="btn text-start p-3 d-flex align-items-center gap-2" onClick={() => setBuka((b) => !b)} aria-expanded={buka}>
+        <i className="bi bi-play-btn-fill fs-3 text-danger"></i>
+        <span className="me-auto"><b>Video Belajar</b> <span className="text-muted small">({data.length} video)</span></span>
+        <i className={`bi ${buka ? "bi-chevron-up" : "bi-chevron-down"}`}></i>
+      </button>
+      {buka && (
+        <div className="px-3 pb-3 d-flex flex-wrap gap-3">
+          {data.map((v) => (
+            <div key={v.id_video} style={{ width: 300, maxWidth: "100%" }}>
+              <video controls preload="none" playsInline src={src(v.file_url)} poster={v.poster_url ? src(v.poster_url) : undefined} className="w-100 rounded bg-black" aria-label={`Video: ${v.judul}`} />
+              <div className="small fw-semibold mt-1">{v.judul}</div>
+              <div className="small text-muted d-flex gap-2">
+                <span className="me-auto">{v.mapel?.nama_mapel || "Umum"}{v.durasi_detik ? ` · ${Math.floor(v.durasi_detik / 60)}:${String(v.durasi_detik % 60).padStart(2, "0")}` : ""}</span>
+                <a href={src(v.file_url)} download title="Unduh untuk ditonton tanpa sinyal"><i className="bi bi-download me-1"></i>{v.ukuran_kb ? `${(v.ukuran_kb / 1024).toFixed(1)} MB` : "Unduh"}</a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Pengingat tes online yang bisa dikerjakan siswa sekarang. */
 function TesTersedia() {
   const [daftar, setDaftar] = useState([]);
@@ -311,6 +345,7 @@ function PortalPage() {
     <div className="container-fluid mt-4 mb-5">
       <style>{RAPOR_CSS + PREVIEW_CSS}</style>
       {role === "siswa" && <TesTersedia />}
+      <VideoPortal />
 
       {/* SAMBUTAN & PILIHAN */}
       <div className="card border-0 shadow-sm mb-4 overflow-hidden">

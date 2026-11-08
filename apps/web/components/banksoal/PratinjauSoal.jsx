@@ -36,6 +36,11 @@ export default function PratinjauSoal({ soal, nomor, kunci = true }) {
         {nomor != null && <b>{nomor}.</b>}
         <div className="flex-grow-1 min-w-0" style={{ whiteSpace: "pre-wrap" }}>{soal.pertanyaan}</div>
       </div>
+      {soal.video?.file_url && (
+        <div className="my-2" style={{ maxWidth: 420 }}>
+          <video controls preload="none" playsInline src={srcGambar(soal.video.file_url)} poster={soal.video.poster_url ? srcGambar(soal.video.poster_url) : undefined} className="w-100 rounded bg-black" aria-label={`Video stimulus: ${soal.video.judul}`} />
+        </div>
+      )}
       {(soal.gambar_svg || soal.gambar_url) && (
         <div className="my-2">
           <img src={soal.gambar_svg ? srcSvg(soal.gambar_svg) : srcGambar(soal.gambar_url)} alt="Gambar soal"

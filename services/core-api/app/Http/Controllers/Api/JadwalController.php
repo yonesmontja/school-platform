@@ -343,6 +343,9 @@ class JadwalController extends Controller
             'pertemuan_ke' => $j->pertemuan_ke,
             'tujuan' => $isi['desain']['tujuan'] ?: null,
             'langkah' => $p ? collect(ModulAjar::LANGKAH)->mapWithKeys(fn($l) => [$l => $p[$l]])->filter()->all() : null,
+            'video' => \App\Models\VideoTautan::with('video')->where('jenis', 'MODUL')->where('id_target', $j->modul->id_modul)
+                ->where(fn($q) => $q->whereNull('pertemuan_ke')->orWhere('pertemuan_ke', $j->pertemuan_ke))->orderBy('urutan')->get()
+                ->filter(fn($t) => $t->video)->map(fn($t) => $t->video->ringkas())->values(),
         ];
     }
 

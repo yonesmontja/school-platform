@@ -1,6 +1,23 @@
 "use client";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import RencanaSesi from "@/components/perangkatajar/RencanaSesi";
+import { VideoTertaut } from "@/components/video/video";
+import { minta } from "@/components/banksoal/api";
+
+/** Video yang ditautkan langsung ke sesi ini (diputar di kelas lewat proyektor/HP). */
+function VideoSesi({ jadwal, bolehUbah }) {
+  const [data, setData] = useState([]);
+  const muat = useCallback(() => minta("GET", `/video-belajar/tautan?jenis=JADWAL&id_target=${jadwal.id_jadwal}`).then((r) => setData(r.data)).catch(() => {}), [jadwal.id_jadwal]);
+  useEffect(() => { muat(); }, [muat]);
+  if (!bolehUbah && !data.length) return null;
+  return (
+    <div className="detail-row"><i className="bi bi-play-btn"></i><div className="min-w-0">
+      <div className="small fw-semibold text-body-secondary mb-1">Video untuk sesi ini</div>
+      <VideoTertaut jenis="JADWAL" idTarget={jadwal.id_jadwal} idMapel={jadwal.id_mapel} bisa={bolehUbah} data={data} onBerubah={muat} />
+    </div></div>
+  );
+}
 import { STATUS_SESI, parseLokal, rentangJam, tanggalPanjang, targetStnkm, urlLampiran, judulSesi } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const WARNA_DIM = { S: "primary", T: "success", N: "info", K: "warning", M: "danger" };
@@ -59,6 +76,7 @@ export default function DetailSesi({ jadwal, bolehUbah = true, onClose, onEdit, 
             <RencanaSesi idJadwal={jadwal.id_jadwal} />
           </Baris>
         )}
+        <VideoSesi jadwal={jadwal} bolehUbah={bolehUbah} />
         <Baris icon="bi-box-seam">
           <div className="small fw-semibold text-body-secondary">Persiapan & catatan</div>
           <div className="jadwal-note">{jadwal.catatan || <i className="text-body-secondary">Tidak ada catatan persiapan khusus.</i>}</div>

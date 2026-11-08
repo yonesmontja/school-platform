@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { minta } from "@/components/banksoal/api";
+import { KartuVideo } from "@/components/video/video";
 
 const LABEL = { awal: "Awal", memahami: "Memahami", mengaplikasi: "Mengaplikasi", merefleksi: "Merefleksi", penutup: "Penutup" };
 
@@ -20,6 +21,7 @@ export function IsiRencana({ r, ringkas = false }) {
           ))}
         </dl>
       ) : !r.pertemuan_ke && <div className="text-muted mt-1">Pilih pertemuan ke-berapa pada sesi ini untuk melihat langkahnya.</div>}
+      {r.video?.length > 0 && <div className="d-flex flex-wrap gap-2 mt-1">{r.video.map((v) => <KartuVideo key={v.id_video} video={v} kecil />)}</div>}
       <Link href={`/dashboard/perangkat-ajar?tab=modul&modul=${r.modul.id_modul}`} className="d-inline-block mt-1">Buka modul ajar</Link>
     </div>
   );

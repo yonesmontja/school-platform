@@ -89,6 +89,7 @@ class UjianService
             $data = [
                 'id' => $b->id, 'bentuk' => $s['bentuk'], 'pertanyaan' => $s['pertanyaan'], 'skor_maks' => $b->skor_maks,
                 'gambar_svg' => $s['gambar_svg'] ?? null, 'gambar_url' => $s['gambar_url'] ?? null,
+                'video' => isset($s['video']['file_url']) ? array_intersect_key($s['video'], array_flip(['judul', 'file_url', 'poster_url', 'durasi_detik'])) : null,
             ];
             return $data + match ($s['bentuk']) {
                 'PG', 'PG_KOMPLEKS' => ['pilihan' => $susun($isi['pilihan'] ?? [], fn($t) => $t)],

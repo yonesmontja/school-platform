@@ -5,6 +5,7 @@ import { AI_MODES, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoa
 import { minta } from "@/components/banksoal/api";
 import { BAGIAN_RPM, LANGKAH_RPM, isiKosong } from "./rpm";
 import { cetakModul, unduhWord } from "./cetakModul";
+import { VideoTertaut } from "@/components/video/video";
 
 /** Daftar modul ajar RPM; dibuat dari ATP yang disetujui atau dari TP langsung. */
 export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulAwal }) {
@@ -198,6 +199,9 @@ function EditorModul({ id, referensi, akses, onKembali }) {
   const [m, setM] = useState(null);
   const [isi, setIsi] = useState(isiKosong());
   const [paket, setPaket] = useState([]);
+  const [video, setVideo] = useState([]);
+  const muatVideo = useCallback(() => minta("GET", `/video-belajar/tautan?jenis=MODUL&id_target=${id}`).then((r) => setVideo(r.data)).catch(() => {}), [id]);
+  useEffect(() => { muatVideo(); }, [muatVideo]);
   const [kotor, setKotor] = useState(false);
   const [proses, setProses] = useState(null);
   const [pakaiAi, setPakaiAi] = useState(null); // ai_mode bila isi berasal dari AI
@@ -371,6 +375,8 @@ function EditorModul({ id, referensi, akses, onKembali }) {
                 <span className="small text-muted">JP</span>
               </div>
               {LANGKAH_RPM.map((l) => <Teks key={l.k} label={l.label} bantuan={i === 0 ? l.bantuan : undefined} nilai={p[l.k]} ubah={(v) => ubahPertemuan(i, l.k, v)} bisa={bisa} baris={["memahami", "mengaplikasi"].includes(l.k) ? 4 : 2} />)}
+              <div className="small fw-semibold mb-1"><i className="bi bi-play-btn me-1"></i>Video belajar pertemuan {p.ke}</div>
+              <VideoTertaut jenis="MODUL" idTarget={id} pertemuanKe={p.ke} idMapel={m.id_mapel} bisa={bisa} data={video} onBerubah={muatVideo} />
             </div>
           ))}
         </div>

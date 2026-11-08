@@ -125,3 +125,45 @@ test("sesi jadwal menautkan pertemuan modul; rencananya tampil di formulir jurna
   await expect(page.locator(".rencana-hari")).toContainText("pertemuan 1 dari 2");
   await expect(page.locator(".rencana-hari")).toContainText("melipat kertas");
 });
+
+test("guru mengunggah video belajar, kepala sekolah menyetujui, siswa menontonnya di portal", async ({ page, masuk }) => {
+  test.setTimeout(150_000);
+  const path = require("path");
+  const { unggahApi } = require("../bantu");
+  const sesi = await masuk("guru");
+  // Formulir unggah: berkas terbaca (durasi & sampul di browser)
+  await page.goto("/dashboard/video-belajar");
+  await page.getByRole("button", { name: "Unggah video" }).click();
+  const form = page.getByRole("dialog", { name: "Unggah video belajar" });
+  await form.locator("#vidBerkas").setInputFiles(path.join(__dirname, "..", "data", "pecahan.mp4"));
+  // Sampul & durasi dibaca browser (Chromium uji tidak punya codec H.264, jadi cukup ukuran berkas)
+  await expect(form).toContainText("0.8 MB");
+  await expect(form.getByLabel("Judul")).toHaveValue("pecahan");
+  await form.getByRole("button", { name: "Batal" }).click();
+  // Unggah video hasil Remotion lewat API tes (lihat unggahApi)
+  await unggahApi(sesi, "/video-belajar", { judul: "Pecahan seperempat (kue)", id_kelas: "KLS-E4A", sumber: "REMOTION", komposisi: "PecahanKue", durasi_detik: "11" },
+    { nama: "video", path: path.join(__dirname, "..", "data", "pecahan.mp4"), tipe: "video/mp4" });
+  await page.reload();
+  await page.locator(".kartu-pustaka", { hasText: "Pecahan seperempat" }).click();
+  const detail = page.getByRole("dialog", { name: /Video Pecahan seperempat/ });
+  await expect(detail.locator("video")).toBeVisible();
+  await detail.getByRole("button", { name: "Ajukan" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(detail).toContainText("Menunggu persetujuan");
+
+  await masuk("kepsek");
+  await page.goto("/dashboard/notifikasi");
+  await page.locator(".notif-kartu", { hasText: "video belajar menunggu persetujuan" }).getByRole("link", { name: /Buka/ }).click();
+  await page.locator(".kartu-pustaka", { hasText: "Pecahan seperempat" }).click();
+  const tinjau = page.getByRole("dialog", { name: /Video Pecahan seperempat/ });
+  await tinjau.getByRole("button", { name: /Setujui/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("Setujui video ini");
+  await page.locator(".swal2-confirm").click();
+  await expect(tinjau).toContainText("Disetujui");
+
+  await masuk("siswa");
+  await page.goto("/dashboard/portal");
+  await page.locator(".video-portal").getByRole("button").first().click();
+  await expect(page.locator(".video-portal")).toContainText("Pecahan seperempat (kue)");
+  await expect(page.locator(".video-portal video")).toHaveCount(1);
+});

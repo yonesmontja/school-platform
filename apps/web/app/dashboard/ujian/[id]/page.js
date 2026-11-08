@@ -254,6 +254,13 @@ export default function KerjakanUjian() {
             </button>
           </div>
           <div className="fs-5 mb-3" style={{ whiteSpace: "pre-wrap" }}>{s.pertanyaan}</div>
+          {s.video?.file_url && (
+            <div className="mb-3">
+              <video key={s.id} controls preload="metadata" playsInline src={srcGambar(s.video.file_url)} poster={s.video.poster_url ? srcGambar(s.video.poster_url) : undefined}
+                className="w-100 rounded bg-black" style={{ maxHeight: 360 }} aria-label={`Video: ${s.video.judul}`} />
+              <div className="small text-muted mt-1"><i className="bi bi-play-circle me-1"></i>Tonton videonya dulu, lalu jawab.</div>
+            </div>
+          )}
           {(s.gambar_svg || s.gambar_url) && (
             <div className="mb-3 text-center">
               <img src={s.gambar_svg ? srcSvg(s.gambar_svg) : srcGambar(s.gambar_url)} alt="Gambar soal" className="border rounded bg-white img-fluid" style={{ maxHeight: 340 }} />

@@ -1,0 +1,270 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\BankSoal;
+use App\Models\CapaianPembelajaran;
+use App\Models\Classes;
+use App\Models\ModulAjar;
+use App\Models\Student;
+use App\Models\TransJadwal;
+use App\Models\VideoBelajar;
+use App\Models\VideoTautan;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Pustaka Video Belajar (Fase 19 Tahap A). Video (motion graphic dari Remotion atau unggahan guru) disimpan sekali
+ * lalu ditautkan ke modul ajar per pertemuan, sesi jadwal, stimulus soal, dan tampil di Portal Siswa. Video baru
+ * terlihat oleh siswa setelah disetujui kepala sekolah.
+ */
+class VideoBelajarController extends Controller
+{
+    private const RELASI = ['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi', 'pembuat:id,name'];
+    private const MAKS_KB = 20 * 1024;
+    private const MIME_VIDEO = ['video/mp4' => 'mp4', 'video/webm' => 'webm'];
+    private const MIME_POSTER = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+
+    public function index(Request $request)
+    {
+        $request->validate(['status' => ['nullable', Rule::in(['DRAF', 'DIAJUKAN', 'DISETUJUI', 'REVISI'])]]);
+        $data = $this->terjangkau($request)->with(self::RELASI)->withCount('tautan')
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->id_mapel, fn($q) => $q->where('id_mapel', $request->id_mapel))
+            ->when($request->id_kelas, fn($q) => $q->where(fn($w) => $w->where('id_kelas', $request->id_kelas)->orWhereNull('id_kelas')))
+            ->when($request->filled('cari'), fn($q) => $q->whereRaw('LOWER(judul) LIKE ?', ['%' . mb_strtolower($request->cari) . '%']))
+            ->when($request->boolean('disetujui'), fn($q) => $q->where('status', 'DISETUJUI'))
+            ->orderByRaw("CASE status WHEN 'DIAJUKAN' THEN 0 WHEN 'REVISI' THEN 1 WHEN 'DRAF' THEN 2 ELSE 3 END")
+            ->orderByDesc('updated_at')->get();
+        $soal = BankSoal::whereIn('id_video', $data->pluck('id_video'))->selectRaw('id_video, COUNT(*) as n')->groupBy('id_video')->pluck('n', 'id_video');
+        $data->each(fn($v) => $v->setAttribute('dipakai', $v->tautan_count + (int) ($soal[$v->id_video] ?? 0)));
+        return response()->json(['data' => $data]);
+    }
+
+    public function show(Request $request, string $id)
+    {
+        $video = $this->terjangkau($request)->with(self::RELASI)->findOrFail($id);
+        return response()->json(['data' => $video->toArray() + ['tempat' => $this->tempat($video)]]);
+    }
+
+    /** Unggah video baru (multipart): berkas MP4/WebM maks. 20MB, sampul (data URL) dan durasi dibaca di browser. */
+    public function store(Request $request)
+    {
+        $data = $this->validasi($request, true);
+        [$fileUrl, $kb] = $this->simpanBerkas($request);
+        $video = VideoBelajar::create($data + [
+            'id_video' => 'VID-' . Str::upper(Str::random(10)), 'file_url' => $fileUrl, 'ukuran_kb' => $kb,
+            'poster_url' => $this->simpanPoster($request), 'status' => 'DRAF', 'dibuat_oleh' => $request->user()->id,
+        ]);
+        return response()->json(['success' => true, 'message' => 'Video disimpan sebagai draf. Ajukan ke kepala sekolah agar bisa dilihat siswa.', 'data' => $video->fresh(self::RELASI)], 201);
+    }
+
+    public function update(Request $request, string $id)
+    {
+        $video = VideoBelajar::findOrFail($id);
+        $this->cekPengubah($request, $video);
+        $data = $this->validasi($request, false);
+        $lama = [];
+        if ($request->hasFile('video')) {
+            [$data['file_url'], $data['ukuran_kb']] = $this->simpanBerkas($request);
+            $lama[] = $video->file_url;
+        }
+        if ($request->filled('poster')) {
+            $data['poster_url'] = $this->simpanPoster($request);
+            $lama[] = $video->poster_url;
+        }
+        // Mengubah video yang sudah disetujui/diajukan membuatnya kembali menjadi draf
+        if (in_array($video->status, ['DISETUJUI', 'DIAJUKAN'], true)) $data += ['status' => 'DRAF', 'disetujui_oleh' => null, 'disetujui_pada' => null];
+        $video->update($data);
+        $this->hapusBerkas($lama);
+        return response()->json(['success' => true, 'message' => 'Video diperbarui.', 'data' => $video->fresh(self::RELASI)]);
+    }
+
+    public function destroy(Request $request, string $id)
+    {
+        $video = VideoBelajar::findOrFail($id);
+        $this->cekPengubah($request, $video);
+        $berkas = [$video->file_url, $video->poster_url];
+        $video->delete();
+        $this->hapusBerkas($berkas);
+        return response()->json(['success' => true, 'message' => 'Video dihapus dari pustaka dan semua tautannya.']);
+    }
+
+    public function ajukan(Request $request, string $id)
+    {
+        $video = VideoBelajar::findOrFail($id);
+        $this->cekPengubah($request, $video);
+        abort_unless(in_array($video->status, ['DRAF', 'REVISI'], true), 422, 'Video ini sudah diajukan atau disetujui.');
+        $video->update(['status' => 'DIAJUKAN']);
+        return response()->json(['success' => true, 'message' => 'Video diajukan ke kepala sekolah.']);
+    }
+
+    public function setujui(Request $request, string $id)
+    {
+        abort_unless($request->user()->isKepsek(), 403, 'Persetujuan video hanya oleh kepala sekolah.');
+        $video = VideoBelajar::findOrFail($id);
+        abort_unless($video->status === 'DIAJUKAN', 422, 'Video ini tidak sedang diajukan.');
+        $video->update(['status' => 'DISETUJUI', 'catatan_revisi' => null, 'disetujui_oleh' => $request->user()->id, 'disetujui_pada' => now()]);
+        return response()->json(['success' => true, 'message' => 'Video disetujui dan kini bisa dilihat siswa.']);
+    }
+
+    public function revisi(Request $request, string $id)
+    {
+        abort_unless($request->user()->isKepsek(), 403, 'Persetujuan video hanya oleh kepala sekolah.');
+        $request->validate(['catatan' => 'required|string|max:2000']);
+        $video = VideoBelajar::findOrFail($id);
+        abort_unless($video->status === 'DIAJUKAN', 422, 'Video ini tidak sedang diajukan.');
+        $video->update(['status' => 'REVISI', 'catatan_revisi' => $request->catatan]);
+        return response()->json(['success' => true, 'message' => 'Video dikembalikan ke guru dengan catatan.']);
+    }
+
+    // ===== Tautan ke modul ajar & sesi jadwal =====
+
+    /** Video yang ditautkan ke satu modul (semua pertemuan) atau satu sesi jadwal. */
+    public function tautan(Request $request)
+    {
+        $request->validate(['jenis' => ['required', Rule::in(VideoTautan::JENIS)], 'id_target' => 'required|string|max:50']);
+        $data = VideoTautan::with('video')->where('jenis', $request->jenis)->where('id_target', $request->id_target)
+            ->orderBy('pertemuan_ke')->orderBy('urutan')->get()
+            ->filter(fn($t) => $t->video)->map(fn($t) => ['id' => $t->id, 'pertemuan_ke' => $t->pertemuan_ke] + $t->video->ringkas())->values();
+        return response()->json(['data' => $data]);
+    }
+
+    public function tautkan(Request $request)
+    {
+        $data = $request->validate([
+            'id_video' => 'required|exists:video_belajar,id_video',
+            'jenis' => ['required', Rule::in(VideoTautan::JENIS)],
+            'id_target' => 'required|string|max:50',
+            'pertemuan_ke' => 'nullable|integer|min:1|max:12',
+        ]);
+        $this->cekTarget($request, $data['jenis'], $data['id_target']);
+        abort_unless($this->terjangkau($request)->whereKey($data['id_video'])->exists(), 404, 'Video tidak ditemukan.');
+        $t = VideoTautan::firstOrCreate(
+            ['id_video' => $data['id_video'], 'jenis' => $data['jenis'], 'id_target' => $data['id_target'], 'pertemuan_ke' => $data['pertemuan_ke'] ?? null],
+            ['urutan' => (int) VideoTautan::where('jenis', $data['jenis'])->where('id_target', $data['id_target'])->max('urutan') + 1]
+        );
+        return response()->json(['success' => true, 'message' => 'Video ditautkan.', 'data' => ['id' => $t->id, 'pertemuan_ke' => $t->pertemuan_ke] + $t->video->ringkas()], 201);
+    }
+
+    public function lepas(Request $request, int $id)
+    {
+        $t = VideoTautan::findOrFail($id);
+        $this->cekTarget($request, $t->jenis, $t->id_target);
+        $t->delete();
+        return response()->json(['success' => true, 'message' => 'Tautan video dilepas.']);
+    }
+
+    // ===== Portal siswa & orang tua =====
+
+    /** Video belajar yang disetujui untuk kelas anak (kelas yang sama, atau tanpa kelas dengan fase yang sama/umum). */
+    public function portal(Request $request)
+    {
+        $kelas = Student::whereIn('id_siswa', $request->user()->siswaTerjangkau())->with('kelas:id_kelas,nama_kelas')->get()->pluck('kelas')->filter()->unique('id_kelas');
+        $idKelas = $kelas->pluck('id_kelas')->all();
+        $fase = $kelas->map(fn($k) => CapaianPembelajaran::faseKelas($k->nama_kelas))->filter()->unique()->values()->all();
+        $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')
+            ->where(fn($q) => $q->whereIn('id_kelas', $idKelas)->orWhere(fn($w) => $w->whereNull('id_kelas')->where(fn($f) => $f->whereNull('fase')->orWhereIn('fase', $fase))))
+            ->orderByDesc('disetujui_pada')->get(['id_video', 'judul', 'deskripsi', 'id_mapel', 'id_materi', 'file_url', 'poster_url', 'durasi_detik', 'ukuran_kb', 'disetujui_pada']);
+        return response()->json(['data' => $data]);
+    }
+
+    // ===== bantu =====
+
+    private function validasi(Request $request, bool $baru): array
+    {
+        $data = $request->validate([
+            'judul' => [$baru ? 'required' : 'sometimes', 'string', 'max:200'],
+            'deskripsi' => 'nullable|string|max:3000',
+            'id_mapel' => 'nullable|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'id_materi' => 'nullable|exists:master_materi,id_materi',
+            'tp' => 'nullable|array|max:20',
+            'tp.*' => 'exists:master_indikator,id_indikator',
+            'durasi_detik' => 'nullable|integer|min:1|max:3600',
+            'sumber' => ['nullable', Rule::in(VideoBelajar::SUMBER)],
+            'komposisi' => 'nullable|string|max:100',
+            'props' => 'nullable|array',
+            'video' => [$baru ? 'required' : 'nullable', 'file', 'max:' . self::MAKS_KB],
+            'poster' => 'nullable|string',
+        ], ['video.max' => 'Ukuran video maksimal 20MB. Perkecil resolusi atau durasinya.']);
+        if (!empty($data['id_mapel']) && !$request->user()->bolehNilaiMapel($data['id_mapel'])) {
+            abort(403, 'Anda hanya dapat menambahkan video untuk mata pelajaran yang Anda ampu.');
+        }
+        if (array_key_exists('id_kelas', $data)) {
+            $data['fase'] = $data['id_kelas'] ? CapaianPembelajaran::faseKelas(Classes::find($data['id_kelas'])?->nama_kelas) : null;
+        }
+        return collect($data)->except(['video', 'poster'])->all();
+    }
+
+    private function simpanBerkas(Request $request): array
+    {
+        $file = $request->file('video');
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
+        $ext = self::MIME_VIDEO[$mime] ?? null;
+        if (!$ext) throw ValidationException::withMessages(['video' => "Format video harus MP4 atau WebM (terbaca: {$mime})."]);
+        $path = $file->storeAs('video', 'vid_' . Str::random(20) . ".{$ext}", 'public');
+        return ['/storage/' . $path, (int) ceil($file->getSize() / 1024)];
+    }
+
+    private function simpanPoster(Request $request): ?string
+    {
+        if (!$request->filled('poster')) return null;
+        $data = base64_decode(preg_replace('/^data:[^,]*,/', '', $request->poster), true);
+        if (!$data || strlen($data) > 2 * 1024 * 1024) return null;
+        $ext = self::MIME_POSTER[(new \finfo(FILEINFO_MIME_TYPE))->buffer($data)] ?? null;
+        if (!$ext) return null;
+        $path = 'video/poster_' . Str::random(20) . ".{$ext}";
+        Storage::disk('public')->put($path, $data);
+        return '/storage/' . $path;
+    }
+
+    private function hapusBerkas(array $urls): void
+    {
+        foreach (array_filter($urls) as $url) {
+            if (Str::startsWith($url, '/storage/video/')) Storage::disk('public')->delete(Str::after($url, '/storage/'));
+        }
+    }
+
+    /** Di mana saja video ini dipakai. */
+    private function tempat(VideoBelajar $video): array
+    {
+        $tautan = $video->tautan()->get();
+        $modul = ModulAjar::whereIn('id_modul', $tautan->where('jenis', 'MODUL')->pluck('id_target'))->pluck('judul', 'id_modul');
+        $jadwal = TransJadwal::with('mapel:id_mapel,nama_mapel')->whereIn('id_jadwal', $tautan->where('jenis', 'JADWAL')->pluck('id_target'))->get()->keyBy('id_jadwal');
+        $hasil = $tautan->map(fn($t) => $t->jenis === 'MODUL'
+            ? ['jenis' => 'Modul ajar', 'judul' => ($modul[$t->id_target] ?? 'Modul') . ($t->pertemuan_ke ? " · pertemuan {$t->pertemuan_ke}" : '')]
+            : ['jenis' => 'Jadwal', 'judul' => trim(($jadwal[$t->id_target]?->mapel?->nama_mapel ?? $jadwal[$t->id_target]?->judul ?? 'Sesi') . ' · ' . ($jadwal[$t->id_target]?->mulai?->translatedFormat('d M Y H:i') ?? ''))])->all();
+        foreach (BankSoal::where('id_video', $video->id_video)->get(['pertanyaan']) as $s) $hasil[] = ['jenis' => 'Soal', 'judul' => Str::limit($s->pertanyaan, 80)];
+        return $hasil;
+    }
+
+    private function terjangkau(Request $request): Builder
+    {
+        $user = $request->user();
+        return VideoBelajar::query()->when(!$user->isPengelola(), fn($q) => $q->where(fn($w) => $w->where('dibuat_oleh', $user->id)
+            ->orWhere(fn($x) => $x->where('status', 'DISETUJUI')->where(fn($m) => $m->whereNull('id_mapel')->orWhereIn('id_mapel', $user->mapelDiampu())))));
+    }
+
+    private function cekPengubah(Request $request, VideoBelajar $video): void
+    {
+        $user = $request->user();
+        abort_unless($user->isPengelola() || $video->dibuat_oleh === $user->id, 403, 'Video ini milik guru lain.');
+    }
+
+    /** Hanya pemilik modul/jadwal (atau admin & kepsek) yang boleh menautkan video. */
+    private function cekTarget(Request $request, string $jenis, string $id): void
+    {
+        $user = $request->user();
+        if ($user->isPengelola()) return;
+        $boleh = $jenis === 'MODUL'
+            ? ModulAjar::whereKey($id)->where('dibuat_oleh', $user->id)->exists()
+            : TransJadwal::whereKey($id)->where('id_guru', $user->id_guru)->exists();
+        abort_unless($boleh, 403, $jenis === 'MODUL' ? 'Modul ini milik guru lain.' : 'Sesi jadwal ini milik guru lain.');
+    }
+}

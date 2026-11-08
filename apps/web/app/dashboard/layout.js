@@ -48,6 +48,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
       { href: "/dashboard/perangkat-ajar", label: "Perangkat Ajar", icon: "bi-journal-richtext" },
+      { href: "/dashboard/video-belajar", label: "Video Belajar", icon: "bi-play-btn" },
       { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
       { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },

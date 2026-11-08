@@ -556,8 +556,8 @@ class PaketSoalController extends Controller
     private static function salinan(BankSoal $s): array
     {
         return $s->only(['id_soal', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'dim_S', 'dim_T', 'dim_N', 'dim_K', 'dim_M',
-            'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'id_materi', 'id_indikator'])
-            + ['materi' => $s->materi?->only(['nama_materi']), 'indikator' => $s->indikator?->only(['deskripsi'])];
+            'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'id_materi', 'id_indikator', 'id_video'])
+            + ['materi' => $s->materi?->only(['nama_materi']), 'indikator' => $s->indikator?->only(['deskripsi']), 'video' => $s->video?->ringkas()];
     }
 
     /** Setelah butir berubah, skor semua jawaban dihitung ulang. */
