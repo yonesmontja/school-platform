@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\NilaiController;
 use App\Http\Controllers\Api\BankSoalController;
 use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
+use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -264,6 +265,26 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::put('/{id}/online', [PaketSoalController::class, 'aturOnline']);
             Route::get('/{id}/pantau', [PaketSoalController::class, 'pantau']);
             Route::post('/{id}/jawaban/{idSiswa}/akhiri', [PaketSoalController::class, 'akhiriSesi']);
+        });
+        // Perangkat ajar (Fase 17): CP & ATP; guru untuk mapel diampu, persetujuan ATP oleh kepala sekolah (dicek di controller)
+        Route::prefix('perangkat-ajar')->group(function () {
+            Route::get('/referensi', [PerangkatAjarController::class, 'referensi']);
+            Route::get('/cp', [PerangkatAjarController::class, 'daftarCp']);
+            Route::post('/cp', [PerangkatAjarController::class, 'simpanCp']);
+            Route::post('/cp/pecah', [PerangkatAjarController::class, 'pecahCp']);
+            Route::post('/cp/banyak', [PerangkatAjarController::class, 'simpanBanyakCp']);
+            Route::put('/cp/{id}', [PerangkatAjarController::class, 'simpanCp']);
+            Route::delete('/cp/{id}', [PerangkatAjarController::class, 'hapusCp']);
+            Route::get('/atp', [PerangkatAjarController::class, 'daftarAtp']);
+            Route::post('/atp', [PerangkatAjarController::class, 'simpanAtp']);
+            Route::get('/atp/{id}', [PerangkatAjarController::class, 'lihatAtp']);
+            Route::put('/atp/{id}', [PerangkatAjarController::class, 'simpanAtp']);
+            Route::delete('/atp/{id}', [PerangkatAjarController::class, 'hapusAtp']);
+            Route::post('/atp/{id}/ai', [PerangkatAjarController::class, 'susunAtpAI']);
+            Route::post('/atp/{id}/ajukan', [PerangkatAjarController::class, 'ajukanAtp']);
+            Route::post('/atp/{id}/tarik', [PerangkatAjarController::class, 'tarikAtp']);
+            Route::post('/atp/{id}/setujui', [PerangkatAjarController::class, 'setujuiAtp']);
+            Route::post('/atp/{id}/revisi', [PerangkatAjarController::class, 'revisiAtp']);
         });
 
         Route::get('/dashboard', [DashboardController::class, 'index']);

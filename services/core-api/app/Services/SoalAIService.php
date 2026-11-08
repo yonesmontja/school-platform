@@ -31,7 +31,7 @@ class SoalAIService
     private const MODEL_OPENKEY = 'gpt-4o-mini';
     private const TIMEOUT = 150;
 
-    private const STNKM = 'Kerangka penilaian STNKM sekolah: S = keterampilan praktik, T = pemahaman konsep, '
+    protected const STNKM = 'Kerangka penilaian STNKM sekolah: S = keterampilan praktik, T = pemahaman konsep, '
         . 'N = penalaran dan pemecahan masalah, K = sikap dan karakter, M = minat dan antusiasme belajar.';
 
     private const SKEMA = <<<TXT
@@ -68,8 +68,8 @@ TXT;
         . 'Pastikan gambar sesuai dengan kunci jawaban. Bila tidak perlu gambar, kosongkan.';
 
     private ?SchoolSetting $settings = null;
-    private ?string $galat = null;
-    private float $suhu = 0.6;
+    protected ?string $galat = null;
+    protected float $suhu = 0.6;
     // SVG yang dikembalikan model teks saat diminta gambar; dipakai sebagai diagram
     private ?string $svgCadangan = null;
 
@@ -385,7 +385,7 @@ TXT;
         return 'HTTP ' . $response->status() . ' - ' . mb_substr(trim(strip_tags($pesan)), 0, 220);
     }
 
-    private static function jsonDari(string $mentah): mixed
+    protected static function jsonDari(string $mentah): mixed
     {
         $teks = trim(preg_replace('/^```(?:json)?\s*|\s*```$/m', '', $mentah));
         $data = json_decode($teks, true);
@@ -408,7 +408,7 @@ TXT;
         return array_values(array_filter($soal, 'is_array'));
     }
 
-    private function minta(string $mode, string $system, string $user, ?array $berkas): ?string
+    protected function minta(string $mode, string $system, string $user, ?array $berkas): ?string
     {
         $this->galat = null;
         $hasil = match ($mode) {

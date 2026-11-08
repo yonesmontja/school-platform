@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Atp;
 use App\Models\BankSoal;
 use App\Models\Classes;
 use App\Models\LogAktivitas;
@@ -58,6 +59,7 @@ class NotifikasiService
             if ($u->isPengelola()) $item = $item->merge($this->presensiSekolah());
             if ($u->isAdmin()) $item = $item->merge($this->loginGagal());
             $item = $item->merge($this->bankSoal());
+            $item = $item->merge($this->atp());
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -364,6 +366,34 @@ class NotifikasiService
                 'judul' => "{$revisi->count()} soal perlu direvisi",
                 'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $revisi->first()->catatan_revisi, 120) . '"',
                 'jumlah' => $revisi->count(), 'tautan' => '/dashboard/bank-soal?status=REVISI&milik=1', 'waktu' => $waktu($revisi),
+            ]);
+        }
+        return $hasil;
+    }
+
+    /** Kepala sekolah: ATP yang menunggu persetujuan. Guru: ATP-nya yang dikembalikan untuk direvisi. */
+    private function atp(): array
+    {
+        $hasil = [];
+        $waktu = fn($grup) => Carbon::parse($grup->max('updated_at'))->timezone(config('app.zona_sekolah'))->format('Y-m-d\TH:i:s');
+        if ($this->user->isKepsek()) {
+            $diajukan = Atp::where('status', 'DIAJUKAN')->get(['id_atp', 'updated_at']);
+            if ($diajukan->isNotEmpty()) {
+                $hasil[] = $this->buat('atp-persetujuan', $diajukan->pluck('id_atp')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-diagram-3',
+                    'judul' => "{$diajukan->count()} ATP menunggu persetujuan",
+                    'pesan' => 'Periksa alur tujuan pembelajaran yang diajukan guru, lalu setujui atau kembalikan dengan catatan.',
+                    'jumlah' => $diajukan->count(), 'tautan' => '/dashboard/perangkat-ajar?status=DIAJUKAN', 'waktu' => $waktu($diajukan),
+                ]);
+            }
+        }
+        $revisi = Atp::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_atp', 'catatan_revisi', 'updated_at']);
+        if ($revisi->isNotEmpty()) {
+            $hasil[] = $this->buat('atp-revisi', $revisi->pluck('id_atp')->sort()->values()->all(), [
+                'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-pencil-square',
+                'judul' => "{$revisi->count()} ATP perlu direvisi",
+                'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $revisi->first()->catatan_revisi, 120) . '"',
+                'jumlah' => $revisi->count(), 'tautan' => '/dashboard/perangkat-ajar?status=REVISI', 'waktu' => $waktu($revisi),
             ]);
         }
         return $hasil;

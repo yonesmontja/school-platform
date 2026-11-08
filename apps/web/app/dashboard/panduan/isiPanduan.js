@@ -110,6 +110,24 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "perangkat-ajar", kelompok: "guru", judul: "Perangkat ajar: CP dan ATP", icon: "bi-journal-richtext",
+    href: "/dashboard/perangkat-ajar",
+    langkah: [
+      "Buka TDU - Jadwal → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan.",
+      "Buka tab ATP, tekan ATP baru: pilih mapel, kelas, periode, JP per minggu, dan minggu efektif.",
+      "Tekan Susun dengan AI. AI menurunkan TP dari CP fase kelas itu, memakai TP sekolah yang sudah ada, dan menambah alokasi untuk TP yang capaian siswanya rendah.",
+      "Periksa setiap baris: elemen, materi, TP (yang ada atau TP baru bertanda +), JP, minggu, dimensi STNKM, dan profil lulusan. Geser urutan dengan panah, lalu Simpan.",
+      "Tekan Ajukan. Kepala sekolah menyetujui atau mengembalikan dengan catatan (muncul di Perlu Tindakan).",
+      "Setelah disetujui, TP dan materi baru otomatis masuk ke Referensi Penilaian, sehingga langsung bisa dipakai di Input Nilai, kisi-kisi, dan Bank Soal. Tekan Cetak untuk PDF bertanda tangan.",
+    ],
+    tips: [
+      "Fase dihitung dari nama kelas: kelas 1–2 fase A, 3–4 fase B, 5–6 fase C.",
+      "Mengubah ATP yang sudah disetujui membuatnya kembali menjadi draf versi baru dan perlu diajukan ulang.",
+      "Total JP dibandingkan dengan JP per minggu × minggu efektif; tanda merah muncul bila melebihi.",
+      "Modul ajar (Perencanaan Pembelajaran Mendalam) per TP menyusul di tahap berikutnya.",
+    ],
+  },
+  {
     id: "bank-soal", kelompok: "guru", judul: "Bank soal, kisi-kisi, dan AI", icon: "bi-patch-question",
     href: "/dashboard/bank-soal",
     langkah: [
