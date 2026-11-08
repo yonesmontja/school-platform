@@ -50,7 +50,7 @@ export async function konfirmasiBentrok(json) {
 }
 
 const formKosong = () => ({
-  jenis: "kbm", judul: "", id_guru: "", id_kelas: "", id_mapel: "", id_materi: "", id_ruangan: "",
+  jenis: "kbm", judul: "", id_guru: "", id_kelas: "", id_mapel: "", id_materi: "", id_ruangan: "", id_modul: "", pertemuan_ke: "",
   tanggal: ymd(new Date()), jamMulai: "07:30", jamSelesai: "09:00", status_sesi: "Menunggu",
   warna: WARNA_JADWAL[0], catatan: "", pola: "sekali", hari: [], sampai: "",
   lampiranMode: "tidak", lampiran_url: "", file: null, lampiranLama: null, hapus_lampiran: false,
@@ -77,6 +77,7 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
       Object.assign(dasar, {
         jenis: j.judul && !j.id_mapel ? "agenda" : "kbm", judul: j.judul || "",
         id_guru: j.id_guru || "", id_kelas: j.id_kelas || "", id_mapel: j.id_mapel || "", id_materi: j.id_materi || "", id_ruangan: j.id_ruangan || "",
+        id_modul: j.id_modul || "", pertemuan_ke: j.id_modul ? String((j.pertemuan_ke || 0) + (awal.mode === "duplikat" && j.pertemuan_ke ? 1 : 0) || "") : "",
         tanggal: ymd(m), jamMulai: jamMenit(m), jamSelesai: jamMenit(s),
         status_sesi: awal.mode === "duplikat" ? "Menunggu" : j.status_sesi || "Menunggu",
         warna: j.warna || WARNA_JADWAL[0], catatan: j.catatan || "",
@@ -100,10 +101,22 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
     [refData, f.id_mapel, f.id_kelas],
   );
 
+  // Modul ajar untuk mapel & kelas ini (disetujui atau milik sendiri)
+  const modulTersedia = useMemo(
+    () => (refData?.modul || []).filter((m) => m.id_mapel === f.id_mapel && (!f.id_kelas || !m.id_kelas || m.id_kelas === f.id_kelas)),
+    [refData, f.id_mapel, f.id_kelas],
+  );
+  const modulDipilih = (refData?.modul || []).find((m) => m.id_modul === f.id_modul);
+  const pilihModul = (id_modul) => {
+    const m = (refData?.modul || []).find((x) => x.id_modul === id_modul);
+    ubah({ id_modul, pertemuan_ke: id_modul ? f.pertemuan_ke || "1" : "", ...(m?.id_materi ? { id_materi: m.id_materi } : {}) });
+  };
+
   const pilihMapel = (id_mapel) => {
     const mapel = subjects.find((s) => s.id_mapel === id_mapel);
     const materiMasihCocok = (refData?.materi || []).some((m) => m.id_materi === f.id_materi && m.id_mapel === id_mapel);
-    ubah({ id_mapel, id_guru: f.id_guru || mapel?.id_guru || "", id_materi: materiMasihCocok ? f.id_materi : "" });
+    const modulMasihCocok = (refData?.modul || []).some((m) => m.id_modul === f.id_modul && m.id_mapel === id_mapel);
+    ubah({ id_mapel, id_guru: f.id_guru || mapel?.id_guru || "", id_materi: materiMasihCocok ? f.id_materi : "", ...(modulMasihCocok ? {} : { id_modul: "", pertemuan_ke: "" }) });
   };
 
   const pilihFile = (e) => {
@@ -146,6 +159,8 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
       judul: f.jenis === "agenda" ? f.judul.trim() : null,
       id_mapel: f.jenis === "kbm" ? f.id_mapel : null,
       id_materi: f.jenis === "kbm" ? f.id_materi || null : null,
+      id_modul: f.jenis === "kbm" ? f.id_modul || null : null,
+      pertemuan_ke: f.jenis === "kbm" && f.id_modul && f.pertemuan_ke ? Number(f.pertemuan_ke) : null,
       id_guru: f.id_guru || null, id_kelas: f.id_kelas || null, id_ruangan: f.id_ruangan || null,
       mulai: `${f.tanggal}T${f.jamMulai}`, selesai: `${f.tanggal}T${f.jamSelesai}`,
       warna: f.warna, catatan: f.catatan || null, status_sesi: f.status_sesi,
@@ -218,6 +233,26 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
                       {materiTersedia.map((m) => <option key={m.id_materi} value={m.id_materi}>{m.nama_materi}</option>)}
                     </select>
                   </div>
+                  {f.id_mapel && (modulTersedia.length > 0 || f.id_modul) && (
+                    <>
+                      <div className="col-md-8">
+                        <label className="form-label small fw-semibold mb-1" htmlFor="jdModul">Modul ajar</label>
+                        <select id="jdModul" className="form-select" value={f.id_modul} onChange={(e) => pilihModul(e.target.value)}>
+                          <option value="">— Tanpa modul ajar —</option>
+                          {modulTersedia.map((m) => <option key={m.id_modul} value={m.id_modul}>{m.judul}{m.status !== "DISETUJUI" ? " (draf)" : ""}</option>)}
+                        </select>
+                      </div>
+                      {f.id_modul && (
+                        <div className="col-md-4">
+                          <label className="form-label small fw-semibold mb-1" htmlFor="jdPertemuan">Pertemuan ke</label>
+                          <select id="jdPertemuan" className="form-select" value={f.pertemuan_ke} onChange={(e) => ubah({ pertemuan_ke: e.target.value })}>
+                            {Array.from({ length: modulDipilih?.jumlah_pertemuan || 1 }, (_, i) => <option key={i} value={String(i + 1)}>{i + 1}</option>)}
+                          </select>
+                          {!edit && f.pola !== "sekali" && <div className="form-text">Sesi berikutnya otomatis pertemuan berikutnya.</div>}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 

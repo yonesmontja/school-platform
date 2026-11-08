@@ -217,6 +217,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::prefix('jadwal')->group(function () {
             Route::get('/', [JadwalController::class, 'index']);
             Route::get('/referensi', [JadwalController::class, 'referensi']);
+            Route::get('/rencana-hari', [JadwalController::class, 'rencanaHari']);
+            Route::get('/{id}/rencana', [JadwalController::class, 'rencana']);
             Route::post('/', [JadwalController::class, 'store']);
             Route::put('/{id}', [JadwalController::class, 'update']);
             Route::patch('/{id}/geser', [JadwalController::class, 'geser']);

@@ -38,6 +38,10 @@ class ModulAjarController extends Controller
             ->when($request->id_atp, fn($q) => $q->where('id_atp', $request->id_atp))
             ->orderByRaw("CASE status WHEN 'DIAJUKAN' THEN 0 WHEN 'REVISI' THEN 1 WHEN 'DRAF' THEN 2 ELSE 3 END")
             ->orderByDesc('updated_at')->get()->makeHidden('isi');
+        // Kemajuan: pertemuan yang sudah selesai dilaksanakan menurut Jadwal
+        $selesai = \App\Models\TransJadwal::whereIn('id_modul', $data->pluck('id_modul'))->where('status_sesi', 'Selesai')->whereNotNull('pertemuan_ke')
+            ->selectRaw('id_modul, COUNT(DISTINCT pertemuan_ke) as n')->groupBy('id_modul')->pluck('n', 'id_modul');
+        $data->each(fn($m) => $m->setAttribute('pertemuan_selesai', (int) ($selesai[$m->id_modul] ?? 0)));
         return response()->json(['data' => $data]);
     }
 
@@ -219,9 +223,12 @@ class ModulAjarController extends Controller
     {
         $tp = MasterIndikator::with('materi:id_materi,nama_materi')->whereIn('id_indikator', $modul->tp ?? [])->get(['id_indikator', 'id_materi', 'deskripsi']);
         $urut = array_flip($modul->tp ?? []);
+        $sesi = \App\Models\TransJadwal::where('id_modul', $modul->id_modul)->where('status_sesi', '!=', 'Batal')->orderBy('mulai')
+            ->get(['id_jadwal', 'pertemuan_ke', 'mulai', 'status_sesi', 'id_kelas']);
         return $modul->toArray() + [
             'isi' => ModulAjar::normalisasi($modul->isi, $modul->jumlah_pertemuan),
             'tp_detail' => $tp->sortBy(fn($t) => $urut[$t->id_indikator] ?? 99)->values(),
+            'jadwal' => $sesi,
         ];
     }
 

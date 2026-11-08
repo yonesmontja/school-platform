@@ -128,6 +128,9 @@ export const BAGIAN = [
       "Modul memakai format Perencanaan Pembelajaran Mendalam: identifikasi, desain pembelajaran, pengalaman belajar per pertemuan (awal, memahami, mengaplikasi, merefleksi, penutup), asesmen, diferensiasi, dan LKPD.",
       "AI memakai data kelas tanpa nama siswa: sebaran gaya belajar dan minat dari Asesmen Diagnostik, rata-rata nilai TP terkait, dan jumlah siswa yang sedang remedial.",
       "Tautkan paket soal di bagian asesmen akhir. Modul bisa dicetak (PDF) atau diunduh sebagai Word untuk disunting.",
+      "Di Jadwal, pilih Modul ajar dan Pertemuan ke saat membuat sesi. Jadwal berulang otomatis memakai pertemuan berikutnya. Detail sesi menampilkan langkah pertemuan itu.",
+      "Saat menulis jurnal, panel Rencana pembelajaran hari ini menampilkan langkah dari modul untuk kelas itu; tekan Pakai materi sesi ini untuk mengisi materi.",
+      "Daftar modul menampilkan kemajuan: berapa pertemuan yang sudah berstatus Selesai di Jadwal.",
     ],
   },
   {

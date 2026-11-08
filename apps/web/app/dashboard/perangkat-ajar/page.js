@@ -39,7 +39,7 @@ function PerangkatAjar() {
       {galat ? <div className="alert alert-warning">{galat}</div>
         : !referensi || !akses.user ? <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
         : tab === "cp" ? <TabCp referensi={referensi} />
-        : tab === "modul" ? <TabModul key={atpModul || "modul"} referensi={referensi} akses={akses} statusAwal={cari.get("tab") === "modul" ? cari.get("status") || "" : ""} atpAwal={atpModul} />
+        : tab === "modul" ? <TabModul key={atpModul || "modul"} referensi={referensi} akses={akses} statusAwal={cari.get("tab") === "modul" ? cari.get("status") || "" : ""} atpAwal={atpModul} modulAwal={cari.get("modul")} />
         : <TabAtp referensi={referensi} akses={akses} statusAwal={cari.get("tab") ? "" : cari.get("status") || ""} onBuatModul={(id) => { setAtpModul(id); setTab("modul"); }} />}
     </div>
   );

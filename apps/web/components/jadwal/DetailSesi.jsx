@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import RencanaSesi from "@/components/perangkatajar/RencanaSesi";
 import { STATUS_SESI, parseLokal, rentangJam, tanggalPanjang, targetStnkm, urlLampiran, judulSesi } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const WARNA_DIM = { S: "primary", T: "success", N: "info", K: "warning", M: "danger" };
@@ -51,6 +52,12 @@ export default function DetailSesi({ jadwal, bolehUbah = true, onClose, onEdit, 
         {jadwal.guru && <Baris icon="bi-person">{jadwal.guru.nama_guru}</Baris>}
         {(jadwal.kelas || jadwal.ruangan) && (
           <Baris icon="bi-geo-alt">{[jadwal.kelas?.nama_kelas, jadwal.ruangan?.nama_ruangan].filter(Boolean).join(" · ")}</Baris>
+        )}
+        {jadwal.id_modul && (
+          <Baris icon="bi-journal-richtext">
+            <div className="small fw-semibold text-body-secondary">Rencana dari modul ajar</div>
+            <RencanaSesi idJadwal={jadwal.id_jadwal} />
+          </Baris>
         )}
         <Baris icon="bi-box-seam">
           <div className="small fw-semibold text-body-secondary">Persiapan & catatan</div>

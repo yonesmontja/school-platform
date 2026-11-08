@@ -95,3 +95,33 @@ test("guru membuat modul ajar RPM dari ATP, kepala sekolah menyetujui", async ({
   await page.locator(".swal2-confirm").click();
   await expect(page.locator(".editor-modul")).toContainText("Disetujui");
 });
+
+test("sesi jadwal menautkan pertemuan modul; rencananya tampil di formulir jurnal", async ({ page, masuk }) => {
+  test.setTimeout(150_000);
+  const { selectBerlabel } = require("../bantu");
+  await masuk("guru");
+  await page.goto("/dashboard/jadwal");
+  await page.getByRole("button", { name: "Buat" }).first().click();
+  const form = page.locator(".jadwal-form");
+  await pilih(selectBerlabel(form, "Mata Pelajaran"), "Matematika");
+  await pilih(selectBerlabel(form, "Kelas"), "4A");
+  await pilih(form.getByLabel("Modul ajar"), "Membandingkan dua pecahan");
+  await expect(form.getByLabel("Pertemuan ke")).toHaveValue("1");
+  // Sesi hari ini (tombol Buat memakai tanggal awal minggu yang tampil di kalender)
+  const hariIni = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
+  await form.locator('xpath=//label[contains(normalize-space(.), "Tanggal")]/following::input[1]').fill(hariIni);
+  await form.locator('xpath=//label[normalize-space(.)="Mulai"]/following::input[1]').fill("13:00");
+  await form.locator('xpath=//label[normalize-space(.)="Selesai"]/following::input[1]').fill("14:00");
+  await form.locator("#wa_panel").uncheck();
+  await form.getByRole("button", { name: /^\W*Simpan$/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText(/disimpan/i);
+
+
+  // Jurnal: rencana hari ini untuk kelas 4A
+  await page.goto("/dashboard/jurnal");
+  await pilih(page.locator('xpath=//label[contains(normalize-space(.), "Kelas *")]/following::select[1]'), "4A");
+  await page.getByRole("button", { name: /Rencana pembelajaran hari ini/ }).click();
+  await expect(page.locator(".rencana-hari")).toContainText("Membandingkan dua pecahan");
+  await expect(page.locator(".rencana-hari")).toContainText("pertemuan 1 dari 2");
+  await expect(page.locator(".rencana-hari")).toContainText("melipat kertas");
+});

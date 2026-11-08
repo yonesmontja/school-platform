@@ -7,6 +7,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
+import { RencanaHari } from "@/components/perangkatajar/RencanaSesi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -783,6 +784,12 @@ export default function JurnalAnekdotalPage() {
                         : mbks.map((m) => <option key={m.id_jenis} value={m.id_jenis}>{m.kategori_penilaian}</option>)}
                     </select>
                   </div>
+                  {isKBM && (
+                    <div className="col-12">
+                      <RencanaHari tanggal={formData.tanggal} idKelas={formData.id_kelas}
+                        onPakaiMateri={(id) => materis.some((m) => m.id_materi === id) && handleInputChange("id_materi", id)} />
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-3">

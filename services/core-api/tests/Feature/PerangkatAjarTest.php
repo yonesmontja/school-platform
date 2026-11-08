@@ -151,4 +151,38 @@ class PerangkatAjarTest extends TestCase
         $this->assertSame('DISETUJUI', \App\Models\ModulAjar::find($modul['id_modul'])->status);
         $this->sebagai($this->sekolah->guruB)->getJson("/api/perangkat-ajar/modul/{$modul['id_modul']}")->assertNotFound();
     }
+
+    public function test_jadwal_menautkan_pertemuan_modul_dan_rencana_tampil_di_jurnal(): void
+    {
+        $isi = \App\Models\ModulAjar::kosong(2);
+        $isi['desain']['tujuan'] = 'Menentukan pecahan senilai';
+        $isi['pertemuan'][0]['memahami'] = 'Melipat kertas';
+        $isi['pertemuan'][1]['mengaplikasi'] = 'Membagi kue';
+        \App\Models\ModulAjar::create(['id_modul' => 'MOD-1', 'judul' => 'Pecahan senilai', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_materi' => 'MTR-T',
+            'tp' => ['IND-1'], 'jumlah_pertemuan' => 2, 'isi' => $isi, 'status' => 'DISETUJUI', 'dibuat_oleh' => $this->sekolah->guruB->id]);
+
+        // Guru melihat modul yang disetujui di pilihan jadwal
+        $this->sebagai($this->sekolah->guruA)->getJson('/api/jadwal/referensi')->assertJsonPath('modul.0.id_modul', 'MOD-1');
+        // Jadwal berulang Senin & Rabu: pertemuan naik 1, 2, lalu berhenti (modul hanya 2 pertemuan)
+        $sesi = $this->postJson('/api/jadwal', ['id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_modul' => 'MOD-1', 'pertemuan_ke' => 1,
+            'mulai' => '2030-01-07T08:00', 'selesai' => '2030-01-07T09:00', 'pola' => 'kustom', 'hari' => [1, 3], 'sampai' => '2030-01-14'])->assertCreated()->json('data');
+        $this->assertSame([1, 2, null], array_column($sesi, 'pertemuan_ke'));
+        $this->assertSame('Pecahan senilai', $sesi[0]['modul']['judul']);
+
+        // Mengubah seluruh rangkaian tidak menyamakan nomor pertemuan
+        $this->putJson("/api/jadwal/{$sesi[0]['id_jadwal']}", ['id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_modul' => 'MOD-1', 'pertemuan_ke' => 1,
+            'mulai' => '2030-01-07T09:00', 'selesai' => '2030-01-07T10:00', 'mode' => 'all'])->assertOk();
+        $this->assertSame([1, 2, null], \App\Models\TransJadwal::orderBy('mulai')->pluck('pertemuan_ke')->all());
+
+        // Rencana hari itu (formulir jurnal) memuat langkah pertemuan 2
+        $rencana = $this->getJson('/api/jadwal/rencana-hari?tanggal=2030-01-09&id_kelas=KLS-A')->assertOk()->json('data.0');
+        $this->assertSame([2, 'Membagi kue', 'MTR-T'], [$rencana['pertemuan_ke'], $rencana['langkah']['mengaplikasi'], $rencana['id_materi']]);
+        $this->getJson('/api/jadwal/rencana-hari?tanggal=2030-01-09')->assertJsonCount(1, 'data');
+        $this->sebagai($this->sekolah->guruB)->getJson('/api/jadwal/rencana-hari?tanggal=2030-01-09')->assertJsonCount(0, 'data'); // sesi guru lain
+
+        // Sesi selesai → kemajuan modul
+        $this->sebagai($this->sekolah->guruA)->patchJson("/api/jadwal/{$sesi[0]['id_jadwal']}/status", ['status_sesi' => 'Selesai'])->assertOk();
+        $this->sebagai($this->sekolah->guruB)->getJson('/api/perangkat-ajar/modul')->assertJsonPath('data.0.pertemuan_selesai', 1);
+        $this->getJson('/api/perangkat-ajar/modul/MOD-1')->assertJsonCount(3, 'data.jadwal');
+    }
 }

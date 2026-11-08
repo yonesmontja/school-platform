@@ -7,10 +7,10 @@ import { BAGIAN_RPM, LANGKAH_RPM, isiKosong } from "./rpm";
 import { cetakModul, unduhWord } from "./cetakModul";
 
 /** Daftar modul ajar RPM; dibuat dari ATP yang disetujui atau dari TP langsung. */
-export default function TabModul({ referensi, akses, statusAwal, atpAwal }) {
+export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulAwal }) {
   const [daftar, setDaftar] = useState(null);
   const [status, setStatus] = useState(statusAwal || "");
-  const [buka, setBuka] = useState(null);
+  const [buka, setBuka] = useState(modulAwal || null);
   const [baru, setBaru] = useState(!!atpAwal);
 
   const muat = useCallback(() => {
@@ -44,6 +44,11 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal }) {
                     <div className="me-auto min-w-0">
                       <div className="fw-semibold">{m.judul}</div>
                       <div className="small text-muted">{m.mapel?.nama_mapel}{m.kelas && ` · ${m.kelas.nama_kelas}`}{m.materi && ` · ${m.materi.nama_materi}`} · {m.jumlah_pertemuan} pertemuan · {(m.tp || []).length} TP · {m.pembuat?.name}</div>
+                      {m.pertemuan_selesai > 0 && (
+                        <div className="progress mt-1" style={{ height: 6, maxWidth: 220 }} title={`${m.pertemuan_selesai} dari ${m.jumlah_pertemuan} pertemuan selesai menurut Jadwal`}>
+                          <div className="progress-bar bg-success" style={{ width: `${Math.min(100, (m.pertemuan_selesai / m.jumlah_pertemuan) * 100)}%` }}></div>
+                        </div>
+                      )}
                       {m.status === "REVISI" && m.catatan_revisi && <div className="small text-danger"><i className="bi bi-chat-left-text me-1"></i>{m.catatan_revisi}</div>}
                     </div>
                     {m.sumber === "AI" && <span className="badge text-bg-light border fw-normal"><i className="bi bi-magic me-1"></i>AI</span>}
@@ -70,10 +75,15 @@ function ModalModulBaru({ referensi, atpAwal, onTutup, onDibuat }) {
   useEffect(() => { minta("GET", "/perangkat-ajar/atp?status=DISETUJUI").then((r) => setDaftarAtp(r.data)).catch(() => {}); }, []);
   useEffect(() => {
     if (!idAtp) return setAtp(null);
+    let batal = false;
     minta("GET", `/perangkat-ajar/atp/${idAtp}`).then((r) => {
+      if (batal) return;
       setAtp(r.data);
-      setF((x) => ({ ...x, id_mapel: r.data.id_mapel, id_kelas: r.data.id_kelas || "", tp: [] }));
-    }).catch((err) => Swal.fire("Gagal", err.message, "error"));
+      // Pertahankan TP yang sudah dicentang bila masih ada di ATP ini (jangan hapus pilihan guru saat data dimuat ulang)
+      const ada = new Set(r.data.baris.map((b) => b.id_indikator));
+      setF((x) => ({ ...x, id_mapel: r.data.id_mapel, id_kelas: r.data.id_kelas || "", tp: x.tp.filter((t) => ada.has(t)) }));
+    }).catch((err) => !batal && Swal.fire("Gagal", err.message, "error"));
+    return () => { batal = true; };
   }, [idAtp]);
 
   // Pilihan TP: baris ATP (urutan ATP) atau TP materi yang dipilih
@@ -349,8 +359,14 @@ function EditorModul({ id, referensi, akses, onKembali }) {
         <div className="card-body">
           {isi.pertemuan.map((p, i) => (
             <div key={i} className="border rounded p-2 mb-2 pertemuan-modul">
-              <div className="d-flex align-items-center gap-2 mb-1">
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
                 <b>Pertemuan {p.ke}</b>
+                {(m.jadwal || []).filter((j) => j.pertemuan_ke === p.ke).map((j) => (
+                  <span key={j.id_jadwal} className={`badge ${j.status_sesi === "Selesai" ? "text-bg-success" : "text-bg-light border"} fw-normal`}>
+                    <i className={`bi ${j.status_sesi === "Selesai" ? "bi-check2-circle" : "bi-calendar-event"} me-1`}></i>
+                    {new Date(j.mulai).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}{j.status_sesi === "Selesai" ? " · selesai" : ""}
+                  </span>
+                ))}
                 <input type="number" min={0} max={40} className="form-control form-control-sm" style={{ width: 80 }} aria-label={`JP pertemuan ${p.ke}`} placeholder="JP" readOnly={!bisa} value={p.jp ?? ""} onChange={(e) => ubahPertemuan(i, "jp", e.target.value === "" ? null : Number(e.target.value))} />
                 <span className="small text-muted">JP</span>
               </div>

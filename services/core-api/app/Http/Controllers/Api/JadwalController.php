@@ -13,6 +13,7 @@ use App\Models\Teacher;
 use App\Models\TransJadwal;
 use App\Services\LampiranJadwalService;
 use Carbon\Carbon;
+use App\Models\ModulAjar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,14 +34,19 @@ class JadwalController extends Controller
         'materi:id_materi,nama_materi,mat_S,mat_T,mat_N,mat_K,mat_M',
         'kelas:id_kelas,nama_kelas',
         'ruangan:id_ruangan,nama_ruangan',
+        'modul:id_modul,judul,jumlah_pertemuan,status',
     ];
 
     /**
      * Data pilihan form jadwal sekaligus pengaturan WA sekolah.
      */
-    public function referensi()
+    public function referensi(Request $request)
     {
+        $user = $request->user();
         return response()->json([
+            // Modul ajar yang bisa ditautkan: yang disetujui, atau milik sendiri
+            'modul' => ModulAjar::where(fn($q) => $q->where('status', 'DISETUJUI')->orWhere('dibuat_oleh', $user->id))
+                ->orderBy('judul')->get(['id_modul', 'judul', 'id_mapel', 'id_kelas', 'id_materi', 'jumlah_pertemuan', 'status']),
             'teachers' => Teacher::orderBy('nama_guru')->get(['id_guru', 'nama_guru', 'no_wa']),
             'subjects' => Subject::orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'id_guru']),
             'materi' => MasterMateri::orderBy('nama_materi')->get(['id_materi', 'nama_materi', 'id_mapel', 'id_kelas', 'mat_S', 'mat_T', 'mat_N', 'mat_K', 'mat_M']),
@@ -81,6 +87,8 @@ class JadwalController extends Controller
             'warna' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'catatan' => 'nullable|string|max:3000',
             'status_sesi' => ['nullable', Rule::in(self::STATUS)],
+            'id_modul' => 'nullable|exists:modul_ajar,id_modul',
+            'pertemuan_ke' => 'nullable|integer|min:1|max:12',
             ...LampiranJadwalService::RULES,
             'hapus_lampiran' => 'nullable|boolean',
             'abaikan_bentrok' => 'nullable|boolean',
@@ -116,7 +124,18 @@ class JadwalController extends Controller
             'judul' => $request->filled('judul') ? trim($request->judul) : null,
             'warna' => $request->warna ?: '#3f51b5',
             'catatan' => $request->catatan,
+            'id_modul' => $request->id_modul ?: null,
         ];
+    }
+
+    /** Nomor pertemuan modul untuk sesi ke-$i dalam rangkaian (naik satu per sesi, berhenti di jumlah pertemuan modul). */
+    private function pertemuanKe(Request $request, int $i): ?int
+    {
+        if (!$request->id_modul) return null;
+        $awal = $request->integer('pertemuan_ke', 1) ?: 1;
+        $jumlah = ModulAjar::whereKey($request->id_modul)->value('jumlah_pertemuan') ?? 1;
+        $ke = $awal + $i;
+        return $ke <= $jumlah ? $ke : null;
     }
 
     public function store(Request $request)
@@ -148,10 +167,11 @@ class JadwalController extends Controller
         }
 
         $atribut = $this->atribut($request);
-        $slot = array_map(fn(Carbon $d) => [
+        $slot = array_map(fn(Carbon $d, int $i) => [
             'mulai' => $d->copy()->setTimeFrom($mulai),
             'selesai' => $d->copy()->setTimeFrom($selesai),
-        ] + $atribut, $tanggal);
+            'pertemuan_ke' => $this->pertemuanKe($request, $i),
+        ] + $atribut, $tanggal, array_keys($tanggal));
 
         if (!$request->boolean('abaikan_bentrok') && ($bentrok = $this->cariBentrok($slot))->isNotEmpty()) {
             return $this->responBentrok($bentrok);
@@ -225,8 +245,10 @@ class JadwalController extends Controller
                 $data = collect($s)->except('id_jadwal')->all();
                 if ($lampiranBaru) [$data['lampiran_url'], $data['lampiran_nama']] = $lampiranBaru;
                 elseif ($request->boolean('hapus_lampiran')) [$data['lampiran_url'], $data['lampiran_nama']] = [null, null];
-                // Status bersifat per sesi: hanya sesi yang sedang diedit yang berubah statusnya
+                // Status & nomor pertemuan bersifat per sesi: hanya sesi yang sedang diedit yang berubah
                 if ($s['id_jadwal'] === $jadwal->id_jadwal && $request->filled('status_sesi')) $data['status_sesi'] = $request->status_sesi;
+                if ($s['id_jadwal'] === $jadwal->id_jadwal) $data['pertemuan_ke'] = $request->id_modul ? ($request->integer('pertemuan_ke') ?: null) : null;
+                elseif (!$request->id_modul) $data['pertemuan_ke'] = null;
                 TransJadwal::whereKey($s['id_jadwal'])->update($data);
             }
         });
@@ -284,6 +306,44 @@ class JadwalController extends Controller
         $jadwal->update(['status_sesi' => $request->status_sesi]);
 
         return response()->json(['success' => true, 'message' => "Status sesi: {$request->status_sesi}."]);
+    }
+
+    /**
+     * Rencana pembelajaran sesi-sesi pada satu tanggal (untuk formulir jurnal): sesi yang menautkan modul ajar
+     * beserta langkah pertemuannya. Guru melihat sesinya sendiri; admin/kepsek semua.
+     */
+    public function rencanaHari(Request $request)
+    {
+        $request->validate(['tanggal' => 'required|date_format:Y-m-d', 'id_kelas' => 'nullable|exists:classes,id_kelas']);
+        $user = $request->user();
+        $sesi = TransJadwal::with(['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'modul'])
+            ->whereNotNull('id_modul')->whereDate('mulai', $request->tanggal)->where('status_sesi', '!=', 'Batal')
+            ->when($request->id_kelas, fn($q) => $q->where('id_kelas', $request->id_kelas))
+            ->when($user->isGuru(), fn($q) => $q->where('id_guru', $user->id_guru))
+            ->orderBy('mulai')->get();
+        return response()->json(['data' => $sesi->map(fn($j) => $this->rencanaSesi($j))->values()]);
+    }
+
+    /** Rencana satu sesi: modul & langkah pertemuannya. */
+    public function rencana(Request $request, $id)
+    {
+        $jadwal = TransJadwal::with(['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'modul'])->findOrFail($id);
+        abort_unless($jadwal->modul, 404, 'Sesi ini belum ditautkan ke modul ajar.');
+        return response()->json(['data' => $this->rencanaSesi($jadwal)]);
+    }
+
+    private function rencanaSesi(TransJadwal $j): array
+    {
+        $isi = ModulAjar::normalisasi($j->modul->isi, $j->modul->jumlah_pertemuan);
+        $p = $j->pertemuan_ke ? ($isi['pertemuan'][$j->pertemuan_ke - 1] ?? null) : null;
+        return [
+            'id_jadwal' => $j->id_jadwal, 'mulai' => $j->mulai, 'selesai' => $j->selesai, 'status_sesi' => $j->status_sesi,
+            'mapel' => $j->mapel?->nama_mapel, 'kelas' => $j->kelas?->nama_kelas, 'id_materi' => $j->modul->id_materi ?? $j->id_materi,
+            'modul' => ['id_modul' => $j->modul->id_modul, 'judul' => $j->modul->judul, 'status' => $j->modul->status, 'jumlah_pertemuan' => $j->modul->jumlah_pertemuan],
+            'pertemuan_ke' => $j->pertemuan_ke,
+            'tujuan' => $isi['desain']['tujuan'] ?: null,
+            'langkah' => $p ? collect(ModulAjar::LANGKAH)->mapWithKeys(fn($l) => [$l => $p[$l]])->filter()->all() : null,
+        ];
     }
 
     public function destroy(Request $request, $id)
