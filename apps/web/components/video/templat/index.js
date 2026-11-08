@@ -5,7 +5,8 @@ import { Berhitung } from "./berhitung.jsx";
 import { Urutan } from "./urutan.jsx";
 import { Pecahan } from "./pecahan.jsx";
 
-export { FPS, LEBAR, TINGGI, hitungDurasi, narasiPembuka, narasiPenutup } from "./umum.jsx";
+export { FPS, LEBAR, TINGGI, RASIO, ukuranRasio, hitungDurasi, metadata, narasiPembuka, narasiPenutup } from "./umum.jsx";
+import { RASIO } from "./umum.jsx";
 
 export const TEMPLAT = [
   {
@@ -99,6 +100,7 @@ export function rapikanProps(templat, props) {
   if (!t) return props;
   const kolom = new Map(t.kolom.map((c) => [c.k, c]));
   return {
+    rasio: RASIO[props.rasio] ? props.rasio : "16:9",
     judul: String(props.judul || t.nama).slice(0, 120),
     emoji: props.emoji || t.contoh.emoji,
     warna: /^#[0-9a-f]{6}$/i.test(props.warna || "") ? props.warna : t.contoh.warna,

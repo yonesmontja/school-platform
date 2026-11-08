@@ -46,6 +46,7 @@ function ModalUnggah({ referensi, video, onTutup, onSelesai }) {
       form.append("video", berkas.file);
       if (berkas.durasi) form.append("durasi_detik", String(berkas.durasi));
       if (berkas.poster) form.append("poster", berkas.poster);
+      if (berkas.rasio) form.append("rasio", berkas.rasio);
     }
     setProses(true);
     try {
@@ -69,7 +70,7 @@ function ModalUnggah({ referensi, video, onTutup, onSelesai }) {
               {berkas && (
                 <div className="d-flex gap-2 align-items-center small text-muted mb-2">
                   {berkas.poster && <img src={berkas.poster} alt="Sampul" style={{ width: 120, borderRadius: 6 }} />}
-                  <div>{(berkas.file.size / 1024 / 1024).toFixed(1)} MB{berkas.durasi ? ` · ${durasi(berkas.durasi)}` : ""}{berkas.durasi > 150 && <div className="text-warning-emphasis">Lebih dari 2,5 menit: anak mudah kehilangan perhatian.</div>}</div>
+                  <div>{(berkas.file.size / 1024 / 1024).toFixed(1)} MB{berkas.durasi ? ` · ${durasi(berkas.durasi)}` : ""}{berkas.rasio ? ` · ${berkas.rasio}` : ""}{berkas.durasi > 150 && <div className="text-warning-emphasis">Lebih dari 2,5 menit: anak mudah kehilangan perhatian.</div>}</div>
                 </div>
               )}
               <label className="form-label small fw-semibold mb-1" htmlFor="vidJudul">Judul</label>

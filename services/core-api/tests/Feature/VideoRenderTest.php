@@ -59,6 +59,12 @@ class VideoRenderTest extends TestCase
         $this->assertSame(['RENDER', 'ANTRE', 'DRAF', 'KartuGambar'], [$v['sumber'], $v['render_status'], $v['status'], $v['komposisi']]);
         $this->assertSame(['gambar' => '🐟', 'kata' => 'i-kan', 'keterangan' => null, 'narasi' => 'Ini ikan.'], $v['props']['adegan'][0]); // isian utuh (teks kosong menjadi null)
         $this->assertSame('#16a34a', $v['props']['warna']);
+        $this->assertSame(['16:9', '16:9'], [$v['rasio'], $v['props']['rasio']]); // rasio bawaan
+        $tegak = $this->postJson('/api/video-belajar/templat', $this->contoh(['props' => $this->contoh()['props'] + ['rasio' => '9:16']]))->assertCreated()->json('data');
+        $this->assertSame(['9:16', '9:16'], [$tegak['rasio'], $tegak['props']['rasio']]);
+        $aneh = $this->postJson('/api/video-belajar/templat', $this->contoh(['props' => $this->contoh()['props'] + ['rasio' => '21:9']]))->assertCreated()->json('data');
+        $this->assertSame('16:9', $aneh['rasio']); // rasio tak dikenal kembali ke 16:9
+        VideoBelajar::whereIn('id_video', [$tegak['id_video'], $aneh['id_video']])->delete();
         // Belum selesai dirender: belum bisa diajukan
         $this->postJson("/api/video-belajar/{$v['id_video']}/ajukan")->assertUnprocessable();
 

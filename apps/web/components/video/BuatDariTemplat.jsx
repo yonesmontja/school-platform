@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
-import { FPS, LEBAR, TINGGI, TEMPLAT, hitungDurasi, rapikanProps, templatById } from "./templat/index.js";
+import { FPS, RASIO, TEMPLAT, hitungDurasi, rapikanProps, templatById, ukuranRasio } from "./templat/index.js";
 
 const Player = dynamic(() => import("@remotion/player").then((m) => m.Player), { ssr: false, loading: () => <div className="ratio ratio-16x9 bg-dark rounded"></div> });
 const EMOJI_CEPAT = ["🐟", "🍌", "🍠", "🥥", "🥭", "🐷", "🐔", "🐦", "🌳", "🌺", "🏠", "🛶", "⛰️", "🌧️", "☀️", "💧", "🥚", "🐸", "🦋", "🐛", "🍎", "✏️", "📚", "⚽", "🖐️", "👁️", "👂", "👃", "👄", "🦷"];
@@ -63,6 +63,7 @@ export default function BuatDariTemplat({ referensi, video, onTutup, onSelesai }
   };
   const bersih = useMemo(() => (t && props ? rapikanProps(t.id, { ...props, judul: meta.judul || props.judul }) : null), [t, props, meta.judul]);
   const durasi = bersih ? hitungDurasi(bersih) : 0;
+  const bingkai = ukuranRasio(bersih?.rasio);
   const ubahAdegan = (i, k, v) => setProps((p) => ({ ...p, adegan: p.adegan.map((a, j) => (j === i ? { ...a, [k]: v } : a)) }));
   const geser = (i, d) => setProps((p) => { const a = [...p.adegan]; [a[i], a[i + d]] = [a[i + d], a[i]]; return { ...p, adegan: a }; });
 
@@ -76,7 +77,7 @@ export default function BuatDariTemplat({ referensi, video, onTutup, onSelesai }
     }
     setProses(true);
     try {
-      const body = { templat: t.id, judul: meta.judul.trim(), id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, id_materi: meta.id_materi || null, suara, props: bersih };
+      const body = { rasio: bersih.rasio, templat: t.id, judul: meta.judul.trim(), id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, id_materi: meta.id_materi || null, suara, props: bersih };
       const r = await minta("POST", video ? `/video-belajar/${video.id_video}/render` : "/video-belajar/templat", body);
       Swal.fire({ icon: "success", title: "Masuk antrean render", text: r.message });
       onSelesai(r.data);
@@ -116,8 +117,10 @@ export default function BuatDariTemplat({ referensi, video, onTutup, onSelesai }
                 <div className="row g-3">
                   <div className="col-lg-6 order-lg-2">
                     <div className="position-sticky" style={{ top: 0 }}>
-                      <Player component={t.komponen} inputProps={bersih} durationInFrames={durasi} fps={FPS} compositionWidth={LEBAR} compositionHeight={TINGGI}
-                        controls loop initialFrame={45} style={{ width: "100%", borderRadius: 8, overflow: "hidden" }} acknowledgeRemotionLicense />
+                      <div className="mx-auto" style={{ maxWidth: bingkai.tinggi > bingkai.lebar ? 300 : bingkai.lebar === bingkai.tinggi ? 420 : "100%" }}>
+                        <Player key={bersih.rasio} component={t.komponen} inputProps={bersih} durationInFrames={durasi} fps={FPS} compositionWidth={bingkai.lebar} compositionHeight={bingkai.tinggi}
+                          controls loop initialFrame={45} style={{ width: "100%", borderRadius: 8, overflow: "hidden" }} acknowledgeRemotionLicense />
+                      </div>
                       <div className="small text-muted mt-1"><i className="bi bi-info-circle me-1"></i>Pratinjau tanpa suara · perkiraan {detik(durasi)}. Lama setiap adegan menyesuaikan panjang narasi saat dirender.</div>
                       {durasi / FPS > 150 && <div className="small text-warning-emphasis">Lebih dari 2,5 menit: pertimbangkan membagi menjadi dua video.</div>}
                     </div>
@@ -157,6 +160,17 @@ export default function BuatDariTemplat({ referensi, video, onTutup, onSelesai }
                           ))}
                         </select>
                         {pilihanSuara.find((p) => p.kode === suara)?.catatan && <div className="form-text">{pilihanSuara.find((p) => p.kode === suara).catatan}</div>}
+                      </div>
+                      <div className="col-12">
+                        <div className="form-label small mb-1">Rasio aspek</div>
+                        <div className="btn-group btn-group-sm flex-wrap" role="group" aria-label="Rasio aspek">
+                          {Object.entries(RASIO).map(([r, x]) => (
+                            <button key={r} type="button" title={x.label} className={`btn ${(props.rasio || "16:9") === r ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setProps({ ...props, rasio: r })}>
+                              <span className="d-inline-block border border-2 me-1 align-middle" style={{ width: x.lebar / x.tinggi >= 1 ? 18 : 18 * x.lebar / x.tinggi, height: x.lebar / x.tinggi >= 1 ? 18 * x.tinggi / x.lebar : 18, borderColor: "currentColor" }}></span>{r}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="form-text">{ukuranRasio(props.rasio).label}</div>
                       </div>
                       <div className="col-md-4">
                         <label className="form-label small mb-0" htmlFor="tpWarna">Warna</label>

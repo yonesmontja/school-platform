@@ -138,6 +138,7 @@ export const BAGIAN = [
     href: "/dashboard/video-belajar",
     langkah: [
       "Buat sendiri: buka TDU - Jadwal → Video Belajar → Buat video motion graphic. Pilih templat (Kartu Gambar & Suku Kata, Berhitung, Urutan & Siklus, atau Pecahan); isi contoh langsung bisa diubah.",
+      "Pilih rasio aspek: 16:9 untuk proyektor/YouTube, 9:16 untuk Reels/TikTok/Status WA, 1:1 untuk feed Instagram/Facebook, 4:3 untuk layar kelas lama. Tata letak menyesuaikan otomatis.",
       "Isi setiap adegan: gambar (emoji), kata atau angka, dan narasi yang akan dibacakan. Pratinjau di sebelah kanan berubah seketika (tanpa suara).",
       "Pilih suara narasi (Suara AI lokal gratis, atau ElevenLabs/Gemini bila API key sudah diisi admin), lalu tekan Buat video. Server membuat suara dan videonya dalam beberapa menit; halaman boleh ditutup.",
       "Atau unggah video sendiri: tekan Unggah video, pilih berkas MP4 (maks. 20MB, 1–2 menit di 720p sudah cukup), isi judul, mapel, dan kelas.",

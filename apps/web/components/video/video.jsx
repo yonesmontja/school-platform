@@ -5,6 +5,15 @@ import Swal from "sweetalert2";
 import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 import { minta } from "@/components/banksoal/api";
 
+// Rasio aspek → nilai CSS aspect-ratio
+export const cssRasio = (r) => ({ "9:16": "9/16", "1:1": "1/1", "4:3": "4/3" }[r] || "16/9");
+/** Rasio terdekat dari ukuran video. */
+export function rasioDari(lebar, tinggi) {
+  if (!lebar || !tinggi) return null;
+  const x = lebar / tinggi;
+  return [["16:9", 16 / 9], ["9:16", 9 / 16], ["1:1", 1], ["4:3", 4 / 3]].reduce((a, b) => (Math.abs(b[1] - x) < Math.abs(a[1] - x) ? b : a))[0];
+}
+
 export const durasi = (d) => (d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}` : "");
 export const STATUS_VIDEO = {
   DRAF: ["Draf", "secondary"], DIAJUKAN: ["Menunggu persetujuan", "warning"], DISETUJUI: ["Disetujui", "success"], REVISI: ["Perlu revisi", "danger"],
@@ -29,20 +38,21 @@ export function KartuVideo({ video, onHapus, kecil = false }) {
   return (
     <div className="kartu-video border rounded overflow-hidden bg-body d-flex flex-column" style={{ width: kecil ? 150 : 200 }}>
       {belum ? (
-        <div className="d-flex flex-column align-items-center justify-content-center text-white bg-secondary small text-center p-2" style={{ aspectRatio: "16/9" }}>
+        <div className="d-flex flex-column align-items-center justify-content-center text-white bg-secondary small text-center p-2" style={{ aspectRatio: cssRasio(video.rasio) }}>
           {video.render_status === "GAGAL" ? <><i className="bi bi-exclamation-octagon fs-3"></i>Render gagal</>
             : <><span className="spinner-border spinner-border-sm mb-1"></span>{video.render_status === "PROSES" ? "Sedang dirender…" : "Menunggu antrean render"}</>}
         </div>
       ) : (
       <button type="button" className="btn p-0 border-0 position-relative" onClick={putar} aria-label={`Putar video ${video.judul}`}>
-        {video.poster_url ? <img src={srcGambar(video.poster_url)} alt="" className="w-100" style={{ aspectRatio: "16/9", objectFit: "cover" }} />
-          : <div className="bg-dark w-100" style={{ aspectRatio: "16/9" }}></div>}
+        {video.poster_url ? <img src={srcGambar(video.poster_url)} alt="" className="w-100" style={{ aspectRatio: cssRasio(video.rasio), objectFit: "cover" }} />
+          : <div className="bg-dark w-100" style={{ aspectRatio: cssRasio(video.rasio) }}></div>}
         <span className="position-absolute top-50 start-50 translate-middle text-white fs-1" style={{ textShadow: "0 0 8px #000" }}><i className="bi bi-play-circle-fill"></i></span>
         {video.durasi_detik > 0 && <span className="position-absolute bottom-0 end-0 m-1 badge text-bg-dark">{durasi(video.durasi_detik)}</span>}
       </button>
       )}
       <div className="p-1 small d-flex gap-1 align-items-start">
         <span className="flex-grow-1 text-truncate" title={video.judul}>{video.judul}</span>
+        {video.rasio && video.rasio !== "16:9" && <span className="badge text-bg-light border fw-normal">{video.rasio}</span>}
         {video.status && video.status !== "DISETUJUI" && <span className="badge text-bg-light border fw-normal" title="Siswa baru bisa melihatnya setelah disetujui">{STATUS_VIDEO[video.status]?.[0]}</span>}
         {onHapus && <button type="button" className="btn btn-sm btn-link text-danger p-0" onClick={onHapus} aria-label={`Lepas video ${video.judul}`}><i className="bi bi-x-lg"></i></button>}
       </div>
@@ -134,10 +144,10 @@ export function bacaVideo(file) {
         const lebar = Math.min(640, v.videoWidth || 640);
         c.width = lebar; c.height = Math.round(lebar * ((v.videoHeight || 360) / (v.videoWidth || 640)));
         c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
-        selesai({ durasi: Math.round(v.duration || 0), poster: c.toDataURL("image/jpeg", 0.8) });
+        selesai({ durasi: Math.round(v.duration || 0), poster: c.toDataURL("image/jpeg", 0.8), rasio: rasioDari(v.videoWidth, v.videoHeight) });
       } catch (e) { selesai({ durasi: Math.round(v.duration || 0), poster: null }); }
     };
-    v.onerror = () => selesai({ durasi: null, poster: null });
+    v.onerror = () => selesai({ durasi: null, poster: null, rasio: null });
     setTimeout(() => selesai({ durasi: Math.round(v.duration || 0) || null, poster: null }), 8000);
   });
 }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class VideoBelajar extends Model
 {
     public const SUMBER = ['REMOTION', 'RENDER', 'UNGGAH'];
+    public const RASIO = ['16:9', '9:16', '1:1', '4:3'];
 
     protected $table = 'video_belajar';
     protected $primaryKey = 'id_video';
@@ -18,7 +19,7 @@ class VideoBelajar extends Model
     protected $fillable = [
         'id_video', 'judul', 'deskripsi', 'id_mapel', 'id_kelas', 'fase', 'id_materi', 'tp', 'file_url', 'poster_url',
         'durasi_detik', 'ukuran_kb', 'sumber', 'komposisi', 'props', 'narasi', 'status', 'catatan_revisi',
-        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'templat', 'suara', 'render_status', 'render_pesan', 'render_mulai',
+        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'templat', 'suara', 'render_status', 'render_pesan', 'render_mulai', 'rasio',
     ];
     protected $casts = ['tp' => 'array', 'props' => 'array', 'durasi_detik' => 'integer', 'ukuran_kb' => 'integer', 'disetujui_pada' => 'datetime', 'render_mulai' => 'datetime'];
 
@@ -31,6 +32,6 @@ class VideoBelajar extends Model
     /** Data ringkas untuk ditempel di modul, jadwal, soal, dan portal. */
     public function ringkas(): array
     {
-        return $this->only(['id_video', 'judul', 'file_url', 'poster_url', 'durasi_detik', 'status']);
+        return $this->only(['id_video', 'judul', 'file_url', 'poster_url', 'durasi_detik', 'status', 'rasio']);
     }
 }

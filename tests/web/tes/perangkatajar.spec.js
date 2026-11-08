@@ -182,6 +182,9 @@ test("guru membuat video motion graphic dari templat dengan pratinjau langsung",
   await jendela.locator(".adegan-templat").first().getByLabel("Jumlah benda (1–10)").fill("4");
   await jendela.locator(".adegan-templat").first().getByLabel("Narasi yang dibacakan").fill("Mari kita hitung pisang. Satu, dua, tiga, empat.");
   await expect(jendela.getByLabel("Suara narasi")).toHaveValue("LOKAL");
+  // Rasio tegak untuk Reels/Status WA: pratinjau ikut berubah bentuk
+  await jendela.getByRole("button", { name: "9:16" }).click();
+  await expect(jendela).toContainText("9:16 tegak");
   await jendela.getByRole("button", { name: "Buat video" }).click();
   await expect(page.locator(".swal2-popup")).toContainText("antrean render");
   await page.locator(".swal2-confirm").click();

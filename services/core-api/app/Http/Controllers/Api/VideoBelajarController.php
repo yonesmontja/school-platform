@@ -188,7 +188,9 @@ class VideoBelajarController extends Controller
         if (isset($props['penutup']) && is_array($props['penutup'])) $props['penutup'] = ['teks' => mb_substr((string) ($props['penutup']['teks'] ?? ''), 0, 120)];
         if (isset($props['warna']) && !preg_match('/^#[0-9a-fA-F]{6}$/', (string) $props['warna'])) unset($props['warna']);
         $props['adegan'] = array_map(fn($a) => array_map(fn($v) => is_string($v) ? mb_substr($v, 0, 600) : $v, array_filter($a, fn($v) => is_scalar($v) || $v === null)), array_values($props['adegan']));
-        $data['props'] = array_intersect_key($props, array_flip(['judul', 'emoji', 'warna', 'adegan', 'penutup']));
+        $props['rasio'] = in_array($props['rasio'] ?? null, VideoBelajar::RASIO, true) ? $props['rasio'] : '16:9';
+        $data['props'] = array_intersect_key($props, array_flip(['rasio', 'judul', 'emoji', 'warna', 'adegan', 'penutup']));
+        $data['rasio'] = $props['rasio'];
         if (isset($data['templat'])) $data['komposisi'] = $data['templat'];
         return $data;
     }
@@ -240,7 +242,7 @@ class VideoBelajarController extends Controller
         $fase = $kelas->map(fn($k) => CapaianPembelajaran::faseKelas($k->nama_kelas))->filter()->unique()->values()->all();
         $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')
             ->where(fn($q) => $q->whereIn('id_kelas', $idKelas)->orWhere(fn($w) => $w->whereNull('id_kelas')->where(fn($f) => $f->whereNull('fase')->orWhereIn('fase', $fase))))
-            ->orderByDesc('disetujui_pada')->get(['id_video', 'judul', 'deskripsi', 'id_mapel', 'id_materi', 'file_url', 'poster_url', 'durasi_detik', 'ukuran_kb', 'disetujui_pada']);
+            ->orderByDesc('disetujui_pada')->get(['id_video', 'judul', 'deskripsi', 'id_mapel', 'id_materi', 'file_url', 'poster_url', 'durasi_detik', 'ukuran_kb', 'rasio', 'disetujui_pada']);
         return response()->json(['data' => $data]);
     }
 
@@ -258,6 +260,7 @@ class VideoBelajarController extends Controller
             'tp.*' => 'exists:master_indikator,id_indikator',
             'durasi_detik' => 'nullable|integer|min:1|max:3600',
             'sumber' => ['nullable', Rule::in(VideoBelajar::SUMBER)],
+            'rasio' => ['nullable', Rule::in(VideoBelajar::RASIO)],
             'komposisi' => 'nullable|string|max:100',
             'props' => 'nullable|array',
             'video' => [$baru ? 'required' : 'nullable', 'file', 'max:' . self::MAKS_KB],

@@ -9,7 +9,7 @@ const Root = () => (
     {TEMPLAT.map((t) => (
       <Composition key={t.id} id={t.id} component={t.komponen} fps={FPS} width={LEBAR} height={TINGGI}
         durationInFrames={hitungDurasi(t.contoh)} defaultProps={t.contoh}
-        calculateMetadata={({ props }) => ({ durationInFrames: hitungDurasi(props) })} />
+        calculateMetadata={({ props }) => (t.komponen.metadata ? t.komponen.metadata(props) : { durationInFrames: hitungDurasi(props) })} />
     ))}
   </>
 );

@@ -9,7 +9,7 @@ import { FPS, LEBAR, TINGGI, TEMPLAT, hitungDurasi } from "../../apps/web/compon
 
 const awal: PecahanKueProps = { bagian: 4, diambil: 1, warna: "#f59e0b" };
 
-type Templat = { id: string; komponen: React.FC<Record<string, unknown>>; contoh: Record<string, unknown> };
+type Templat = { id: string; komponen: React.FC<Record<string, unknown>> & { metadata?: (p: Record<string, unknown>) => { durationInFrames: number; width: number; height: number } }; contoh: Record<string, unknown> };
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -19,7 +19,7 @@ export const RemotionRoot: React.FC = () => {
       {(TEMPLAT as Templat[]).map((t) => (
         <Composition key={t.id} id={`Templat-${t.id}`} component={t.komponen} fps={FPS} width={LEBAR} height={TINGGI}
           durationInFrames={hitungDurasi(t.contoh)} defaultProps={t.contoh}
-          calculateMetadata={({ props }) => ({ durationInFrames: hitungDurasi(props) })} />
+          calculateMetadata={({ props }) => (t.komponen.metadata ? t.komponen.metadata(props) : { durationInFrames: hitungDurasi(props) })} />
       ))}
     </>
   );
