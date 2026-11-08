@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\ModulAjarController;
+use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -115,6 +116,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     // ===== KHUSUS ADMIN: master data inti, pengaturan sistem, akun pengguna =====
     Route::middleware('role:admin')->group(function () {
         Route::post('/settings', [SchoolSettingController::class, 'update']);
+        // Dokumentasi API (dibaca dari router; juga OpenAPI 3 untuk Postman/Insomnia)
+        Route::get('/dokumentasi', [DokumentasiApiController::class, 'index']);
+        Route::get('/dokumentasi/openapi.json', [DokumentasiApiController::class, 'openapi']);
 
         Route::apiResource('/students', StudentController::class)->only(['store', 'update', 'destroy']);
         Route::post('/keluarga/{jenis}', [KeluargaController::class, 'store'])->whereIn('jenis', ['ortu', 'wali']);

@@ -371,6 +371,21 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "dokumentasi-api", kelompok: "pengelola", judul: "Dokumentasi API", icon: "bi-braces", peran: ["admin"],
+    href: "/dashboard/dokumentasi-api",
+    langkah: [
+      "Buka Akun & Sistem → Dokumentasi API (khusus admin).",
+      "Cari endpoint berdasarkan jalur, keterangan, atau nama aksi; saring per peran untuk melihat apa yang boleh diakses guru, siswa, atau orang tua.",
+      "Klik endpoint untuk melihat aksi controller, batas laju, dan contoh curl yang bisa disalin.",
+      "Tekan Unduh OpenAPI (JSON) untuk mengimpor seluruh API ke Postman, Insomnia, atau Swagger UI.",
+    ],
+    tips: [
+      "Daftar dibaca langsung dari server, jadi endpoint baru otomatis muncul setelah diterbitkan.",
+      "Keterangan diambil dari komentar kode, lalu dari tabel endpoint README. Setelah README diperbarui, jalankan python infra/perbarui-dokumentasi-api.py.",
+      "Token didapat dari POST /api/login; jangan bagikan token atau contoh berisi token asli.",
+    ],
+  },
+  {
     id: "backup", kelompok: "pengelola", judul: "Backup dan pemulihan data", icon: "bi-hdd-stack",
     peran: ["admin"],
     langkah: [
