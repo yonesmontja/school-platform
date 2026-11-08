@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { API_URL, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from "@/app/lib/akses";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 const ROLES = ["admin", "kepsek", "guru", "siswa", "ortu"];
 const FORM_KOSONG = { name: "", role: "guru", email: "", username: "", password: "", id_guru: "", id_siswa: "", id_ortu: "", id_wali: "", aktif: true, wajib_ganti_password: true };
@@ -202,9 +203,12 @@ export default function ManajemenPenggunaPage() {
                     </div>
                   </td>
                   <td className="text-end text-nowrap">
-                    <button className="btn btn-sm btn-outline-primary me-1" title="Ubah" onClick={() => bukaForm(u)}><i className="bi bi-pencil"></i></button>
-                    <button className="btn btn-sm btn-outline-warning me-1" title="Reset kata sandi" onClick={() => resetPassword(u)}><i className="bi bi-key"></i></button>
-                    <button className="btn btn-sm btn-outline-danger" title="Hapus" disabled={u.id === saya?.id} onClick={() => hapus(u)}><i className="bi bi-trash"></i></button>
+                    <MenuAksi label={`Aksi untuk ${u.name || u.username}`} items={[
+                      aksiUbah(() => bukaForm(u)),
+                      { label: "Reset kata sandi", ikon: "bi-key", onClick: () => resetPassword(u) },
+                      { label: u.aktif ? "Nonaktifkan akun" : "Aktifkan akun", ikon: u.aktif ? "bi-person-slash" : "bi-person-check", onClick: () => toggleAktif(u), tampil: u.id !== saya?.id },
+                      aksiHapus(() => hapus(u), u.id !== saya?.id),
+                    ]} />
                   </td>
                 </tr>
               ))}

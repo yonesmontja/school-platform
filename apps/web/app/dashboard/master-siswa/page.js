@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { bacaUser, useAkses } from "@/app/lib/akses";
 import { API_URL } from "@/app/lib/config";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 export default function MasterSiswaPage() {
   const [students, setStudents] = useState([]);
@@ -111,19 +112,7 @@ export default function MasterSiswaPage() {
       formatter: (cell) =>
         `<small class="text-muted">${cell.getValue() || "-"}</small>`,
     },
-    {
-      title: "Aksi",
-      field: "action",
-      width: 100,
-      hozAlign: "center",
-      formatter: () =>
-        `<button class="btn btn-sm btn-primary me-1 btn-edit"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash"></i></button>`,
-      cellClick: (e, cell) => {
-        if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
-        if (e.target.closest(".btn-delete"))
-          handleDelete(cell.getRow().getData().id_siswa);
-      },
-    },
+    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_siswa))]),
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(

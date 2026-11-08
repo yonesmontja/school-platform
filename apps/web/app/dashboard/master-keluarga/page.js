@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 // Master Orang Tua & Wali bergaya Tabler (lihat tabler.css). Data ini menentukan nomor WA kabar
 // remedial/presensi dan menjadi dasar akun portal orang tua di Manajemen Pengguna.
@@ -288,13 +289,7 @@ function TabelKeluarga({ jenis, rows, settings, bolehUbah, onUbah, onHapus }) {
       },
     },
     {
-      title: "", field: "action", width: 96, headerSort: false, hozAlign: "right", responsive: 0,
-      formatter: () => `<button class="tb-btn tb-btn-ghost tb-btn-icon btn-ubah" title="Ubah"><i class="bi bi-pencil"></i></button><button class="tb-btn tb-btn-ghost tb-btn-icon btn-hapus" title="Hapus"><i class="bi bi-trash3"></i></button>`,
-      cellClick: (e, c) => {
-        const r = c.getRow().getData();
-        if (e.target.closest(".btn-ubah")) aksi.current.onUbah(r);
-        if (e.target.closest(".btn-hapus")) aksi.current.onHapus(r);
-      },
+      ...kolomAksi((r) => [aksiUbah(() => aksi.current.onUbah(r)), aksiHapus(() => aksi.current.onHapus(r))], { responsive: 0 }),
     },
   ], [jenis]);
 

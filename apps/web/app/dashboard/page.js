@@ -46,6 +46,7 @@ import {
   tanggalMulaiSemester,
 } from "./_lib/analitik";
 import { API_URL } from "@/app/lib/config";
+import { MenuAksi } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 const KEY_PREFS = "dashboard_prefs_v1";
@@ -1301,13 +1302,11 @@ export default function DashboardPage() {
                                 ))}
                               </td>
                               <td className="text-center text-nowrap">
-                                <Link
-                                  href="/dashboard/jurnal"
-                                  className="btn btn-sm btn-outline-danger rounded-pill"
-                                  title="Catat pembinaan di Jurnal Anekdotal"
-                                >
-                                  <i className="bi bi-journal-plus"></i>
-                                </Link>
+                                <MenuAksi label={`Aksi untuk ${r.nama_siswa}`} items={[
+                                  { label: "Catat pembinaan di Jurnal", ikon: "bi-journal-plus", onClick: () => router.push("/dashboard/jurnal") },
+                                  { label: "Lihat riwayat nilai", ikon: "bi-clipboard-data", onClick: () => router.push("/dashboard/nilai") },
+                                  { label: "Lihat presensi", ikon: "bi-calendar-check", onClick: () => router.push("/dashboard/presensi") },
+                                ]} />
                               </td>
                             </tr>
                           ))}

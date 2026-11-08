@@ -7,6 +7,7 @@ import { API_ORIGIN, API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 import { RencanaHari } from "@/components/perangkatajar/RencanaSesi";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -675,20 +676,11 @@ export default function JurnalAnekdotalPage() {
   );
 
   const actionButtons = (j) => (
-    <div className="btn-group btn-group-sm">
-      <button type="button" className="btn btn-outline-success" title="Bagikan ke WhatsApp"
-        onClick={() => tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" })}>
-        <i className="bi bi-whatsapp"></i>
-      </button>
-      {milikSendiri(j.id_guru) && <>
-        <button type="button" className="btn btn-outline-primary" title="Edit" onClick={() => handleEdit(j)}>
-          <i className="bi bi-pencil"></i>
-        </button>
-        <button type="button" className="btn btn-outline-danger" title="Hapus" onClick={() => handleDelete(j)}>
-          <i className="bi bi-trash"></i>
-        </button>
-      </>}
-    </div>
+    <MenuAksi label={`Aksi jurnal ${j.siswa?.nama_siswa || ""}`.trim()} items={[
+      aksiUbah(() => handleEdit(j), milikSendiri(j.id_guru)),
+      { label: "Bagikan ke WhatsApp", ikon: "bi-whatsapp", onClick: () => tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" }) },
+      aksiHapus(() => handleDelete(j), milikSendiri(j.id_guru)),
+    ]} />
   );
 
   const isKBM = formData.konteks === "KBM";

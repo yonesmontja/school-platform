@@ -7,6 +7,7 @@ import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulih
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, pesanGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -579,15 +580,10 @@ export default function PresensiPage() {
                           <td className="fw-semibold">{r.nama_siswa}</td>
                           <td className="text-center"><span className={`badge text-bg-${st.color}`}>{st.label}</span></td>
                           <td className="text-center text-nowrap">
-                            {siswa && (
-                              <button type="button" className="btn btn-sm btn-outline-success me-1" title="Kirim WA ke orang tua"
-                                onClick={() => bukaChat(kontakOrtu(siswa).nomor, pesanOrtu(siswa, r.tanggal, r.status_kehadiran))}>
-                                <i className="bi bi-whatsapp"></i>
-                              </button>
-                            )}
-                            <button type="button" className="btn btn-sm btn-outline-warning" title="Ubah presensi tanggal ini" onClick={() => editTanggal(r.tanggal)}>
-                              <i className="bi bi-pencil"></i>
-                            </button>
+                            <MenuAksi label={`Aksi presensi ${r.nama_siswa} ${r.tanggal}`} items={[
+                              { label: "Ubah presensi tanggal ini", ikon: "bi-pencil-square", onClick: () => editTanggal(r.tanggal) },
+                              { label: "Kirim WA ke orang tua", ikon: "bi-whatsapp", tampil: !!siswa, onClick: () => bukaChat(kontakOrtu(siswa).nomor, pesanOrtu(siswa, r.tanggal, r.status_kehadiran)) },
+                            ]} />
                           </td>
                         </tr>
                       );

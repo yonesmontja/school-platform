@@ -6,6 +6,7 @@ import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -43,14 +44,7 @@ export default function MasterKategoriPage() {
     // High Level = Elemen CP; kosong berarti berlaku untuk semua mapel
     { title: "Mapel", field: "mapel.nama_mapel", minWidth: 150, headerHozAlign: "center", hozAlign: "center", formatter: (cell) => cell.getValue() ? `<span class="badge bg-light text-dark border">${cell.getValue()}</span>` : `<span class="text-muted small fst-italic">Semua mapel</span>` },
     { title: "Keterangan", field: "keterangan", minWidth: 250, widthGrow: 3, headerHozAlign: "center", formatter: (cell) => cell.getValue() || `<span class="text-muted fst-italic">-</span>` },
-    {
-      title: "Aksi", field: "action", width: 100, hozAlign: "center", headerHozAlign: "center",
-      formatter: () => `<button class="btn btn-sm btn-primary me-1 btn-edit"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash"></i></button>`,
-      cellClick: (e, cell) => {
-        if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
-        if (e.target.closest(".btn-delete")) handleDelete(cell.getRow().getData().id_kategori);
-      },
-    },
+    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_kategori))]),
   ];
 
   const { tableRef, loading, searchQuery, setSearchQuery, visibleColumns, toggleColumn, getFilteredData, refresh } = 

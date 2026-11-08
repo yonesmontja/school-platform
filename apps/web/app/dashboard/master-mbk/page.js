@@ -6,6 +6,7 @@ import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 // Jenis asesmen kurikulum nasional; diagnostik memetakan kemampuan awal dan tidak dihitung ke rapor
 const JENIS_ASESMEN = {
@@ -118,20 +119,7 @@ export default function MasterMBKPage() {
       hozAlign: "center",
       formatter: (cell) => getMatrixBadges(cell.getRow().getData()),
     },
-    {
-      title: "Aksi",
-      field: "action",
-      width: 100,
-      hozAlign: "center",
-      headerHozAlign: "center",
-      formatter: () =>
-        `<button class="btn btn-sm btn-primary me-1 btn-edit"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash"></i></button>`,
-      cellClick: (e, cell) => {
-        if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
-        if (e.target.closest(".btn-delete"))
-          handleDelete(cell.getRow().getData().id_jenis);
-      },
-    },
+    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_jenis))]),
   ];
 
   const {

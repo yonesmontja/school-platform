@@ -240,3 +240,21 @@ test("gaya tampilan bisa diganti ke Klasik dan tetap setelah dimuat ulang", asyn
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-gaya", "klasik");
 });
+
+test("kolom Aksi memakai menu tiga titik: Ubah membuka formulir, Esc menutup menu", async ({ page, masuk }) => {
+  await masuk("admin");
+  await page.goto("/dashboard/master-kelas");
+  const kebab = page.getByRole("button", { name: "Aksi baris" }).first();
+  await kebab.click();
+  const menu = page.locator(".menu-aksi");
+  await expect(menu.getByRole("menuitem")).toHaveText(["Ubah", "Hapus"]);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await kebab.click();
+  await menu.getByRole("menuitem", { name: "Ubah" }).click();
+  await expect(page.getByText("Edit Data Kelas")).toBeVisible();
+
+  await page.goto("/dashboard/pengguna");
+  await page.getByRole("button", { name: /^Aksi untuk/ }).first().click();
+  await expect(page.getByRole("menuitem", { name: "Reset kata sandi" })).toBeVisible();
+});

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { minta } from "@/components/banksoal/api";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 export const FASE = [
   { value: "A", label: "Fase A (kelas 1–2)" },
@@ -81,10 +82,7 @@ export default function TabCp({ referensi }) {
                       <div className="fw-semibold">{c.elemen}{c.sumber === "SEKOLAH" && <span className="badge text-bg-info fw-normal ms-2" title="Disusun sekolah karena belum ada CP nasional">CP sekolah</span>}</div>
                       <div className="small text-body-secondary" style={{ whiteSpace: "pre-wrap" }}>{c.teks}</div>
                     </div>
-                    <div className="d-flex flex-column gap-1">
-                      <button className="btn btn-sm btn-outline-secondary" onClick={() => setUbah(c)} aria-label={`Ubah elemen ${c.elemen}`}><i className="bi bi-pencil"></i></button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={() => hapus(c)} aria-label={`Hapus elemen ${c.elemen}`}><i className="bi bi-trash"></i></button>
-                    </div>
+                    <div><MenuAksi label={`Aksi elemen ${c.elemen}`} items={[aksiUbah(() => setUbah(c)), aksiHapus(() => hapus(c))]} /></div>
                   </div>
                 </div>
               ))}

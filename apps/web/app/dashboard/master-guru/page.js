@@ -6,6 +6,7 @@ import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -82,20 +83,7 @@ export default function MasterGuruPage() {
           ? `<span class="badge bg-success">Tersedia</span>`
           : `<span class="badge bg-secondary">Kosong</span>`,
     },
-    {
-      title: "Aksi",
-      field: "action",
-      width: 100,
-      hozAlign: "center",
-      headerHozAlign: "center",
-      formatter: () =>
-        `<button class="btn btn-sm btn-primary me-1 btn-edit"><i class="bi bi-pencil-square"></i></button><button class="btn btn-sm btn-outline-danger btn-delete"><i class="bi bi-trash"></i></button>`,
-      cellClick: (e, cell) => {
-        if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
-        if (e.target.closest(".btn-delete"))
-          handleDelete(cell.getRow().getData().id_guru);
-      },
-    },
+    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_guru))]),
   ];
 
   // 3. Gunakan Custom Hook

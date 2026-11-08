@@ -8,6 +8,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksesDari, bacaUser, useAkses } from "@/app/lib/akses";
 import DaftarIndikator from "@/components/referensi/DaftarIndikator";
+import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 // Admin & guru menambah dan mengubah materi (guru hanya mapel yang diampu); kepsek melihat saja; hapus khusus admin
 const PENGUBAH = ["admin", "guru"];
@@ -155,26 +156,10 @@ export default function MasterMateriPage() {
       hozAlign: "center",
       formatter: (cell) => getMatrixBadges(cell.getRow().getData()),
     },
-    {
-      title: "Aksi",
-      field: "action",
-      width: 100,
-      hozAlign: "center",
-      headerHozAlign: "center",
-      formatter: (cell) => {
-        const akses = aksesDari(bacaUser());
-        const edit = akses.bolehNilaiMapel(cell.getRow().getData().id_mapel)
-          ? `<button class="btn btn-sm btn-primary me-1 btn-edit" title="Ubah"><i class="bi bi-pencil-square"></i></button>` : "";
-        const hapus = akses.isAdmin
-          ? `<button class="btn btn-sm btn-outline-danger btn-delete" title="Hapus"><i class="bi bi-trash"></i></button>` : "";
-        return edit + hapus || `<span class="text-muted small">-</span>`;
-      },
-      cellClick: (e, cell) => {
-        if (e.target.closest(".btn-edit")) openModal(cell.getRow().getData());
-        if (e.target.closest(".btn-delete"))
-          handleDelete(cell.getRow().getData().id_materi);
-      },
-    },
+    kolomAksi((r) => {
+      const akses = aksesDari(bacaUser());
+      return [aksiUbah(() => openModal(r), akses.bolehNilaiMapel(r.id_mapel)), aksiHapus(() => handleDelete(r.id_materi), akses.isAdmin)];
+    }),
   ];
 
   const {

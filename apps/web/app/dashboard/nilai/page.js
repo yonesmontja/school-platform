@@ -10,6 +10,7 @@ import { API_URL } from "@/app/lib/config";
 import { useAkses } from "@/app/lib/akses";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -1280,9 +1281,18 @@ function InputNilaiPage() {
                                   <i className="bi bi-life-preserver"></i>
                                 </button>
                               )}
-                              <button type="button" className="btn btn-outline-primary" title="Edit" onClick={() => handleEdit(r)}><i className="bi bi-pencil"></i></button>
-                              <button type="button" className="btn btn-outline-danger" title="Hapus" onClick={() => handleDelete(r)}><i className="bi bi-trash"></i></button>
                             </div>
+                            <MenuAksi className="ms-1" label={`Aksi nilai ${r.siswa?.nama_siswa || r.id_siswa}`} items={[
+                              aksiUbah(() => handleEdit(r)),
+                              {
+                                label: r.rencana ? "Lihat / ubah rencana tindak lanjut" : "Atur rencana tindak lanjut", ikon: "bi-life-preserver",
+                                tampil: r.jenis?.jenis_asesmen !== "DIAGNOSTIK" && (!!r.rencana || !tuntas),
+                                onClick: () => (r.rencana
+                                  ? ubahTindakLanjut(r.rencana, { nama_siswa: r.siswa?.nama_siswa || r.id_siswa, nilai: v }, kkmMapel(r.mapel))
+                                  : bukaTindakLanjut([{ id_nilai: r.id_nilai, nama_siswa: r.siswa?.nama_siswa || r.id_siswa, nilai: v }], kkmMapel(r.mapel))),
+                              },
+                              aksiHapus(() => handleDelete(r)),
+                            ]} />
                           </td>
                         </tr>
                       );
