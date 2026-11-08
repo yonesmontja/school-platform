@@ -4,7 +4,6 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
-import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, pesanGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
@@ -330,8 +329,11 @@ export default function PresensiPage() {
     if (tampil.length === 0) { Swal.fire("Kosong", "Tidak ada data untuk diekspor.", "info"); return false; }
     return true;
   };
-  const handleExcel = () => {
+  const handleExcel = async () => {
     if (!adaData()) return;
+    // Dimuat saat dibutuhkan agar halaman ringan di sinyal lemah
+    const XLSX = await import("xlsx").catch(() => null);
+    if (!XLSX) return Swal.fire("Perlu sinyal", "Ekspor Excel perlu sinyal internet saat pertama kali dipakai di perangkat ini.", "info");
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(barisRekap(rekapSiswa)), "Rekap Siswa");
     const semua = [...riwayat].sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.nama_siswa.localeCompare(b.nama_siswa))

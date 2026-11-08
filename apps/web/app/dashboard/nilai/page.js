@@ -3,7 +3,6 @@ import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Swal from "sweetalert2";
-import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import ModalTindakLanjut, { STATUS_RENCANA, buktiRencana } from "@/components/nilai/ModalTindakLanjut";
 import PanelWaOrtu from "@/components/nilai/PanelWaOrtu";
@@ -692,8 +691,11 @@ function InputNilaiPage() {
     return true;
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!adaData()) return;
+    // Dimuat saat dibutuhkan agar halaman ringan di sinyal lemah
+    const XLSX = await import("xlsx").catch(() => null);
+    if (!XLSX) return Swal.fire("Perlu sinyal", "Ekspor Excel perlu sinyal internet saat pertama kali dipakai di perangkat ini.", "info");
     const ws = XLSX.utils.json_to_sheet(exportRows());
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Rekap Nilai");

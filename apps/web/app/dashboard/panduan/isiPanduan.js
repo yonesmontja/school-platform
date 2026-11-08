@@ -371,6 +371,21 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "pemakaian", kelompok: "pengelola", judul: "Memantau pemakaian aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"],
+    href: "/dashboard/pemakaian",
+    langkah: [
+      "Buka Laporan → Pemakaian Aplikasi. Pilih rentang 7, 30, atau 90 hari.",
+      "Adopsi fitur: berapa persen guru yang sudah memakai setiap fitur. Batang merah berarti fitur itu belum banyak disentuh.",
+      "Pemakaian per guru: angka hijau berarti guru menyimpan pekerjaan di fitur itu, angka abu-abu berarti baru dibuka. Baris kuning = guru yang belum aktif.",
+      "Jejak kerja nyata: jumlah nilai, jurnal, presensi, sesi selesai, modul, soal, tes online, dan remedial selama rentang waktu.",
+      "Hambatan: permintaan yang gagal dan halaman yang lambat. Laporkan ke admin bila ada yang berulang.",
+    ],
+    tips: [
+      "Gunakan selama masa pakai untuk melihat di mana guru berhenti, lalu dampingi guru yang belum aktif.",
+      "Pembuatan dengan AI tidak dihitung sebagai lambat karena memang menunggu penyedia AI.",
+    ],
+  },
+  {
     id: "dokumentasi-api", kelompok: "pengelola", judul: "Dokumentasi API", icon: "bi-braces", peran: ["admin"],
     href: "/dashboard/dokumentasi-api",
     langkah: [

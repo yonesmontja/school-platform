@@ -1,0 +1,26 @@
+{
+  "name": "remotion-video",
+  "version": "1.0.0",
+  "description": "Video motion graphic media belajar (Remotion) untuk EduRapor",
+  "scripts": {
+    "studio": "remotion studio --port 3003",
+    "render": "remotion render",
+    "cek": "tsc"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@remotion/cli": "^4.0.541",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.541"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  },
+  "private": true
+}

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\DokumentasiApiController;
+use App\Http\Controllers\Api\PemakaianController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -96,6 +97,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/opsi', [LogAktivitasController::class, 'opsi']);
         Route::get('/{id}', [LogAktivitasController::class, 'show'])->whereNumber('id');
     });
+    // Dasbor pemakaian (masa pakai nyata): admin & kepala sekolah
+    Route::get('/pemakaian', [PemakaianController::class, 'index'])->middleware('role:admin,kepsek');
 
     // ===== PORTAL SISWA & ORANG TUA =====
     Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {

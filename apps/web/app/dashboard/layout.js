@@ -61,6 +61,7 @@ const MENU_GROUPS = [
     items: [
       { href: "/dashboard/laporan-stnkm", label: "STNKM", icon: "bi-graph-up-arrow" },
       { href: "/dashboard/rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
+      { href: "/dashboard/pemakaian", label: "Pemakaian Aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"] },
     ],
   },
   {
@@ -323,7 +324,7 @@ export default function DashboardLayout({ children }) {
     const terpilih = hasilCari && idxCari(item.href) === pilihanCari;
     return (
       <li key={item.href} className="nav-item" style={{ "--i": i }}>
-        <Link href={item.href} className={navLinkClass(item.href, terpilih ? " is-search-focus" : "")} tabIndex={fokusable ? undefined : -1} title={mini ? item.label : undefined}>
+        <Link href={item.href} prefetch={false} className={navLinkClass(item.href, terpilih ? " is-search-focus" : "")} tabIndex={fokusable ? undefined : -1} title={mini ? item.label : undefined}>
           <i className={`nav-icon bi ${item.icon}`}></i>
           <p><Sorot teks={item.label} kata={query.trim()} /></p>
         </Link>
@@ -519,7 +520,7 @@ export default function DashboardLayout({ children }) {
           <ul className="nav flex-column">
             {flyoutGroup.items.map((item, i) => (
               <li key={item.href} className="nav-item" style={{ "--i": i }}>
-                <Link href={item.href} className={navLinkClass(item.href)}>
+                <Link href={item.href} prefetch={false} className={navLinkClass(item.href)}>
                   <i className={`bi ${item.icon}`}></i><span>{item.label}</span>
                 </Link>
               </li>

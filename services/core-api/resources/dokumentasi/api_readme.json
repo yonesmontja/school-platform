@@ -58,6 +58,7 @@
  "GET /paket-soal/{}/analisis": "Analisis butir, capaian per TP, profil STNKM",
  "GET /paket-soal/{}/jawaban": "Lembar koreksi: siswa kelas + jawaban; simpan jawaban & skor guru beberapa siswa",
  "GET /paket-soal/{}/pantau": "Pantau tes online per siswa",
+ "GET /pemakaian": "Dasbor pemakaian: adopsi fitur, per guru, jejak kerja, hambatan, portal (hari 7–90)",
  "GET /perangkat-ajar/atp": "ATP beserta barisnya (TP lama atau usulan)",
  "GET /perangkat-ajar/atp/{}": "ATP beserta barisnya (TP lama atau usulan)",
  "GET /perangkat-ajar/cp": "Capaian Pembelajaran per mapel, fase, elemen",

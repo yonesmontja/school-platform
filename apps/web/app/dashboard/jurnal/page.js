@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
-import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
@@ -614,8 +613,11 @@ export default function JurnalAnekdotalPage() {
     return true;
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!adaData()) return;
+    // Dimuat saat dibutuhkan agar halaman ringan di sinyal lemah
+    const XLSX = await import("xlsx").catch(() => null);
+    if (!XLSX) return Swal.fire("Perlu sinyal", "Ekspor Excel perlu sinyal internet saat pertama kali dipakai di perangkat ini.", "info");
     const ws = XLSX.utils.json_to_sheet(exportRows());
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Jurnal");
