@@ -491,7 +491,7 @@ TXT;
                 ])
                 ->post('https://api.anthropic.com/v1/messages', [
                     'model' => self::MODEL_CLAUDE,
-                    'max_tokens' => 8000,
+                    'max_tokens' => 12000,
                     'system' => $system,
                     'messages' => [['role' => 'user', 'content' => $content]],
                     'output_config' => ['effort' => 'low'],

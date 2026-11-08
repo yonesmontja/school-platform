@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Atp;
+use App\Models\ModulAjar;
 use App\Models\BankSoal;
 use App\Models\Classes;
 use App\Models\LogAktivitas;
@@ -386,6 +387,26 @@ class NotifikasiService
                     'jumlah' => $diajukan->count(), 'tautan' => '/dashboard/perangkat-ajar?status=DIAJUKAN', 'waktu' => $waktu($diajukan),
                 ]);
             }
+        }
+        if ($this->user->isKepsek()) {
+            $modul = ModulAjar::where('status', 'DIAJUKAN')->get(['id_modul', 'updated_at']);
+            if ($modul->isNotEmpty()) {
+                $hasil[] = $this->buat('modul-persetujuan', $modul->pluck('id_modul')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-journal-richtext',
+                    'judul' => "{$modul->count()} modul ajar menunggu persetujuan",
+                    'pesan' => 'Periksa modul ajar yang diajukan guru, lalu setujui atau kembalikan dengan catatan.',
+                    'jumlah' => $modul->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=modul&status=DIAJUKAN', 'waktu' => $waktu($modul),
+                ]);
+            }
+        }
+        $modulRevisi = ModulAjar::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_modul', 'catatan_revisi', 'updated_at']);
+        if ($modulRevisi->isNotEmpty()) {
+            $hasil[] = $this->buat('modul-revisi', $modulRevisi->pluck('id_modul')->sort()->values()->all(), [
+                'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-pencil-square',
+                'judul' => "{$modulRevisi->count()} modul ajar perlu direvisi",
+                'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $modulRevisi->first()->catatan_revisi, 120) . '"',
+                'jumlah' => $modulRevisi->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=modul&status=REVISI', 'waktu' => $waktu($modulRevisi),
+            ]);
         }
         $revisi = Atp::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_atp', 'catatan_revisi', 'updated_at']);
         if ($revisi->isNotEmpty()) {

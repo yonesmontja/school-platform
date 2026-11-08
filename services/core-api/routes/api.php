@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\BankSoalController;
 use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
+use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\PeriodeController;
@@ -285,6 +286,17 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/atp/{id}/tarik', [PerangkatAjarController::class, 'tarikAtp']);
             Route::post('/atp/{id}/setujui', [PerangkatAjarController::class, 'setujuiAtp']);
             Route::post('/atp/{id}/revisi', [PerangkatAjarController::class, 'revisiAtp']);
+            Route::get('/modul', [ModulAjarController::class, 'index']);
+            Route::post('/modul', [ModulAjarController::class, 'simpan']);
+            Route::get('/modul/{id}', [ModulAjarController::class, 'show']);
+            Route::put('/modul/{id}', [ModulAjarController::class, 'simpan']);
+            Route::delete('/modul/{id}', [ModulAjarController::class, 'destroy']);
+            Route::get('/modul/{id}/paket', [ModulAjarController::class, 'pilihanPaket']);
+            Route::post('/modul/{id}/ai', [ModulAjarController::class, 'susunAI']);
+            Route::post('/modul/{id}/ajukan', [ModulAjarController::class, 'ajukan']);
+            Route::post('/modul/{id}/tarik', [ModulAjarController::class, 'tarik']);
+            Route::post('/modul/{id}/setujui', [ModulAjarController::class, 'setujui']);
+            Route::post('/modul/{id}/revisi', [ModulAjarController::class, 'revisi']);
         });
 
         Route::get('/dashboard', [DashboardController::class, 'index']);

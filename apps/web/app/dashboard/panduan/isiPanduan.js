@@ -110,7 +110,7 @@ export const BAGIAN = [
     ],
   },
   {
-    id: "perangkat-ajar", kelompok: "guru", judul: "Perangkat ajar: CP dan ATP", icon: "bi-journal-richtext",
+    id: "perangkat-ajar", kelompok: "guru", judul: "Perangkat ajar: CP, ATP, dan modul ajar", icon: "bi-journal-richtext",
     href: "/dashboard/perangkat-ajar",
     langkah: [
       "Buka TDU - Jadwal → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan.",
@@ -124,7 +124,10 @@ export const BAGIAN = [
       "Fase dihitung dari nama kelas: kelas 1–2 fase A, 3–4 fase B, 5–6 fase C.",
       "Mengubah ATP yang sudah disetujui membuatnya kembali menjadi draf versi baru dan perlu diajukan ulang.",
       "Total JP dibandingkan dengan JP per minggu × minggu efektif; tanda merah muncul bila melebihi.",
-      "Modul ajar (Perencanaan Pembelajaran Mendalam) per TP menyusul di tahap berikutnya.",
+      "Modul ajar: di ATP yang sudah disetujui tekan Buat modul ajar (atau tab Modul Ajar → Modul baru), centang TP yang dicakup, isi jumlah pertemuan dan JP, lalu Susun dengan AI.",
+      "Modul memakai format Perencanaan Pembelajaran Mendalam: identifikasi, desain pembelajaran, pengalaman belajar per pertemuan (awal, memahami, mengaplikasi, merefleksi, penutup), asesmen, diferensiasi, dan LKPD.",
+      "AI memakai data kelas tanpa nama siswa: sebaran gaya belajar dan minat dari Asesmen Diagnostik, rata-rata nilai TP terkait, dan jumlah siswa yang sedang remedial.",
+      "Tautkan paket soal di bagian asesmen akhir. Modul bisa dicetak (PDF) atau diunduh sebagai Word untuk disunting.",
     ],
   },
   {

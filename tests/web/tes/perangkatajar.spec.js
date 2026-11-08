@@ -57,3 +57,41 @@ test("kepala sekolah menyetujui ATP dan TP baru masuk ke referensi", async ({ pa
   await expect(page.getByLabel("TP baru baris 2")).toHaveCount(0);
   await expect(page.locator(".baris-atp").nth(1)).toContainText("Mengurutkan tiga pecahan berpenyebut sama");
 });
+
+test("guru membuat modul ajar RPM dari ATP, kepala sekolah menyetujui", async ({ page, masuk }) => {
+  test.setTimeout(150_000);
+  await masuk("guru");
+  await page.goto("/dashboard/perangkat-ajar");
+  await page.locator(".kartu-atp", { hasText: "ATP Matematika" }).click();
+  await page.getByRole("button", { name: "Buat modul ajar" }).click();
+  const baru = page.getByRole("dialog", { name: "Modul ajar baru" });
+  await baru.getByLabel(/Membandingkan dua pecahan/).check();
+  await baru.getByLabel("Jumlah pertemuan").fill("2");
+  await baru.getByLabel("JP per pertemuan").fill("2");
+  await baru.getByRole("button", { name: "Buat modul" }).click();
+
+  const editor = page.locator(".editor-modul");
+  await expect(editor).toContainText("Membandingkan dua pecahan");
+  await expect(editor.locator(".pertemuan-modul")).toHaveCount(2);
+  // Belum lengkap: belum bisa diajukan
+  await editor.getByRole("button", { name: "Ajukan" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".swal2-popup")).toContainText("Lengkapi tujuan");
+  await page.locator(".swal2-confirm").click();
+
+  await editor.getByLabel("Tujuan pembelajaran").fill("Siswa membandingkan dua pecahan dengan benda nyata.");
+  await editor.locator(".pertemuan-modul").first().getByLabel("Inti: memahami").fill("Siswa melipat kertas menjadi 2 dan 4 bagian.");
+  await editor.getByRole("button", { name: /Simpan$/ }).first().click();
+  await expect(page.locator(".swal2-toast")).toContainText("Modul disimpan");
+  await editor.getByRole("button", { name: "Ajukan" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(editor).toContainText("Menunggu persetujuan");
+
+  await masuk("kepsek");
+  await page.goto("/dashboard/notifikasi");
+  await page.locator(".notif-kartu", { hasText: "modul ajar menunggu persetujuan" }).getByRole("link", { name: /Buka/ }).click();
+  await page.locator(".kartu-modul").first().click();
+  await page.locator(".editor-modul").getByRole("button", { name: "Setujui" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".editor-modul")).toContainText("Disetujui");
+});

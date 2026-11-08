@@ -10,7 +10,7 @@ const keEditor = (b) => ({ ...barisKosong(), ...Object.fromEntries(Object.entrie
 const periodeLabel = (p) => (p ? `${p.tahun_ajaran} ${p.semester}` : "");
 
 /** Daftar ATP; kartu dibuka ke editor. Kepala sekolah menyetujui atau mengembalikan dengan catatan. */
-export default function TabAtp({ referensi, akses, statusAwal }) {
+export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
   const [daftar, setDaftar] = useState(null);
   const [status, setStatus] = useState(statusAwal || "");
   const [buka, setBuka] = useState(null); // id_atp
@@ -21,7 +21,7 @@ export default function TabAtp({ referensi, akses, statusAwal }) {
   }, [status]);
   useEffect(() => { muat(); }, [muat]);
 
-  if (buka) return <EditorAtp id={buka} referensi={referensi} akses={akses} onKembali={() => { setBuka(null); muat(); }} />;
+  if (buka) return <EditorAtp id={buka} referensi={referensi} akses={akses} onBuatModul={onBuatModul} onKembali={() => { setBuka(null); muat(); }} />;
 
   return (
     <div>
@@ -135,7 +135,7 @@ function ModalAtpBaru({ referensi, onTutup, onDibuat }) {
 }
 
 /** Editor ATP: baris TP berurutan; AI menyusun draf; ajukan, setujui, kembalikan, cetak. */
-function EditorAtp({ id, referensi, akses, onKembali }) {
+function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
   const [atp, setAtp] = useState(null);
   const [baris, setBaris] = useState([]);
   const [kotor, setKotor] = useState(false);
@@ -261,6 +261,7 @@ function EditorAtp({ id, referensi, akses, onKembali }) {
             <button className="btn btn-sm btn-success" onClick={() => aksi("setujui", "Setujui ATP ini? TP baru akan ditambahkan ke Referensi Penilaian.")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Setujui</button>
             <button className="btn btn-sm btn-outline-danger" onClick={kembalikan} disabled={!!proses}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
           </>}
+          {atp.status === "DISETUJUI" && !akses.isKepsek && onBuatModul && <button className="btn btn-sm btn-outline-success" onClick={() => onBuatModul(atp.id_atp)}><i className="bi bi-journal-plus me-1"></i>Buat modul ajar</button>}
           <button className="btn btn-sm btn-outline-secondary" onClick={() => cetakAtp({ ...atp, baris: kotor ? baris.map((b) => ({ ...b, cp: cp.find((c) => c.id_cp === b.id_cp), materi: materi.find((m) => m.id_materi === b.id_materi), indikator: semuaTp[b.id_indikator] })) : atp.baris, total_jp: totalJp }, referensi.sekolah)
             || Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info")}><i className="bi bi-printer me-1"></i>Cetak</button>
           {bisaUbah && <button className="btn btn-sm btn-outline-danger" onClick={hapus} disabled={!!proses} aria-label="Hapus ATP"><i className="bi bi-trash"></i></button>}
