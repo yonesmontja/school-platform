@@ -60,6 +60,6 @@ docker compose up -d core-api scheduler
 docker compose restart core-api scheduler
 
 echo "== Perbarui layanan render video (templat & suara)"
-docker compose up -d --build video-render
+docker compose up -d --build --force-recreate video-render
 
 echo "== Selesai. Situs publik memakai versi terbaru."
