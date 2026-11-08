@@ -155,6 +155,7 @@ test("guru membuka tes online, siswa mengerjakan di HP, guru memantau", async ({
 });
 
 test("siswa membaca nyaring dan merekam suara, guru mendengarkan dan menilai", async ({ page, masuk }) => {
+  test.setTimeout(150_000); // tiga peran bergantian dan rekaman sungguhan
   await masuk("guru");
   await page.goto("/dashboard/bank-soal");
   await page.getByRole("button", { name: /Paket Soal/ }).click();
@@ -193,8 +194,7 @@ test("siswa membaca nyaring dan merekam suara, guru mendengarkan dan menilai", a
   await masuk("guru");
   await page.goto("/dashboard/bank-soal");
   await page.getByRole("button", { name: /Paket Soal/ }).click();
-  await page.locator(".kartu-paket", { hasText: "Membaca E2E" }).getByRole("button").first().click();
-  await page.getByRole("button", { name: "Koreksi", exact: true }).click();
+  await page.locator(".kartu-paket", { hasText: "Membaca E2E" }).getByRole("button", { name: /Koreksi/ }).click();
   await page.getByRole("button", { name: "Dengarkan rekaman Natan Murib nomor 1" }).click();
   const rincian = page.getByRole("dialog", { name: "Koreksi Natan Murib" });
   await expect(rincian.getByLabel("Rekaman nomor 1")).toBeVisible();
