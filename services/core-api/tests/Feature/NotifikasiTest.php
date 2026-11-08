@@ -22,7 +22,24 @@ class NotifikasiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Hari Minggu tidak ada pengingat presensi dan presensi ditolak; tes dijalankan pada hari Rabu agar tidak bergantung hari nyata
+        $this->travelTo(now()->next('Wednesday')->setTime(10, 0));
         $this->buatSekolah();
+    }
+
+    public function test_hari_minggu_tanpa_pengingat_presensi_dan_kegiatan_ditolak(): void
+    {
+        $this->travelTo(now()->next('Sunday')->setTime(10, 0));
+        $minggu = $this->hariIni();
+        Sanctum::actingAs($this->sekolah->kepsek);
+        $this->postJson('/api/jadwal', ['judul' => 'Rapat', 'mulai' => "{$minggu}T08:00", 'selesai' => "{$minggu}T09:00", 'pola' => 'sekali'])
+            ->assertUnprocessable()->assertJsonValidationErrors('mulai');
+        $this->postJson('/api/jadwal', ['judul' => 'Rapat', 'mulai' => "{$this->hariIni(1)}T08:00", 'selesai' => "{$this->hariIni(1)}T09:00", 'pola' => 'kustom', 'hari' => [0, 1], 'sampai' => $this->hariIni(14)])
+            ->assertUnprocessable()->assertJsonValidationErrors('hari.0');
+        $this->postJson('/api/presensi/batch', ['id_kelas' => 'KLS-A', 'id_periode' => 'PER-T', 'tanggal' => $minggu, 'records' => [
+            ['id_siswa' => 'SIS-1', 'status_kehadiran' => 'HADIR'],
+        ]])->assertUnprocessable()->assertJsonValidationErrors('tanggal');
+        $this->assertNotContains('presensi-sekolah', $this->jenis($this->notif()));
     }
 
     private function hariIni(int $geser = 0): string

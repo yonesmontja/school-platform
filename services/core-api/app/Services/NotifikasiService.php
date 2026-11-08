@@ -190,6 +190,7 @@ class NotifikasiService
     /** Kelas yang punya sesi jadwal hari ini dianggap hari sekolah. */
     private function kelasBersesiHariIni(?array $kelas = null): Collection
     {
+        if (Carbon::parse($this->hariIni)->isSunday()) return collect(); // Minggu libur umum: tidak ada pengingat presensi
         return TransJadwal::whereDate('mulai', $this->hariIni)->where('status_sesi', '!=', 'Batal')
             ->when($kelas, fn($q) => $q->whereIn('id_kelas', $kelas))->whereNotNull('id_kelas')
             ->distinct()->pluck('id_kelas');

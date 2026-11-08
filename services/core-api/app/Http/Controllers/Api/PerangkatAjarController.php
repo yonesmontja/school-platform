@@ -70,6 +70,7 @@ class PerangkatAjarController extends Controller
             'elemen' => [$cp ? 'sometimes' : 'required', 'string', 'max:200'],
             'teks' => [$cp ? 'sometimes' : 'required', 'string', 'max:10000'],
             'urutan' => 'nullable|integer|min:0|max:999',
+            'sumber' => ['nullable', Rule::in(CapaianPembelajaran::SUMBER)],
         ]);
         $this->cekMapel($request, $data['id_mapel'] ?? $cp->id_mapel);
         $kunci = ['id_mapel' => $data['id_mapel'] ?? $cp->id_mapel, 'fase' => $data['fase'] ?? $cp->fase, 'elemen' => trim($data['elemen'] ?? $cp->elemen)];
@@ -77,7 +78,7 @@ class PerangkatAjarController extends Controller
         abort_if($kembar, 422, "Elemen \"{$kunci['elemen']}\" fase {$kunci['fase']} sudah ada untuk mapel ini.");
 
         $cp ??= new CapaianPembelajaran(['id_cp' => 'CP-' . Str::upper(Str::random(10)), 'dibuat_oleh' => $request->user()->id]);
-        $cp->fill($kunci + ['teks' => trim($data['teks'] ?? $cp->teks), 'urutan' => $data['urutan'] ?? $cp->urutan ?? 0])->save();
+        $cp->fill($kunci + ['teks' => trim($data['teks'] ?? $cp->teks), 'urutan' => $data['urutan'] ?? $cp->urutan ?? 0, 'sumber' => $data['sumber'] ?? $cp->sumber ?? 'RESMI'])->save();
         return response()->json(['success' => true, 'message' => 'CP disimpan.', 'data' => $cp], $id ? 200 : 201);
     }
 
@@ -101,12 +102,37 @@ class PerangkatAjarController extends Controller
         $this->cekMapel($request, $request->id_mapel);
         $hasil = $ai->pecahCp($request->teks, Subject::find($request->id_mapel)->nama_mapel, $request->fase, $request->ai_mode);
         if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
-        $data = collect($hasil)->map(fn($c) => [
-            'fase' => in_array(strtoupper((string) ($c['fase'] ?? '')), CapaianPembelajaran::FASE, true) ? strtoupper($c['fase']) : ($request->fase ?? 'A'),
+        $data = $this->rapikanCpAi($hasil['cp'], $request->fase, 'RESMI');
+        return response()->json(['success' => true, 'message' => "{$data->count()} elemen CP terbaca. Periksa sebelum menyimpan.", 'data' => $data,
+            'catatan' => $data->isEmpty() ? ($hasil['catatan'] ?? 'Teks yang ditempel tidak memuat rumusan CP per elemen.') : null]);
+    }
+
+    /** AI menyusun draf CP sekolah untuk mapel/fase yang belum punya CP nasional (pratinjau, belum disimpan). */
+    public function susunCp(Request $request, PerangkatAjarAIService $ai)
+    {
+        $request->validate([
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'fase' => ['required', Rule::in(CapaianPembelajaran::FASE)],
+            'catatan' => 'nullable|string|max:8000',
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+        ]);
+        $this->cekMapel($request, $request->id_mapel);
+        $rujukan = CapaianPembelajaran::where('id_mapel', $request->id_mapel)->where('fase', '!=', $request->fase)->where('sumber', 'RESMI')
+            ->orderBy('fase')->orderBy('urutan')->get(['fase', 'elemen', 'teks'])->toArray();
+        $hasil = $ai->susunCp(Subject::find($request->id_mapel)->nama_mapel, $request->fase, $rujukan, $request->catatan, $request->ai_mode);
+        if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
+        $data = $this->rapikanCpAi($hasil, $request->fase, 'SEKOLAH')->map(fn($c) => ['fase' => $request->fase] + $c)->values();
+        return response()->json(['success' => true, 'message' => "Draf {$data->count()} elemen CP sekolah tersusun. Periksa dan sesuaikan sebelum menyimpan.", 'data' => $data]);
+    }
+
+    private function rapikanCpAi(array $cp, ?string $fase, string $sumber)
+    {
+        return collect($cp)->map(fn($c) => [
+            'fase' => in_array(strtoupper((string) ($c['fase'] ?? '')), CapaianPembelajaran::FASE, true) ? strtoupper($c['fase']) : ($fase ?? 'A'),
             'elemen' => mb_substr(trim((string) $c['elemen']), 0, 200),
             'teks' => mb_substr(trim((string) $c['teks']), 0, 10000),
+            'sumber' => $sumber,
         ])->values();
-        return response()->json(['success' => true, 'message' => "{$data->count()} elemen CP terbaca. Periksa sebelum menyimpan.", 'data' => $data]);
     }
 
     /** Simpan banyak elemen CP sekaligus; elemen dengan fase & nama sama diperbarui teksnya. */
@@ -118,13 +144,14 @@ class PerangkatAjarController extends Controller
             'cp.*.fase' => ['required', Rule::in(CapaianPembelajaran::FASE)],
             'cp.*.elemen' => 'required|string|max:200',
             'cp.*.teks' => 'required|string|max:10000',
+            'cp.*.sumber' => ['nullable', Rule::in(CapaianPembelajaran::SUMBER)],
         ]);
         $this->cekMapel($request, $request->id_mapel);
         $jumlah = DB::transaction(function () use ($request) {
             foreach ($request->cp as $i => $c) {
                 $cp = CapaianPembelajaran::firstOrNew(['id_mapel' => $request->id_mapel, 'fase' => $c['fase'], 'elemen' => trim($c['elemen'])]);
                 if (!$cp->exists) $cp->fill(['id_cp' => 'CP-' . Str::upper(Str::random(10)), 'dibuat_oleh' => $request->user()->id]);
-                $cp->fill(['teks' => trim($c['teks']), 'urutan' => $i])->save();
+                $cp->fill(['teks' => trim($c['teks']), 'urutan' => $i, 'sumber' => $c['sumber'] ?? 'RESMI'])->save();
             }
             return count($request->cp);
         });

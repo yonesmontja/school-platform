@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
 use App\Models\MasterIndikator;
@@ -197,7 +198,7 @@ class NilaiController extends Controller
     public function saveBatch(Request $request)
     {
         $request->validate($this->rulesMeta() + [
-            'tanggal' => 'required|date',
+            'tanggal' => ['required', 'date', new BukanHariMinggu],
             'metode_stnkm' => 'nullable|in:OTOMATIS,MANUAL',
             'tipe_nilai' => ['nullable', Rule::in(['NORMAL', 'REMEDIAL'])],
             'records' => 'required|array|min:1',

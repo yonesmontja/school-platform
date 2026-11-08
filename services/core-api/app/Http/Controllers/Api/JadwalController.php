@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
 use App\Models\MasterMateri;
@@ -82,7 +83,7 @@ class JadwalController extends Controller
             'id_kelas' => 'nullable|exists:classes,id_kelas',
             'id_ruangan' => 'nullable|exists:master_ruangan,id_ruangan',
             'judul' => 'nullable|required_without:id_mapel|string|max:150',
-            'mulai' => 'required|date_format:' . self::FORMAT,
+            'mulai' => ['required', 'date_format:' . self::FORMAT, new BukanHariMinggu],
             'selesai' => 'required|date_format:' . self::FORMAT . '|after:mulai',
             'warna' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'catatan' => 'nullable|string|max:3000',
@@ -95,7 +96,7 @@ class JadwalController extends Controller
             ...($baru ? [
                 'pola' => ['required', Rule::in(['sekali', 'harian', 'kustom'])],
                 'hari' => 'nullable|array',
-                'hari.*' => 'integer|between:0,6',
+                'hari.*' => 'integer|between:1,6',
                 'sampai' => 'nullable|required_unless:pola,sekali|date_format:Y-m-d',
             ] : [
                 'mode' => ['nullable', Rule::in(self::MODE_BERANTAI)],
@@ -110,6 +111,7 @@ class JadwalController extends Controller
             'judul.required_without' => 'Isi judul agenda bila tidak memilih mata pelajaran.',
             'selesai.after' => 'Jam selesai harus setelah jam mulai.',
             'sampai.required_unless' => 'Tentukan tanggal batas akhir pengulangan.',
+            'hari.*.between' => 'Hari Minggu adalah libur umum; pilih hari Senin–Sabtu.',
         ];
     }
 
@@ -286,6 +288,7 @@ class JadwalController extends Controller
 
         foreach ($slot as $s) {
             if ($s['selesai']->lte($s['mulai'])) throw ValidationException::withMessages(['selesai' => 'Durasi sesi tidak valid.']);
+            if ($s['mulai']->isSunday()) throw ValidationException::withMessages(['mulai' => BukanHariMinggu::pesan($s['mulai'])]);
         }
         if (!$request->boolean('abaikan_bentrok') && ($bentrok = $this->cariBentrok($slot, $target->pluck('id_jadwal')->all()))->isNotEmpty()) {
             return $this->responBentrok($bentrok);

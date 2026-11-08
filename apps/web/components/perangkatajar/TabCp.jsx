@@ -78,7 +78,7 @@ export default function TabCp({ referensi }) {
                 <div key={c.id_cp} className="card shadow-sm kartu-cp">
                   <div className="card-body py-2 d-flex gap-2">
                     <div className="flex-grow-1 min-w-0">
-                      <div className="fw-semibold">{c.elemen}</div>
+                      <div className="fw-semibold">{c.elemen}{c.sumber === "SEKOLAH" && <span className="badge text-bg-info fw-normal ms-2" title="Disusun sekolah karena belum ada CP nasional">CP sekolah</span>}</div>
                       <div className="small text-body-secondary" style={{ whiteSpace: "pre-wrap" }}>{c.teks}</div>
                     </div>
                     <div className="d-flex flex-column gap-1">
@@ -130,23 +130,39 @@ export default function TabCp({ referensi }) {
   );
 }
 
-/** Tempel teks CP resmi → AI memecah per elemen → pratinjau yang bisa disunting → simpan semua. */
+/**
+ * Dua cara: tempel teks CP resmi → AI memecah per elemen; atau (bila CP nasional belum ada, mis. Bahasa Inggris Fase A / mulok)
+ * AI menyusun draf CP sekolah. Hasilnya pratinjau yang bisa disunting → simpan semua.
+ */
 function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
+  const [cara, setCara] = useState("tempel"); // tempel | susun
   const [teks, setTeks] = useState("");
+  const [catatan, setCatatan] = useState("");
   const [fase, setFase] = useState(faseAwal);
   const [mode, setMode] = useState(bacaAiMode);
   const [hasil, setHasil] = useState(null);
+  const [kosong, setKosong] = useState(null); // penjelasan AI bila teks tidak memuat CP
   const [proses, setProses] = useState(false);
 
-  const pecah = async () => {
+  const jalankan = async () => {
     simpanAiMode(mode);
-    setProses(true);
+    setProses(true); setKosong(null);
     try {
-      const r = await minta("POST", "/perangkat-ajar/cp/pecah", { id_mapel: mapel.id_mapel, fase: fase || null, teks, ai_mode: mode });
-      setHasil(r.data);
+      const r = cara === "tempel"
+        ? await minta("POST", "/perangkat-ajar/cp/pecah", { id_mapel: mapel.id_mapel, fase: fase || null, teks, ai_mode: mode })
+        : await minta("POST", "/perangkat-ajar/cp/susun", { id_mapel: mapel.id_mapel, fase, catatan: catatan || null, ai_mode: mode });
+      if (!r.data.length) setKosong(r.catatan || "AI tidak menemukan elemen CP.");
+      else setHasil(r.data);
     } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }
     finally { setProses(false); }
   };
+  const keSusun = () => {
+    if (!catatan && teks) setCatatan(teks.slice(0, 8000));
+    setCara("susun"); setKosong(null);
+    if (!fase) setFase("A");
+  };
+  const bisaJalan = cara === "tempel" ? teks.trim().length >= 30 : !!fase;
+  const draf = hasil?.some((c) => c.sumber === "SEKOLAH");
   const simpan = async () => {
     setProses(true);
     try {
@@ -162,17 +178,29 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
       <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Tempel dokumen CP">
         <div className="modal-dialog modal-xl modal-dialog-scrollable">
           <div className="modal-content border-0 shadow">
-            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-clipboard-plus text-primary me-2"></i>Tempel dokumen CP · {mapel?.nama_mapel}</h5>
+            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-clipboard-plus text-primary me-2"></i>{cara === "tempel" ? "Tempel dokumen CP" : "AI susun draf CP"} · {mapel?.nama_mapel}</h5>
               <button type="button" className="btn-close" onClick={onTutup} disabled={proses} aria-label="Tutup"></button></div>
             <div className="modal-body">
               {!hasil ? (
                 <>
-                  <p className="small text-muted mb-2">Salin teks CP resmi (dari dokumen BSKAP atau Kemendikdasmen) lalu tempel di bawah. AI hanya memecahnya per elemen tanpa mengubah isinya; periksa hasilnya sebelum menyimpan.</p>
+                  <ul className="nav nav-pills nav-fill small mb-3" role="tablist">
+                    <li className="nav-item"><button type="button" role="tab" aria-selected={cara === "tempel"} className={`nav-link ${cara === "tempel" ? "active" : ""}`} onClick={() => { setCara("tempel"); setKosong(null); }}><i className="bi bi-clipboard me-1"></i>Tempel CP resmi</button></li>
+                    <li className="nav-item"><button type="button" role="tab" aria-selected={cara === "susun"} className={`nav-link ${cara === "susun" ? "active" : ""}`} onClick={keSusun}><i className="bi bi-stars me-1"></i>CP resmi belum ada: AI susun draf</button></li>
+                  </ul>
+                  {kosong && (
+                    <div className="alert alert-warning d-flex flex-wrap gap-2 align-items-center" role="alert">
+                      <div className="flex-grow-1"><b>Tidak ada elemen CP yang bisa diambil.</b> <span className="small">{kosong}</span></div>
+                      {cara === "tempel" && <button type="button" className="btn btn-sm btn-warning" onClick={keSusun}><i className="bi bi-stars me-1"></i>Minta AI susun draf CP sekolah</button>}
+                    </div>
+                  )}
+                  <p className="small text-muted mb-2">{cara === "tempel"
+                    ? "Salin teks CP resmi (dari dokumen BSKAP atau Kemendikdasmen) lalu tempel di bawah. AI hanya memecahnya per elemen tanpa mengubah isinya; periksa hasilnya sebelum menyimpan."
+                    : "Untuk mapel atau fase yang belum punya CP nasional (mis. Bahasa Inggris Fase A, muatan lokal), AI menyusun draf CP sekolah yang berjenjang menuju CP resmi fase berikutnya bila sudah ada di aplikasi. Draf ditandai \"CP sekolah\"; sesuaikan dan sahkan lewat rapat sekolah."}</p>
                   <div className="row g-2 mb-2">
                     <div className="col-sm-4">
-                      <label className="form-label small mb-1" htmlFor="tpFase">Fase yang ditempel</label>
+                      <label className="form-label small mb-1" htmlFor="tpFase">{cara === "tempel" ? "Fase yang ditempel" : "Fase yang disusun"}</label>
                       <select id="tpFase" className="form-select form-select-sm" value={fase} onChange={(e) => setFase(e.target.value)}>
-                        <option value="">Biarkan AI menentukan</option>
+                        {cara === "tempel" && <option value="">Biarkan AI menentukan</option>}
                         {FASE.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                       </select>
                     </div>
@@ -183,10 +211,14 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
                       </select>
                     </div>
                   </div>
-                  <textarea className="form-control" rows={12} aria-label="Teks dokumen CP" value={teks} onChange={(e) => setTeks(e.target.value)} placeholder="Tempel teks CP di sini…" />
+                  {cara === "tempel"
+                    ? <textarea className="form-control" rows={12} aria-label="Teks dokumen CP" value={teks} onChange={(e) => setTeks(e.target.value)} placeholder="Tempel teks CP di sini…" />
+                    : <textarea className="form-control" rows={8} aria-label="Catatan untuk AI" maxLength={8000} value={catatan} onChange={(e) => setCatatan(e.target.value)}
+                        placeholder="Opsional: konteks sekolah, mis. Bahasa Inggris diajarkan sebagai mulok 2 JP/minggu di kelas 1–2, fokus kosakata sehari-hari dan lagu." />}
                 </>
               ) : (
                 <div className="d-flex flex-column gap-2">
+                  {draf && <div className="alert alert-info small mb-1"><i className="bi bi-info-circle me-1"></i>Ini <b>draf CP sekolah</b> buatan AI, bukan CP nasional. Periksa kesesuaiannya dengan usia siswa sebelum menyimpan.</div>}
                   {hasil.map((c, i) => (
                     <div key={i} className="border rounded p-2">
                       <div className="d-flex gap-2 mb-1">
@@ -203,11 +235,11 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
               )}
             </div>
             <div className="modal-footer">
-              {hasil && <button className="btn btn-outline-secondary me-auto" onClick={() => setHasil(null)} disabled={proses}><i className="bi bi-arrow-left me-1"></i>Tempel ulang</button>}
+              {hasil && <button className="btn btn-outline-secondary me-auto" onClick={() => setHasil(null)} disabled={proses}><i className="bi bi-arrow-left me-1"></i>Kembali</button>}
               <button className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Batal</button>
               {!hasil ? (
-                <button className="btn btn-primary" onClick={pecah} disabled={proses || teks.trim().length < 30}>
-                  {proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-stars me-1"></i>}Pecah per elemen
+                <button className="btn btn-primary" onClick={jalankan} disabled={proses || !bisaJalan}>
+                  {proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-stars me-1"></i>}{cara === "tempel" ? "Pecah per elemen" : "Susun draf CP"}
                 </button>
               ) : (
                 <button className="btn btn-primary" onClick={simpan} disabled={proses || !hasil.length}><i className="bi bi-save me-1"></i>Simpan {hasil.length} elemen</button>

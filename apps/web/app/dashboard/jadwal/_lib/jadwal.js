@@ -21,8 +21,14 @@ export const HARI = [
   { id: 4, singkat: "Kam", label: "Kamis" },
   { id: 5, singkat: "Jum", label: "Jumat" },
   { id: 6, singkat: "Sab", label: "Sabtu" },
-  { id: 0, singkat: "Min", label: "Minggu" },
 ];
+
+/** Hari Minggu libur umum: tidak boleh ada sesi, presensi, nilai, atau kegiatan lain. */
+export const adalahMinggu = (t) => (t instanceof Date ? t : new Date(`${String(t).slice(0, 10)}T00:00`)).getDay() === 0;
+export const pesanMinggu = (t) => {
+  const d = t instanceof Date ? t : new Date(`${String(t).slice(0, 10)}T00:00`);
+  return `Tanggal ${d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} adalah hari Minggu (libur umum). Pilih hari Senin–Sabtu.`;
+};
 
 export const TAMPILAN = [
   { id: "timeGridDay", label: "Hari", tombol: "d" },

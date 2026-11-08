@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\BankSoal;
 use App\Models\KisiKisi;
@@ -498,7 +499,7 @@ class PaketSoalController extends Controller
             'id_periode' => 'nullable|exists:master_periode,id_periode',
             'id_kisi' => 'nullable|exists:kisi_kisi,id_kisi',
             'id_jenis' => 'nullable|exists:master_mbk,id_jenis',
-            'tanggal' => 'nullable|date',
+            'tanggal' => ['nullable', 'date', new BukanHariMinggu],
             'durasi_menit' => 'nullable|integer|min:5|max:600',
             'petunjuk' => 'nullable|string|max:3000',
         ], ['judul.required' => 'Tulis judul paket, mis. Penilaian Harian Pecahan.', 'id_kelas.required' => 'Pilih kelas yang mengerjakan.']);

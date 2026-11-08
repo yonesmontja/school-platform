@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
 use App\Models\MasterMateri;
@@ -76,7 +77,7 @@ class JurnalController extends Controller
     private function rules(): array
     {
         return [
-            'tanggal' => 'required|date',
+            'tanggal' => ['required', 'date', new BukanHariMinggu],
             'id_siswa' => 'required|exists:students,id_siswa',
             'id_kelas' => 'required|exists:classes,id_kelas',
             'id_guru' => 'nullable|exists:teachers,id_guru',
@@ -233,7 +234,7 @@ class JurnalController extends Controller
             'mode_dampak' => 'required|in:BONUS,PISAH',
             'records' => 'required|array|min:1|max:1000',
             'records.*.id_siswa' => 'required|exists:students,id_siswa',
-            'records.*.tanggal' => 'required|date',
+            'records.*.tanggal' => ['required', 'date', new BukanHariMinggu],
             'records.*.narasi_kejadian' => 'required|string|max:2000',
             'records.*.val_S' => 'nullable|numeric|between:-5,5',
             'records.*.val_T' => 'nullable|numeric|between:-5,5',

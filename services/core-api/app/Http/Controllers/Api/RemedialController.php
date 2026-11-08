@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\SchoolSetting;
 use App\Models\TransJadwal;
@@ -32,7 +33,7 @@ class RemedialController extends Controller
         return [
             'opsi_tindakan' => ['required', Rule::in(TransRencanaRemedial::OPSI)],
             'catatan' => 'nullable|string|max:2000',
-            'tanggal_rencana' => 'required|date_format:Y-m-d',
+            'tanggal_rencana' => ['required', 'date_format:Y-m-d', new BukanHariMinggu],
             'masuk_jadwal' => 'nullable|boolean',
             'jam_mulai' => 'nullable|required_if:masuk_jadwal,true|date_format:H:i',
             'jam_selesai' => 'nullable|required_if:masuk_jadwal,true|date_format:H:i|after:jam_mulai',

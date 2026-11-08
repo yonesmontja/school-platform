@@ -62,6 +62,29 @@ class PerangkatAjarTest extends TestCase
         $this->assertCount(2, $this->getJson('/api/perangkat-ajar/cp?id_mapel=MPL-A&fase=B')->json('data'));
     }
 
+    public function test_cp_belum_ada_dijelaskan_lalu_ai_menyusun_draf_cp_sekolah(): void
+    {
+        $this->sebagai($this->sekolah->guruA);
+        $this->postJson('/api/perangkat-ajar/cp', ['id_mapel' => 'MPL-A', 'fase' => 'B', 'elemen' => 'Menyimak', 'teks' => 'CP resmi fase B'])->assertCreated();
+
+        // Teks tempelan tanpa rumusan CP: daftar kosong + penjelasan, bukan modal kosong
+        $jawab = fn(array $j) => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode($j)]]]]]]);
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::sequence()
+            ->pushResponse($jawab(['cp' => [], 'catatan' => 'Tidak ada CP nasional untuk fase A.']))
+            ->pushResponse($jawab(['cp' => [['fase' => 'C', 'elemen' => 'Menyimak', 'teks' => 'Pada akhir Fase A, peserta didik menyimak kosakata sederhana.']]]))]);
+        $r = $this->postJson('/api/perangkat-ajar/cp/pecah', ['id_mapel' => 'MPL-A', 'teks' => str_repeat('CP fase A tidak tersedia secara nasional. ', 3), 'ai_mode' => 'GEMINI'])->assertOk();
+        $this->assertSame([], $r->json('data'));
+        $this->assertSame('Tidak ada CP nasional untuk fase A.', $r->json('catatan'));
+
+        $draf = $this->postJson('/api/perangkat-ajar/cp/susun', ['id_mapel' => 'MPL-A', 'fase' => 'A', 'catatan' => 'Mulok 2 JP', 'ai_mode' => 'GEMINI'])->assertOk()->json('data');
+        $this->assertSame('A', $draf[0]['fase']); // fase mengikuti permintaan, bukan tebakan AI
+        $this->assertSame('SEKOLAH', $draf[0]['sumber']);
+
+        $this->postJson('/api/perangkat-ajar/cp/banyak', ['id_mapel' => 'MPL-A', 'cp' => $draf])->assertOk();
+        $this->assertSame('SEKOLAH', CapaianPembelajaran::where('fase', 'A')->value('sumber'));
+        $this->assertSame('RESMI', CapaianPembelajaran::where('fase', 'B')->value('sumber'));
+    }
+
     public function test_atp_disusun_ai_diajukan_direvisi_lalu_disetujui(): void
     {
         $this->sebagai($this->sekolah->guruA);

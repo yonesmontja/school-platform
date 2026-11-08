@@ -734,3 +734,23 @@
   /* Di HP panel menempel selebar layar agar tidak terpotong di sisi kiri */
   .antrean-panel { position: fixed !important; top: 3.75rem !important; left: .75rem; right: .75rem !important; width: auto; max-width: none; }
 }
+
+/* ===== Kartu statistik (info-box) di semua halaman =====
+   Isi flex tanpa min-width: 0 ikut melebar mengikuti teks nowrap sehingga teks keluar dari kartu (terlihat di zoom 100%).
+   Deskripsi boleh turun baris (maks. 2 baris) dengan ukuran huruf tetap kecil di semua lebar layar. */
+.info-box { min-width: 0; height: 100%; }
+.info-box .info-box-icon { flex-shrink: 0; }
+.info-box .info-box-content { min-width: 0; overflow: hidden; line-height: 1.5; }
+.info-box .info-box-text { font-size: .875rem; }
+.info-box .info-box-number { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info-box .progress-description,
+[class*="col-"] .info-box .progress-description {
+  font-size: .78rem !important;
+  color: var(--bs-secondary-color);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

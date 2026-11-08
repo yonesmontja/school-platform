@@ -242,3 +242,6 @@
 @media (prefers-reduced-motion: reduce) {
   .jadwal-detail, .jadwal-create, .jadwal-main .fc-timegrid-event, .jadwal-shell .jadwal-left { animation: none !important; transition: none !important; }
 }
+
+/* Hari Minggu libur umum: sel diarsir dan tidak bisa dipakai untuk sesi baru */
+.fc .gc-minggu { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg) 0 6px, transparent 6px 12px); }

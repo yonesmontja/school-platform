@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
-import { API_URL, HARI, STATUS_SESI, WARNA_JADWAL, parseLokal, tambahMenit, ymd, jamMenit } from "@/app/dashboard/jadwal/_lib/jadwal";
+import { API_URL, HARI, STATUS_SESI, WARNA_JADWAL, adalahMinggu, parseLokal, pesanMinggu, tambahMenit, ymd, jamMenit } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const DURASI_CEPAT = [35, 70, 90, 105];
 const LAMPIRAN_MAX = 10 * 1024 * 1024;
@@ -88,7 +88,7 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
       const m = awal.mulai, s = awal.selesai;
       Object.assign(dasar, { tanggal: ymd(m), jamMulai: jamMenit(m), jamSelesai: s && ymd(s) === ymd(m) && s > m ? jamMenit(s) : tambahMenit(jamMenit(m), 90) });
     }
-    dasar.hari = [parseLokal(`${dasar.tanggal}T00:00`).getDay()];
+    dasar.hari = [parseLokal(`${dasar.tanggal}T00:00`).getDay()].filter((h) => h !== 0);
     if (isGuru) dasar.id_guru = idGuru || "";
     setF(dasar);
   }, [awal, isGuru, idGuru]);
@@ -146,6 +146,7 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
     if (f.jenis === "kbm" && !f.id_mapel) return Swal.fire("Perhatian", "Pilih mata pelajaran.", "warning");
     if (f.jenis === "agenda" && !f.judul.trim()) return Swal.fire("Perhatian", "Isi judul agenda.", "warning");
     if (f.jamSelesai <= f.jamMulai) return Swal.fire("Perhatian", "Jam selesai harus setelah jam mulai.", "warning");
+    if (adalahMinggu(f.tanggal)) return Swal.fire("Hari Minggu", pesanMinggu(f.tanggal), "warning");
     if (!edit && f.pola !== "sekali" && !f.sampai) return Swal.fire("Perhatian", "Tentukan tanggal batas akhir pengulangan.", "warning");
     if (!edit && f.pola === "kustom" && !f.hari.length) return Swal.fire("Perhatian", "Pilih minimal satu hari pertemuan.", "warning");
 
@@ -283,7 +284,8 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
               <div className="row g-3 mb-2 align-items-end">
                 <div className="col-md-4">
                   <label className="form-label small fw-semibold mb-1"><i className="bi bi-calendar-event me-1"></i>Tanggal{!edit && f.pola !== "sekali" ? " mulai" : ""}</label>
-                  <input type="date" className="form-control" value={f.tanggal} required onChange={(e) => ubah({ tanggal: e.target.value })} />
+                  <input type="date" className={`form-control${adalahMinggu(f.tanggal) ? " is-invalid" : ""}`} value={f.tanggal} required onChange={(e) => ubah({ tanggal: e.target.value })} />
+                  {adalahMinggu(f.tanggal) && <div className="invalid-feedback">Hari Minggu libur umum. Pilih Senin–Sabtu.</div>}
                 </div>
                 <div className="col-6 col-md-3">
                   <label className="form-label small fw-semibold mb-1">Mulai</label>

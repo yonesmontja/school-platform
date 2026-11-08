@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\TransPresensi;
@@ -45,7 +46,7 @@ class PresensiController extends Controller
             'id_kelas' => 'required|exists:classes,id_kelas',
             'id_periode' => 'required|exists:master_periode,id_periode',
             // "Hari ini" menurut zona waktu sekolah; zona aplikasi UTC menolak presensi pagi hari (00.00–09.00 WIT)
-            'tanggal' => 'required|date|before_or_equal:' . now(config('app.zona_sekolah'))->toDateString(),
+            'tanggal' => ['required', 'date', 'before_or_equal:' . now(config('app.zona_sekolah'))->toDateString(), new BukanHariMinggu],
             'records' => 'required|array|min:1',
             'records.*.id_siswa' => 'required|distinct|exists:students,id_siswa',
             'records.*.status_kehadiran' => 'required|in:' . implode(',', self::STATUS),

@@ -310,6 +310,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/cp', [PerangkatAjarController::class, 'daftarCp']);
             Route::post('/cp', [PerangkatAjarController::class, 'simpanCp']);
             Route::post('/cp/pecah', [PerangkatAjarController::class, 'pecahCp']);
+            Route::post('/cp/susun', [PerangkatAjarController::class, 'susunCp']);
             Route::post('/cp/banyak', [PerangkatAjarController::class, 'simpanBanyakCp']);
             Route::put('/cp/{id}', [PerangkatAjarController::class, 'simpanCp']);
             Route::delete('/cp/{id}', [PerangkatAjarController::class, 'hapusCp']);

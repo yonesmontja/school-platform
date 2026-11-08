@@ -13,7 +13,7 @@ import DetailSesi from "@/components/jadwal/DetailSesi";
 import FormJadwal, { kirimAPI, konfirmasiBentrok, pesanGalat, tanyaModeBerantai } from "@/components/jadwal/FormJadwal";
 import {
   PALET_GURU, PREFS_DEFAULT, STATUS_MAP, STATUS_SESI, TAMPILAN,
-  judulSesi, parseLokal, rentangJam, susunPesanWA, ymd,
+  adalahMinggu, judulSesi, parseLokal, pesanMinggu, rentangJam, susunPesanWA, ymd,
 } from "./_lib/jadwal";
 
 const KEY_PREFS = "jadwal_prefs_v1";
@@ -157,6 +157,7 @@ export default function JadwalPage() {
   // --- INTERAKSI KALENDER ---
   const onSelect = (info) => {
     api()?.unselect();
+    if (adalahMinggu(info.start)) return Swal.fire("Hari Minggu", pesanMinggu(info.start), "info");
     if (info.allDay) {
       const m = new Date(info.start); m.setHours(7, 30, 0, 0);
       bukaBaru(m);
@@ -167,6 +168,7 @@ export default function JadwalPage() {
 
   const geser = async (info, deltaMulai, deltaSelesai) => {
     const r = info.event.extendedProps.row;
+    if (adalahMinggu(info.event.start)) { info.revert(); return Swal.fire("Hari Minggu", pesanMinggu(info.event.start), "info"); }
     let mode = "only_this";
     if (r.id_group) {
       mode = await tanyaModeBerantai("Pindahkan jadwal berulang", "Pindahkan");
@@ -442,6 +444,7 @@ export default function JadwalPage() {
           editable
           dayMaxEvents
           businessHours={{ daysOfWeek: [1, 2, 3, 4, 5, 6], startTime: "07:00", endTime: "15:00" }}
+          dayCellClassNames={(arg) => (arg.date.getDay() === 0 ? ["gc-minggu"] : [])}
           events={events}
           datesSet={onDatesSet}
           select={onSelect}

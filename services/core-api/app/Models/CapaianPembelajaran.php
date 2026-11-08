@@ -9,12 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CapaianPembelajaran extends Model
 {
     public const FASE = ['A', 'B', 'C'];
+    /** RESMI: dari dokumen pemerintah; SEKOLAH: draf sekolah (mis. mulok, atau CP nasional belum ada) yang disusun bersama AI. */
+    public const SUMBER = ['RESMI', 'SEKOLAH'];
 
     protected $table = 'capaian_pembelajaran';
     protected $primaryKey = 'id_cp';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $fillable = ['id_cp', 'id_mapel', 'fase', 'elemen', 'teks', 'urutan', 'dibuat_oleh'];
+    protected $fillable = ['id_cp', 'id_mapel', 'fase', 'elemen', 'teks', 'urutan', 'dibuat_oleh', 'sumber'];
     protected $casts = ['urutan' => 'integer'];
 
     public function mapel(): BelongsTo { return $this->belongsTo(Subject::class, 'id_mapel', 'id_mapel'); }
