@@ -194,7 +194,7 @@ test("siswa membaca nyaring dan merekam suara, guru mendengarkan dan menilai", a
   await page.goto("/dashboard/bank-soal");
   await page.getByRole("button", { name: /Paket Soal/ }).click();
   await page.locator(".kartu-paket", { hasText: "Membaca E2E" }).getByRole("button").first().click();
-  await page.getByRole("button", { name: "Koreksi" }).click();
+  await page.getByRole("button", { name: "Koreksi", exact: true }).click();
   await page.getByRole("button", { name: "Dengarkan rekaman Natan Murib nomor 1" }).click();
   const rincian = page.getByRole("dialog", { name: "Koreksi Natan Murib" });
   await expect(rincian.getByLabel("Rekaman nomor 1")).toBeVisible();
