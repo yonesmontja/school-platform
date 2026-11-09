@@ -1,5 +1,6 @@
 FROM php:8.3-cli
-RUN apt-get update && apt-get install -y git unzip libpq-dev \
+# poppler-utils: pdftotext untuk membaca teks PDF Pustaka Dokumen (DOCX dibaca dengan unzip)
+RUN apt-get update && apt-get install -y git unzip libpq-dev poppler-utils \
     && docker-php-ext-install pdo pdo_pgsql opcache
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY docker/php.ini /usr/local/etc/php/conf.d/zz-performance.ini

@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\ModulAjarController;
+use App\Http\Controllers\Api\DokumenRujukanController;
 use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\PemakaianController;
 use App\Http\Controllers\Api\VideoBelajarController;
@@ -303,6 +304,23 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/ajukan', [VideoBelajarController::class, 'ajukan']);
             Route::post('/{id}/setujui', [VideoBelajarController::class, 'setujui']);
             Route::post('/{id}/revisi', [VideoBelajarController::class, 'revisi']);
+        });
+        // Pustaka dokumen resmi untuk AI: admin & kepsek langsung aktif; guru (bila diizinkan admin) disetujui kepala sekolah
+        Route::prefix('dokumen-rujukan')->group(function () {
+            Route::get('/', [DokumenRujukanController::class, 'index']);
+            Route::post('/', [DokumenRujukanController::class, 'store'])->middleware('throttle:30,1');
+            Route::put('/pengaturan', [DokumenRujukanController::class, 'pengaturan']);
+            Route::post('/cari', [DokumenRujukanController::class, 'cari']);
+            Route::get('/{id}', [DokumenRujukanController::class, 'show']);
+            Route::get('/{id}/unduh', [DokumenRujukanController::class, 'unduh']);
+            Route::put('/{id}', [DokumenRujukanController::class, 'update']);
+            Route::post('/{id}/perbarui', [DokumenRujukanController::class, 'perbarui'])->middleware('throttle:30,1');
+            Route::post('/{id}/setujui', [DokumenRujukanController::class, 'setujui']);
+            Route::post('/{id}/tolak', [DokumenRujukanController::class, 'tolak']);
+            Route::post('/{id}/aktifkan', [DokumenRujukanController::class, 'aktifkan']);
+            Route::post('/{id}/baca-ulang', [DokumenRujukanController::class, 'bacaUlang']);
+            Route::post('/{id}/analisis', [DokumenRujukanController::class, 'analisis'])->middleware('throttle:20,1');
+            Route::delete('/{id}', [DokumenRujukanController::class, 'destroy']);
         });
         // Perangkat ajar (Fase 17): CP & ATP; guru untuk mapel diampu, persetujuan ATP oleh kepala sekolah (dicek di controller)
         Route::prefix('perangkat-ajar')->group(function () {

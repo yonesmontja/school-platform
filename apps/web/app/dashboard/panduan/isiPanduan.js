@@ -113,7 +113,7 @@ export const BAGIAN = [
     id: "perangkat-ajar", kelompok: "guru", judul: "Perangkat ajar: CP, ATP, dan modul ajar", icon: "bi-journal-richtext",
     href: "/dashboard/perangkat-ajar",
     langkah: [
-      "Buka TDU - Jadwal → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan.",
+      "Buka TDU - Jadwal → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan. Bila CP nasional untuk mapel/fase itu belum ada (mis. Bahasa Inggris Fase A atau mulok), pilih CP resmi belum ada: AI susun draf; hasilnya ditandai CP sekolah.",
       "Buka tab ATP, tekan ATP baru: pilih mapel, kelas, periode, JP per minggu, dan minggu efektif.",
       "Tekan Susun dengan AI. AI menurunkan TP dari CP fase kelas itu, memakai TP sekolah yang sudah ada, dan menambah alokasi untuk TP yang capaian siswanya rendah.",
       "Periksa setiap baris: elemen, materi, TP (yang ada atau TP baru bertanda +), JP, minggu, dimensi STNKM, dan profil lulusan. Geser urutan dengan panah, lalu Simpan.",
@@ -131,6 +131,24 @@ export const BAGIAN = [
       "Di Jadwal, pilih Modul ajar dan Pertemuan ke saat membuat sesi. Jadwal berulang otomatis memakai pertemuan berikutnya. Detail sesi menampilkan langkah pertemuan itu.",
       "Saat menulis jurnal, panel Rencana pembelajaran hari ini menampilkan langkah dari modul untuk kelas itu; tekan Pakai materi sesi ini untuk mengisi materi.",
       "Daftar modul menampilkan kemajuan: berapa pertemuan yang sudah berstatus Selesai di Jadwal.",
+    ],
+  },
+  {
+    id: "pustaka-dokumen", kelompok: "guru", judul: "Pustaka dokumen resmi untuk AI", icon: "bi-folder2-open",
+    href: "/dashboard/pustaka-dokumen",
+    langkah: [
+      "Buka Referensi Penilaian → Pustaka Dokumen, lalu tekan Tambah dokumen.",
+      "Pilih Unggah berkas (PDF berteks, DOCX, atau TXT) atau Tautan resmi (halaman/PDF situs pemerintah). Isi judul, jenis (CP, kurikulum, regulasi, panduan), dan bila perlu mapel serta fasenya.",
+      "Admin dan kepala sekolah: dokumen langsung dipakai AI. Guru: dokumen diajukan dan dipakai AI setelah kepala sekolah menyetujuinya (muncul di Perlu Tindakan).",
+      "Buka dokumen untuk melihat teks yang dibaca AI, lalu tekan Analisis dengan AI untuk ringkasan isi pokoknya.",
+      "Saat AI menyusun CP, ATP, modul ajar, atau soal, bagian dokumen yang relevan ikut dibaca; judul dokumennya disebut di pesan hasil sebagai Rujukan pustaka.",
+    ],
+    tips: [
+      "Admin mengatur izin unggah guru lewat sakelar di atas daftar dokumen.",
+      "Dokumen dengan mapel tertentu hanya dibaca untuk mapel itu; dokumen tanpa mapel dibaca untuk semua mapel.",
+      "Bila peraturan berubah, buka menu ⋮ → Unggah versi baru. Dokumen lama yang tidak berlaku bisa diatur Jangan dipakai AI.",
+      "PDF hasil pindai (foto) belum bisa dibaca; pakai PDF berteks dari situs resmi atau DOCX.",
+      "Bagian Uji: bagian dokumen mana yang dibaca AI? menunjukkan kutipan yang akan dibaca AI untuk suatu topik.",
     ],
   },
   {

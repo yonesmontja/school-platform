@@ -12,6 +12,7 @@ use App\Models\MasterMateri;
 use App\Models\MasterPeriode;
 use App\Models\Subject;
 use App\Services\PerangkatAjarAIService;
+use App\Services\PustakaDokumenService;
 use App\Services\SoalAIService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -119,10 +120,13 @@ class PerangkatAjarController extends Controller
         $this->cekMapel($request, $request->id_mapel);
         $rujukan = CapaianPembelajaran::where('id_mapel', $request->id_mapel)->where('fase', '!=', $request->fase)->where('sumber', 'RESMI')
             ->orderBy('fase')->orderBy('urutan')->get(['fase', 'elemen', 'teks'])->toArray();
-        $hasil = $ai->susunCp(Subject::find($request->id_mapel)->nama_mapel, $request->fase, $rujukan, $request->catatan, $request->ai_mode);
+        $namaMapel = Subject::find($request->id_mapel)->nama_mapel;
+        $sumber = app(PustakaDokumenService::class)->pasang($ai, "capaian pembelajaran {$namaMapel} fase {$request->fase} elemen {$request->catatan}", $request->id_mapel, $request->fase);
+        $hasil = $ai->susunCp($namaMapel, $request->fase, $rujukan, $request->catatan, $request->ai_mode);
         if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
         $data = $this->rapikanCpAi($hasil, $request->fase, 'SEKOLAH')->map(fn($c) => ['fase' => $request->fase] + $c)->values();
-        return response()->json(['success' => true, 'message' => "Draf {$data->count()} elemen CP sekolah tersusun. Periksa dan sesuaikan sebelum menyimpan.", 'data' => $data]);
+        return response()->json(['success' => true, 'message' => "Draf {$data->count()} elemen CP sekolah tersusun. Periksa dan sesuaikan sebelum menyimpan."
+            . PustakaDokumenService::catatanSumber($sumber), 'data' => $data, 'rujukan' => $sumber]);
     }
 
     private function rapikanCpAi(array $cp, ?string $fase, string $sumber)
@@ -286,6 +290,8 @@ class PerangkatAjarController extends Controller
             'catatan_guru' => $request->catatan,
             'contoh_atp_disetujui' => $contoh ? $contoh->baris->map(fn($b) => $b->indikator?->deskripsi ?? $b->tp_usulan)->filter()->values()->all() : null,
         ];
+        $sumber = app(PustakaDokumenService::class)->pasang($ai, 'alur tujuan pembelajaran ' . ($atp->mapel?->nama_mapel ?? '') . " fase {$atp->fase} "
+            . $cp->pluck('elemen')->implode(' '), $atp->id_mapel, $atp->fase);
         $mentah = $ai->susunAtp(array_filter($konteks, fn($v) => $v !== null), $request->ai_mode);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 

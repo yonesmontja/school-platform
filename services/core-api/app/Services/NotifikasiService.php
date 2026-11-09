@@ -410,6 +410,24 @@ class NotifikasiService
                     'jumlah' => $video->count(), 'tautan' => '/dashboard/video-belajar?status=DIAJUKAN', 'waktu' => $waktu($video),
                 ]);
             }
+            $dokumen = \App\Models\DokumenRujukan::where('status', 'DIAJUKAN')->get(['id_dokumen', 'updated_at']);
+            if ($dokumen->isNotEmpty()) {
+                $hasil[] = $this->buat('dokumen-persetujuan', $dokumen->pluck('id_dokumen')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Pustaka Dokumen', 'ikon' => 'bi-file-earmark-text',
+                    'judul' => "{$dokumen->count()} dokumen rujukan menunggu persetujuan",
+                    'pesan' => 'Periksa dokumen yang diunggah guru, lalu setujui agar dibaca AI, atau kembalikan dengan catatan.',
+                    'jumlah' => $dokumen->count(), 'tautan' => '/dashboard/pustaka-dokumen?status=DIAJUKAN', 'waktu' => $waktu($dokumen),
+                ]);
+            }
+        }
+        $dokumenDitolak = \App\Models\DokumenRujukan::where('status', 'DITOLAK')->where('diunggah_oleh', $this->user->id)->get(['id_dokumen', 'updated_at']);
+        if ($dokumenDitolak->isNotEmpty()) {
+            $hasil[] = $this->buat('dokumen-dikembalikan', $dokumenDitolak->pluck('id_dokumen')->sort()->values()->all(), [
+                'tingkat' => 'info', 'kategori' => 'Pustaka Dokumen', 'ikon' => 'bi-file-earmark-excel',
+                'judul' => "{$dokumenDitolak->count()} dokumen rujukan dikembalikan kepala sekolah",
+                'pesan' => 'Baca catatan kepala sekolah, perbaiki atau ganti berkasnya, lalu unggah ulang.',
+                'jumlah' => $dokumenDitolak->count(), 'tautan' => '/dashboard/pustaka-dokumen', 'waktu' => $waktu($dokumenDitolak),
+            ]);
         }
         $renderGagal = \App\Models\VideoBelajar::where('render_status', 'GAGAL')->where('dibuat_oleh', $this->user->id)->get(['id_video', 'judul', 'render_pesan', 'updated_at']);
         if ($renderGagal->isNotEmpty()) {

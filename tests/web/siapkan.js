@@ -20,7 +20,7 @@ async function tunggu(url, kali = 60) {
 
 module.exports = async () => {
   const infra = path.resolve(__dirname, "../../infra");
-  jalankan(`docker compose -f "${path.join(infra, "docker-compose.yml")}" --profile e2e up -d core-api-e2e`);
+  jalankan(`docker compose -f "${path.join(infra, "docker-compose.yml")}" --profile e2e up -d --build core-api-e2e`);
   // Panaskan halaman sambil API tes bersiap
   const panas = Promise.all(HALAMAN.map((p) => fetch(WEB + p).catch(() => {})));
   await tunggu(`${API}/api/health`, 120);

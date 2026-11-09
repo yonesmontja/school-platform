@@ -247,6 +247,7 @@ class BankSoalController extends Controller
         $belajar = StatistikSoalService::bahanBelajar($p['bentuk'], $p['id_indikator'], $p['id_materi']);
         if ($belajar['capaian']) $konteks['capaian_siswa_sekolah'] = $belajar['capaian'];
 
+        $sumber = app(\App\Services\PustakaDokumenService::class)->pasang($ai, implode(' ', array_filter(['soal', $konteks['mapel'], $konteks['materi'], $konteks['tp']])), $p['id_mapel']);
         $mentah = $ai->drafSoal($konteks, $belajar['contoh'], $request->ai_mode, $belajar['hindari']);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 
@@ -255,8 +256,9 @@ class BankSoalController extends Controller
         return response()->json([
             'success' => true,
             'message' => count($tersimpan) . ' draf soal dibuat oleh AI' . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '') . '. Periksa dan edit sebelum mengajukan.'
-                . self::catatanBelajar($belajar),
+                . self::catatanBelajar($belajar) . \App\Services\PustakaDokumenService::catatanSumber($sumber),
             'data' => $tersimpan,
+            'rujukan' => $sumber,
             'belajar' => ['contoh' => count($belajar['contoh']), 'teruji' => $belajar['teruji'], 'hindari' => count($belajar['hindari']), 'capaian' => $belajar['capaian']],
         ]);
     }

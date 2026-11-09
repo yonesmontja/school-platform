@@ -47,6 +47,7 @@ class SchoolSetting extends Model
         'elevenlabs_voice_netral',
         'elevenlabs_voice_klon',
         'gemini_tts_voice',
+        'guru_boleh_unggah_dokumen',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;

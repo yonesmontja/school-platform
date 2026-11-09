@@ -131,12 +131,15 @@ class ModulAjarController extends Controller
             'contoh_modul_disetujui' => $contoh ? ['tujuan' => $contoh->isi['desain']['tujuan'] ?? null, 'pertemuan_1' => $contoh->isi['pertemuan'][0] ?? null] : null,
         ], fn($v) => $v !== null && $v !== []);
 
+        $sumber = app(\App\Services\PustakaDokumenService::class)->pasang($ai, 'modul ajar pembelajaran mendalam ' . ($modul->mapel?->nama_mapel ?? '')
+            . " fase {$modul->fase} " . $tp->pluck('deskripsi')->implode(' ') . ' ' . $cp->pluck('elemen')->implode(' '), $modul->id_mapel, $modul->fase);
         $mentah = $ai->susunModul($konteks, $request->ai_mode);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
         $isi = ModulAjar::normalisasi($mentah, $modul->jumlah_pertemuan);
         foreach ($isi['pertemuan'] as &$p) $p['jp'] ??= $modul->jp_per_pertemuan;
         unset($p);
-        return response()->json(['success' => true, 'message' => 'Draf modul ajar siap. Periksa setiap bagian, ubah bila perlu, lalu Simpan.', 'isi' => $isi]);
+        return response()->json(['success' => true, 'message' => 'Draf modul ajar siap. Periksa setiap bagian, ubah bila perlu, lalu Simpan.'
+            . \App\Services\PustakaDokumenService::catatanSumber($sumber), 'isi' => $isi, 'rujukan' => $sumber]);
     }
 
     public function ajukan(Request $request, string $id)

@@ -40,6 +40,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
       { href: "/dashboard/master-mbk", label: "Aktivitas", icon: "bi-list-check" },
       { href: "/dashboard/master-materi", label: "Materi", icon: "bi-journal-bookmark" },
+      { href: "/dashboard/pustaka-dokumen", label: "Pustaka Dokumen", icon: "bi-folder2-open" },
     ],
   },
   {
