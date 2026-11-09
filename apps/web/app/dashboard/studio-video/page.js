@@ -11,12 +11,20 @@ import { API_ORIGIN } from "@/app/lib/config";
 import { minta } from "@/components/banksoal/api";
 import { FPS, RASIO, ukuranRasio } from "@/components/video/templat/index.js";
 import { NASKAH_CONTOH, Rakitan, adeganBaru, awalAdegan, detikAdeganRakitan, elemenBaru, hitungDurasiRakitan, idBaru } from "@/components/video/templat/rakitan.jsx";
-import { PanelAdegan, PanelElemen, PanelMerek } from "@/components/video/studio/PanelStudio";
+import { PanelAdegan, PanelElemen, PanelMerek, PanelMusik } from "@/components/video/studio/PanelStudio";
+import Timeline from "@/components/video/studio/Timeline";
 
 const Player = dynamic(() => import("@remotion/player").then((m) => m.Player), { ssr: false, loading: () => <div className="w-100 h-100 bg-dark"></div> });
 const KUNCI_DRAF = "studio-video-draf";
 const salin = (x) => JSON.parse(JSON.stringify(x));
 const toast = (title, icon = "success") => Swal.fire({ toast: true, position: "top-end", icon, title, showConfirmButton: false, timer: 2500 });
+const KATEGORI_TEMPLAT = [["PEMBELAJARAN", "Pembelajaran"], ["PROMOSI", "PPDB & promosi"], ["PENGUMUMAN", "Pengumuman"], ["HARI_BESAR", "Hari besar"], ["PRESTASI", "Prestasi"], ["LAINNYA", "Lainnya"]];
+const TUJUAN = [
+  ["PEMBELAJARAN", "Pembelajaran", "Tampil di Portal Siswa dan bisa ditautkan ke modul ajar setelah disetujui."],
+  ["PROMOSI", "Promosi / PPDB", "Untuk dibagikan ke media sosial; tidak tampil di Portal Siswa. Foto siswa wajib berizin orang tua."],
+  ["PENGUMUMAN", "Pengumuman", "Untuk grup orang tua & media sosial; tidak tampil di Portal Siswa."],
+  ["ACARA", "Acara / kegiatan", "Liputan kegiatan sekolah; tidak tampil di Portal Siswa. Foto siswa wajib berizin orang tua."],
+];
 const bacaDraf = () => { try { return JSON.parse(localStorage.getItem(KUNCI_DRAF) || "null"); } catch { return null; } };
 
 /** Perkiraan tinggi kotak teks (% bingkai) untuk kotak pilih di kanvas. */
@@ -37,7 +45,9 @@ function Studio() {
   const [suaraList, setSuaraList] = useState([]);
   const [riwayat, setRiwayat] = useState({ lalu: [], nanti: [] });
   const [naskah, setNaskahMentah] = useState(null);
-  const [meta, setMeta] = useState({ judul: "", deskripsi: "", id_mapel: "", id_kelas: "", suara: "LOKAL" });
+  const [meta, setMeta] = useState({ judul: "", deskripsi: "", id_mapel: "", id_kelas: "", suara: "LOKAL", tujuan: "PEMBELAJARAN" });
+  const [waktu, setWaktu] = useState(null); // detik dalam adegan yang ditampilkan kanvas (null = saat semua elemen sudah muncul)
+  const [templat, setTemplat] = useState(false);
   const [adeganAktif, setAdeganAktif] = useState(0);
   const [pilih, setPilih] = useState(null); // id elemen
   const [tab, setTab] = useState("properti");
@@ -63,7 +73,7 @@ function Studio() {
       minta("GET", `/video-belajar/${idVideo}`).then((r) => {
         const v = r.data;
         setNaskahMentah(v.props?.adegan ? salin(v.props) : salin(NASKAH_CONTOH));
-        setMeta({ judul: v.judul, deskripsi: v.deskripsi || "", id_mapel: v.id_mapel || "", id_kelas: v.id_kelas || "", suara: v.suara || "LOKAL" });
+        setMeta({ judul: v.judul, deskripsi: v.deskripsi || "", id_mapel: v.id_mapel || "", id_kelas: v.id_kelas || "", suara: v.suara || "LOKAL", tujuan: v.tujuan || "PEMBELAJARAN" });
       }).catch((e) => Swal.fire("Gagal memuat video", e.message, "error"));
       return;
     }
@@ -123,19 +133,33 @@ function Studio() {
     const a = naskah.adegan[adeganAktif];
     if (!a) return;
     const panjang = Math.round(detikAdeganRakitan(a) * FPS);
-    const muncul = Math.max(0, ...(a.elemen || []).map((e) => (e.masuk?.mulai || 0) + (e.masuk?.durasi || 0.6)));
+    // Bawaan: saat semua elemen sudah muncul (sebelum ada yang hilang); atau detik pilihan di timeline
+    const muncul = Math.max(0, ...(a.elemen || []).filter((e) => e.keluar?.pada == null).map((e) => (e.masuk?.mulai || 0) + (e.masuk?.durasi || 0.6)));
+    const f = waktu != null ? Math.round(waktu * FPS) : Math.round(muncul * FPS) + 3;
     player.current.pause();
-    player.current.seekTo(awal[adeganAktif] + Math.min(panjang - 1, Math.round(muncul * FPS) + 3));
-  }, [naskah, adeganAktif, pratinjau, awal, playerKe]);
+    player.current.seekTo(awal[adeganAktif] + Math.min(panjang - 1, f));
+  }, [naskah, adeganAktif, pratinjau, awal, playerKe, waktu]);
+  useEffect(() => { setWaktu(null); }, [adeganAktif]);
 
   // ===== Aset =====
-  const unggah = async (file) => {
+  const unggah = async (file, jenis = "gambar") => {
     const fd = new FormData();
-    fd.append("gambar", file);
+    fd.append(jenis, file);
+    if (jenis === "gambar") {
+      // Foto siswa di video publik (promosi, pengumuman, acara) wajib berizin orang tua (UU Pelindungan Data Pribadi)
+      const { value, isConfirmed } = await Swal.fire({
+        title: "Apakah gambar ini memuat foto siswa?", input: "radio", inputValue: "tidak",
+        inputOptions: { tidak: "Tidak", izin: "Ya, orang tua sudah memberi izin", belum: "Ya, belum ada izin orang tua" },
+        confirmButtonText: "Unggah", showCancelButton: true, cancelButtonText: "Batal",
+      });
+      if (!isConfirmed) return null;
+      fd.append("foto_siswa", value !== "tidak" ? "1" : "0");
+      fd.append("izin_ortu", value === "izin" ? "1" : "0");
+    }
     try {
       const res = await fetch(`${API_URL}/video-belajar/aset`, { method: "POST", headers: authHeaders(false), body: fd });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((d.errors && Object.values(d.errors)[0]?.[0]) || d.message || "Gambar gagal diunggah.");
+      if (!res.ok) throw new Error((d.errors && Object.values(d.errors)[0]?.[0]) || d.message || "Berkas gagal diunggah.");
       return d.url;
     } catch (e) { Swal.fire("Gagal", e.message, "error"); return null; }
   };
@@ -305,6 +329,7 @@ function Studio() {
         <span className="small text-body-secondary">{naskah.adegan.length} adegan · {Math.round(durasi / FPS)} detik</span>
         <div className="ms-auto d-flex gap-2">
           {!idVideo && <button type="button" className="btn btn-sm btn-outline-secondary" onClick={naskahBaru}><i className="bi bi-file-earmark-plus me-1"></i>Baru</button>}
+          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTemplat(true)}><i className="bi bi-collection me-1"></i>Templat</button>
           <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => putar(false)}><i className="bi bi-play-fill me-1"></i>Putar semua</button>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => { setMeta((m) => ({ ...m, judul: m.judul || naskah.judul })); setKirim(true); }}><i className="bi bi-film me-1"></i>{idVideo ? "Render ulang" : "Render video"}</button>
         </div>
@@ -376,29 +401,37 @@ function Studio() {
               ? <button type="button" className="btn btn-sm btn-secondary" onClick={() => { player.current?.pause(); setPratinjau(false); }}><i className="bi bi-pencil me-1"></i>Kembali menyunting</button>
               : <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => putar(true)}><i className="bi bi-play me-1"></i>Putar adegan ini</button>}
             {tegak && <div className="form-check form-check-inline m-0"><input className="form-check-input" type="checkbox" id="stAman" checked={garisAman} onChange={(e) => setGarisAman(e.target.checked)} /><label className="form-check-label" htmlFor="stAman">Garis area aman</label></div>}
-            <span className="text-body-secondary">Geser elemen di kanvas; panah untuk menggeser halus, Delete untuk menghapus. Pratinjau tanpa suara.</span>
+            <span className="text-body-secondary">Geser elemen di kanvas; panah untuk menggeser halus, Delete untuk menghapus. Pratinjau tanpa narasi.</span>
           </div>
+          {adegan && !pratinjau && (
+            <Timeline adegan={adegan} durasi={Math.round(detikAdeganRakitan(adegan) * 10) / 10} waktu={waktu} onWaktu={setWaktu} pilih={pilih}
+              onPilih={(id) => { setPilih(id); setTab("properti"); }} onUbah={ubahElemen} onCatat={catatSekarang} />
+          )}
         </div>
 
         {/* Panel properti */}
         <div className="studio-panel card shadow-sm">
           <div className="card-header py-1">
             <ul className="nav nav-tabs card-header-tabs small" role="tablist">
-              {[["properti", elemen ? "Elemen" : "Adegan"], ["merek", "Merek"]].map(([k, l]) => (
+              {[["properti", elemen ? "Elemen" : "Adegan"], ["musik", naskah.musik ? "Musik ♪" : "Musik"], ["merek", "Merek"]].map(([k, l]) => (
                 <li key={k} className="nav-item"><button type="button" role="tab" aria-selected={tab === k} className={`nav-link py-1 ${tab === k ? "active" : ""}`} onClick={() => setTab(k)}>{l}</button></li>
               ))}
             </ul>
           </div>
           <div className="card-body studio-gulir">
-            {tab === "merek"
+            {tab === "musik"
+              ? <PanelMusik musik={naskah.musik} onUbah={(m) => ubahNaskah((n) => ({ ...n, musik: m }))} onUnggahAudio={(f) => unggah(f, "audio")} />
+              : tab === "merek"
               ? <PanelMerek merek={naskah.merek} onUbah={(x) => ubahNaskah((n) => ({ ...n, merek: { ...n.merek, ...x } }))} onUnggah={unggah} onSimpanSekolah={simpanMerekSekolah} bolehSimpan />
               : elemen
-                ? <PanelElemen key={elemen.id} e={elemen} palet={palet} onUbah={(x) => ubahElemen(elemen.id, x)} onUnggah={unggah} />
+                ? <PanelElemen key={elemen.id} e={elemen} palet={palet} durasiAdegan={detikAdeganRakitan(adegan)} onUbah={(x) => ubahElemen(elemen.id, x)} onUnggah={unggah} />
                 : adegan && <PanelAdegan a={adegan} nomor={adeganAktif + 1} palet={palet} onUbah={(x) => ubahAdegan(x)} onUnggah={unggah} />}
           </div>
         </div>
       </div>
 
+      {templat && <ModalTemplat naskah={naskah} onTutup={() => setTemplat(false)}
+        onPakai={(t) => { catatSekarang(); setNaskah({ ...salin(t.naskah), merek: t.naskah.merek?.logo ? t.naskah.merek : { ...t.naskah.merek, logo: naskah.merek?.logo || null } }); setAdeganAktif(0); setPilih(null); setTemplat(false); toast(`Templat "${t.judul}" dipakai`); }} />}
       {kirim && <ModalRender naskah={naskah} meta={meta} setMeta={setMeta} referensi={referensi} suaraList={suaraList} idVideo={idVideo}
         onTutup={() => setKirim(false)} onSelesai={(v) => { setKirim(false); if (!idVideo) { try { localStorage.removeItem(KUNCI_DRAF); } catch { /* */ } } window.location.href = `/dashboard/video-belajar`; }} />}
     </div>
@@ -412,7 +445,7 @@ function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onT
     e.preventDefault();
     setProses(true);
     try {
-      const body = { templat: "Rakitan", judul: meta.judul, deskripsi: meta.deskripsi || null, id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, suara: meta.suara, props: { ...naskah, judul: naskah.judul || meta.judul } };
+      const body = { templat: "Rakitan", tujuan: meta.tujuan, judul: meta.judul, deskripsi: meta.deskripsi || null, id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, suara: meta.suara, props: { ...naskah, judul: naskah.judul || meta.judul } };
       const r = await minta("POST", idVideo ? `/video-belajar/${idVideo}/render` : "/video-belajar/templat", body);
       await Swal.fire({ icon: "success", title: "Masuk antrean render", text: r.message });
       onSelesai(r.data);
@@ -429,6 +462,11 @@ function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onT
             <div className="modal-body">
               <label className="form-label small mb-1" htmlFor="rdJudul">Judul di pustaka video</label>
               <input id="rdJudul" className="form-control mb-2" required maxLength={200} value={meta.judul} onChange={(e) => ubah({ judul: e.target.value })} />
+              <label className="form-label small mb-1" htmlFor="rdTujuan">Tujuan video</label>
+              <select id="rdTujuan" className="form-select" value={meta.tujuan} onChange={(e) => ubah({ tujuan: e.target.value })}>
+                {TUJUAN.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <div className="form-text mb-2">{TUJUAN.find((t) => t[0] === meta.tujuan)?.[2]}</div>
               <label className="form-label small mb-1" htmlFor="rdDesk">Deskripsi (opsional)</label>
               <textarea id="rdDesk" className="form-control mb-2" rows={2} maxLength={3000} value={meta.deskripsi} onChange={(e) => ubah({ deskripsi: e.target.value })} />
               <div className="row g-2 mb-2">
@@ -454,6 +492,76 @@ function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onT
               <button className="btn btn-primary" disabled={proses}>{proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-send me-1"></i>}Kirim ke antrean</button>
             </div>
           </form>
+        </div>
+      </div>
+      <div className="modal-backdrop show"></div>
+    </>
+  );
+}
+
+/** Templat naskah sekolah: pakai untuk video baru, atau simpan naskah yang sedang dirakit sebagai templat. */
+function ModalTemplat({ naskah, onTutup, onPakai }) {
+  const [daftar, setDaftar] = useState(null);
+  const [f, setF] = useState({ judul: naskah.judul || "", kategori: "PROMOSI", deskripsi: "" });
+  const [proses, setProses] = useState(false);
+  const muat = () => minta("GET", "/video-belajar/templat-studio").then((r) => setDaftar(r.data)).catch((e) => Swal.fire("Gagal", e.message, "error"));
+  useEffect(() => { muat(); }, []);
+  const simpan = async (e) => {
+    e.preventDefault(); setProses(true);
+    try { await minta("POST", "/video-belajar/templat-studio", { ...f, naskah }); toast("Naskah disimpan sebagai templat"); muat(); }
+    catch (err) { Swal.fire("Gagal", err.message, "error"); }
+    finally { setProses(false); }
+  };
+  const pakai = async (t) => {
+    const ok = await Swal.fire({ title: `Pakai templat "${t.judul}"?`, text: "Naskah yang sedang dirakit diganti (bisa dibatalkan dengan Ctrl+Z).", icon: "question", showCancelButton: true, confirmButtonText: "Pakai", cancelButtonText: "Batal" });
+    if (ok.isConfirmed) onPakai(t);
+  };
+  const hapus = async (t) => {
+    const ok = await Swal.fire({ title: `Hapus templat "${t.judul}"?`, icon: "warning", showCancelButton: true, confirmButtonText: "Hapus", cancelButtonText: "Batal", confirmButtonColor: "#dc3545" });
+    if (!ok.isConfirmed) return;
+    try { await minta("DELETE", `/video-belajar/templat-studio/${t.id_templat}`); muat(); } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
+  const namaKategori = (k) => KATEGORI_TEMPLAT.find((x) => x[0] === k)?.[1] || k;
+  return (
+    <>
+      <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Templat video">
+        <div className="modal-dialog modal-lg modal-dialog-scrollable">
+          <div className="modal-content border-0 shadow">
+            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-collection text-primary me-2"></i>Templat video sekolah</h5>
+              <button type="button" className="btn-close" onClick={onTutup} aria-label="Tutup"></button></div>
+            <div className="modal-body">
+              {!daftar ? <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
+                : !daftar.length ? <div className="text-muted small mb-3">Belum ada templat. Simpan naskah ini sebagai templat pertama di bawah.</div>
+                : (
+                  <div className="row g-2 mb-3">
+                    {daftar.map((t) => (
+                      <div key={t.id_templat} className="col-md-6">
+                        <div className="border rounded p-2 h-100 d-flex flex-column">
+                          <div className="d-flex align-items-start gap-2">
+                            <div className="flex-grow-1 min-w-0"><div className="fw-semibold text-truncate">{t.judul}</div>
+                              <div className="small text-body-secondary">{namaKategori(t.kategori)} · {t.rasio} · {t.naskah?.adegan?.length || 0} adegan</div></div>
+                          </div>
+                          {t.deskripsi && <div className="small mt-1">{t.deskripsi}</div>}
+                          <div className="mt-auto pt-2 d-flex gap-2">
+                            <button type="button" className="btn btn-sm btn-primary" onClick={() => pakai(t)}><i className="bi bi-box-arrow-in-down me-1"></i>Pakai</button>
+                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => hapus(t)} aria-label={`Hapus templat ${t.judul}`}><i className="bi bi-trash"></i></button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              <form className="border-top pt-3" onSubmit={simpan}>
+                <div className="fw-semibold small mb-2">Simpan naskah yang sedang dirakit sebagai templat</div>
+                <div className="row g-2">
+                  <div className="col-md-6"><input className="form-control form-control-sm" required maxLength={120} aria-label="Judul templat" placeholder="Judul templat" value={f.judul} onChange={(e) => setF({ ...f, judul: e.target.value })} /></div>
+                  <div className="col-md-6"><select className="form-select form-select-sm" aria-label="Kategori templat" value={f.kategori} onChange={(e) => setF({ ...f, kategori: e.target.value })}>{KATEGORI_TEMPLAT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+                  <div className="col-12"><input className="form-control form-control-sm" maxLength={1000} aria-label="Deskripsi templat" placeholder="Keterangan singkat (opsional)" value={f.deskripsi} onChange={(e) => setF({ ...f, deskripsi: e.target.value })} /></div>
+                </div>
+                <button className="btn btn-sm btn-outline-primary mt-2" disabled={proses}><i className="bi bi-bookmark-plus me-1"></i>Simpan sebagai templat</button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
       <div className="modal-backdrop show"></div>

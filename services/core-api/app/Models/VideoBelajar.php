@@ -19,7 +19,7 @@ class VideoBelajar extends Model
     protected $fillable = [
         'id_video', 'judul', 'deskripsi', 'id_mapel', 'id_kelas', 'fase', 'id_materi', 'tp', 'file_url', 'poster_url',
         'durasi_detik', 'ukuran_kb', 'sumber', 'komposisi', 'props', 'narasi', 'status', 'catatan_revisi',
-        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'templat', 'suara', 'render_status', 'render_pesan', 'render_mulai', 'rasio', 'mesin',
+        'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'templat', 'suara', 'render_status', 'render_pesan', 'render_mulai', 'rasio', 'mesin', 'tujuan',
     ];
     protected $casts = ['tp' => 'array', 'props' => 'array', 'durasi_detik' => 'integer', 'ukuran_kb' => 'integer', 'disetujui_pada' => 'datetime', 'render_mulai' => 'datetime'];
 

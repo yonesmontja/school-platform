@@ -298,6 +298,12 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/studio', [VideoBelajarController::class, 'studio']);
             Route::put('/studio', [VideoBelajarController::class, 'aturStudio']);
             Route::post('/aset', [VideoBelajarController::class, 'aset'])->middleware('throttle:60,1');
+            Route::get('/aset', [VideoBelajarController::class, 'daftarAset']);
+            Route::patch('/aset/{id}', [VideoBelajarController::class, 'ubahAset'])->whereNumber('id');
+            Route::get('/templat-studio', [VideoBelajarController::class, 'daftarTemplatStudio']);
+            Route::post('/templat-studio', [VideoBelajarController::class, 'simpanTemplatStudio']);
+            Route::put('/templat-studio/{id}', [VideoBelajarController::class, 'simpanTemplatStudio']);
+            Route::delete('/templat-studio/{id}', [VideoBelajarController::class, 'hapusTemplatStudio']);
             Route::post('/{id}/render', [VideoBelajarController::class, 'renderUlang'])->middleware('throttle:20,1');
             Route::post('/tautan', [VideoBelajarController::class, 'tautkan']);
             Route::delete('/tautan/{id}', [VideoBelajarController::class, 'lepas'])->whereNumber('id');

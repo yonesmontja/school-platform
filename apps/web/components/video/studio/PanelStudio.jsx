@@ -1,6 +1,7 @@
 "use client";
 // Panel properti Studio Rakit Video: elemen terpilih, adegan, dan merek sekolah.
-import { BENTUK, GERAK, HURUF, MASUK, TRANSISI } from "../templat/rakitan.jsx";
+import { BENTUK, GERAK, HURUF, KELUAR, MASUK, TRANSISI } from "../templat/rakitan.jsx";
+import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 
 export const EMOJI_STUDIO = ["⭐", "🏫", "📚", "✏️", "🎨", "🎉", "👍", "❤️", "🌟", "🏆", "🎓", "⚽", "🎵", "🌳", "🌺", "☀️", "🐟", "🍌", "🥥", "🐦", "🛶", "⛰️", "💡", "📣", "✅", "👋", "😊", "🤝", "🧒", "👩‍🏫"];
 
@@ -32,10 +33,11 @@ function Angka({ id, label, nilai, min, max, step = 1, onUbah, satuan }) {
   );
 }
 
-export function PanelElemen({ e, palet, onUbah, onUnggah }) {
+export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah }) {
   const g = e.gaya || {};
   const gaya = (x) => onUbah({ gaya: { ...g, ...x } });
   const masuk = (x) => onUbah({ masuk: { ...e.masuk, ...x } });
+  const keluar = (x) => onUbah({ keluar: { preset: "pudar", pada: null, ...e.keluar, ...x } });
   return (
     <div>
       <div className="small text-uppercase text-body-secondary fw-bold mb-2">{{ teks: "Teks", emoji: "Emoji", gambar: "Gambar", bentuk: "Bentuk" }[e.tipe]}</div>
@@ -92,6 +94,40 @@ export function PanelElemen({ e, palet, onUbah, onUnggah }) {
       </div>
       <div className="mt-2"><Label htmlFor="stGerak">Gerak setelah muncul</Label>
         <select id="stGerak" className="form-select form-select-sm" value={e.gerak} onChange={(x) => onUbah({ gerak: x.target.value })}>{GERAK.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+      <div className="form-check form-switch mt-2 mb-1">
+        <input className="form-check-input" type="checkbox" role="switch" id="stAdaKeluar" checked={e.keluar?.pada != null}
+          onChange={(x) => keluar({ pada: x.target.checked ? Math.max((e.masuk?.mulai || 0) + 0.5, Math.round(((durasiAdegan || 4) - 0.8) * 10) / 10) : null })} />
+        <label className="form-check-label small fw-semibold" htmlFor="stAdaKeluar">Hilang sebelum adegan selesai</label>
+      </div>
+      {e.keluar?.pada != null && (
+        <div className="row g-2">
+          <div className="col-7"><select className="form-select form-select-sm" aria-label="Animasi keluar" value={e.keluar.preset} onChange={(x) => keluar({ preset: x.target.value })}>{KELUAR.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+          <div className="col-5"><input type="number" className="form-control form-control-sm" aria-label="Detik hilang" min={0.2} max={40} step={0.1} value={e.keluar.pada} onChange={(x) => keluar({ pada: Number(x.target.value) })} /></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PanelMusik({ musik, onUbah, onUnggahAudio }) {
+  return (
+    <div>
+      <div className="small text-uppercase text-body-secondary fw-bold mb-2">Musik latar</div>
+      <div className="mb-2"><Label htmlFor="stMusik">Berkas musik (MP3/M4A/OGG/WAV, maks. 10 MB)</Label>
+        <input id="stMusik" type="file" className="form-control form-control-sm" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/ogg,audio/wav"
+          onChange={async (x) => { const f = x.target.files?.[0]; if (f) { const url = await onUnggahAudio(f); if (url) onUbah({ src: url, volume: musik?.volume ?? 0.35, redam: musik?.redam ?? true }); } }} />
+        <div className="form-text">Pakai musik bebas royalti atau milik sekolah. Musik diputar berulang sepanjang video.</div></div>
+      {musik?.src ? (
+        <>
+          <audio controls src={srcGambar(musik.src)} className="w-100 mb-2" aria-label="Dengar musik" />
+          <Angka id="stVolMusik" label="Volume musik" nilai={musik.volume ?? 0.35} min={0} max={1} step={0.05} onUbah={(v) => onUbah({ ...musik, volume: v })} />
+          <div className="form-check form-switch mb-2">
+            <input className="form-check-input" type="checkbox" role="switch" id="stRedam" checked={musik.redam !== false} onChange={(x) => onUbah({ ...musik, redam: x.target.checked })} />
+            <label className="form-check-label small" htmlFor="stRedam">Kecilkan musik saat narasi berbicara</label>
+          </div>
+          <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onUbah(null)}><i className="bi bi-trash me-1"></i>Hapus musik</button>
+        </>
+      ) : <div className="small text-body-secondary">Belum ada musik latar.</div>}
     </div>
   );
 }

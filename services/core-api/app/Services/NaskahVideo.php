@@ -15,12 +15,15 @@ class NaskahVideo
     public const BENTUK = ['kotak', 'bulat', 'lingkaran', 'panah', 'bintang', 'garis'];
     public const MASUK = ['tidak', 'pudar', 'geser-kiri', 'geser-kanan', 'geser-atas', 'geser-bawah', 'pop', 'zoom', 'putar', 'mantul', 'ketik', 'sapu'];
     public const GERAK = ['tidak', 'melambung', 'denyut', 'goyang', 'putar'];
+    public const KELUAR = ['tidak', 'pudar', 'geser-kiri', 'geser-kanan', 'geser-atas', 'geser-bawah', 'zoom'];
+    public const TUJUAN = ['PEMBELAJARAN', 'PROMOSI', 'PENGUMUMAN', 'ACARA'];
     public const TRANSISI = ['tidak', 'pudar', 'geser', 'zoom'];
     public const LATAR = ['warna', 'gradien', 'gambar'];
     public const HURUF = ['Nunito', 'Noto Sans', 'Noto Serif', 'DejaVu Sans'];
     public const MAKS_ADEGAN = 20;
     public const MAKS_ELEMEN = 12;
     private const ASET = '#^/storage/video-aset/[\w.-]+\.(png|jpe?g|webp)$#';
+    private const ASET_AUDIO = '#^/storage/video-aset/[\w.-]+\.(mp3|m4a|ogg|wav)$#';
 
     public static function rapikan(array $p): array
     {
@@ -29,6 +32,7 @@ class NaskahVideo
             'rasio' => in_array($p['rasio'] ?? null, ['16:9', '9:16', '1:1', '4:3'], true) ? $p['rasio'] : '16:9',
             'judul' => self::teks($p['judul'] ?? '', 120),
             'subtitle' => (bool) ($p['subtitle'] ?? true),
+            'musik' => self::musik($p['musik'] ?? null),
             'merek' => [
                 'logo' => self::aset($merek['logo'] ?? null),
                 'posisi_logo' => in_array($merek['posisi_logo'] ?? null, ['kiri-atas', 'kanan-atas', 'kiri-bawah', 'kanan-bawah', 'tidak'], true) ? $merek['posisi_logo'] : 'kanan-atas',
@@ -97,7 +101,28 @@ class NaskahVideo
                 'durasi' => self::angka($m['durasi'] ?? 0.6, 0.1, 5, 0.6),
             ],
             'gerak' => in_array($e['gerak'] ?? null, self::GERAK, true) ? $e['gerak'] : 'tidak',
+            'keluar' => [
+                'preset' => in_array($e['keluar']['preset'] ?? null, self::KELUAR, true) ? $e['keluar']['preset'] : 'tidak',
+                'pada' => self::angka($e['keluar']['pada'] ?? null, 0.2, 40, null),
+            ],
         ];
+    }
+
+    private static function musik($m): ?array
+    {
+        if (!is_array($m) || !is_string($m['src'] ?? null) || !preg_match(self::ASET_AUDIO, $m['src'])) return null;
+        return ['src' => $m['src'], 'volume' => self::angka($m['volume'] ?? 0.35, 0, 1, 0.35), 'redam' => (bool) ($m['redam'] ?? true)];
+    }
+
+    /** Semua aset gambar yang dipakai naskah (elemen, latar, logo). */
+    public static function asetGambar(array $naskah): array
+    {
+        $aset = [$naskah['merek']['logo'] ?? null];
+        foreach ($naskah['adegan'] ?? [] as $a) {
+            $aset[] = $a['latar']['gambar'] ?? null;
+            foreach ($a['elemen'] ?? [] as $e) if (($e['tipe'] ?? null) === 'gambar') $aset[] = $e['isi'] ?? null;
+        }
+        return array_values(array_unique(array_filter($aset)));
     }
 
     private static function teks($v, int $maks): string { return mb_substr(is_scalar($v) ? (string) $v : '', 0, $maks); }

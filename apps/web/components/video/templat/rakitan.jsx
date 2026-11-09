@@ -12,6 +12,8 @@ export const MASUK = [
   ["mantul", "Jatuh memantul"], ["ketik", "Mengetik (teks)"], ["sapu", "Disapu"], ["tidak", "Langsung muncul"],
 ];
 export const GERAK = [["tidak", "Diam"], ["melambung", "Melayang"], ["denyut", "Berdenyut"], ["goyang", "Bergoyang"], ["putar", "Berputar terus"]];
+export const KELUAR = [["tidak", "Langsung hilang"], ["pudar", "Memudar"], ["geser-kiri", "Geser ke kiri"], ["geser-kanan", "Geser ke kanan"],
+  ["geser-atas", "Naik ke atas"], ["geser-bawah", "Turun ke bawah"], ["zoom", "Mengecil"]];
 export const TRANSISI = [["pudar", "Pudar"], ["geser", "Geser"], ["zoom", "Zoom"], ["tidak", "Langsung"]];
 export const BENTUK = [["kotak", "Kotak"], ["bulat", "Bulat/elips"], ["lingkaran", "Lingkaran garis"], ["panah", "Panah"], ["bintang", "Bintang"], ["garis", "Garis"]];
 export const HURUF = {
@@ -81,6 +83,20 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     case "sapu": clip = `inset(0 ${(1 - t) * 100}% 0 0)`; op = ada; break;
     case "ketik": if (e.tipe === "teks") { nKetik = Math.floor(interpolate(f, [0, dur], [0, String(e.isi).length], jepit)); op = ada; } break;
     default: break;
+  }
+  // Animasi keluar (opsional): elemen hilang pada detik tertentu dalam adegan
+  if (e.keluar?.pada != null) {
+    const pada = Math.round(e.keluar.pada * fps);
+    const tk = interpolate(frame - pada, [0, 12], [0, 1], { ...jepit, easing: Easing.in(Easing.cubic) });
+    switch (e.keluar.preset) {
+      case "pudar": op *= 1 - tk; break;
+      case "geser-kiri": tx -= tk * lebar * 0.4; op *= 1 - tk; break;
+      case "geser-kanan": tx += tk * lebar * 0.4; op *= 1 - tk; break;
+      case "geser-atas": ty -= tk * tinggi * 0.4; op *= 1 - tk; break;
+      case "geser-bawah": ty += tk * tinggi * 0.4; op *= 1 - tk; break;
+      case "zoom": sc *= 1 - 0.8 * tk; op *= 1 - tk; break;
+      default: if (frame >= pada) op = 0;
+    }
   }
   const detik = Math.max(0, f) / fps;
   switch (e.gerak) {
@@ -182,6 +198,20 @@ function Logo({ merek, asetDasar, k }) {
   return <Img src={srcAset(merek.logo, asetDasar)} style={{ position: "absolute", [v === "atas" ? "top" : "bottom"]: 24 * k, [h === "kiri" ? "left" : "right"]: 24 * k, width: s, height: s, objectFit: "contain" }} />;
 }
 
+/** Musik latar berulang; volume mengecil saat narasi berbicara dan memudar di awal & akhir video. */
+function Musik({ p, awal }) {
+  const { durationInFrames, fps } = useVideoConfig();
+  const m = p?.musik;
+  if (!m?.src) return null;
+  const jendela = (p.adegan || []).map((a, i) => (a.audio && a.detik ? [awal[i], awal[i] + Math.round(a.detik * fps)] : null)).filter(Boolean);
+  const volume = (f) => {
+    const redam = m.redam !== false && jendela.some(([d, s]) => f >= d - 6 && f <= s + 6) ? 0.3 : 1;
+    const pudar = Math.min(1, f / 15, (durationInFrames - f) / 30);
+    return Math.max(0, (m.volume ?? 0.35) * redam * pudar);
+  };
+  return <Audio src={srcAset(m.src, p.asetDasar)} loop volume={volume} />;
+}
+
 export const Rakitan = (p) => {
   const { width: lebar, height: tinggi } = useVideoConfig();
   const k = Math.min(lebar, tinggi) / 720;
@@ -196,6 +226,7 @@ export const Rakitan = (p) => {
         </Sequence>
       ))}
       <Logo merek={p?.merek} asetDasar={p?.asetDasar} k={k} />
+      <Musik p={p} awal={awal} />
     </AbsoluteFill>
   );
 };
@@ -207,7 +238,7 @@ let nomor = 0;
 export const idBaru = () => `e${Date.now().toString(36)}${(nomor++).toString(36)}`;
 
 export function elemenBaru(tipe, warna = "#2563eb") {
-  const dasar = { id: idBaru(), tipe, x: 50, y: 50, rot: 0, gerak: "tidak", masuk: { preset: "pop", mulai: 0.2, durasi: 0.6 } };
+  const dasar = { id: idBaru(), tipe, x: 50, y: 50, rot: 0, gerak: "tidak", masuk: { preset: "pop", mulai: 0.2, durasi: 0.6 }, keluar: { preset: "tidak", pada: null } };
   const gaya = { ukuran: 60, warna: "#1f2937", latar: null, garis: null, tebal: true, miring: false, rata: "tengah", sudut: 0, bayangan: false, buram: 1 };
   if (tipe === "teks") return { ...dasar, isi: "Teks baru", w: 70, h: 15, gaya: { ...gaya, ukuran: 64 }, masuk: { preset: "geser-bawah", mulai: 0.2, durasi: 0.6 } };
   if (tipe === "emoji") return { ...dasar, isi: "⭐", w: 25, h: 25, gaya: { ...gaya, ukuran: 160 } };

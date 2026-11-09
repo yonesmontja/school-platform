@@ -779,3 +779,15 @@
 .studio-pegangan { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; background: #3b82f6; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; }
 .studio-aman { position: absolute; left: 4%; right: 4%; top: 9%; bottom: 20%; border: 1px dashed rgba(255,255,255,.55); pointer-events: none; }
 .studio-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--bs-border-color); padding: 0; }
+.studio-timeline .studio-tl-baris { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: .5rem; min-height: 26px; }
+.studio-timeline .studio-tl-baris.dipilih .studio-tl-label { color: var(--bs-primary); font-weight: 600; }
+.studio-tl-label { font-size: .78rem; padding: 0 .25rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.studio-tl-jalur { position: relative; height: 22px; background: var(--bs-tertiary-bg); border-radius: 4px; touch-action: none; }
+.studio-tl-penggaris { background: transparent; border-bottom: 1px solid var(--bs-border-color); cursor: pointer; height: 20px; }
+.studio-tl-tanda { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; color: var(--bs-secondary-color); }
+.studio-tl-tanda::after { content: ""; position: absolute; left: 50%; top: 13px; width: 1px; height: 6px; background: var(--bs-border-color); }
+.studio-tl-batang { position: absolute; top: 3px; bottom: 3px; background: rgba(var(--bs-primary-rgb), .35); border: 1px solid var(--bs-primary); border-radius: 4px; cursor: grab; overflow: hidden; }
+.studio-tl-baris.dipilih .studio-tl-batang { background: rgba(var(--bs-primary-rgb), .6); }
+.studio-tl-masuk { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.55) 0 4px, transparent 4px 8px); pointer-events: none; }
+.studio-tl-ujung { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; background: var(--bs-primary); cursor: ew-resize; }
+.studio-tl-kepala { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #dc3545; pointer-events: none; transform: translateX(-1px); }

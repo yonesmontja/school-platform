@@ -15,6 +15,9 @@ export function rasioDari(lebar, tinggi) {
 }
 
 export const durasi = (d) => (d ? `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}` : "");
+// Tujuan video: hanya PEMBELAJARAN yang tampil di Portal Siswa
+export const TUJUAN_VIDEO = { PEMBELAJARAN: "Pembelajaran", PROMOSI: "Promosi / PPDB", PENGUMUMAN: "Pengumuman", ACARA: "Acara / kegiatan" };
+
 export const STATUS_VIDEO = {
   DRAF: ["Draf", "secondary"], DIAJUKAN: ["Menunggu persetujuan", "warning"], DISETUJUI: ["Disetujui", "success"], REVISI: ["Perlu revisi", "danger"],
 };

@@ -12,6 +12,8 @@ use App\Models\TransJadwal;
 use App\Models\VideoBelajar;
 use App\Models\VideoTautan;
 use App\Models\SchoolSetting;
+use App\Models\TemplatVideo;
+use App\Models\VideoAset;
 use App\Models\User;
 use App\Services\NaskahVideo;
 use App\Services\SuaraService;
@@ -132,6 +134,7 @@ class VideoBelajarController extends Controller
 
     public const TEMPLAT = ['KartuGambar', 'Berhitung', 'Urutan', 'Pecahan', 'Rakitan'];
     private const MIME_ASET = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    private const MIME_AUDIO = ['audio/mpeg' => 'mp3', 'audio/mp3' => 'mp3', 'audio/mp4' => 'm4a', 'audio/x-m4a' => 'm4a', 'audio/ogg' => 'ogg', 'audio/wav' => 'wav', 'audio/x-wav' => 'wav'];
 
     /** Pilihan suara narasi beserta ketersediaannya. */
     public function suara()
@@ -258,15 +261,82 @@ class VideoBelajarController extends Controller
         return response()->json(['success' => true, 'message' => 'Pengaturan Studio disimpan.', 'data' => self::pengaturanStudio()]);
     }
 
-    /** Unggah gambar untuk naskah (elemen gambar, latar, logo): PNG/JPG/WebP maks. 5 MB. */
-    public function aset(Request $request)
+    private function cekPembuatAtauAdmin(Request $request): void
     {
         $u = $request->user();
         abort_unless($u->id === self::pengaturanStudio()['id_pembuat'] || $u->isAdmin(), 403, 'Studio Rakit Video hanya untuk pembuat video yang ditunjuk admin.');
-        $request->validate(['gambar' => 'required|file|max:5120|mimetypes:' . implode(',', array_keys(self::MIME_ASET))]);
-        $f = $request->file('gambar');
-        $path = $f->storeAs('video-aset', 'aset_' . Str::lower(Str::random(20)) . '.' . self::MIME_ASET[$f->getMimeType()], 'public');
-        return response()->json(['success' => true, 'url' => '/storage/' . $path], 201);
+    }
+
+    /**
+     * Unggah aset naskah: gambar (PNG/JPG/WebP ≤ 5 MB, untuk elemen, latar, logo) atau musik (MP3/M4A/OGG/WAV ≤ 10 MB).
+     * Gambar ditandai memuat foto siswa atau tidak, dan apakah orang tua sudah memberi izin.
+     */
+    public function aset(Request $request)
+    {
+        $this->cekPembuatAtauAdmin($request);
+        $request->validate([
+            'gambar' => 'required_without:audio|file|max:5120|mimetypes:' . implode(',', array_keys(self::MIME_ASET)),
+            'audio' => 'required_without:gambar|file|max:10240|mimetypes:' . implode(',', array_keys(self::MIME_AUDIO)),
+            'foto_siswa' => 'nullable|boolean',
+            'izin_ortu' => 'nullable|boolean',
+        ]);
+        $audio = $request->hasFile('audio');
+        $f = $request->file($audio ? 'audio' : 'gambar');
+        $ext = ($audio ? self::MIME_AUDIO : self::MIME_ASET)[$f->getMimeType()];
+        $path = '/storage/' . $f->storeAs('video-aset', 'aset_' . Str::lower(Str::random(20)) . ".{$ext}", 'public');
+        $aset = VideoAset::create(['path' => $path, 'jenis' => $audio ? 'AUDIO' : 'GAMBAR', 'nama_asli' => mb_substr($f->getClientOriginalName(), 0, 250),
+            'foto_siswa' => !$audio && $request->boolean('foto_siswa'), 'izin_ortu' => !$audio && $request->boolean('izin_ortu'), 'diunggah_oleh' => $request->user()->id]);
+        return response()->json(['success' => true, 'url' => $path, 'data' => $aset], 201);
+    }
+
+    public function daftarAset(Request $request)
+    {
+        $this->cekPembuatAtauAdmin($request);
+        return response()->json(['data' => VideoAset::orderByDesc('created_at')->limit(300)->get()]);
+    }
+
+    /** Perbarui penanda foto siswa / izin orang tua (mis. setelah surat izin diterima). */
+    public function ubahAset(Request $request, int $id)
+    {
+        $this->cekPembuatAtauAdmin($request);
+        $a = VideoAset::findOrFail($id);
+        $a->update($request->validate(['foto_siswa' => 'sometimes|boolean', 'izin_ortu' => 'sometimes|boolean']));
+        return response()->json(['success' => true, 'message' => 'Penanda gambar disimpan.', 'data' => $a]);
+    }
+
+    // ===== Templat naskah sekolah =====
+
+    public function daftarTemplatStudio(Request $request)
+    {
+        $this->cekStudio($request);
+        return response()->json(['data' => TemplatVideo::orderBy('kategori')->orderByDesc('updated_at')->get()]);
+    }
+
+    public function simpanTemplatStudio(Request $request, ?string $id = null)
+    {
+        $this->cekStudio($request);
+        $t = $id ? TemplatVideo::findOrFail($id) : new TemplatVideo(['id_templat' => 'TPV-' . Str::upper(Str::random(10)), 'dibuat_oleh' => $request->user()->id]);
+        $data = $request->validate([
+            'judul' => [$id ? 'sometimes' : 'required', 'string', 'max:120'],
+            'kategori' => [$id ? 'sometimes' : 'required', Rule::in(TemplatVideo::KATEGORI)],
+            'deskripsi' => 'nullable|string|max:1000',
+            'naskah' => [$id ? 'sometimes' : 'required', 'array'],
+            'naskah.adegan' => [$id ? 'sometimes' : 'required', 'array', 'min:1', 'max:' . NaskahVideo::MAKS_ADEGAN],
+        ]);
+        if (isset($data['naskah'])) {
+            $naskah = NaskahVideo::rapikan((array) $request->input('naskah'));
+            $data['naskah'] = $naskah;
+            $data['rasio'] = $naskah['rasio'];
+        }
+        $t->fill($data)->save();
+        return response()->json(['success' => true, 'message' => 'Templat disimpan.', 'data' => $t], $id ? 200 : 201);
+    }
+
+    public function hapusTemplatStudio(Request $request, string $id)
+    {
+        $this->cekStudio($request);
+        TemplatVideo::findOrFail($id)->delete();
+        return response()->json(['success' => true, 'message' => 'Templat dihapus.']);
     }
 
     private function validasiRakitan(Request $request, bool $baru): array
@@ -282,6 +352,7 @@ class VideoBelajarController extends Controller
             'suara' => ['required', Rule::in(SuaraService::PILIHAN)],
             'props' => 'required|array',
             'props.adegan' => 'required|array|min:1|max:' . NaskahVideo::MAKS_ADEGAN,
+            'tujuan' => ['nullable', Rule::in(NaskahVideo::TUJUAN)],
         ], ['props.adegan.required' => 'Tambahkan minimal satu adegan.', 'props.adegan.max' => 'Maksimal ' . NaskahVideo::MAKS_ADEGAN . ' adegan.']);
         $pilihan = collect(SuaraService::tersedia())->keyBy('kode');
         abort_unless($pilihan[$data['suara']]['aktif'] ?? false, 422, $pilihan[$data['suara']]['catatan'] ?? 'Suara ini belum tersedia.');
@@ -293,6 +364,13 @@ class VideoBelajarController extends Controller
         $data['props'] = $props;
         $data['rasio'] = $props['rasio'];
         $data['komposisi'] = 'Rakitan';
+        $data['tujuan'] ??= 'PEMBELAJARAN';
+        // Video di luar pembelajaran (promosi, pengumuman, acara) dibagikan ke publik: foto siswa wajib berizin orang tua
+        if ($data['tujuan'] !== 'PEMBELAJARAN') {
+            $tanpaIzin = VideoAset::whereIn('path', NaskahVideo::asetGambar($props))->where('foto_siswa', true)->where('izin_ortu', false)->pluck('nama_asli');
+            abort_if($tanpaIzin->isNotEmpty(), 422, 'Video ' . strtolower($data['tujuan']) . ' memakai foto siswa yang belum berizin orang tua ('
+                . $tanpaIzin->filter()->take(3)->implode(', ') . '). Ganti gambarnya, atau tandai izinnya setelah orang tua setuju.');
+        }
         return $data;
     }
 
@@ -341,7 +419,7 @@ class VideoBelajarController extends Controller
         $kelas = Student::whereIn('id_siswa', $request->user()->siswaTerjangkau())->with('kelas:id_kelas,nama_kelas')->get()->pluck('kelas')->filter()->unique('id_kelas');
         $idKelas = $kelas->pluck('id_kelas')->all();
         $fase = $kelas->map(fn($k) => CapaianPembelajaran::faseKelas($k->nama_kelas))->filter()->unique()->values()->all();
-        $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')
+        $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')->where('tujuan', 'PEMBELAJARAN')
             ->where(fn($q) => $q->whereIn('id_kelas', $idKelas)->orWhere(fn($w) => $w->whereNull('id_kelas')->where(fn($f) => $f->whereNull('fase')->orWhereIn('fase', $fase))))
             ->orderByDesc('disetujui_pada')->get(['id_video', 'judul', 'deskripsi', 'id_mapel', 'id_materi', 'file_url', 'poster_url', 'durasi_detik', 'ukuran_kb', 'rasio', 'disetujui_pada']);
         return response()->json(['data' => $data]);
@@ -361,6 +439,7 @@ class VideoBelajarController extends Controller
             'tp.*' => 'exists:master_indikator,id_indikator',
             'durasi_detik' => 'nullable|integer|min:1|max:3600',
             'sumber' => ['nullable', Rule::in(VideoBelajar::SUMBER)],
+            'tujuan' => ['nullable', Rule::in(NaskahVideo::TUJUAN)],
             'rasio' => ['nullable', Rule::in(VideoBelajar::RASIO)],
             'komposisi' => 'nullable|string|max:100',
             'props' => 'nullable|array',
@@ -373,7 +452,7 @@ class VideoBelajarController extends Controller
         if (array_key_exists('id_kelas', $data)) {
             $data['fase'] = $data['id_kelas'] ? CapaianPembelajaran::faseKelas(Classes::find($data['id_kelas'])?->nama_kelas) : null;
         }
-        return collect($data)->except(['video', 'poster'])->all();
+        return collect($data)->except(['video', 'poster'])->filter(fn($v, $k) => $k !== 'tujuan' || $v)->all();
     }
 
     private function simpanBerkas(Request $request): array

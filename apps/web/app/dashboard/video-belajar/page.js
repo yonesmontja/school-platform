@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
 import { minta } from "@/components/banksoal/api";
-import { KartuVideo, PutarVideo, STATUS_VIDEO, bacaVideo, durasi } from "@/components/video/video";
+import { KartuVideo, PutarVideo, STATUS_VIDEO, TUJUAN_VIDEO, bacaVideo, durasi } from "@/components/video/video";
 import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 import BuatDariTemplat from "@/components/video/BuatDariTemplat";
 
@@ -23,7 +23,7 @@ async function kirimForm(path, form) {
 function ModalUnggah({ referensi, video, onTutup, onSelesai }) {
   const ubah = !!video;
   const [f, setF] = useState({ judul: video?.judul || "", deskripsi: video?.deskripsi || "", id_mapel: video?.id_mapel || referensi.mapel[0]?.id_mapel || "",
-    id_kelas: video?.id_kelas || "", id_materi: video?.id_materi || "", sumber: video?.sumber || "UNGGAH", komposisi: video?.komposisi || "" });
+    id_kelas: video?.id_kelas || "", id_materi: video?.id_materi || "", sumber: video?.sumber || "UNGGAH", komposisi: video?.komposisi || "", tujuan: video?.tujuan || "PEMBELAJARAN" });
   const [berkas, setBerkas] = useState(null); // {file, durasi, poster}
   const [proses, setProses] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -107,6 +107,13 @@ function ModalUnggah({ referensi, video, onTutup, onSelesai }) {
                     {Object.entries(SUMBER).filter(([k]) => k !== "RENDER").map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label small mb-1" htmlFor="vidTujuan">Tujuan video</label>
+                  <select id="vidTujuan" className="form-select form-select-sm" value={f.tujuan} onChange={(e) => set("tujuan", e.target.value)}>
+                    {Object.entries(TUJUAN_VIDEO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  {f.tujuan !== "PEMBELAJARAN" && <div className="form-text">Tidak tampil di Portal Siswa; unduh untuk dibagikan setelah disetujui.</div>}
+                </div>
                 {f.sumber === "REMOTION" && (
                   <div className="col-md-6">
                     <label className="form-label small mb-1" htmlFor="vidKomposisi">Nama komposisi Remotion</label>
@@ -163,7 +170,8 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
             <div className="modal-header">
               <div className="min-w-0"><h5 className="modal-title fw-bold text-truncate">{v.judul}</h5>
                 <div className="small text-muted">{v.mapel?.nama_mapel || "Umum"}{v.kelas && ` · ${v.kelas.nama_kelas}`}{v.materi && ` · ${v.materi.nama_materi}`} · {durasi(v.durasi_detik)} · {v.ukuran_kb ? `${(v.ukuran_kb / 1024).toFixed(1)} MB` : ""} · {v.pembuat?.name}
-                  <span className={`badge text-bg-${warna} ms-1`}>{label}</span></div></div>
+                  <span className={`badge text-bg-${warna} ms-1`}>{label}</span>
+                  {v.tujuan && v.tujuan !== "PEMBELAJARAN" && <span className="badge text-bg-info ms-1">{TUJUAN_VIDEO[v.tujuan]}</span>}</div></div>
               <button type="button" className="btn-close" onClick={onTutup} aria-label="Tutup"></button>
             </div>
             <div className="modal-body">
@@ -181,7 +189,7 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
             <div className="modal-footer">
               {bisa && ["DRAF", "REVISI"].includes(v.status) && <button className="btn btn-success" onClick={() => aksi("ajukan", undefined, "Ajukan video ke kepala sekolah?")}><i className="bi bi-send me-1"></i>Ajukan</button>}
               {akses.isKepsek && v.status === "DIAJUKAN" && <>
-                <button className="btn btn-success" onClick={() => aksi("setujui", undefined, "Setujui video ini? Siswa akan bisa melihatnya.")}><i className="bi bi-patch-check me-1"></i>Setujui</button>
+                <button className="btn btn-success" onClick={() => aksi("setujui", undefined, v.tujuan && v.tujuan !== "PEMBELAJARAN" ? "Setujui video ini? Video siap diunduh dan dibagikan." : "Setujui video ini? Siswa akan bisa melihatnya.")}><i className="bi bi-patch-check me-1"></i>Setujui</button>
                 <button className="btn btn-outline-danger" onClick={kembalikan}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
               </>}
               {bisa && v.sumber === "RENDER" && v.render_status !== "PROSES" && (v.templat === "Rakitan"
@@ -248,6 +256,7 @@ function PustakaVideo() {
                 <div className="small text-muted mt-1">{v.mapel?.nama_mapel || "Umum"}{v.kelas && ` · ${v.kelas.nama_kelas}`}</div>
                 <div className="d-flex gap-1 flex-wrap mt-1">
                   <span className={`badge text-bg-${STATUS_VIDEO[v.status][1]}`}>{STATUS_VIDEO[v.status][0]}</span>
+                  {v.tujuan && v.tujuan !== "PEMBELAJARAN" && <span className="badge text-bg-info fw-normal">{TUJUAN_VIDEO[v.tujuan]}</span>}
                   {v.dipakai > 0 && <span className="badge text-bg-light border fw-normal">dipakai {v.dipakai}×</span>}
                 </div>
               </div>

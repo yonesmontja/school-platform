@@ -5,6 +5,7 @@ const { test, expect, api } = require("../bantu");
 test.describe.configure({ mode: "serial" });
 
 test("admin menunjuk pembuat video; pembuat merakit adegan dan mengirim ke antrean render", async ({ page, masuk }) => {
+  test.setTimeout(240_000); // alur panjang: menunjuk, merakit, timeline, templat, render
   const admin = await masuk("admin");
   await page.goto("/dashboard/studio-video");
   await expect(page.getByText("hanya dipakai oleh pembuat video yang ditunjuk admin")).toBeVisible();
@@ -40,8 +41,28 @@ test("admin menunjuk pembuat video; pembuat merakit adegan dan mengirim ke antre
   await page.getByLabel("Narasi (dibacakan suara AI & jadi subtitle)").fill("Terima kasih sudah menonton.");
   await page.getByRole("group", { name: "Rasio aspek" }).getByRole("button", { name: "16:9" }).click();
 
+  // Timeline: elemen adegan tampil sebagai batang; klik penggaris memindahkan kepala waktu
+  await page.getByRole("button", { name: "Adegan 1" }).click();
+  const timeline = page.locator(".studio-timeline");
+  await expect(timeline.locator(".studio-tl-batang")).toHaveCount(awal + 1);
+  const penggaris = page.getByRole("slider", { name: "Waktu dalam adegan" });
+  const pb = await penggaris.boundingBox();
+  await page.mouse.click(pb.x + pb.width * 0.25, pb.y + pb.height / 2);
+  await expect(timeline.locator(".studio-tl-kepala").first()).toBeVisible();
+  await timeline.getByRole("button", { name: "Tampilan akhir" }).click();
+
+  // Templat sekolah: simpan naskah ini, lalu muncul di daftar
+  await page.getByRole("button", { name: /Templat/ }).click();
+  const mt = page.getByRole("dialog", { name: "Templat video" });
+  await mt.getByLabel("Judul templat").fill("Templat PPDB E2E");
+  await mt.getByRole("button", { name: /Simpan sebagai templat/ }).click();
+  await expect(mt).toContainText("Templat PPDB E2E");
+  await mt.getByRole("button", { name: "Tutup" }).click();
+
   await page.getByRole("button", { name: /Render video/ }).click();
   const modal = page.getByRole("dialog", { name: "Render video" });
+  await modal.getByLabel("Tujuan video").selectOption("PROMOSI");
+  await expect(modal).toContainText("tidak tampil di Portal Siswa");
   await modal.getByLabel("Judul di pustaka video").fill("Promosi Studio E2E");
   await modal.getByRole("button", { name: /Kirim ke antrean/ }).click();
   await expect(page.locator(".swal2-popup")).toContainText("antrean");
@@ -50,6 +71,7 @@ test("admin menunjuk pembuat video; pembuat merakit adegan dan mengirim ke antre
   const v = daftar.data.find((x) => x.judul === "Promosi Studio E2E");
   expect(v.templat).toBe("Rakitan");
   expect(v.rasio).toBe("16:9");
+  expect(v.tujuan).toBe("PROMOSI");
   expect(v.props.adegan).toHaveLength(4);
   expect(v.props.adegan[0].elemen.some((e) => e.isi === "Ayo daftar sekarang")).toBeTruthy();
 });
