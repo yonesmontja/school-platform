@@ -17,6 +17,8 @@ const SUARA = "/tmp/suara";
 const PORT = 9123;
 const MODEL_PIPER = process.env.MODEL_PIPER || "/opt/piper/id_ID-news_tts-medium.onnx";
 const KONKURENSI = Number(process.env.KONKURENSI || 2);
+// Layanan ini menulis render untuk mesin Remotion; worker Revideo kelak mengambil antrean ?mesin=REVIDEO
+const MESIN = "REMOTION";
 const JEDA_MS = 5000;
 
 const tunggu = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -26,11 +28,15 @@ const kepala = { "X-Render-Secret": KUNCI, Accept: "application/json" };
 fs.mkdirSync(SUARA, { recursive: true });
 fs.mkdirSync(path.join(HASIL, "video"), { recursive: true });
 
-// Berkas suara dilayani lewat HTTP lokal agar bisa dipakai <Audio> saat render
+// Berkas suara (dan gambar aset Studio dari storage core-api) dilayani lewat HTTP lokal agar bisa dipakai saat render
+const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
 http.createServer((req, res) => {
-  const f = path.join(SUARA, path.basename(decodeURIComponent(req.url.split("?")[0])));
+  const jalur = decodeURIComponent(req.url.split("?")[0]);
+  const aset = jalur.startsWith("/storage/video-aset/");
+  const f = aset ? path.join(HASIL, "video-aset", path.basename(jalur)) : path.join(SUARA, path.basename(jalur));
   if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { "Content-Type": "audio/wav", "Access-Control-Allow-Origin": "*", "Content-Length": fs.statSync(f).size });
+  const tipe = aset ? TIPE_GAMBAR[path.extname(f).toLowerCase()] || "application/octet-stream" : "audio/wav";
+  res.writeHead(200, { "Content-Type": tipe, "Access-Control-Allow-Origin": "*", "Content-Length": fs.statSync(f).size });
   fs.createReadStream(f).pipe(res);
 }).listen(PORT, "127.0.0.1");
 
@@ -69,9 +75,11 @@ async function suaraBerbayar(suara, teks, keluar) {
 /** Buat semua narasi dan tempel audio + lamanya ke props. */
 async function siapkanNarasi(job, props) {
   if (!job.suara || job.suara === "TANPA") return [];
-  const bagian = [
+  const perAdegan = (props.adegan || []).map((a, i) => [`a${i}`, a.narasi, (v) => { Object.assign(props.adegan[i], v); }]);
+  // Video rakitan Studio tidak punya layar pembuka/penutup otomatis
+  const bagian = job.templat === "Rakitan" ? perAdegan : [
     ["pembuka", narasiPembuka(props.judul), (v) => { props.pembuka = { ...(props.pembuka || {}), ...v }; }],
-    ...(props.adegan || []).map((a, i) => [`a${i}`, a.narasi, (v) => { Object.assign(props.adegan[i], v); }]),
+    ...perAdegan,
     ["penutup", narasiPenutup(props.penutup?.teks), (v) => { props.penutup = { ...(props.penutup || {}), ...v }; }],
   ];
   const berkas = [];
@@ -95,6 +103,7 @@ async function lapor(id, jalur, isi) {
 async function kerjakan(job, serveUrl) {
   const props = JSON.parse(JSON.stringify(job.props || {}));
   props.judul = props.judul || job.judul;
+  props.asetDasar = `http://127.0.0.1:${PORT}`; // gambar /storage/video-aset/… dibaca dari storage lokal
   log(`Render ${job.id_video} (${job.templat}, suara ${job.suara}, ${props.adegan?.length || 0} adegan)`);
   const berkasSuara = await siapkanNarasi(job, props);
   try {
@@ -120,7 +129,7 @@ async function utama() {
   for (;;) {
     let job = null;
     try {
-      const res = await fetch(`${API}/api/internal/render/berikut`, { headers: kepala });
+      const res = await fetch(`${API}/api/internal/render/berikut?mesin=${MESIN}`, { headers: kepala });
       job = res.ok ? (await res.json()).data : null;
       if (!res.ok) log(`Antrean tidak bisa dibaca: HTTP ${res.status}`);
     } catch (e) { log(`core-api belum bisa dihubungi: ${e.message}`); }

@@ -134,6 +134,26 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "studio-video", kelompok: "guru", judul: "Studio Rakit Video (motion graphic)", icon: "bi-easel3",
+    href: "/dashboard/studio-video",
+    langkah: [
+      "Admin membuka TDU - Jadwal → Studio Rakit Video dan menunjuk satu pembuat video motion graphic. Hanya akun itu yang bisa merakit.",
+      "Pembuat video membuka Studio. Naskah contoh langsung tampil; pilih rasio (9:16 untuk Reels/TikTok/Status WA, 16:9 untuk proyektor/YouTube, 1:1 untuk feed, 4:3).",
+      "Di kiri, kelola adegan: tambah, gandakan, ubah urutan, hapus. Di panel kanan tab Adegan, tulis narasi (dibacakan suara AI dan menjadi subtitle), lama adegan, transisi, dan latar (warna, gradien, atau gambar).",
+      "Tambahkan Teks, Emoji, Gambar, atau Bentuk dari bilah di atas kanvas. Geser elemen langsung di kanvas dan tarik kotak biru di sudutnya untuk mengubah ukuran.",
+      "Pilih elemen untuk mengatur isi, ukuran, warna, latar teks, garis tepi, bayangan, putaran, animasi masuk (12 pilihan, dengan waktu mulai dan lama) serta gerak setelah muncul.",
+      "Tekan Putar adegan ini atau Putar semua untuk pratinjau (tanpa suara), lalu Render video: isi judul, mapel/kelas (opsional), dan suara narasi. Video masuk Pustaka Video sebagai draf lalu diajukan ke kepala sekolah seperti biasa.",
+    ],
+    tips: [
+      "Tab Merek: logo sekolah (tampil di semua adegan), huruf, dan palet warna. Tekan Jadikan merek bawaan sekolah agar naskah baru langsung memakainya.",
+      "Pintasan: Ctrl+Z batalkan, Ctrl+Y ulangi, Delete hapus elemen, Ctrl+D gandakan, panah menggeser halus (Shift+panah lebih jauh).",
+      "Pada rasio 9:16, garis putus-putus menandai area aman yang tidak tertutup tombol aplikasi media sosial.",
+      "Draf naskah tersimpan otomatis di perangkat ini. Video rakitan bisa dibuka lagi dari Pustaka Video lewat Buka di Studio lalu dirender ulang.",
+      "Foto siswa hanya boleh dipakai bila orang tua sudah memberi izin, terutama untuk video promosi sekolah.",
+      "Naskah video tidak terikat satu mesin render; admin bisa memilih mesin (Remotion sekarang, Revideo setelah layanannya dipasang).",
+    ],
+  },
+  {
     id: "pustaka-dokumen", kelompok: "guru", judul: "Pustaka dokumen resmi untuk AI", icon: "bi-folder2-open",
     href: "/dashboard/pustaka-dokumen",
     langkah: [

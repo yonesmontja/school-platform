@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
-import { FPS, RASIO, TEMPLAT, hitungDurasi, rapikanProps, templatById, ukuranRasio } from "./templat/index.js";
+import { FPS, RASIO, TEMPLAT_BIASA as TEMPLAT, hitungDurasi, rapikanProps, templatById, ukuranRasio } from "./templat/index.js";
 
 const Player = dynamic(() => import("@remotion/player").then((m) => m.Player), { ssr: false, loading: () => <div className="ratio ratio-16x9 bg-dark rounded"></div> });
 const EMOJI_CEPAT = ["🐟", "🍌", "🍠", "🥥", "🥭", "🐷", "🐔", "🐦", "🌳", "🌺", "🏠", "🛶", "⛰️", "🌧️", "☀️", "💧", "🥚", "🐸", "🦋", "🐛", "🍎", "✏️", "📚", "⚽", "🖐️", "👁️", "👂", "👃", "👄", "🦷"];

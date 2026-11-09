@@ -32,13 +32,15 @@ class RenderInternalController extends Controller
         $this->cekKunci($request);
         VideoBelajar::where('render_status', 'PROSES')->where('render_mulai', '<', now()->subMinutes(self::BATAS_PROSES_MENIT))
             ->update(['render_status' => 'ANTRE', 'render_pesan' => 'Render sebelumnya terhenti; dicoba lagi.']);
-        $video = DB::transaction(function () {
-            $v = VideoBelajar::where('render_status', 'ANTRE')->orderBy('updated_at')->lockForUpdate()->first();
+        $mesin = in_array($request->query('mesin'), \App\Services\NaskahVideo::MESIN, true) ? $request->query('mesin') : 'REMOTION';
+        $video = DB::transaction(function () use ($mesin) {
+            // Tiap layanan render mengambil antrean mesinnya sendiri (bawaan Remotion; worker Revideo kelak memakai ?mesin=REVIDEO)
+            $v = VideoBelajar::where('render_status', 'ANTRE')->where('mesin', $mesin)->orderBy('updated_at')->lockForUpdate()->first();
             if ($v) $v->update(['render_status' => 'PROSES', 'render_mulai' => now()]);
             return $v;
         });
         if (!$video) return response()->json(['data' => null]);
-        return response()->json(['data' => $video->only(['id_video', 'judul', 'templat', 'props', 'suara'])]);
+        return response()->json(['data' => $video->only(['id_video', 'judul', 'templat', 'props', 'suara', 'mesin'])]);
     }
 
     /** Suara narasi berbayar (ElevenLabs/Gemini) → WAV. */

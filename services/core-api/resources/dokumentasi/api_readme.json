@@ -89,6 +89,7 @@
  "GET /user": "Data user yang sedang login",
  "GET /users, /users/{}": "Kelola akun pengguna",
  "GET /video-belajar": "Pustaka video (saring status/mapel/kelas) / unggah multipart (video, poster data URL)",
+ "GET /video-belajar/studio": "Pengaturan Studio Rakit Video: pembuat video, mesin render, merek sekolah",
  "GET /video-belajar/suara": "Pilihan suara narasi & ketersediaannya (API key sudah diisi atau belum)",
  "GET /video-belajar/tautan": "Tautan video ke modul ajar (per pertemuan) atau sesi jadwal",
  "GET /video-belajar/{}": "Detail & tempat dipakai / ubah (multipart, berkas pengganti opsional) / hapus",
@@ -176,6 +177,7 @@
  "POST /users/generate": "Buat akun massal",
  "POST /users/{}/reset-password": "Reset password pengguna",
  "POST /video-belajar": "Pustaka video (saring status/mapel/kelas) / unggah multipart (video, poster data URL)",
+ "POST /video-belajar/aset": "Unggah gambar naskah (PNG/JPG/WebP ≤ 5 MB)",
  "POST /video-belajar/tautan": "Tautan video ke modul ajar (per pertemuan) atau sesi jadwal",
  "POST /video-belajar/templat": "Buat video dari templat / ubah isian & render ulang (masuk antrean)",
  "POST /video-belajar/{}": "Detail & tempat dipakai / ubah (multipart, berkas pengganti opsional) / hapus",
@@ -211,5 +213,6 @@
  "PUT /ruangan, /ruangan/{}": "Kelola ruangan",
  "PUT /students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian": "Tambah/ubah/hapus data master",
  "PUT /ujian/{}/jawaban": "Simpan otomatis jawaban (ditolak setelah waktu habis)",
- "PUT /users, /users/{}": "Kelola akun pengguna"
+ "PUT /users, /users/{}": "Kelola akun pengguna",
+ "PUT /video-belajar/studio": "Tunjuk pembuat video & mesin (admin); merek sekolah (admin/pembuat)"
 }

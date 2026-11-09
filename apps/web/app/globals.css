@@ -764,3 +764,18 @@
 .menu-aksi .dropdown-item .bi { width: 1rem; text-align: center; opacity: .8; }
 .menu-aksi .dropdown-divider { margin: .25rem 0; }
 @keyframes menu-aksi-muncul { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* ===== Studio Rakit Video ===== */
+.studio-tata { display: grid; grid-template-columns: 230px minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+@media (max-width: 1199.98px) { .studio-tata { grid-template-columns: 200px minmax(0, 1fr); } .studio-panel { grid-column: 1 / -1; } }
+@media (max-width: 767.98px) { .studio-tata { grid-template-columns: minmax(0, 1fr); } }
+.studio-gulir { max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+.studio-mini { flex: 0 0 34px; height: 34px; border-radius: .4rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1f2937; border: 1px solid rgba(0,0,0,.12); }
+.studio-bingkai { position: relative; background: #000; border-radius: .5rem; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.studio-lapis { position: absolute; inset: 0; touch-action: none; cursor: default; }
+.studio-kotak { position: absolute; cursor: move; border: 1px dashed transparent; border-radius: 2px; }
+.studio-kotak:hover { border-color: rgba(255,255,255,.75); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.studio-kotak.dipilih { border: 2px solid #3b82f6; box-shadow: 0 0 0 1px #fff; }
+.studio-pegangan { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; background: #3b82f6; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; }
+.studio-aman { position: absolute; left: 4%; right: 4%; top: 9%; bottom: 20%; border: 1px dashed rgba(255,255,255,.55); pointer-events: none; }
+.studio-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--bs-border-color); padding: 0; }

@@ -11,6 +11,9 @@ use App\Models\Student;
 use App\Models\TransJadwal;
 use App\Models\VideoBelajar;
 use App\Models\VideoTautan;
+use App\Models\SchoolSetting;
+use App\Models\User;
+use App\Services\NaskahVideo;
 use App\Services\SuaraService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -127,7 +130,8 @@ class VideoBelajarController extends Controller
 
     // ===== Jalur B: video dari templat, dirender di server dengan narasi suara =====
 
-    public const TEMPLAT = ['KartuGambar', 'Berhitung', 'Urutan', 'Pecahan'];
+    public const TEMPLAT = ['KartuGambar', 'Berhitung', 'Urutan', 'Pecahan', 'Rakitan'];
+    private const MIME_ASET = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
     /** Pilihan suara narasi beserta ketersediaannya. */
     public function suara()
@@ -139,6 +143,7 @@ class VideoBelajarController extends Controller
     public function dariTemplat(Request $request)
     {
         $data = $this->validasiTemplat($request, true);
+        if ($data['templat'] === 'Rakitan') $data['mesin'] = self::pengaturanStudio()['mesin'];
         $video = VideoBelajar::create($data + [
             'id_video' => 'VID-' . Str::upper(Str::random(10)), 'file_url' => '', 'sumber' => 'RENDER', 'status' => 'DRAF',
             'render_status' => 'ANTRE', 'dibuat_oleh' => $request->user()->id,
@@ -153,13 +158,14 @@ class VideoBelajarController extends Controller
         $this->cekPengubah($request, $video);
         abort_unless($video->sumber === 'RENDER', 422, 'Hanya video dari templat yang bisa dirender ulang.');
         abort_if($video->render_status === 'PROSES', 422, 'Video sedang dirender. Tunggu sampai selesai.');
-        $data = $this->validasiTemplat($request, false);
+        $data = $this->validasiTemplat($request, false, $video->templat);
         $video->update($data + ['render_status' => 'ANTRE', 'render_pesan' => null, 'status' => 'DRAF', 'disetujui_oleh' => null, 'disetujui_pada' => null]);
         return response()->json(['success' => true, 'message' => 'Video masuk antrean render ulang.', 'data' => $video->fresh(self::RELASI)]);
     }
 
-    private function validasiTemplat(Request $request, bool $baru): array
+    private function validasiTemplat(Request $request, bool $baru, ?string $templatLama = null): array
     {
+        if (($request->input('templat') ?? $templatLama) === 'Rakitan') return $this->validasiRakitan($request, $baru);
         $data = $request->validate([
             'templat' => [$baru ? 'required' : 'sometimes', Rule::in(self::TEMPLAT)],
             'judul' => [$baru ? 'required' : 'sometimes', 'string', 'max:200'],
@@ -192,6 +198,101 @@ class VideoBelajarController extends Controller
         $data['props'] = array_intersect_key($props, array_flip(['rasio', 'judul', 'emoji', 'warna', 'adegan', 'penutup']));
         $data['rasio'] = $props['rasio'];
         if (isset($data['templat'])) $data['komposisi'] = $data['templat'];
+        return $data;
+    }
+
+    // ===== Studio Rakit Video (D1) =====
+
+    /** Pengaturan Studio: pembuat video (1 pengguna), mesin render, merek sekolah. */
+    public static function pengaturanStudio(): array
+    {
+        $s = SchoolSetting::query()->first();
+        return [
+            'id_pembuat' => $s?->id_pembuat_video,
+            'mesin' => in_array($s?->mesin_video, NaskahVideo::MESIN, true) ? $s->mesin_video : 'REMOTION',
+            'merek' => NaskahVideo::rapikan(['merek' => $s?->merek_video ?? []])['merek'],
+            'nama_sekolah' => $s?->nama_sekolah,
+        ];
+    }
+
+    private function cekStudio(Request $request): void
+    {
+        abort_unless($request->user()->id === self::pengaturanStudio()['id_pembuat'], 403,
+            'Studio Rakit Video hanya untuk pembuat video yang ditunjuk admin.');
+    }
+
+    public function studio(Request $request)
+    {
+        $p = self::pengaturanStudio();
+        $u = $request->user();
+        return response()->json(['data' => $p + [
+            'boleh' => $u->id === $p['id_pembuat'],
+            'atur' => $u->isAdmin(),
+            'pembuat' => $p['id_pembuat'] ? User::find($p['id_pembuat'])?->only(['id', 'name', 'role']) : null,
+            'kandidat' => $u->isAdmin() ? User::whereIn('role', ['admin', 'kepsek', 'guru'])->where('aktif', true)->orderBy('name')->get(['id', 'name', 'role']) : [],
+            'mesin_tersedia' => [['kode' => 'REMOTION', 'nama' => 'Remotion', 'aktif' => true], ['kode' => 'REVIDEO', 'nama' => 'Revideo (MIT)', 'aktif' => false,
+                'catatan' => 'Penulis render Revideo belum dipasang; video ber-mesin Revideo menunggu di antrean sampai layanannya tersedia.']],
+        ]]);
+    }
+
+    /** Admin: tunjuk pembuat video & mesin; pembuat/admin: merek sekolah. */
+    public function aturStudio(Request $request)
+    {
+        $u = $request->user();
+        $data = $request->validate([
+            'id_pembuat' => 'sometimes|nullable|exists:users,id',
+            'mesin' => ['sometimes', Rule::in(NaskahVideo::MESIN)],
+            'merek' => 'sometimes|array',
+        ]);
+        $bolehMerek = $u->isAdmin() || $u->id === self::pengaturanStudio()['id_pembuat'];
+        abort_if((array_key_exists('id_pembuat', $data) || isset($data['mesin'])) && !$u->isAdmin(), 403, 'Hanya admin yang menunjuk pembuat video dan mesin render.');
+        abort_if(isset($data['merek']) && !$bolehMerek, 403);
+        if (!empty($data['id_pembuat'])) {
+            abort_unless(in_array(User::find($data['id_pembuat'])?->role, ['admin', 'kepsek', 'guru'], true), 422, 'Pembuat video harus akun staf.');
+        }
+        $s = SchoolSetting::query()->first() ?? new SchoolSetting(['nama_sekolah' => config('app.name', 'Sekolah')]);
+        if (array_key_exists('id_pembuat', $data)) $s->id_pembuat_video = $data['id_pembuat'];
+        if (isset($data['mesin'])) $s->mesin_video = $data['mesin'];
+        if (isset($data['merek'])) $s->merek_video = NaskahVideo::rapikan(['merek' => $request->input('merek')])['merek'];
+        $s->save();
+        return response()->json(['success' => true, 'message' => 'Pengaturan Studio disimpan.', 'data' => self::pengaturanStudio()]);
+    }
+
+    /** Unggah gambar untuk naskah (elemen gambar, latar, logo): PNG/JPG/WebP maks. 5 MB. */
+    public function aset(Request $request)
+    {
+        $u = $request->user();
+        abort_unless($u->id === self::pengaturanStudio()['id_pembuat'] || $u->isAdmin(), 403, 'Studio Rakit Video hanya untuk pembuat video yang ditunjuk admin.');
+        $request->validate(['gambar' => 'required|file|max:5120|mimetypes:' . implode(',', array_keys(self::MIME_ASET))]);
+        $f = $request->file('gambar');
+        $path = $f->storeAs('video-aset', 'aset_' . Str::lower(Str::random(20)) . '.' . self::MIME_ASET[$f->getMimeType()], 'public');
+        return response()->json(['success' => true, 'url' => '/storage/' . $path], 201);
+    }
+
+    private function validasiRakitan(Request $request, bool $baru): array
+    {
+        $this->cekStudio($request);
+        $data = $request->validate([
+            'templat' => [$baru ? 'required' : 'sometimes', Rule::in(['Rakitan'])],
+            'judul' => [$baru ? 'required' : 'sometimes', 'string', 'max:200'],
+            'deskripsi' => 'nullable|string|max:3000',
+            'id_mapel' => 'nullable|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'id_materi' => 'nullable|exists:master_materi,id_materi',
+            'suara' => ['required', Rule::in(SuaraService::PILIHAN)],
+            'props' => 'required|array',
+            'props.adegan' => 'required|array|min:1|max:' . NaskahVideo::MAKS_ADEGAN,
+        ], ['props.adegan.required' => 'Tambahkan minimal satu adegan.', 'props.adegan.max' => 'Maksimal ' . NaskahVideo::MAKS_ADEGAN . ' adegan.']);
+        $pilihan = collect(SuaraService::tersedia())->keyBy('kode');
+        abort_unless($pilihan[$data['suara']]['aktif'] ?? false, 422, $pilihan[$data['suara']]['catatan'] ?? 'Suara ini belum tersedia.');
+        if (array_key_exists('id_kelas', $data)) {
+            $data['fase'] = $data['id_kelas'] ? CapaianPembelajaran::faseKelas(Classes::find($data['id_kelas'])?->nama_kelas) : null;
+        }
+        $props = NaskahVideo::rapikan((array) $request->input('props'));
+        $props['judul'] = $props['judul'] ?: mb_substr((string) ($data['judul'] ?? ''), 0, 120);
+        $data['props'] = $props;
+        $data['rasio'] = $props['rasio'];
+        $data['komposisi'] = 'Rakitan';
         return $data;
     }
 

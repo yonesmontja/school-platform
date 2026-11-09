@@ -48,6 +48,9 @@ class SchoolSetting extends Model
         'elevenlabs_voice_klon',
         'gemini_tts_voice',
         'guru_boleh_unggah_dokumen',
+        'id_pembuat_video',
+        'mesin_video',
+        'merek_video',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;
@@ -72,6 +75,9 @@ class SchoolSetting extends Model
         'wa_api_token' => 'encrypted',
         'api_key_elevenlabs' => 'encrypted',
         'status_wa_api' => 'boolean',
+        'guru_boleh_unggah_dokumen' => 'boolean',
+        'id_pembuat_video' => 'integer',
+        'merek_video' => 'array',
         'kktp_cukup' => 'integer',
         'kktp_baik' => 'integer',
         'kktp_sangat_baik' => 'integer',

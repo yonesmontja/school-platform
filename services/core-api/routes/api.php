@@ -295,6 +295,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/tautan', [VideoBelajarController::class, 'tautan']);
             Route::get('/suara', [VideoBelajarController::class, 'suara']);
             Route::post('/templat', [VideoBelajarController::class, 'dariTemplat'])->middleware('throttle:20,1');
+            Route::get('/studio', [VideoBelajarController::class, 'studio']);
+            Route::put('/studio', [VideoBelajarController::class, 'aturStudio']);
+            Route::post('/aset', [VideoBelajarController::class, 'aset'])->middleware('throttle:60,1');
             Route::post('/{id}/render', [VideoBelajarController::class, 'renderUlang'])->middleware('throttle:20,1');
             Route::post('/tautan', [VideoBelajarController::class, 'tautkan']);
             Route::delete('/tautan/{id}', [VideoBelajarController::class, 'lepas'])->whereNumber('id');

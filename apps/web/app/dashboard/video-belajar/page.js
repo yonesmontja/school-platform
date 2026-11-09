@@ -184,7 +184,9 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
                 <button className="btn btn-success" onClick={() => aksi("setujui", undefined, "Setujui video ini? Siswa akan bisa melihatnya.")}><i className="bi bi-patch-check me-1"></i>Setujui</button>
                 <button className="btn btn-outline-danger" onClick={kembalikan}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
               </>}
-              {bisa && v.sumber === "RENDER" && v.render_status !== "PROSES" && <button className="btn btn-outline-primary" onClick={() => setTemplat(true)}><i className="bi bi-magic me-1"></i>Ubah & render ulang</button>}
+              {bisa && v.sumber === "RENDER" && v.render_status !== "PROSES" && (v.templat === "Rakitan"
+                ? <a className="btn btn-outline-primary" href={`/dashboard/studio-video?video=${v.id_video}`}><i className="bi bi-easel3 me-1"></i>Buka di Studio</a>
+                : <button className="btn btn-outline-primary" onClick={() => setTemplat(true)}><i className="bi bi-magic me-1"></i>Ubah & render ulang</button>)}
               {bisa && v.sumber !== "RENDER" && <button className="btn btn-outline-secondary" onClick={() => setUbah(true)}><i className="bi bi-pencil me-1"></i>Ubah</button>}
               {bisa && <button className="btn btn-outline-danger me-auto" onClick={hapus} aria-label="Hapus video"><i className="bi bi-trash"></i></button>}
               {v.file_url && <a className="btn btn-outline-secondary" href={srcGambar(v.file_url)} download><i className="bi bi-download me-1"></i>Unduh</a>}
@@ -227,6 +229,7 @@ function PustakaVideo() {
           <h3 className="fw-bold text-primary mb-1"><i className="bi bi-play-btn me-2"></i>Video Belajar</h3>
           <p className="text-muted small mb-0">Video motion graphic untuk anak yang belajar lewat gambar. Satu video bisa ditautkan ke modul ajar, sesi jadwal, soal, dan tampil di Portal Siswa setelah disetujui kepala sekolah.</p>
         </div>
+        {akses.user?.studio_video && <a className="btn btn-primary" href="/dashboard/studio-video"><i className="bi bi-easel3 me-1"></i>Studio Rakit Video</a>}
         {!akses.isKepsek && <button className="btn btn-primary" onClick={() => setBuat(true)} disabled={!referensi}><i className="bi bi-magic me-1"></i>Buat video motion graphic</button>}
         {!akses.isKepsek && <button className="btn btn-outline-primary" onClick={() => setUnggah(true)} disabled={!referensi}><i className="bi bi-cloud-arrow-up me-1"></i>Unggah video</button>}
       </div>

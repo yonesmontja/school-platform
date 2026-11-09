@@ -4,6 +4,7 @@ import { KartuGambar } from "./kartuGambar.jsx";
 import { Berhitung } from "./berhitung.jsx";
 import { Urutan } from "./urutan.jsx";
 import { Pecahan } from "./pecahan.jsx";
+import { NASKAH_CONTOH, Rakitan } from "./rakitan.jsx";
 
 export { FPS, LEBAR, TINGGI, RASIO, ukuranRasio, hitungDurasi, metadata, narasiPembuka, narasiPenutup } from "./umum.jsx";
 import { RASIO } from "./umum.jsx";
@@ -90,7 +91,15 @@ export const TEMPLAT = [
       penutup: { teks: "Hebat! Kamu sudah mengenal pecahan." },
     },
   },
+  {
+    // Studio Rakit Video: naskah bebas buatan guru (tidak tampil di daftar templat biasa)
+    id: "Rakitan", nama: "Rakitan Studio", ikon: "bi-easel3", komponen: Rakitan, rakitan: true,
+    deskripsi: "Video yang dirakit sendiri di Studio Rakit Video.", kolom: [], contoh: NASKAH_CONTOH,
+  },
 ];
+
+/** Templat untuk formulir "Buat dari templat" (tanpa Rakitan). */
+export const TEMPLAT_BIASA = TEMPLAT.filter((t) => !t.rakitan);
 
 export const templatById = (id) => TEMPLAT.find((t) => t.id === id);
 

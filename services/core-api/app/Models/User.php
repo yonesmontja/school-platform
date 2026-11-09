@@ -112,6 +112,8 @@ class User extends Authenticatable
             'kelas_binaan' => $this->kelasBinaan(),
             'mapel_diampu' => $this->mapelDiampu(),
             'siswa_terjangkau' => $this->siswaTerjangkau(),
+            // Studio Rakit Video: hanya satu pengguna yang ditunjuk admin
+            'studio_video' => $this->isStaf() && SchoolSetting::query()->value('id_pembuat_video') === $this->id,
         ];
     }
 }

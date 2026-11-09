@@ -50,6 +50,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
       { href: "/dashboard/perangkat-ajar", label: "Perangkat Ajar", icon: "bi-journal-richtext" },
       { href: "/dashboard/video-belajar", label: "Video Belajar", icon: "bi-play-btn" },
+      { href: "/dashboard/studio-video", label: "Studio Rakit Video", icon: "bi-easel3", syarat: (u) => !!u?.studio_video || u?.role === "admin" },
       { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
       { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
@@ -86,9 +87,10 @@ const PORTAL_GROUPS = [
   { id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] },
 ];
 
-const menuUntuk = (role) => (role === "siswa" || role === "ortu")
-  ? PORTAL_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.peran || it.peran.includes(role)) })).filter((g) => g.items.length)
-  : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.peran || it.peran.includes(role)) })).filter((g) => g.items.length);
+const bolehItem = (it, role, user) => (!it.peran || it.peran.includes(role)) && (!it.syarat || it.syarat(user));
+const menuUntuk = (role, user) => (role === "siswa" || role === "ortu")
+  ? PORTAL_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length)
+  : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length);
 
 // Status sidebar disimpan per browser
 const KEY_OPEN = "sidebar_open_groups";
@@ -145,7 +147,7 @@ export default function DashboardLayout({ children }) {
   const role = user?.role;
   const isPortal = role === "siswa" || role === "ortu";
   const homeItem = isPortal ? PORTAL_ITEM : DASHBOARD_ITEM;
-  const menuGroups = useMemo(() => menuUntuk(role), [role]);
+  const menuGroups = useMemo(() => menuUntuk(role, user), [role, user]);
 
   // Audit trail: catat setiap halaman yang dibuka dan setiap output (unduh, cetak, chat WA, salin)
   const pathRef = useRef(pathname);
