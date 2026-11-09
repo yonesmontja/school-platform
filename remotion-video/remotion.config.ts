@@ -20,3 +20,4 @@ Config.overrideWebpackConfig((c) => ({
     },
   },
 }));
+Config.setDefaultEditor('vscode');

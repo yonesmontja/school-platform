@@ -4,6 +4,7 @@
 //   guru di menu Video Belajar dan layanan render di server
 import { Composition } from "remotion";
 import { PecahanKue, type PecahanKueProps } from "./PecahanKue";
+import { FPS as FPS_KLIP, TOTAL_FRAME as TOTAL_KLIP, TimelineKlip } from "./TimelineKlip";
 import { SiklusAir, TOTAL as TOTAL_SIKLUS } from "./SiklusAir";
 import { FPS, LEBAR, TINGGI, TEMPLAT, hitungDurasi } from "../../apps/web/components/video/templat/index.js";
 
@@ -21,6 +22,8 @@ export const RemotionRoot: React.FC = () => {
           durationInFrames={hitungDurasi(t.contoh)} defaultProps={t.contoh}
           calculateMetadata={({ props }) => (t.komponen.metadata ? t.komponen.metadata(props) : { durationInFrames: hitungDurasi(props) })} />
       ))}
+      {/* Timeline klip EduRapor dari Downloads (file di public/klip, tidak ikut git), tegak 9:16. */}
+      <Composition id="TimelineKlip" component={TimelineKlip} durationInFrames={TOTAL_KLIP} fps={FPS_KLIP} width={1080} height={1920} />
     </>
   );
 };

@@ -9,7 +9,10 @@
   },
   "type": "commonjs",
   "dependencies": {
+    "@huggingface/transformers": "4.2.0",
     "@remotion/cli": "^4.0.541",
+    "@remotion/media": "4.0.541",
+    "@remotion/video-matting": "4.0.541",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "remotion": "^4.0.541"
