@@ -75,3 +75,40 @@ test("admin menunjuk pembuat video; pembuat merakit adegan dan mengirim ke antre
   expect(v.props.adegan).toHaveLength(4);
   expect(v.props.adegan[0].elemen.some((e) => e.isi === "Ayo daftar sekarang")).toBeTruthy();
 });
+
+test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", async ({ page, masuk }) => {
+  test.setTimeout(240_000);
+  const admin = await masuk("admin");
+  await masuk("guru");
+  // Respons AI ditiru (database tes tanpa API key); penyusunan tata letak dari papan cerita diuji di backend
+  const naskah = { rasio: "9:16", judul: "PPDB E2E", subtitle: true, musik: null,
+    merek: { logo: null, posisi_logo: "kanan-atas", huruf: "Nunito", warna: ["#2563eb"] },
+    adegan: ["Ayo Sekolah", "Kegiatan Seru", "Daftar Sekarang"].map((j, i) => ({
+      narasi: `Narasi adegan ${i + 1}.`, durasi: 4, transisi: "pudar", latar: { tipe: "gradien", warna: "#2563eb", warna2: "#93c5fd", gambar: null, redup: 0 },
+      elemen: [{ id: `x${i}`, tipe: "teks", isi: j, x: 50, y: 50, w: 80, h: 12, rot: 0, gerak: "tidak", keluar: { preset: "tidak", pada: null },
+        gaya: { ukuran: 70, warna: "#ffffff", tebal: true, rata: "tengah", sudut: 0, buram: 1 }, masuk: { preset: "pop", mulai: 0.2, durasi: 0.6 } }],
+    })) };
+  await page.route(/\/api\/video-belajar\/papan-cerita/, (route) => route.fulfill({ json: { success: true, message: "Papan cerita 3 adegan tersusun.", naskah, rujukan: [] } }));
+
+  await page.goto("/dashboard/studio-video");
+  await page.getByRole("button", { name: /Papan cerita AI/ }).click();
+  const pc = page.getByRole("dialog", { name: "Papan cerita AI" });
+  await pc.getByLabel("Tujuan video").selectOption("PROMOSI");
+  await pc.getByLabel("Video seperti apa yang Anda inginkan?").fill("Video promosi PPDB sekolah ramah anak");
+  await pc.getByRole("button", { name: /Susun papan cerita/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("Papan cerita siap");
+  await page.locator(".swal2-confirm").click();
+  await expect(page.getByRole("button", { name: /^Adegan \d/ })).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Adegan 3" })).toContainText("Narasi adegan 3");
+
+  await page.getByRole("button", { name: /Render video/ }).click();
+  const modal = page.getByRole("dialog", { name: "Render video" });
+  await expect(modal.getByLabel("Tujuan video")).toHaveValue("PROMOSI");
+  await modal.getByLabel("Judul di pustaka video").fill("PPDB Dua Rasio E2E");
+  await modal.getByLabel("16:9").check();
+  await modal.getByRole("button", { name: /Kirim ke antrean/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("2 video");
+
+  const daftar = (await api(admin, "/video-belajar")).data.filter((x) => x.judul.startsWith("PPDB Dua Rasio E2E"));
+  expect(daftar.map((v) => v.rasio).sort()).toEqual(["16:9", "9:16"]);
+});

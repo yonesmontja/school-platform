@@ -178,6 +178,7 @@
  "POST /users/{}/reset-password": "Reset password pengguna",
  "POST /video-belajar": "Pustaka video (saring status/mapel/kelas) / unggah multipart (video, poster data URL)",
  "POST /video-belajar/aset": "Unggah aset naskah: gambar (PNG/JPG/WebP ≤ 5 MB, penanda foto siswa & izin orang tua) atau musik (MP3/M4A/OGG/WAV ≤ 10 MB)",
+ "POST /video-belajar/papan-cerita": "Papan cerita AI → naskah Studio (adegan, teks, emoji, narasi, tata letak baku)",
  "POST /video-belajar/tautan": "Tautan video ke modul ajar (per pertemuan) atau sesi jadwal",
  "POST /video-belajar/templat": "Buat video dari templat / ubah isian & render ulang (masuk antrean)",
  "POST /video-belajar/{}": "Detail & tempat dipakai / ubah (multipart, berkas pengganti opsional) / hapus",

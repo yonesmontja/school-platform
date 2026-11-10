@@ -9,6 +9,7 @@ import Swal from "sweetalert2";
 import { API_URL, authHeaders } from "@/app/lib/akses";
 import { API_ORIGIN } from "@/app/lib/config";
 import { minta } from "@/components/banksoal/api";
+import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { FPS, RASIO, ukuranRasio } from "@/components/video/templat/index.js";
 import { NASKAH_CONTOH, Rakitan, adeganBaru, awalAdegan, detikAdeganRakitan, elemenBaru, hitungDurasiRakitan, idBaru } from "@/components/video/templat/rakitan.jsx";
 import { PanelAdegan, PanelElemen, PanelMerek, PanelMusik } from "@/components/video/studio/PanelStudio";
@@ -48,6 +49,7 @@ function Studio() {
   const [meta, setMeta] = useState({ judul: "", deskripsi: "", id_mapel: "", id_kelas: "", suara: "LOKAL", tujuan: "PEMBELAJARAN" });
   const [waktu, setWaktu] = useState(null); // detik dalam adegan yang ditampilkan kanvas (null = saat semua elemen sudah muncul)
   const [templat, setTemplat] = useState(false);
+  const [papan, setPapan] = useState(false);
   const [adeganAktif, setAdeganAktif] = useState(0);
   const [pilih, setPilih] = useState(null); // id elemen
   const [tab, setTab] = useState("properti");
@@ -329,6 +331,7 @@ function Studio() {
         <span className="small text-body-secondary">{naskah.adegan.length} adegan · {Math.round(durasi / FPS)} detik</span>
         <div className="ms-auto d-flex gap-2">
           {!idVideo && <button type="button" className="btn btn-sm btn-outline-secondary" onClick={naskahBaru}><i className="bi bi-file-earmark-plus me-1"></i>Baru</button>}
+          <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setPapan(true)}><i className="bi bi-stars me-1"></i>Papan cerita AI</button>
           <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTemplat(true)}><i className="bi bi-collection me-1"></i>Templat</button>
           <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => putar(false)}><i className="bi bi-play-fill me-1"></i>Putar semua</button>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => { setMeta((m) => ({ ...m, judul: m.judul || naskah.judul })); setKirim(true); }}><i className="bi bi-film me-1"></i>{idVideo ? "Render ulang" : "Render video"}</button>
@@ -430,6 +433,8 @@ function Studio() {
         </div>
       </div>
 
+      {papan && <ModalPapanCerita rasio={naskah.rasio} referensi={referensi} tujuanAwal={meta.tujuan} onTutup={() => setPapan(false)}
+        onHasil={(n, tujuan) => { catatSekarang(); setNaskah({ ...n, merek: { ...n.merek, logo: n.merek?.logo || naskah.merek?.logo || null } }); setMeta((m) => ({ ...m, tujuan, judul: m.judul || n.judul })); setAdeganAktif(0); setPilih(null); setPapan(false); }} />}
       {templat && <ModalTemplat naskah={naskah} onTutup={() => setTemplat(false)}
         onPakai={(t) => { catatSekarang(); setNaskah({ ...salin(t.naskah), merek: t.naskah.merek?.logo ? t.naskah.merek : { ...t.naskah.merek, logo: naskah.merek?.logo || null } }); setAdeganAktif(0); setPilih(null); setTemplat(false); toast(`Templat "${t.judul}" dipakai`); }} />}
       {kirim && <ModalRender naskah={naskah} meta={meta} setMeta={setMeta} referensi={referensi} suaraList={suaraList} idVideo={idVideo}
@@ -440,12 +445,13 @@ function Studio() {
 
 function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onTutup, onSelesai }) {
   const [proses, setProses] = useState(false);
+  const [rasioLain, setRasioLain] = useState([]);
   const ubah = (x) => setMeta((m) => ({ ...m, ...x }));
   const kirim = async (e) => {
     e.preventDefault();
     setProses(true);
     try {
-      const body = { templat: "Rakitan", tujuan: meta.tujuan, judul: meta.judul, deskripsi: meta.deskripsi || null, id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, suara: meta.suara, props: { ...naskah, judul: naskah.judul || meta.judul } };
+      const body = { templat: "Rakitan", rasio_tambahan: idVideo ? undefined : rasioLain, tujuan: meta.tujuan, judul: meta.judul, deskripsi: meta.deskripsi || null, id_mapel: meta.id_mapel || null, id_kelas: meta.id_kelas || null, suara: meta.suara, props: { ...naskah, judul: naskah.judul || meta.judul } };
       const r = await minta("POST", idVideo ? `/video-belajar/${idVideo}/render` : "/video-belajar/templat", body);
       await Swal.fire({ icon: "success", title: "Masuk antrean render", text: r.message });
       onSelesai(r.data);
@@ -484,12 +490,84 @@ function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onT
                 {!suaraList.some((p) => p.kode === "TANPA") && <option value="TANPA">Tanpa suara</option>}
                 {(suaraList.length ? suaraList : [{ kode: "LOKAL", label: "Suara AI lokal (Piper, gratis)", aktif: true }]).map((p) => <option key={p.kode} value={p.kode} disabled={!p.aktif}>{p.label}{p.aktif ? "" : " — belum diatur"}</option>)}
               </select>
+              {!idVideo && (
+                <div className="mt-2">
+                  <div className="form-label small mb-1">Render juga dalam rasio lain (opsional)</div>
+                  <div className="d-flex flex-wrap gap-3">
+                    {Object.keys(RASIO).filter((r) => r !== naskah.rasio).map((r) => (
+                      <div key={r} className="form-check m-0">
+                        <input className="form-check-input" type="checkbox" id={`rdR${r}`} checked={rasioLain.includes(r)} onChange={(e) => setRasioLain((x) => (e.target.checked ? [...x, r] : x.filter((y) => y !== r)))} />
+                        <label className="form-check-label small" htmlFor={`rdR${r}`}>{r}</label>
+                      </div>
+                    ))}
+                  </div>
+                  {rasioLain.length > 0 && <div className="form-text">Tiap rasio menjadi video tersendiri dengan posisi elemen yang sama. Periksa dulu tampilannya dengan tombol rasio di atas kanvas.</div>}
+                </div>
+              )}
               {tanpaNarasi && meta.suara !== "TANPA" && <div className="form-text text-warning">Belum ada narasi di adegan mana pun; video akan tanpa suara.</div>}
               <div className="form-text">Video masuk pustaka sebagai draf; ajukan ke kepala sekolah setelah selesai dirender.</div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Batal</button>
               <button className="btn btn-primary" disabled={proses}>{proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-send me-1"></i>}Kirim ke antrean</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div className="modal-backdrop show"></div>
+    </>
+  );
+}
+
+/** Papan cerita AI: satu kalimat permintaan → naskah berisi adegan, teks, emoji, dan narasi untuk disunting. */
+function ModalPapanCerita({ rasio, referensi, tujuanAwal, onTutup, onHasil }) {
+  const [f, setF] = useState({ permintaan: "", tujuan: tujuanAwal || "PROMOSI", jumlah_adegan: 5, id_mapel: "" });
+  const [mode, setMode] = useState(bacaAiMode);
+  const [proses, setProses] = useState(false);
+  const contoh = {
+    PEMBELAJARAN: "Video belajar daur hidup kupu-kupu untuk kelas 3, dengan contoh di kebun sekolah",
+    PROMOSI: "Video promosi PPDB: sekolah ramah anak, guru sabar, kegiatan literasi dan olahraga, pendaftaran dibuka Januari",
+    PENGUMUMAN: "Pengumuman libur semester mulai 20 Desember dan masuk kembali 5 Januari",
+    ACARA: "Liputan lomba 17 Agustus di sekolah: balap karung, tarik tambang, dan lomba mewarnai",
+  };
+  const susun = async (e) => {
+    e.preventDefault();
+    simpanAiMode(mode); setProses(true);
+    try {
+      const r = await minta("POST", "/video-belajar/papan-cerita", { ...f, id_mapel: f.id_mapel || null, rasio, ai_mode: mode });
+      onHasil(r.naskah, f.tujuan);
+      Swal.fire({ icon: "success", title: "Papan cerita siap", text: r.message });
+    } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); setProses(false); }
+  };
+  return (
+    <>
+      <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Papan cerita AI">
+        <div className="modal-dialog">
+          <form className="modal-content border-0 shadow" onSubmit={susun}>
+            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-stars text-primary me-2"></i>Papan cerita AI</h5>
+              <button type="button" className="btn-close" onClick={onTutup} disabled={proses} aria-label="Tutup"></button></div>
+            <div className="modal-body">
+              <label className="form-label small mb-1" htmlFor="pcTujuan">Tujuan video</label>
+              <select id="pcTujuan" className="form-select mb-2" value={f.tujuan} onChange={(e) => setF({ ...f, tujuan: e.target.value })}>{TUJUAN.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              <label className="form-label small mb-1" htmlFor="pcMinta">Video seperti apa yang Anda inginkan?</label>
+              <textarea id="pcMinta" className="form-control mb-2" rows={4} required minLength={10} maxLength={1000} value={f.permintaan} onChange={(e) => setF({ ...f, permintaan: e.target.value })} placeholder={contoh[f.tujuan]} />
+              <div className="row g-2">
+                <div className="col-6"><label className="form-label small mb-1" htmlFor="pcJumlah">Jumlah adegan</label>
+                  <input id="pcJumlah" type="number" className="form-control" min={3} max={8} value={f.jumlah_adegan} onChange={(e) => setF({ ...f, jumlah_adegan: Number(e.target.value) })} /></div>
+                <div className="col-6"><label className="form-label small mb-1" htmlFor="pcAi">Penyedia AI</label>
+                  <select id="pcAi" className="form-select" value={mode} onChange={(e) => setMode(e.target.value)}>{AI_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
+                {f.tujuan === "PEMBELAJARAN" && (
+                  <div className="col-12"><label className="form-label small mb-1" htmlFor="pcMapel">Mapel (agar AI membaca Pustaka Dokumen mapel itu)</label>
+                    <select id="pcMapel" className="form-select" value={f.id_mapel} onChange={(e) => setF({ ...f, id_mapel: e.target.value })}>
+                      <option value="">Semua mapel</option>{(referensi?.mapel || []).map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                    </select></div>
+                )}
+              </div>
+              <div className="form-text">Rasio mengikuti kanvas saat ini ({rasio}). Naskah yang sedang dirakit diganti, dan bisa dikembalikan dengan Ctrl+Z.</div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Batal</button>
+              <button className="btn btn-primary" disabled={proses}>{proses ? <><span className="spinner-border spinner-border-sm me-1"></span>AI menyusun…</> : <><i className="bi bi-stars me-1"></i>Susun papan cerita</>}</button>
             </div>
           </form>
         </div>

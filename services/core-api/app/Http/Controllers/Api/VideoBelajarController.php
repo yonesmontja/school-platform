@@ -16,6 +16,9 @@ use App\Models\TemplatVideo;
 use App\Models\VideoAset;
 use App\Models\User;
 use App\Services\NaskahVideo;
+use App\Services\PustakaDokumenService;
+use App\Services\SoalAIService;
+use App\Services\StudioAIService;
 use App\Services\SuaraService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -146,12 +149,26 @@ class VideoBelajarController extends Controller
     public function dariTemplat(Request $request)
     {
         $data = $this->validasiTemplat($request, true);
-        if ($data['templat'] === 'Rakitan') $data['mesin'] = self::pengaturanStudio()['mesin'];
-        $video = VideoBelajar::create($data + [
-            'id_video' => 'VID-' . Str::upper(Str::random(10)), 'file_url' => '', 'sumber' => 'RENDER', 'status' => 'DRAF',
-            'render_status' => 'ANTRE', 'dibuat_oleh' => $request->user()->id,
-        ]);
-        return response()->json(['success' => true, 'message' => 'Video masuk antrean render. Biasanya selesai dalam beberapa menit; Anda bisa meninggalkan halaman ini.', 'data' => $video->fresh(self::RELASI)], 201);
+        $tambahan = [];
+        if ($data['templat'] === 'Rakitan') {
+            $data['mesin'] = self::pengaturanStudio()['mesin'];
+            // Satu naskah dirender ke beberapa rasio sekaligus (mis. 9:16 untuk Reels dan 16:9 untuk YouTube)
+            $request->validate(['rasio_tambahan' => 'nullable|array|max:3', 'rasio_tambahan.*' => [Rule::in(VideoBelajar::RASIO)]]);
+            $tambahan = array_values(array_diff(array_unique((array) $request->input('rasio_tambahan', [])), [$data['rasio']]));
+        }
+        $buat = function (array $d) use ($request) {
+            return VideoBelajar::create($d + [
+                'id_video' => 'VID-' . Str::upper(Str::random(10)), 'file_url' => '', 'sumber' => 'RENDER', 'status' => 'DRAF',
+                'render_status' => 'ANTRE', 'dibuat_oleh' => $request->user()->id,
+            ]);
+        };
+        $judul = $data['judul'];
+        $video = $buat($tambahan ? ['judul' => mb_substr("{$judul} ({$data['rasio']})", 0, 200)] + $data : $data);
+        $lain = collect($tambahan)->map(fn($r) => $buat(['judul' => mb_substr("{$judul} ({$r})", 0, 200), 'rasio' => $r, 'props' => ['rasio' => $r] + $data['props']] + $data));
+        return response()->json(['success' => true,
+            'message' => ($lain->isNotEmpty() ? ($lain->count() + 1) . ' video (' . collect([$data['rasio'], ...$tambahan])->implode(', ') . ') masuk antrean render.' : 'Video masuk antrean render.')
+                . ' Biasanya selesai dalam beberapa menit; Anda bisa meninggalkan halaman ini.',
+            'data' => $video->fresh(self::RELASI), 'tambahan' => $lain->map->only(['id_video', 'judul', 'rasio'])->values()], 201);
     }
 
     /** Ubah isian templat lalu render ulang. */
@@ -302,6 +319,28 @@ class VideoBelajarController extends Controller
         $a = VideoAset::findOrFail($id);
         $a->update($request->validate(['foto_siswa' => 'sometimes|boolean', 'izin_ortu' => 'sometimes|boolean']));
         return response()->json(['success' => true, 'message' => 'Penanda gambar disimpan.', 'data' => $a]);
+    }
+
+    /** Papan cerita AI (D3): satu kalimat permintaan → naskah berisi adegan, teks, emoji, dan narasi untuk disunting. */
+    public function papanCerita(Request $request, StudioAIService $ai, PustakaDokumenService $pustaka)
+    {
+        $this->cekStudio($request);
+        $d = $request->validate([
+            'permintaan' => 'required|string|min:10|max:1000',
+            'tujuan' => ['required', Rule::in(NaskahVideo::TUJUAN)],
+            'rasio' => ['required', Rule::in(VideoBelajar::RASIO)],
+            'jumlah_adegan' => 'required|integer|min:3|max:8',
+            'id_mapel' => 'nullable|exists:subjects,id_mapel',
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+        ]);
+        $atur = self::pengaturanStudio();
+        // Video pembelajaran membaca Pustaka Dokumen agar isinya sesuai CP & panduan resmi
+        $sumber = $d['tujuan'] === 'PEMBELAJARAN' ? $pustaka->pasang($ai, $d['permintaan'], $d['id_mapel'] ?? null) : [];
+        $papan = $ai->papanCerita($d + ['sekolah' => $atur['nama_sekolah'], 'warna' => $atur['merek']['warna'] ?? []], $d['ai_mode']);
+        if ($papan === null) return response()->json(['message' => $ai->galat()], 422);
+        $naskah = NaskahVideo::dariPapanCerita($papan, $d['rasio'], $atur['merek']);
+        return response()->json(['success' => true, 'message' => 'Papan cerita ' . count($naskah['adegan']) . ' adegan tersusun. Periksa teks, narasi, dan tata letaknya.'
+            . PustakaDokumenService::catatanSumber($sumber), 'naskah' => $naskah, 'rujukan' => $sumber]);
     }
 
     // ===== Templat naskah sekolah =====

@@ -139,6 +139,7 @@ export const BAGIAN = [
     langkah: [
       "Admin membuka TDU - Jadwal → Studio Rakit Video dan menunjuk satu pembuat video motion graphic. Hanya akun itu yang bisa merakit.",
       "Pembuat video membuka Studio. Naskah contoh langsung tampil; pilih rasio (9:16 untuk Reels/TikTok/Status WA, 16:9 untuk proyektor/YouTube, 1:1 untuk feed, 4:3).",
+      "Cara cepat: tekan Papan cerita AI, pilih tujuan, tulis satu-dua kalimat video yang diinginkan (mis. promosi PPDB dengan kegiatan literasi dan olahraga), pilih jumlah adegan dan penyedia AI. AI menyusun adegan, teks, emoji, dan narasi dengan tata letak yang rapi; sunting sesukanya.",
       "Di kiri, kelola adegan: tambah, gandakan, ubah urutan, hapus. Di panel kanan tab Adegan, tulis narasi (dibacakan suara AI dan menjadi subtitle), lama adegan, transisi, dan latar (warna, gradien, atau gambar).",
       "Tambahkan Teks, Emoji, Gambar, atau Bentuk dari bilah di atas kanvas. Geser elemen langsung di kanvas dan tarik kotak biru di sudutnya untuk mengubah ukuran.",
       "Pilih elemen untuk mengatur isi, ukuran, warna, latar teks, garis tepi, bayangan, putaran, animasi masuk (12 pilihan, dengan waktu mulai dan lama) serta gerak setelah muncul.",
@@ -152,6 +153,8 @@ export const BAGIAN = [
       "Pada rasio 9:16, garis putus-putus menandai area aman yang tidak tertutup tombol aplikasi media sosial.",
       "Draf naskah tersimpan otomatis di perangkat ini. Video rakitan bisa dibuka lagi dari Pustaka Video lewat Buka di Studio lalu dirender ulang.",
       "Saat mengunggah gambar, Studio menanyakan apakah gambar memuat foto siswa dan apakah orang tua sudah memberi izin. Video promosi, pengumuman, dan acara yang memakai foto siswa tanpa izin ditolak saat dikirim ke render.",
+      "Di jendela Render, centang rasio lain (mis. 16:9 selain 9:16) agar satu naskah dirender sekaligus menjadi beberapa video. Periksa dulu tampilannya dengan tombol rasio di atas kanvas.",
+      "Papan cerita untuk video Pembelajaran ikut membaca Pustaka Dokumen (pilih mapelnya) agar isinya sesuai CP dan panduan resmi.",
       "Hanya video bertujuan Pembelajaran yang tampil di Portal Siswa; video lain diunduh dari Pustaka Video (tombol Unduh) untuk dibagikan setelah disetujui.",
       "Tombol Templat: simpan naskah sebagai templat sekolah berkategori (Pembelajaran, PPDB & promosi, Pengumuman, Hari besar, Prestasi) dan pakai lagi untuk video berikutnya.",
       "Naskah video tidak terikat satu mesin render; admin bisa memilih mesin (Remotion sekarang, Revideo setelah layanannya dipasang).",

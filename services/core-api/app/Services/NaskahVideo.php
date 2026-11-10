@@ -114,6 +114,111 @@ class NaskahVideo
         return ['src' => $m['src'], 'volume' => self::angka($m['volume'] ?? 0.35, 0, 1, 0.35), 'redam' => (bool) ($m['redam'] ?? true)];
     }
 
+    // ===== Papan cerita AI → naskah (D3) =====
+
+    /**
+     * Ubah papan cerita AI (isi per adegan + jenis tata letak) menjadi naskah dengan elemen berposisi baku.
+     * Posisi menyesuaikan bingkai tegak (9:16), persegi (1:1), atau mendatar (16:9, 4:3).
+     */
+    public static function dariPapanCerita(array $papan, string $rasio, array $merek = []): array
+    {
+        $tegak = $rasio === '9:16';
+        $transisi = ['pudar', 'geser', 'zoom'];
+        $adegan = [];
+        foreach (array_slice(array_values(array_filter((array) ($papan['adegan'] ?? []), 'is_array')), 0, self::MAKS_ADEGAN) as $i => $a) {
+            $latar = self::warna($a['latar'] ?? null) ?? ($merek['warna'][$i % max(1, count($merek['warna'] ?? []))] ?? '#2563eb');
+            $teksW = in_array(strtolower((string) ($a['warna_teks'] ?? '')), ['#ffffff', '#1f2937'], true) ? strtolower($a['warna_teks']) : self::kontras($latar);
+            $narasi = self::teks($a['narasi'] ?? '', 600);
+            $kata = count(preg_split('/\s+/', trim($narasi), -1, PREG_SPLIT_NO_EMPTY));
+            $tata = in_array($a['tata'] ?? null, StudioAIService::TATA, true) ? $a['tata'] : ($i === 0 ? 'pembuka' : 'emoji-besar');
+            $adegan[] = [
+                'narasi' => $narasi,
+                'durasi' => min(30, max(4, ceil(($kata / 2.3 + 1.5) * 2) / 2)),
+                'transisi' => $i === 0 ? 'pudar' : $transisi[$i % 3],
+                'latar' => ['tipe' => 'gradien', 'warna' => $latar, 'warna2' => self::warna($a['latar2'] ?? null) ?? self::terangkan($latar), 'gambar' => null, 'redup' => 0],
+                'elemen' => self::tataLetak($tata, $a, $tegak, $teksW, $latar, $i),
+            ];
+        }
+        return self::rapikan(['rasio' => $rasio, 'judul' => $papan['judul'] ?? '', 'subtitle' => true, 'merek' => $merek, 'adegan' => $adegan]);
+    }
+
+    private static function tataLetak(string $tata, array $a, bool $tegak, string $warna, string $latar, int $n): array
+    {
+        $judul = self::teks($a['judul'] ?? '', 80);
+        $sub = self::teks($a['subjudul'] ?? '', 120);
+        $emoji = self::teks($a['emoji'] ?? '⭐', 16) ?: '⭐';
+        $id = fn($k) => "a{$n}{$k}";
+        $teks = fn($k, $isi, $x, $y, $w, $ukuran, $masuk, $mulai, $gaya = [], $lain = []) => $isi === '' ? null : array_merge([
+            'id' => $id($k), 'tipe' => 'teks', 'isi' => $isi, 'x' => $x, 'y' => $y, 'w' => $w, 'h' => 12, 'rot' => 0, 'gerak' => 'tidak',
+            'gaya' => array_merge(['ukuran' => $ukuran, 'warna' => $warna, 'tebal' => true, 'rata' => 'tengah', 'bayangan' => $warna === '#ffffff'], $gaya),
+            'masuk' => ['preset' => $masuk, 'mulai' => $mulai, 'durasi' => 0.6],
+        ], $lain);
+        $emo = fn($k, $isi, $x, $y, $ukuran, $masuk, $mulai, $gerak = 'tidak') => [
+            'id' => $id($k), 'tipe' => 'emoji', 'isi' => $isi, 'x' => $x, 'y' => $y, 'w' => 30, 'h' => 18, 'rot' => 0, 'gerak' => $gerak,
+            'gaya' => ['ukuran' => $ukuran], 'masuk' => ['preset' => $masuk, 'mulai' => $mulai, 'durasi' => 0.7],
+        ];
+        $el = match ($tata) {
+            'pembuka' => [
+                $emo('e', $emoji, 50, $tegak ? 32 : 30, $tegak ? 220 : 180, 'pop', 0.1, 'melambung'),
+                $teks('j', $judul, 50, $tegak ? 56 : 58, $tegak ? 88 : 80, $tegak ? 76 : 72, 'geser-bawah', 0.5),
+                $teks('s', $sub, 50, $tegak ? 67 : 73, $tegak ? 84 : 70, $tegak ? 44 : 40, 'pudar', 0.9, ['tebal' => false]),
+            ],
+            'daftar' => self::daftar($a, $tegak, $warna, $n, $teks, $emo, $judul),
+            'fakta' => [
+                $emo('e', $emoji, 50, $tegak ? 22 : 20, 120, 'mantul', 0.1),
+                $teks('j', $judul, 50, $tegak ? 44 : 46, 90, $tegak ? 130 : 120, 'pop', 0.4),
+                $teks('s', $sub, 50, $tegak ? 62 : 70, $tegak ? 84 : 76, $tegak ? 50 : 44, 'pudar', 0.9, ['tebal' => false]),
+            ],
+            'ajakan' => [
+                $teks('j', $judul, 50, $tegak ? 36 : 32, $tegak ? 88 : 70, $tegak ? 68 : 64, 'pop', 0.2,
+                    ['warna' => $latar, 'latar' => '#ffffff', 'sudut' => 18, 'bayangan' => false], ['rot' => -3, 'gerak' => 'denyut']),
+                $emo('e', $emoji, 50, $tegak ? 53 : 55, 140, 'mantul', 0.7, 'melambung'),
+                $teks('s', $sub, 50, $tegak ? 66 : 73, $tegak ? 84 : 70, $tegak ? 46 : 40, 'pudar', 1.0),
+            ],
+            default => [ // emoji-besar
+                $emo('e', $emoji, 50, $tegak ? 36 : 32, $tegak ? 260 : 210, 'zoom', 0.1, 'denyut'),
+                $teks('j', $judul, 50, $tegak ? 60 : 62, $tegak ? 88 : 80, $tegak ? 66 : 60, 'geser-bawah', 0.6),
+                $teks('s', $sub, 50, $tegak ? 69 : 74, $tegak ? 84 : 70, $tegak ? 42 : 38, 'pudar', 1.0, ['tebal' => false]),
+            ],
+        };
+        return array_values(array_filter($el));
+    }
+
+    private static function daftar(array $a, bool $tegak, string $warna, int $n, \Closure $teks, \Closure $emo, string $judul): array
+    {
+        $poin = array_slice(array_values(array_filter((array) ($a['poin'] ?? []), fn($p) => is_array($p) && trim((string) ($p['teks'] ?? '')) !== '')), 0, 3);
+        $el = [$teks('j', $judul, 50, $tegak ? 17 : 15, 88, $tegak ? 62 : 56, 'geser-atas', 0.1)];
+        $jumlah = max(1, count($poin));
+        foreach ($poin as $i => $p) {
+            $mulai = 0.6 + $i * 0.6;
+            $isi = self::teks($p['teks'], 60);
+            $ikon = self::teks($p['emoji'] ?? '✅', 16) ?: '✅';
+            if ($tegak) {
+                $y = 36 + $i * 17;
+                $el[] = $emo("p{$i}", $ikon, 18, $y, 100, 'pop', $mulai);
+                $el[] = $teks("t{$i}", $isi, 60, $y, 64, 48, 'geser-kanan', $mulai + 0.1, ['rata' => 'kiri']);
+            } else {
+                $x = $jumlah === 1 ? 50 : 50 + ($i - ($jumlah - 1) / 2) * ($jumlah === 2 ? 34 : 30);
+                $el[] = $emo("p{$i}", $ikon, $x, 46, 110, 'pop', $mulai);
+                $el[] = $teks("t{$i}", $isi, $x, 68, $jumlah === 3 ? 27 : 32, 40, 'geser-bawah', $mulai + 0.1);
+            }
+        }
+        return $el;
+    }
+
+    /** Warna teks paling terbaca di atas latar (putih atau abu tua). */
+    private static function kontras(string $hex): string
+    {
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+        return (0.299 * $r + 0.587 * $g + 0.114 * $b) > 160 ? '#1f2937' : '#ffffff';
+    }
+
+    private static function terangkan(string $hex): string
+    {
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+        return sprintf('#%02x%02x%02x', (int) ($r + (255 - $r) * 0.35), (int) ($g + (255 - $g) * 0.35), (int) ($b + (255 - $b) * 0.35));
+    }
+
     /** Semua aset gambar yang dipakai naskah (elemen, latar, logo). */
     public static function asetGambar(array $naskah): array
     {
