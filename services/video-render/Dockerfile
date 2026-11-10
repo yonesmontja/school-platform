@@ -16,6 +16,8 @@ RUN pip3 install --break-system-packages --no-cache-dir piper-tts \
 
 # Font video Studio (OFL: Nunito, Playfair Display, Poppins) — berkas yang sama dengan pratinjau web
 COPY apps/web/public/fonts/video /usr/share/fonts/truetype/video
+# Pustaka aset Studio (emoji 3D Fluent & ikon Tabler, MIT) untuk elemen emoji/ikon
+COPY apps/web/public/pustaka /opt/pustaka
 RUN fc-cache -f
 
 WORKDIR /app

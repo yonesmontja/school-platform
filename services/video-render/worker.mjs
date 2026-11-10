@@ -16,6 +16,7 @@ const KUNCI = process.env.RENDER_SECRET || "";
 const HASIL = process.env.HASIL || "/hasil";
 const SUARA = "/tmp/suara";
 const PORT = 9123;
+const PUSTAKA = process.env.PUSTAKA || "/opt/pustaka"; // emoji 3D & ikon Studio (salinan apps/web/public/pustaka)
 const MODEL_PIPER = process.env.MODEL_PIPER || "/opt/piper/id_ID-news_tts-medium.onnx";
 const KONKURENSI = Number(process.env.KONKURENSI || 2);
 // Antrean mesin yang dilayani (urut prioritas). MESIN=REMOTION menonaktifkan Revideo di layanan ini.
@@ -31,12 +32,14 @@ fs.mkdirSync(SUARA, { recursive: true });
 fs.mkdirSync(path.join(HASIL, "video"), { recursive: true });
 
 // Berkas suara (dan gambar aset Studio dari storage core-api) dilayani lewat HTTP lokal agar bisa dipakai saat render
-const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml",
   ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav" };
 http.createServer((req, res) => {
   const jalur = decodeURIComponent(req.url.split("?")[0]);
-  const aset = jalur.startsWith("/storage/video-aset/");
-  const f = aset ? path.join(HASIL, "video-aset", path.basename(jalur)) : path.join(SUARA, path.basename(jalur));
+  const pustaka = /^\/pustaka\/(emoji|ikon\/outline|ikon\/filled)\/[\w-]+\.(webp|svg)$/.exec(jalur);
+  const aset = !!pustaka || jalur.startsWith("/storage/video-aset/");
+  const f = pustaka ? path.join(PUSTAKA, pustaka[1], path.basename(jalur))
+    : aset ? path.join(HASIL, "video-aset", path.basename(jalur)) : path.join(SUARA, path.basename(jalur));
   if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); }
   const tipe = aset ? TIPE_GAMBAR[path.extname(f).toLowerCase()] || "application/octet-stream" : "audio/wav";
   res.writeHead(200, { "Content-Type": tipe, "Access-Control-Allow-Origin": "*", "Content-Length": fs.statSync(f).size });

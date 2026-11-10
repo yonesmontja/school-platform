@@ -111,6 +111,25 @@ test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", asy
   await expect(page.getByRole("button", { name: /^Adegan \d/ })).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Adegan 3" })).toContainText("Narasi adegan 3");
 
+  // E2: pustaka aset — cari dengan kata Indonesia, tambah emoji 3D dan ikon, lalu ganti ikonnya
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  const pk = page.getByRole("dialog", { name: "Pustaka aset" });
+  await pk.getByLabel("Cari aset").fill("guru");
+  await pk.getByRole("button", { name: "Emoji teacher" }).click();
+  await expect(pk).toBeHidden();
+  await expect(page.getByLabel("Tampilan emoji")).toHaveValue("3d");
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  await pk.getByRole("tab", { name: /Ikon/ }).click();
+  await pk.getByLabel("Cari aset").fill("roket");
+  await pk.getByRole("button", { name: "Ikon rocket", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Ganti ikon" })).toBeVisible();
+  await page.getByRole("button", { name: "Ganti ikon" }).click();
+  const gp = page.getByRole("dialog", { name: "Ganti dari pustaka" });
+  await gp.getByLabel("Cari aset").fill("piala");
+  await gp.getByRole("button", { name: "Ikon trophy", exact: true }).click();
+  await expect(gp).toBeHidden();
+  await expect(page.locator(".studio-tl-label").filter({ hasText: "trophy" })).toHaveCount(1);
+
   await page.getByRole("button", { name: /Render video/ }).click();
   const modal = page.getByRole("dialog", { name: "Render video" });
   await expect(modal.getByLabel("Tujuan video")).toHaveValue("PROMOSI");

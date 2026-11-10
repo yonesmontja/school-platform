@@ -14,6 +14,7 @@ import { FPS, RASIO, ukuranRasio } from "@/components/video/templat/index.js";
 import { HURUF, NASKAH_CONTOH, Rakitan, adeganBaru, awalAdegan, detikAdeganRakitan, elemenBaru, hitungDurasiRakitan, idBaru } from "@/components/video/templat/rakitan.jsx";
 import { PanelAdegan, PanelElemen, PanelMerek, PanelMusik } from "@/components/video/studio/PanelStudio";
 import Timeline from "@/components/video/studio/Timeline";
+import PustakaAset from "@/components/video/studio/PustakaAset";
 
 const Player = dynamic(() => import("@remotion/player").then((m) => m.Player), { ssr: false, loading: () => <div className="w-100 h-100 bg-dark"></div> });
 const KUNCI_DRAF = "studio-video-draf";
@@ -50,6 +51,7 @@ function Studio() {
   const [waktu, setWaktu] = useState(null); // detik dalam adegan yang ditampilkan kanvas (null = saat semua elemen sudah muncul)
   const [templat, setTemplat] = useState(false);
   const [papan, setPapan] = useState(false);
+  const [pustaka, setPustaka] = useState(null); // null | { ganti: bool, jenis: "emoji" | "ikon" }
   const [modalGaya, setModalGaya] = useState(false);
   const [adeganAktif, setAdeganAktif] = useState(0);
   const [pilih, setPilih] = useState(null); // id elemen
@@ -178,6 +180,18 @@ function Studio() {
     }
     ubahNaskah((n) => { n.adegan[adeganAktif].elemen.push(e); return n; });
     setPilih(e.id); setTab("properti");
+  };
+  // Pilihan dari pustaka aset: tambah elemen baru, atau ganti isi elemen terpilih (posisi & animasi tetap)
+  const pilihPustaka = ({ tipe, isi }) => {
+    if (pustaka?.ganti && elemen) {
+      const baru = elemenBaru(tipe, palet[0]);
+      ubahElemen(elemen.id, elemen.tipe === tipe ? { isi } : { tipe, isi, gaya: { ...elemen.gaya, ...baru.gaya, ...(tipe === "ikon" ? {} : { ukuran: elemen.gaya?.ukuran || baru.gaya.ukuran }) } });
+    } else {
+      const e = { ...elemenBaru(tipe, palet[0]), isi };
+      ubahNaskah((n) => { n.adegan[adeganAktif].elemen.push(e); return n; });
+      setPilih(e.id); setTab("properti");
+    }
+    setPustaka(null);
   };
   const aksiElemen = (jenis) => {
     if (!elemen) return;
@@ -377,6 +391,7 @@ function Studio() {
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => tambahElemen("emoji")}><i className="bi bi-emoji-smile me-1"></i>Emoji</button>
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => tambahElemen("gambar")}><i className="bi bi-image me-1"></i>Gambar</button>
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => tambahElemen("bentuk")}><i className="bi bi-square me-1"></i>Bentuk</button>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setPustaka({ ganti: false, jenis: "emoji" })}><i className="bi bi-collection me-1"></i>Pustaka aset</button>
             <span className="vr mx-1"></span>
             <button type="button" className="btn btn-sm btn-light" disabled={!elemen} onClick={() => aksiElemen("depan")} title="Ke depan" aria-label="Bawa ke depan"><i className="bi bi-layer-forward"></i></button>
             <button type="button" className="btn btn-sm btn-light" disabled={!elemen} onClick={() => aksiElemen("belakang")} title="Ke belakang" aria-label="Kirim ke belakang"><i className="bi bi-layer-backward"></i></button>
@@ -431,12 +446,13 @@ function Studio() {
               : tab === "merek"
               ? <PanelMerek merek={naskah.merek} onUbah={(x) => ubahNaskah((n) => ({ ...n, merek: { ...n.merek, ...x } }))} onUnggah={unggah} onSimpanSekolah={simpanMerekSekolah} bolehSimpan />
               : elemen
-                ? <PanelElemen key={elemen.id} e={elemen} palet={palet} durasiAdegan={detikAdeganRakitan(adegan)} onUbah={(x) => ubahElemen(elemen.id, x)} onUnggah={unggah} />
+                ? <PanelElemen key={elemen.id} e={elemen} palet={palet} durasiAdegan={detikAdeganRakitan(adegan)} onUbah={(x) => ubahElemen(elemen.id, x)} onUnggah={unggah} onPustaka={(jenis) => setPustaka({ ganti: true, jenis })} />
                 : adegan && <PanelAdegan a={adegan} nomor={adeganAktif + 1} palet={palet} onUbah={(x) => ubahAdegan(x)} onUnggah={unggah} />}
           </div>
         </div>
       </div>
 
+      {pustaka && <PustakaAset jenisAwal={pustaka.jenis} judul={pustaka.ganti ? "Ganti dari pustaka" : "Pustaka aset"} onPilih={pilihPustaka} onTutup={() => setPustaka(null)} />}
       {modalGaya && <ModalGaya naskah={naskah} daftar={atur.gaya_tersedia || []} onTutup={() => setModalGaya(false)}
         onHasil={(n) => { catatSekarang(); setNaskah({ ...n, merek: { ...n.merek, logo: n.merek?.logo || naskah.merek?.logo || null } }); setModalGaya(false); }} />}
       {papan && <ModalPapanCerita rasio={naskah.rasio} referensi={referensi} tujuanAwal={meta.tujuan} daftarGaya={atur.gaya_tersedia || []} gayaAwal={naskah.gaya} onTutup={() => setPapan(false)}

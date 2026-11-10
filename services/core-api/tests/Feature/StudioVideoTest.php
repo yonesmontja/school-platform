@@ -155,6 +155,26 @@ class StudioVideoTest extends TestCase
         $this->assertSame(['ceria', 'elegan', 'formal', 'modern'], array_column($this->sebagai($this->sekolah->admin)->getJson('/api/video-belajar/studio')->json('data.gaya_tersedia'), 'kode'));
     }
 
+    public function test_e2_elemen_ikon_pustaka_dan_emoji_3d(): void
+    {
+        $this->sebagai($this->sekolah->admin)->putJson('/api/video-belajar/studio', ['id_pembuat' => $this->sekolah->guruA->id])->assertOk();
+        $el = fn(array $x) => array_merge(['x' => 50, 'y' => 50, 'w' => 20, 'h' => 20], $x);
+        $naskah = ['rasio' => '16:9', 'adegan' => [['narasi' => 'Uji pustaka.', 'elemen' => [
+            $el(['tipe' => 'ikon', 'isi' => 'outline/school', 'gaya' => ['warna' => '#fbbf24', 'tebal' => false]]),
+            $el(['tipe' => 'ikon', 'isi' => 'filled/star']),
+            $el(['tipe' => 'ikon', 'isi' => '../../etc/passwd']),      // jalur liar dibuang
+            $el(['tipe' => 'ikon', 'isi' => 'duotone/school']),       // gaya tak dikenal dibuang
+            $el(['tipe' => 'emoji', 'isi' => '🏫']),
+            $el(['tipe' => 'emoji', 'isi' => '🎓', 'gaya' => ['emoji' => 'datar']]),
+        ]]]];
+        $n = $this->sebagai($this->sekolah->guruA)->postJson('/api/video-belajar/terapkan-gaya', ['naskah' => $naskah, 'gaya' => 'ceria', 'warna' => false])
+            ->assertOk()->json('naskah.adegan.0.elemen');
+        $this->assertSame(['outline/school', 'filled/star', '🏫', '🎓'], array_column($n, 'isi'));
+        $this->assertSame(['ikon', 'ikon', 'emoji', 'emoji'], array_column($n, 'tipe'));
+        $this->assertSame(['#fbbf24', false], [$n[0]['gaya']['warna'], $n[0]['gaya']['tebal']]);
+        $this->assertSame(['3d', 'datar'], [$n[2]['gaya']['emoji'], $n[3]['gaya']['emoji']]); // emoji 3D jadi bawaan
+    }
+
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     public function test_d2_musik_keluar_izin_foto_siswa_tujuan_dan_templat(): void

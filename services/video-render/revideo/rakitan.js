@@ -4,7 +4,8 @@
 // diputar di sini; worker mencampurnya sendiri lalu menempelkannya ke video hasil render.
 import { Circle, Gradient, Img, Line, Node, Rect, Txt, blur, makeScene2D } from "@revideo/2d";
 import { loadImage, useScene } from "@revideo/core";
-import { FPS, HURUF, frameAdegan, gayaKaca, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, subtitlePada, teksHitung } from "../templat/gerakRakitan.js";
+import { FPS, HURUF, frameAdegan, gayaKaca, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
+import { srcEmoji3d } from "../templat/emoji3d.js";
 
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
 const RATA = { kiri: "left", kanan: "right" };
@@ -80,6 +81,24 @@ function* buatElemen(e, c) {
         };
       }
     }
+  } else if (e.tipe === "emoji" && g.emoji !== "datar" && srcEmoji3d(e.isi)) {
+    // Emoji 3D (Fluent): gambar dari pustaka lokal, ukurannya setara glyph berukuran sama
+    const src = srcAset(srcEmoji3d(e.isi), asetDasar), s = sisiEmoji3d(g, k);
+    yield loadImage(src);
+    isi = new Img({ src, width: s, height: s });
+  } else if (e.tipe === "ikon") {
+    // Ikon SVG: diwarnai lalu dirasterisasi pada ukuran tampilnya agar tetap tajam
+    const src = srcIkon(e.isi);
+    const teks = src ? yield fetch(srcAset(src, asetDasar)).then((r) => (r.ok ? r.text() : "")).catch(() => "") : "";
+    const sisi = Math.min(w, h), px = Math.ceil(sisi * 2);
+    const svg = svgIkon(teks, g.warna, g.tebal === false, px);
+    const anak = [];
+    if (svg) {
+      const data = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      yield loadImage(data);
+      anak.push(new Img({ src: data, width: sisi, height: sisi }));
+    }
+    isi = new Node({ children: anak });
   } else if (e.tipe === "emoji") {
     isi = new Txt({ text: String(e.isi ?? ""), fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: (g.ukuran || 120) * k, fill: "#000" });
   } else if (e.tipe === "gambar") {

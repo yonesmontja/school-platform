@@ -287,3 +287,19 @@ export function teksHitung(isi, frame, fps, e) {
   const angka = bulat.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (pecah ? "," + pecah : "");
   return s.slice(0, m.index) + angka + s.slice(m.index + m[0].length);
 }
+
+// ===== Pustaka aset (E2): emoji 3D Fluent & ikon Tabler, berkas lokal di /pustaka (web) dan layanan render =====
+
+export const POLA_IKON = /^(outline|filled)\/[a-z0-9-]+$/;
+/** Jalur berkas ikon dari isi elemen "outline/nama" atau "filled/nama"; null bila tidak sah. */
+export const srcIkon = (isi) => (POLA_IKON.test(String(isi || "")) ? `/pustaka/ikon/${isi}.svg` : null);
+/** SVG ikon diwarnai; px = ukuran raster (Revideo), tanpa px = mengisi kotak (Remotion). Garis tipis untuk ikon garis. */
+export function svgIkon(teks, warna, tipis, px) {
+  let t = String(teks || "").trim();
+  if (!/^<svg[\s>]/.test(t) || /<script|\son\w+=/i.test(t)) return null;
+  t = t.replace(/currentColor/g, warna || "#1f2937");
+  if (tipis) t = t.replace(/stroke-width="2"/, 'stroke-width="1.25"');
+  return t.replace(/width="24" height="24"/, px ? `width="${px}" height="${px}"` : 'width="100%" height="100%"');
+}
+/** Sisi kotak gambar emoji 3D (sedikit lebih besar dari glyph huruf berukuran sama). */
+export const sisiEmoji3d = (g, k) => (g?.ukuran || 120) * k * 1.1;

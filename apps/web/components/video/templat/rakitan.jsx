@@ -2,10 +2,11 @@
 // (teks, emoji, gambar, bentuk) dengan animasi masuk, gerak berulang, transisi, narasi, subtitle, dan merek sekolah.
 // Posisi & ukuran elemen dalam persen bingkai sehingga satu naskah cocok untuk semua rasio. Naskah tidak terikat
 // Remotion: komponen ini hanya salah satu "penulis render"; bentuk naskahnya sama dengan App\Services\NaskahVideo.
-import React from "react";
-import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import React, { useEffect, useRef, useState } from "react";
+import { AbsoluteFill, Audio, Img, Sequence, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { ukuranRasio } from "./umum.jsx";
-import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, subtitlePada, teksHitung, volumeMusik } from "./gerakRakitan.js";
+import { srcEmoji3d } from "./emoji3d.js";
+import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik } from "./gerakRakitan.js";
 
 // Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
 export { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
@@ -91,13 +92,39 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     return <div style={kulit}>{isi}</div>;
   }
   if (e.tipe === "emoji") {
+    const tiga = g.emoji !== "datar" ? srcEmoji3d(e.isi) : null;
+    if (tiga) {
+      const s = sisiEmoji3d(g, k);
+      return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center" }}><Img src={srcAset(tiga, asetDasar)} style={{ width: s, height: s, objectFit: "contain", flexShrink: 0 }} /></div>;
+    }
     return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: 1 }}>{e.isi}</div>;
+  }
+  if (e.tipe === "ikon") {
+    const src = srcIkon(e.isi);
+    return <div style={kotak}>{src && <IkonSvg src={srcAset(src, asetDasar)} warna={g.warna} tipis={g.tebal === false} />}</div>;
   }
   if (e.tipe === "gambar") {
     const src = srcAset(e.isi, asetDasar);
     return <div style={{ ...kotak, borderRadius: (g.sudut || 0) * k, overflow: "hidden" }}>{src && <Img src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}</div>;
   }
   return <div style={kotak}><Bentuk isi={e.isi} g={g} /></div>;
+}
+
+/** Ikon SVG dari pustaka: teksnya dimuat sekali (render ditahan sampai siap), lalu diwarnai dan digambar tajam. */
+const cacheSvg = new Map();
+function IkonSvg({ src, warna, tipis }) {
+  const [teks, setTeks] = useState(() => cacheSvg.get(src) ?? null);
+  const tahan = useRef(null);
+  if (tahan.current === null && !cacheSvg.has(src)) tahan.current = delayRender(`Memuat ikon ${src}`);
+  useEffect(() => {
+    let batal = false;
+    const lepas = () => { if (tahan.current !== null && tahan.current !== false) { continueRender(tahan.current); tahan.current = false; } };
+    if (cacheSvg.has(src)) { setTeks(cacheSvg.get(src)); lepas(); return undefined; }
+    fetch(src).then((r) => (r.ok ? r.text() : "")).catch(() => "").then((t) => { cacheSvg.set(src, t); if (!batal) setTeks(t); lepas(); });
+    return () => { batal = true; };
+  }, [src]);
+  const svg = svgIkon(teks, warna, tipis);
+  return svg ? <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: svg }} /> : null;
 }
 
 function Latar({ l, asetDasar }) {
@@ -204,7 +231,8 @@ export function elemenBaru(tipe, warna = "#2563eb") {
   const dasar = { id: idBaru(), tipe, x: 50, y: 50, rot: 0, gerak: "tidak", masuk: { preset: "pop", mulai: 0.2, durasi: 0.6 }, keluar: { preset: "tidak", pada: null } };
   const gaya = { ukuran: 60, warna: "#1f2937", latar: null, garis: null, tebal: true, miring: false, rata: "tengah", sudut: 0, bayangan: false, buram: 1 };
   if (tipe === "teks") return { ...dasar, isi: "Teks baru", w: 70, h: 15, gaya: { ...gaya, ukuran: 64 }, masuk: { preset: "geser-bawah", mulai: 0.2, durasi: 0.6 } };
-  if (tipe === "emoji") return { ...dasar, isi: "⭐", w: 25, h: 25, gaya: { ...gaya, ukuran: 160 } };
+  if (tipe === "emoji") return { ...dasar, isi: "⭐", w: 25, h: 25, gaya: { ...gaya, ukuran: 160, emoji: "3d" } };
+  if (tipe === "ikon") return { ...dasar, isi: "outline/star", w: 18, h: 18, gaya: { ...gaya, warna } };
   if (tipe === "gambar") return { ...dasar, isi: null, w: 40, h: 40, gaya: { ...gaya, sudut: 4 }, masuk: { preset: "zoom", mulai: 0.2, durasi: 0.6 } };
   return { ...dasar, isi: "kotak", w: 30, h: 20, gaya: { ...gaya, warna, sudut: 8 }, masuk: { preset: "zoom", mulai: 0, durasi: 0.5 } };
 }

@@ -11,7 +11,9 @@ namespace App\Services;
 class NaskahVideo
 {
     public const MESIN = ['REMOTION', 'REVIDEO'];
-    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk'];
+    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk', 'ikon'];
+    /** Ikon pustaka Tabler (MIT): "outline/nama" atau "filled/nama", berkas di apps/web/public/pustaka/ikon. */
+    private const IKON = '#^(outline|filled)/[a-z0-9-]{1,60}$#';
     public const BENTUK = ['kotak', 'bulat', 'lingkaran', 'panah', 'bintang', 'garis'];
     public const MASUK = ['tidak', 'pudar', 'geser-kiri', 'geser-kanan', 'geser-atas', 'geser-bawah', 'pop', 'zoom', 'putar', 'mantul', 'ketik', 'kata', 'hitung', 'sapu'];
     public const GERAK = ['tidak', 'melambung', 'denyut', 'goyang', 'putar'];
@@ -96,9 +98,10 @@ class NaskahVideo
             'gambar' => self::aset($e['isi'] ?? null),
             'bentuk' => in_array($e['isi'] ?? null, self::BENTUK, true) ? $e['isi'] : 'kotak',
             'emoji' => self::teks($e['isi'] ?? '', 16),
+            'ikon' => is_string($e['isi'] ?? null) && preg_match(self::IKON, $e['isi']) ? $e['isi'] : null,
             default => self::teks($e['isi'] ?? '', 300),
         };
-        if ($tipe === 'gambar' && !$isi) return null;
+        if (in_array($tipe, ['gambar', 'ikon'], true) && !$isi) return null;
         return [
             'id' => preg_replace('/[^\w-]/', '', (string) ($e['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'tipe' => $tipe,
@@ -121,6 +124,7 @@ class NaskahVideo
                 'buram' => self::angka($g['buram'] ?? 1, 0.1, 1, 1),
                 'huruf' => in_array($g['huruf'] ?? null, self::HURUF, true) ? $g['huruf'] : null,
                 'kaca' => (bool) ($g['kaca'] ?? false),
+                'emoji' => ($g['emoji'] ?? null) === 'datar' ? 'datar' : '3d', // emoji 3D Fluent bila tersedia
             ],
             'masuk' => [
                 'preset' => in_array($m['preset'] ?? null, self::MASUK, true) ? $m['preset'] : 'pudar',
