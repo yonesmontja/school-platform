@@ -4,7 +4,8 @@
 // diputar di sini; worker mencampurnya sendiri lalu menempelkannya ke video hasil render.
 import { Circle, Gradient, Img, Line, Node, Rect, Txt, blur, makeScene2D } from "@revideo/2d";
 import { loadImage, useScene } from "@revideo/core";
-import { FPS, HURUF, frameAdegan, gayaKaca, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
+import lottie from "lottie-web/build/player/lottie_light_canvas";
+import { FPS, HURUF, POLA_LOTTIE, frameAdegan, frameLottie, gayaKaca, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
 import { srcEmoji3d } from "../templat/emoji3d.js";
 
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
@@ -35,12 +36,20 @@ function buatBentuk(isi, g, w, h) {
   }
 }
 
+/** Simpul yang menggambar kanvas luar (hasil lottie-web) pada kotak w×h berpusat di titik asal. */
+class KanvasLuar extends Node {
+  draw(context) {
+    if (this.kanvas) context.drawImage(this.kanvas, -this.kanvas.width / 2, -this.kanvas.height / 2);
+    super.draw(context);
+  }
+}
+
 /** Satu elemen → simpul Revideo + fungsi pembaru per frame. */
 function* buatElemen(e, c) {
   const { lebar: W, tinggi: H, k, huruf, asetDasar } = c;
   const g = e.gaya || {};
   const w = (e.w / 100) * W, h = (e.h / 100) * H;
-  let isi, lebarIsi = w, ketik = null, animasiTeks = null;
+  let isi, lebarIsi = w, ketik = null, animasiTeks = null, animasiLottie = null;
   if (e.tipe === "teks") {
     const u = (g.ukuran || 60) * k;
     const gayaTeks = {
@@ -99,6 +108,20 @@ function* buatElemen(e, c) {
       anak.push(new Img({ src: data, width: sisi, height: sisi }));
     }
     isi = new Node({ children: anak });
+  } else if (e.tipe === "lottie") {
+    // Lottie (lottie-web "light canvas", tanpa expression) digambar ke kanvas w×h, disetel ke frame tiap yield
+    isi = new KanvasLuar({});
+    const data = POLA_LOTTIE.test(String(e.isi || "")) ? yield fetch(srcAset(e.isi, asetDasar)).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+    if (data) {
+      const kanvas = document.createElement("canvas");
+      kanvas.width = Math.max(1, Math.round(w)); kanvas.height = Math.max(1, Math.round(h));
+      const a = lottie.loadAnimation({ renderer: "canvas", loop: false, autoplay: false, animationData: data,
+        rendererSettings: { context: kanvas.getContext("2d"), preserveAspectRatio: "xMidYMid meet", clearCanvas: true } });
+      const bergambar = (data.assets || []).some((x) => x && x.p);
+      yield new Promise((ok) => { a.addEventListener(bergambar ? "loaded_images" : "DOMLoaded", ok); setTimeout(ok, 8000); });
+      isi.kanvas = kanvas;
+      animasiLottie = (f) => a.goToAndStop(frameLottie(e, f, FPS, data), true);
+    }
   } else if (e.tipe === "emoji") {
     isi = new Txt({ text: String(e.isi ?? ""), fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: (g.ukuran || 120) * k, fill: "#000" });
   } else if (e.tipe === "gambar") {
@@ -125,6 +148,7 @@ function* buatElemen(e, c) {
     simpul.position([x0 + s.tx, y0 + s.ty]).rotation(s.rot).scale(s.sc).opacity(Math.max(0, s.op));
     if (ketik && s.nKetik !== null) ketik(s.nKetik);
     if (animasiTeks) animasiTeks(f);
+    if (animasiLottie) animasiLottie(f);
     if (sapu) {
       const lebarTampak = lebarIsi * (1 - s.sapu);
       sapu.width(Math.max(0.001, lebarTampak)).x(-lebarIsi / 2 + lebarTampak / 2);

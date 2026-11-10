@@ -32,7 +32,7 @@ fs.mkdirSync(SUARA, { recursive: true });
 fs.mkdirSync(path.join(HASIL, "video"), { recursive: true });
 
 // Berkas suara (dan gambar aset Studio dari storage core-api) dilayani lewat HTTP lokal agar bisa dipakai saat render
-const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml",
+const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".json": "application/json",
   ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav" };
 http.createServer((req, res) => {
   const jalur = decodeURIComponent(req.url.split("?")[0]);

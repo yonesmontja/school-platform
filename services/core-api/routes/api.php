@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\DokumenRujukanController;
 use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\PemakaianController;
+use App\Http\Controllers\Api\CanvaController;
 use App\Http\Controllers\Api\VideoBelajarController;
 use App\Http\Controllers\Api\RenderInternalController;
 use App\Http\Controllers\Api\UjianController;
@@ -61,6 +62,9 @@ Route::prefix('internal/render')->middleware('throttle:120,1')->group(function (
     Route::post('/{id}/selesai', [RenderInternalController::class, 'selesai']);
     Route::post('/{id}/gagal', [RenderInternalController::class, 'gagal']);
 });
+
+// Callback OAuth Canva (E3): dibuka peramban dari Canva tanpa token login; dikenali lewat state sekali pakai
+Route::get('/video-belajar/canva/kembali', [CanvaController::class, 'kembali'])->middleware('throttle:20,1');
 
 // Pemantau uptime (mis. UptimeRobot) dan healthcheck Docker: API hidup dan database terjangkau
 Route::get('/health', function () {
@@ -300,6 +304,12 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/aset', [VideoBelajarController::class, 'aset'])->middleware('throttle:60,1');
             Route::get('/aset', [VideoBelajarController::class, 'daftarAset']);
             Route::patch('/aset/{id}', [VideoBelajarController::class, 'ubahAset'])->whereNumber('id');
+            // Impor desain Canva (E3)
+            Route::get('/canva', [CanvaController::class, 'status']);
+            Route::post('/canva/sambung', [CanvaController::class, 'sambung'])->middleware('throttle:10,1');
+            Route::delete('/canva/sambung', [CanvaController::class, 'putuskan']);
+            Route::get('/canva/desain', [CanvaController::class, 'desain'])->middleware('throttle:60,1');
+            Route::post('/canva/impor', [CanvaController::class, 'impor'])->middleware('throttle:15,1');
             Route::get('/templat-studio', [VideoBelajarController::class, 'daftarTemplatStudio']);
             Route::post('/papan-cerita', [VideoBelajarController::class, 'papanCerita'])->middleware('throttle:20,1');
             Route::post('/terapkan-gaya', [VideoBelajarController::class, 'terapkanGaya'])->middleware('throttle:60,1');

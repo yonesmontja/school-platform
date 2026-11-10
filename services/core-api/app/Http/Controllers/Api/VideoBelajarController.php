@@ -15,6 +15,7 @@ use App\Models\SchoolSetting;
 use App\Models\TemplatVideo;
 use App\Models\VideoAset;
 use App\Models\User;
+use App\Services\BersihAset;
 use App\Services\NaskahVideo;
 use App\Services\PustakaDokumenService;
 use App\Services\SoalAIService;
@@ -302,25 +303,51 @@ class VideoBelajarController extends Controller
     }
 
     /**
-     * Unggah aset naskah: gambar (PNG/JPG/WebP ≤ 5 MB, untuk elemen, latar, logo) atau musik (MP3/M4A/OGG/WAV ≤ 10 MB).
+     * Unggah aset naskah: gambar (PNG/JPG/WebP ≤ 5 MB, atau SVG ≤ 1 MB yang dibersihkan) untuk elemen, latar, logo;
+     * animasi Lottie (JSON ≤ 3 MB, expression dibuang); atau musik (MP3/M4A/OGG/WAV ≤ 10 MB).
      * Gambar ditandai memuat foto siswa atau tidak, dan apakah orang tua sudah memberi izin.
      */
     public function aset(Request $request)
     {
         $this->cekPembuatAtauAdmin($request);
         $request->validate([
-            'gambar' => 'required_without:audio|file|max:5120|mimetypes:' . implode(',', array_keys(self::MIME_ASET)),
-            'audio' => 'required_without:gambar|file|max:10240|mimetypes:' . implode(',', array_keys(self::MIME_AUDIO)),
+            'gambar' => 'required_without_all:audio,lottie|file|max:5120',
+            'audio' => 'required_without_all:gambar,lottie|file|max:10240|mimetypes:' . implode(',', array_keys(self::MIME_AUDIO)),
+            'lottie' => 'required_without_all:gambar,audio|file|max:3072',
             'foto_siswa' => 'nullable|boolean',
             'izin_ortu' => 'nullable|boolean',
         ]);
-        $audio = $request->hasFile('audio');
-        $f = $request->file($audio ? 'audio' : 'gambar');
-        $ext = ($audio ? self::MIME_AUDIO : self::MIME_ASET)[$f->getMimeType()];
-        $path = '/storage/' . $f->storeAs('video-aset', 'aset_' . Str::lower(Str::random(20)) . ".{$ext}", 'public');
-        $aset = VideoAset::create(['path' => $path, 'jenis' => $audio ? 'AUDIO' : 'GAMBAR', 'nama_asli' => mb_substr($f->getClientOriginalName(), 0, 250),
-            'foto_siswa' => !$audio && $request->boolean('foto_siswa'), 'izin_ortu' => !$audio && $request->boolean('izin_ortu'), 'diunggah_oleh' => $request->user()->id]);
-        return response()->json(['success' => true, 'url' => $path, 'data' => $aset], 201);
+        $nama = 'aset_' . Str::lower(Str::random(20));
+        $meta = null;
+        try {
+            if ($request->hasFile('audio')) {
+                $f = $request->file('audio');
+                [$jenis, $path] = ['AUDIO', $f->storeAs('video-aset', "{$nama}." . self::MIME_AUDIO[$f->getMimeType()], 'public')];
+            } elseif ($request->hasFile('lottie')) {
+                $f = $request->file('lottie');
+                [$json, $meta] = BersihAset::lottie((string) file_get_contents($f->getRealPath()));
+                Storage::disk('public')->put($path = "video-aset/{$nama}.json", $json);
+                $jenis = 'LOTTIE';
+            } else {
+                $f = $request->file('gambar');
+                $mime = $f->getMimeType();
+                if (isset(self::MIME_ASET[$mime])) {
+                    [$jenis, $path] = ['GAMBAR', $f->storeAs('video-aset', "{$nama}." . self::MIME_ASET[$mime], 'public')];
+                } elseif (str_contains($mime, 'svg') || (in_array($mime, ['text/xml', 'application/xml', 'text/plain', 'text/html'], true) && strtolower($f->getClientOriginalExtension()) === 'svg')) {
+                    Storage::disk('public')->put($path = "video-aset/{$nama}.svg", BersihAset::svg((string) file_get_contents($f->getRealPath())));
+                    $jenis = 'SVG';
+                } else {
+                    throw new \RuntimeException('Gambar harus PNG, JPG, WebP, atau SVG.');
+                }
+            }
+        } catch (\RuntimeException $e) {
+            throw ValidationException::withMessages([$request->hasFile('lottie') ? 'lottie' : ($request->hasFile('audio') ? 'audio' : 'gambar') => $e->getMessage()]);
+        }
+        $path = "/storage/{$path}";
+        $foto = $jenis === 'GAMBAR';
+        $aset = VideoAset::create(['path' => $path, 'jenis' => $jenis, 'nama_asli' => mb_substr($f->getClientOriginalName(), 0, 250),
+            'foto_siswa' => $foto && $request->boolean('foto_siswa'), 'izin_ortu' => $foto && $request->boolean('izin_ortu'), 'diunggah_oleh' => $request->user()->id]);
+        return response()->json(['success' => true, 'url' => $path, 'data' => $aset, 'lottie' => $meta], 201);
     }
 
     public function daftarAset(Request $request)

@@ -303,3 +303,17 @@ export function svgIkon(teks, warna, tipis, px) {
 }
 /** Sisi kotak gambar emoji 3D (sedikit lebih besar dari glyph huruf berukuran sama). */
 export const sisiEmoji3d = (g, k) => (g?.ukuran || 120) * k * 1.1;
+
+// ===== Animasi Lottie unggahan sekolah (E3) =====
+
+export const POLA_LOTTIE = /^\/storage\/video-aset\/[\w.-]+\.json$/;
+/**
+ * Frame Lottie (relatif terhadap awal animasinya) pada frame video: mulai bersama animasi masuk elemen, diputar dengan
+ * kecepatan pilihan, berulang atau berhenti di frame terakhir. meta = { fr, ip, op } dari berkas Lottie.
+ */
+export function frameLottie(e, frame, fps, meta) {
+  const n = Math.max(1, (meta?.op || 1) - (meta?.ip || 0));
+  const mulai = Math.round((e?.masuk?.mulai || 0) * fps);
+  const lf = (Math.max(0, frame - mulai) / fps) * (e?.gaya?.kecepatan || 1) * (meta?.fr || 30);
+  return e?.gaya?.ulang === false ? Math.min(lf, n - 1) : lf % n;
+}

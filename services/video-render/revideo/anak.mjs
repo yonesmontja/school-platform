@@ -20,6 +20,9 @@ try {
       outFile: "bisu.mp4", outDir: tugas.folder, logProgress: false, workers: 1,
       projectSettings: { size: { x: tugas.lebar, y: tugas.tinggi }, exporter: { name: "@revideo/core/ffmpeg", options: { format: "mp4" } } },
       ffmpeg: { ffmpegPath: tugas.ffmpeg },
+      // Semua dependensi halaman render dibundel di awal. Bila vite menemukannya belakangan (mis. lottie-web yang
+      // CommonJS), halaman dimuat ulang di tengah navigasi dan render macet. Daftar ini menggantikan `entries` plugin.
+      viteConfig: { optimizeDeps: { include: ["lottie-web/build/player/lottie_light_canvas", "@revideo/2d", "@revideo/core", "@revideo/renderer/lib/client/render"] } },
       puppeteer: { headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"], ...(tugas.browser ? { executablePath: tugas.browser } : {}) },
     },
   });

@@ -130,6 +130,31 @@ test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", asy
   await expect(gp).toBeHidden();
   await expect(page.locator(".studio-tl-label").filter({ hasText: "trophy" })).toHaveCount(1);
 
+  // E3: unggah SVG & animasi Lottie milik sekolah lewat tab Unggahan; tab Canva memberi tahu bila belum diatur admin
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  await pk.getByRole("tab", { name: /Unggahan sekolah/ }).click();
+  let pilihBerkas = page.waitForEvent("filechooser");
+  await pk.getByRole("button", { name: /Unggah gambar \/ SVG/ }).click();
+  await (await pilihBerkas).setFiles({ name: "logo-uji.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#22c55e"/></svg>') });
+  await expect(pk).toBeHidden();
+  await expect(page.locator(".studio-tl-label").filter({ hasText: "Gambar" })).not.toHaveCount(0);
+  const lottieUji = { v: "5.7.0", fr: 30, ip: 0, op: 30, w: 100, h: 100, assets: [], layers: [{ ty: 4, ip: 0, op: 30, st: 0, ks: { o: { a: 0, k: 100 }, r: { a: 0, k: 0 }, p: { a: 0, k: [50, 50, 0] }, a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [100, 100, 100] } },
+    shapes: [{ ty: "gr", it: [{ ty: "rc", d: 1, s: { a: 0, k: [60, 60] }, p: { a: 0, k: [0, 0] }, r: { a: 0, k: 8 } }, { ty: "fl", c: { a: 0, k: [1, 0.7, 0.1, 1] }, o: { a: 0, k: 100 } }, { ty: "tr", p: { a: 0, k: [0, 0] }, a: { a: 0, k: [0, 0] }, s: { a: 0, k: [100, 100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 } }] }] }] };
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  await pk.getByRole("tab", { name: /Unggahan sekolah/ }).click();
+  await expect(pk.getByRole("button", { name: /SVG logo-uji\.svg/ })).toBeVisible();
+  pilihBerkas = page.waitForEvent("filechooser");
+  await pk.getByRole("button", { name: /Unggah animasi Lottie/ }).click();
+  await (await pilihBerkas).setFiles({ name: "animasi-uji.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(lottieUji)) });
+  await expect(pk).toBeHidden();
+  await expect(page.getByText("Animasi Lottie", { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel("Putar berulang (mati = berhenti di akhir)")).toBeChecked();
+  await expect(page.locator("canvas").first()).toBeVisible(); // lottie-web menggambar di kanvas pratinjau
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  await pk.getByRole("tab", { name: /Canva/ }).click();
+  await expect(pk).toContainText("Integrasi Canva belum diatur");
+  await pk.getByRole("button", { name: "Tutup", exact: true }).first().click();
+
   await page.getByRole("button", { name: /Render video/ }).click();
   const modal = page.getByRole("dialog", { name: "Render video" });
   await expect(modal.getByLabel("Tujuan video")).toHaveValue("PROMOSI");

@@ -16,7 +16,9 @@ const AI_PROVIDERS = [
 
 // Token WhatsApp diperlakukan sama seperti API key (terenkripsi, tidak dikirim balik)
 const WA_TOKEN = { field: 'wa_api_token', label: 'Token Fonnte', placeholder: 'Tempel token device dari dashboard Fonnte' };
-const SECRET_FIELDS = [...AI_PROVIDERS, WA_TOKEN];
+// Client Secret integrasi Canva (impor desain di Studio Rakit Video): terenkripsi, tidak dikirim balik
+const CANVA_SECRET = { field: 'canva_client_secret', label: 'Canva: Client Secret', placeholder: 'Tempel Client Secret (diawali cnvca) dari Canva Developer Portal' };
+const SECRET_FIELDS = [...AI_PROVIDERS, WA_TOKEN, CANVA_SECRET];
 
 const emptyPerProvider = (value) => Object.fromEntries(SECRET_FIELDS.map((p) => [p.field, value]));
 
@@ -393,6 +395,34 @@ export default function PengaturanSekolahPage() {
               <input id="gmSuara" type="text" className="form-control" name="gemini_tts_voice" list="gemini-suara" placeholder="Kore" value={formData.gemini_tts_voice || ''} onChange={handleInputChange} />
               <datalist id="gemini-suara"><option value="Kore" /><option value="Puck" /><option value="Leda" /><option value="Aoede" /><option value="Zephyr" /></datalist>
             </div>
+
+            <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Integrasi Canva (Studio Rakit Video)</h5>
+            <p className="small text-muted mb-0">
+              Agar pembuat video bisa mengimpor desain Canva: buat integrasi di <a href="https://www.canva.com/developers/integrations/connect-api" target="_blank" rel="noopener noreferrer">Canva Developer Portal</a> (Your integrations → Create an integration → Public),
+              aktifkan cakupan <code>design:meta:read</code>, <code>design:content:read</code>, dan <code>profile:read</code>, lalu tambahkan Redirect URL berikut. Integrasi draf bisa dipakai akun pembuatnya tanpa menunggu review Canva.
+            </p>
+            <div className="col-12">
+              <label className="form-label fw-bold small text-muted" htmlFor="canvaRedirect">Redirect URL (salin ke Canva)</label>
+              <input id="canvaRedirect" type="text" className="form-control font-monospace" readOnly suppressHydrationWarning value={typeof window !== 'undefined' ? `${window.location.origin}/api/video-belajar/canva/kembali` : ''} onFocus={(e) => e.target.select()} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted" htmlFor="canvaId">Canva: Client ID</label>
+              <input id="canvaId" type="text" className="form-control" name="canva_client_id" placeholder="OC-…" value={formData.canva_client_id || ''} onChange={handleInputChange} />
+            </div>
+            <ApiKeyField
+              provider={CANVA_SECRET}
+              hasKey={!!formData.has_canva_client_secret}
+              value={apiKeyInputs.canva_client_secret}
+              onChange={(v) => setApiKeyInputs((prev) => ({ ...prev, canva_client_secret: v }))}
+              show={showApiKeys.canva_client_secret}
+              onToggleShow={() => setShowApiKeys((prev) => ({ ...prev, canva_client_secret: !prev.canva_client_secret }))}
+              hapus={hapusApiKeys.canva_client_secret}
+              onToggleHapus={(checked) => {
+                setHapusApiKeys((prev) => ({ ...prev, canva_client_secret: checked }));
+                setApiKeyInputs((prev) => ({ ...prev, canva_client_secret: '' }));
+              }}
+            />
 
             <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Integrasi WhatsApp</h5>

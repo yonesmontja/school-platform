@@ -37,8 +37,8 @@ async function api(sesi, path) {
 
 const test = base.test.extend({
   page: async ({ page }, use) => {
-    // Semua /api diteruskan ke API tes; halaman tetap dari WEB_URL
-    await page.route(/\/api\//, async (route) => {
+    // Semua /api (dan berkas unggahan /storage) diteruskan ke API tes; halaman tetap dari WEB_URL
+    await page.route((url) => url.pathname.includes("/api/") || url.pathname.startsWith("/storage/"), async (route) => {
       const asal = new URL(route.request().url());
       try {
         const response = await route.fetch({ url: API + asal.pathname + asal.search });

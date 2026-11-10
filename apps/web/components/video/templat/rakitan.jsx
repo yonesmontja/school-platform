@@ -2,11 +2,12 @@
 // (teks, emoji, gambar, bentuk) dengan animasi masuk, gerak berulang, transisi, narasi, subtitle, dan merek sekolah.
 // Posisi & ukuran elemen dalam persen bingkai sehingga satu naskah cocok untuk semua rasio. Naskah tidak terikat
 // Remotion: komponen ini hanya salah satu "penulis render"; bentuk naskahnya sama dengan App\Services\NaskahVideo.
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import lottie from "lottie-web/build/player/lottie_light_canvas";
 import { AbsoluteFill, Audio, Img, Sequence, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { ukuranRasio } from "./umum.jsx";
 import { srcEmoji3d } from "./emoji3d.js";
-import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik } from "./gerakRakitan.js";
+import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, frameLottie, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik, POLA_LOTTIE } from "./gerakRakitan.js";
 
 // Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
 export { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
@@ -99,6 +100,9 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     }
     return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: 1 }}>{e.isi}</div>;
   }
+  if (e.tipe === "lottie") {
+    return <div style={kotak}>{POLA_LOTTIE.test(String(e.isi || "")) && <LottieRakitan e={e} src={srcAset(e.isi, asetDasar)} frame={frame} fps={fps} />}</div>;
+  }
   if (e.tipe === "ikon") {
     const src = srcIkon(e.isi);
     return <div style={kotak}>{src && <IkonSvg src={srcAset(src, asetDasar)} warna={g.warna} tipis={g.tebal === false} />}</div>;
@@ -125,6 +129,37 @@ function IkonSvg({ src, warna, tipis }) {
   }, [src]);
   const svg = svgIkon(teks, warna, tipis);
   return svg ? <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: svg }} /> : null;
+}
+
+/**
+ * Animasi Lottie unggahan sekolah, digambar lottie-web versi "light canvas" (tanpa mesin expression) dan disetel ke
+ * frame yang dihitung frameLottie — sama dengan penulis render Revideo. Render ditahan sampai data & gambarnya siap.
+ */
+const cacheLottie = new Map();
+function LottieRakitan({ e, src, frame, fps }) {
+  const wadah = useRef(null);
+  const anim = useRef(null);
+  const [data, setData] = useState(null);
+  const tahan = useRef(null);
+  if (tahan.current === null) tahan.current = delayRender(`Memuat animasi Lottie ${src}`);
+  const lepas = () => { if (tahan.current !== null && tahan.current !== false) { continueRender(tahan.current); tahan.current = false; } };
+  useEffect(() => {
+    let batal = false;
+    if (!cacheLottie.has(src)) cacheLottie.set(src, fetch(src).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+    cacheLottie.get(src).then((d) => { if (batal) return; if (d) setData(d); else lepas(); });
+    return () => { batal = true; };
+  }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!data || !wadah.current) return undefined;
+    const a = lottie.loadAnimation({ container: wadah.current, renderer: "canvas", loop: false, autoplay: false,
+      animationData: JSON.parse(JSON.stringify(data)), rendererSettings: { preserveAspectRatio: "xMidYMid meet", clearCanvas: true } });
+    anim.current = a;
+    const bergambar = (data.assets || []).some((x) => x && x.p);
+    a.addEventListener(bergambar ? "loaded_images" : "DOMLoaded", () => { a.goToAndStop(frameLottie(e, frame, fps, data), true); lepas(); });
+    return () => { a.destroy(); anim.current = null; };
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { if (anim.current && data) anim.current.goToAndStop(frameLottie(e, frame, fps, data), true); });
+  return <div ref={wadah} style={{ width: "100%", height: "100%" }} />;
 }
 
 function Latar({ l, asetDasar }) {
@@ -233,6 +268,7 @@ export function elemenBaru(tipe, warna = "#2563eb") {
   if (tipe === "teks") return { ...dasar, isi: "Teks baru", w: 70, h: 15, gaya: { ...gaya, ukuran: 64 }, masuk: { preset: "geser-bawah", mulai: 0.2, durasi: 0.6 } };
   if (tipe === "emoji") return { ...dasar, isi: "⭐", w: 25, h: 25, gaya: { ...gaya, ukuran: 160, emoji: "3d" } };
   if (tipe === "ikon") return { ...dasar, isi: "outline/star", w: 18, h: 18, gaya: { ...gaya, warna } };
+  if (tipe === "lottie") return { ...dasar, isi: null, w: 40, h: 40, gaya: { ...gaya, ulang: true, kecepatan: 1 }, masuk: { preset: "pudar", mulai: 0, durasi: 0.4 } };
   if (tipe === "gambar") return { ...dasar, isi: null, w: 40, h: 40, gaya: { ...gaya, sudut: 4 }, masuk: { preset: "zoom", mulai: 0.2, durasi: 0.6 } };
   return { ...dasar, isi: "kotak", w: 30, h: 20, gaya: { ...gaya, warna, sudut: 8 }, masuk: { preset: "zoom", mulai: 0, durasi: 0.5 } };
 }

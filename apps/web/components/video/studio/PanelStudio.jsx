@@ -40,7 +40,7 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah, onPustak
   const keluar = (x) => onUbah({ keluar: { preset: "pudar", pada: null, ...e.keluar, ...x } });
   return (
     <div>
-      <div className="small text-uppercase text-body-secondary fw-bold mb-2">{{ teks: "Teks", emoji: "Emoji", gambar: "Gambar", bentuk: "Bentuk", ikon: "Ikon" }[e.tipe]}</div>
+      <div className="small text-uppercase text-body-secondary fw-bold mb-2">{{ teks: "Teks", emoji: "Emoji", gambar: "Gambar", bentuk: "Bentuk", ikon: "Ikon", lottie: "Animasi Lottie" }[e.tipe]}</div>
       {e.tipe === "teks" && (
         <div className="mb-2"><Label htmlFor="stIsi">Isi teks</Label>
           <textarea id="stIsi" className="form-control form-control-sm" rows={2} maxLength={300} value={e.isi} onChange={(x) => onUbah({ isi: x.target.value })} /></div>
@@ -72,14 +72,25 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah, onPustak
       {e.tipe === "gambar" && (
         <div className="mb-2"><Label htmlFor="stGambar">Gambar (PNG/JPG/WebP, maks. 5 MB)</Label>
           <input id="stGambar" type="file" className="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" onChange={async (x) => { const f = x.target.files?.[0]; if (f) { const url = await onUnggah(f); if (url) onUbah({ isi: url }); } }} />
-          <div className="form-text">Pakai foto siswa hanya bila orang tua sudah memberi izin.</div></div>
+          {onPustaka && <button type="button" className="btn btn-sm btn-outline-primary w-100 mt-2" onClick={() => onPustaka("unggahan")}><i className="bi bi-collection me-1"></i>Pilih dari unggahan sekolah / Canva</button>}
+          <div className="form-text">Bisa juga SVG (maks. 1 MB). Pakai foto siswa hanya bila orang tua sudah memberi izin.</div></div>
+      )}
+      {e.tipe === "lottie" && (
+        <div className="mb-2"><div className="form-label small mb-1">Animasi Lottie</div>
+          <button type="button" className="btn btn-sm btn-outline-primary w-100" onClick={() => onPustaka?.("unggahan")}><i className="bi bi-collection me-1"></i>Ganti animasi</button>
+          <div className="form-check form-switch mt-2">
+            <input className="form-check-input" type="checkbox" role="switch" id="stUlang" checked={g.ulang !== false} onChange={(x) => gaya({ ulang: x.target.checked })} />
+            <label className="form-check-label small" htmlFor="stUlang">Putar berulang (mati = berhenti di akhir)</label>
+          </div>
+          <Angka id="stKecepatan" label="Kecepatan" nilai={g.kecepatan ?? 1} min={0.25} max={3} step={0.25} onUbah={(v) => gaya({ kecepatan: v })} />
+          <div className="form-text">Animasi mulai bersama animasi masuk; ukurannya mengikuti kotak elemen.</div></div>
       )}
       {e.tipe === "bentuk" && (
         <div className="mb-2"><Label htmlFor="stBentuk">Bentuk</Label>
           <select id="stBentuk" className="form-select form-select-sm" value={e.isi} onChange={(x) => onUbah({ isi: x.target.value })}>{BENTUK.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
       )}
       {(e.tipe === "teks" || e.tipe === "emoji") && <Angka id="stUkuran" label="Ukuran huruf" nilai={g.ukuran} min={10} max={400} onUbah={(v) => gaya({ ukuran: v })} />}
-      {e.tipe !== "gambar" && <InputWarna id="stWarna" label={e.tipe === "bentuk" ? "Warna isi" : "Warna"} nilai={g.warna} palet={palet} onUbah={(v) => gaya({ warna: v })} />}
+      {e.tipe !== "gambar" && e.tipe !== "lottie" && <InputWarna id="stWarna" label={e.tipe === "bentuk" ? "Warna isi" : "Warna"} nilai={g.warna} palet={palet} onUbah={(v) => gaya({ warna: v })} />}
       {e.tipe === "teks" && (
         <>
           <div className="btn-group btn-group-sm mb-2 me-2" role="group" aria-label="Gaya teks">
@@ -104,7 +115,7 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah, onPustak
         </>
       )}
       {(e.tipe === "teks" || e.tipe === "bentuk") && <InputWarna id="stGaris" label="Garis tepi" nilai={g.garis} palet={palet} bolehKosong onUbah={(v) => gaya({ garis: v })} />}
-      {e.tipe !== "emoji" && e.tipe !== "ikon" && <Angka id="stSudut" label="Sudut membulat" nilai={g.sudut} min={0} max={50} onUbah={(v) => gaya({ sudut: v })} />}
+      {!["emoji", "ikon", "lottie"].includes(e.tipe) && <Angka id="stSudut" label="Sudut membulat" nilai={g.sudut} min={0} max={50} onUbah={(v) => gaya({ sudut: v })} />}
       <div className="form-check form-switch mb-2">
         <input className="form-check-input" type="checkbox" role="switch" id="stBayang" checked={!!g.bayangan} onChange={(x) => gaya({ bayangan: x.target.checked })} />
         <label className="form-check-label small" htmlFor="stBayang">Bayangan</label>

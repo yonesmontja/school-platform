@@ -785,6 +785,8 @@
 .studio-pustaka { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: .4rem; }
 .studio-pustaka-item { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: .6rem; padding: 0; }
 .studio-pustaka-item:hover, .studio-pustaka-item:focus-visible { border-color: var(--bs-primary); box-shadow: 0 0 0 .2rem rgba(var(--bs-primary-rgb), .25); outline: 0; }
+.studio-pustaka-besar { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.studio-pustaka-nama { font-size: .68rem; color: #475569; max-width: 92%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: .25rem; }
 .studio-timeline .studio-tl-baris { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: .5rem; min-height: 26px; }
 .studio-timeline .studio-tl-baris.dipilih .studio-tl-label { color: var(--bs-primary); font-weight: 600; }
 .studio-tl-label { font-size: .78rem; padding: 0 .25rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

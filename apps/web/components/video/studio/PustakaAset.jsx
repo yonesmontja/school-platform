@@ -1,8 +1,11 @@
 "use client";
-// Pustaka aset Studio (E2): cari & pilih emoji 3D (Fluent Emoji, Microsoft, MIT) dan ikon (Tabler Icons, MIT).
+// Pustaka aset Studio (E2/E3): cari & pilih emoji 3D (Fluent Emoji, Microsoft, MIT) dan ikon (Tabler Icons, MIT),
+// aset unggahan sekolah (gambar, SVG, animasi Lottie), dan desain dari akun Canva pembuat video.
 // Berkas & indeksnya ada di /pustaka (apps/web/public/pustaka, disalin juga ke layanan render), jadi tidak ada
 // unduhan dari luar saat menyunting maupun merender. Indeks dimuat sekali saat panel pertama kali dibuka.
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Swal from "sweetalert2";
+import { minta } from "@/components/banksoal/api";
 
 // Kata kunci pustaka berbahasa Inggris; kata Indonesia yang umum di sekolah dipetakan ke padanannya.
 const KAMUS = {
@@ -62,7 +65,7 @@ function cari(daftar, q, kunci, nama) {
 
 const LANGKAH = 120;
 
-export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset", onPilih, onTutup }) {
+export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset", onPilih, onTutup, onUnggah }) {
   const [jenis, setJenis] = useState(jenisAwal);
   const [data, setData] = useState({});
   const [galat, setGalat] = useState("");
@@ -74,7 +77,7 @@ export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset
   useEffect(() => {
     let batal = false;
     setGalat("");
-    if (!data[jenis]) muat(jenis).then((d) => { if (!batal) setData((x) => ({ ...x, [jenis]: d })); }).catch((e) => { if (!batal) setGalat(e.message); });
+    if ((jenis === "emoji" || jenis === "ikon") && !data[jenis]) muat(jenis).then((d) => { if (!batal) setData((x) => ({ ...x, [jenis]: d })); }).catch((e) => { if (!batal) setGalat(e.message); });
     return () => { batal = true; };
   }, [jenis, data]);
   useEffect(() => { setBatas(LANGKAH); }, [jenis, q, grup, isian]);
@@ -104,12 +107,15 @@ export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset
             </div>
             <div className="modal-body">
               <ul className="nav nav-pills nav-fill mb-2" role="tablist">
-                {[["emoji", "Emoji 3D", "bi-emoji-smile"], ["ikon", "Ikon", "bi-bezier2"]].map(([v, l, ic]) => (
+                {[["emoji", "Emoji 3D", "bi-emoji-smile"], ["ikon", "Ikon", "bi-bezier2"], ["unggahan", "Unggahan sekolah", "bi-cloud-arrow-up"], ["canva", "Canva", "bi-palette2"]].map(([v, l, ic]) => (
                   <li key={v} className="nav-item" role="presentation">
                     <button type="button" role="tab" aria-selected={jenis === v} className={`nav-link py-1 ${jenis === v ? "active" : ""}`} onClick={() => setJenis(v)}><i className={`bi ${ic} me-1`}></i>{l}</button>
                   </li>
                 ))}
               </ul>
+              {jenis === "unggahan" && <TabUnggahan onPilih={onPilih} onUnggah={onUnggah} />}
+              {jenis === "canva" && <TabCanva onSelesai={() => setJenis("unggahan")} />}
+              {(jenis === "emoji" || jenis === "ikon") && <>
               <div className="row g-2 mb-2">
                 <div className="col-12 col-md-6">
                   <label className="visually-hidden" htmlFor="pkCari">Cari aset</label>
@@ -147,6 +153,7 @@ export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset
                   {!hasil.length && <div className="text-center text-body-secondary py-4">Tidak ada yang cocok. Coba kata lain (bahasa Indonesia atau Inggris).</div>}
                 </>
               )}
+              </>}
             </div>
             <div className="modal-footer justify-content-between">
               <span className="small text-body-secondary">Fluent Emoji 3D © Microsoft · Tabler Icons © Paweł Kuna — lisensi MIT</span>
@@ -157,5 +164,173 @@ export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset
       </div>
       <div className="modal-backdrop show"></div>
     </>
+  );
+}
+
+const LABEL_JENIS = { GAMBAR: "Gambar", SVG: "SVG", LOTTIE: "Lottie" };
+
+/** Aset milik sekolah: gambar/SVG/Lottie yang pernah diunggah atau diimpor dari Canva, plus unggah baru. */
+function TabUnggahan({ onPilih, onUnggah }) {
+  const [daftar, setDaftar] = useState(null);
+  const [saring, setSaring] = useState("");
+  const [proses, setProses] = useState(false);
+  useEffect(() => {
+    minta("GET", "/video-belajar/aset").then((r) => setDaftar((r.data || []).filter((a) => a.jenis !== "AUDIO"))).catch((e) => { setDaftar([]); Swal.fire("Gagal", e.message, "error"); });
+  }, []);
+  const unggahBaru = async (jenis) => {
+    const f = await new Promise((ok) => {
+      const i = Object.assign(document.createElement("input"), { type: "file", accept: jenis === "lottie" ? "application/json,.json" : "image/png,image/jpeg,image/webp,image/svg+xml,.svg" });
+      i.onchange = () => ok(i.files?.[0]); i.click();
+    });
+    if (!f || !onUnggah) return;
+    setProses(true);
+    const url = await onUnggah(f, jenis);
+    setProses(false);
+    if (url) onPilih({ tipe: jenis === "lottie" ? "lottie" : "gambar", isi: url });
+  };
+  const tampil = (daftar || []).filter((a) => !saring || a.jenis === saring);
+  return (
+    <div>
+      <div className="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <button type="button" className="btn btn-sm btn-primary" disabled={proses} onClick={() => unggahBaru("gambar")}><i className="bi bi-image me-1"></i>Unggah gambar / SVG</button>
+        <button type="button" className="btn btn-sm btn-primary" disabled={proses} onClick={() => unggahBaru("lottie")}><i className="bi bi-film me-1"></i>Unggah animasi Lottie</button>
+        {proses && <span className="spinner-border spinner-border-sm"></span>}
+        <label className="visually-hidden" htmlFor="pkJenis">Jenis aset</label>
+        <select id="pkJenis" className="form-select form-select-sm ms-auto" style={{ width: "auto" }} value={saring} onChange={(e) => setSaring(e.target.value)}>
+          <option value="">Semua jenis</option><option value="GAMBAR">Gambar</option><option value="SVG">SVG</option><option value="LOTTIE">Lottie</option>
+        </select>
+      </div>
+      <div className="form-text mb-2">SVG dibersihkan dari skrip &amp; tautan luar (maks. 1 MB). Lottie: JSON dari After Effects/LottieFiles dengan gambar tertanam (maks. 3 MB); kode expression dibuang.</div>
+      {!daftar && <div className="text-center text-body-secondary py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memuat aset sekolah…</div>}
+      {daftar && !tampil.length && <div className="text-center text-body-secondary py-4">Belum ada aset. Unggah gambar, SVG, atau animasi Lottie milik sekolah.</div>}
+      <div className="studio-pustaka studio-pustaka-besar">
+        {tampil.map((a) => (
+          <button key={a.id} type="button" className="studio-pustaka-item flex-column" title={a.nama_asli || a.path} aria-label={`${LABEL_JENIS[a.jenis] || "Aset"} ${a.nama_asli || ""}`}
+            onClick={() => onPilih({ tipe: a.jenis === "LOTTIE" ? "lottie" : "gambar", isi: a.path })}>
+            {a.jenis === "LOTTIE" ? <i className="bi bi-film fs-2 text-primary"></i> : <img src={a.path} alt="" loading="lazy" style={{ maxWidth: "80%", maxHeight: "62%", objectFit: "contain" }} />}
+            <span className="studio-pustaka-nama">{LABEL_JENIS[a.jenis]} · {a.nama_asli || "tanpa nama"}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Desain di akun Canva pembuat video: sambungkan (OAuth), cari, lalu impor halaman sebagai gambar aset. */
+function TabCanva({ onSelesai }) {
+  const [status, setStatus] = useState(null);
+  const [q, setQ] = useState("");
+  const [desain, setDesain] = useState(null);
+  const [lanjutan, setLanjutan] = useState(null);
+  const [pilih, setPilih] = useState(null);
+  const [opsi, setOpsi] = useState({ format: "png", halaman: "1", transparan: false, foto: "tidak" });
+  const [proses, setProses] = useState(false);
+  const [galat, setGalat] = useState("");
+
+  const periksa = useCallback(() => { minta("GET", "/video-belajar/canva").then((r) => setStatus(r.data)).catch((e) => setGalat(e.message)); }, []);
+  useEffect(() => {
+    periksa();
+    // Jendela pop-up OAuth (canva-selesai.html) mengabari tab ini; suntingan Studio tidak hilang
+    const kabar = (st) => {
+      if (st === "tersambung") periksa();
+      else Swal.fire("Canva", st === "batal" ? "Penyambungan dibatalkan." : "Penyambungan Canva gagal. Coba lagi.", st === "batal" ? "info" : "error");
+    };
+    let kanal = null;
+    try { kanal = new BroadcastChannel("studio-canva"); kanal.onmessage = (m) => kabar(m.data?.canva); } catch { /* peramban lama */ }
+    const simpan = (ev) => { if (ev.key === "studio-canva" && ev.newValue && !kanal) kabar(ev.newValue.split(":")[0]); };
+    window.addEventListener("storage", simpan);
+    return () => { kanal?.close(); window.removeEventListener("storage", simpan); };
+  }, [periksa]);
+  const cari = useCallback(async (lagi = false) => {
+    setGalat("");
+    try {
+      const qs = new URLSearchParams({ ...(q.trim() ? { cari: q.trim() } : {}), ...(lagi && lanjutan ? { lanjutan } : {}) });
+      const r = await minta("GET", `/video-belajar/canva/desain?${qs}`);
+      setDesain((d) => (lagi ? [...(d || []), ...r.data.items] : r.data.items));
+      setLanjutan(r.data.lanjutan || null);
+    } catch (e) { setGalat(e.message); if (!lagi) setDesain([]); }
+  }, [q, lanjutan]);
+  useEffect(() => { if (status?.tersambung) cari(false); }, [status?.tersambung]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const sambung = async () => {
+    // Jendela dibuka langsung saat klik (agar tidak diblokir), lalu diarahkan ke halaman izin Canva
+    const jendela = window.open("", "canva-sambung", "width=520,height=720");
+    try {
+      const r = await minta("POST", "/video-belajar/canva/sambung", { asal: window.location.origin });
+      if (jendela) jendela.location.href = r.url; else window.open(r.url, "_blank", "noopener");
+    } catch (e) { jendela?.close(); Swal.fire("Gagal", e.message, "error"); }
+  };
+  const putuskan = async () => {
+    await minta("DELETE", "/video-belajar/canva/sambung").catch(() => {});
+    setStatus((s) => ({ ...s, tersambung: false, nama: null })); setDesain(null);
+  };
+  const impor = async () => {
+    const halaman = opsi.halaman.trim().toLowerCase() === "semua" ? [] : opsi.halaman.split(/[\s,]+/).map(Number).filter((n) => n >= 1);
+    setProses(true);
+    try {
+      const r = await minta("POST", "/video-belajar/canva/impor", {
+        id_desain: pilih.id, judul: pilih.judul, format: opsi.format, halaman: halaman.length ? halaman.slice(0, 10) : undefined,
+        transparan: opsi.format === "png" && opsi.transparan, foto_siswa: opsi.foto !== "tidak", izin_ortu: opsi.foto === "izin",
+      });
+      Swal.fire({ icon: "success", title: "Diimpor dari Canva", text: `${r.message} Pilih di tab Unggahan sekolah.`, timer: 2200, showConfirmButton: false });
+      setPilih(null); onSelesai();
+    } catch (e) { Swal.fire("Gagal", e.message, "error"); }
+    setProses(false);
+  };
+
+  if (galat && !status) return <div className="alert alert-danger py-2 small">{galat}</div>;
+  if (!status) return <div className="text-center text-body-secondary py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memeriksa sambungan Canva…</div>;
+  if (!status.terkonfigurasi) return <div className="alert alert-info small mb-0"><i className="bi bi-info-circle me-1"></i>Integrasi Canva belum diatur. Admin perlu mengisi Client ID &amp; Client Secret di <b>Pengaturan → Integrasi Canva</b>.</div>;
+  if (!status.tersambung) return (
+    <div className="text-center py-4">
+      <p className="text-body-secondary small">Sambungkan akun Canva Anda untuk mengimpor desain (poster, slide, infografis) sebagai gambar di video.</p>
+      <button type="button" className="btn btn-primary" onClick={sambung}><i className="bi bi-link-45deg me-1"></i>Sambungkan akun Canva</button>
+    </div>
+  );
+  if (pilih) return (
+    <div>
+      <button type="button" className="btn btn-sm btn-link px-0 mb-2" onClick={() => setPilih(null)}><i className="bi bi-arrow-left me-1"></i>Kembali ke daftar desain</button>
+      <div className="d-flex gap-3 flex-wrap">
+        {pilih.thumbnail && <img src={pilih.thumbnail} alt="" style={{ width: 160, maxHeight: 200, objectFit: "contain" }} className="border rounded" />}
+        <div className="flex-grow-1" style={{ minWidth: 220 }}>
+          <div className="fw-semibold mb-2">{pilih.judul}{pilih.halaman ? <span className="text-body-secondary small"> · {pilih.halaman} halaman</span> : null}</div>
+          <div className="row g-2">
+            <div className="col-6"><label className="form-label small mb-1" htmlFor="cvFormat">Format</label>
+              <select id="cvFormat" className="form-select form-select-sm" value={opsi.format} onChange={(e) => setOpsi({ ...opsi, format: e.target.value })}><option value="png">PNG (tajam)</option><option value="jpg">JPG (lebih kecil)</option></select></div>
+            <div className="col-6"><label className="form-label small mb-1" htmlFor="cvHal">Halaman</label>
+              <input id="cvHal" className="form-control form-control-sm" value={opsi.halaman} onChange={(e) => setOpsi({ ...opsi, halaman: e.target.value })} placeholder="1, 2, 3 atau semua" /></div>
+            {opsi.format === "png" && <div className="col-12"><div className="form-check form-switch">
+              <input className="form-check-input" type="checkbox" role="switch" id="cvTrans" checked={opsi.transparan} onChange={(e) => setOpsi({ ...opsi, transparan: e.target.checked })} />
+              <label className="form-check-label small" htmlFor="cvTrans">Latar transparan (perlu Canva berbayar/Education)</label></div></div>}
+            <div className="col-12"><label className="form-label small mb-1" htmlFor="cvFoto">Memuat foto siswa?</label>
+              <select id="cvFoto" className="form-select form-select-sm" value={opsi.foto} onChange={(e) => setOpsi({ ...opsi, foto: e.target.value })}>
+                <option value="tidak">Tidak</option><option value="izin">Ya, orang tua sudah memberi izin</option><option value="belum">Ya, belum ada izin orang tua</option></select></div>
+          </div>
+          <button type="button" className="btn btn-primary btn-sm mt-3" disabled={proses} onClick={impor}>{proses ? <><span className="spinner-border spinner-border-sm me-1"></span>Mengekspor dari Canva…</> : <><i className="bi bi-download me-1"></i>Impor (maks. 10 halaman)</>}</button>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div>
+      <div className="d-flex gap-2 align-items-center mb-2">
+        <label className="visually-hidden" htmlFor="cvCari">Cari desain Canva</label>
+        <input id="cvCari" type="search" className="form-control form-control-sm" placeholder="Cari desain Canva…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") cari(false); }} />
+        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => cari(false)}>Cari</button>
+        <button type="button" className="btn btn-sm btn-outline-secondary text-nowrap" onClick={putuskan} title="Putuskan akun Canva">Putuskan{status.nama ? ` (${status.nama})` : ""}</button>
+      </div>
+      {galat && <div className="alert alert-danger py-2 small">{galat}</div>}
+      {!desain && <div className="text-center text-body-secondary py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memuat desain…</div>}
+      {desain && !desain.length && <div className="text-center text-body-secondary py-4">Tidak ada desain.</div>}
+      <div className="studio-pustaka studio-pustaka-besar">
+        {(desain || []).map((d) => (
+          <button key={d.id} type="button" className="studio-pustaka-item flex-column" aria-label={`Desain Canva ${d.judul}`} onClick={() => setPilih(d)}>
+            {d.thumbnail ? <img src={d.thumbnail} alt="" loading="lazy" style={{ maxWidth: "90%", maxHeight: "65%", objectFit: "contain" }} /> : <i className="bi bi-file-earmark-image fs-2"></i>}
+            <span className="studio-pustaka-nama">{d.judul}</span>
+          </button>
+        ))}
+      </div>
+      {lanjutan && <div className="text-center mt-2"><button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => cari(true)}>Tampilkan lebih banyak</button></div>}
+    </div>
   );
 }

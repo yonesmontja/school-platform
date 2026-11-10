@@ -175,6 +175,106 @@ class StudioVideoTest extends TestCase
         $this->assertSame(['3d', 'datar'], [$n[2]['gaya']['emoji'], $n[3]['gaya']['emoji']]); // emoji 3D jadi bawaan
     }
 
+    public function test_e3_unggah_svg_dan_lottie_dibersihkan(): void
+    {
+        $this->sebagai($this->sekolah->admin)->putJson('/api/video-belajar/studio', ['id_pembuat' => $this->sekolah->guruA->id])->assertOk();
+        $this->sebagai($this->sekolah->guruA);
+        $kirim = fn(array $isi) => $this->post('/api/video-belajar/aset', $isi, ['Accept' => 'application/json']);
+
+        // SVG: skrip, event handler, foreignObject, dan tautan luar dibuang; ukuran intrinsik dari viewBox (2048 px)
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" onload="alert(1)"><script>alert(2)</script>'
+            . '<foreignObject><div>x</div></foreignObject><rect width="100" height="50" fill="#f00" onclick="alert(3)"/>'
+            . '<image href="https://jahat.example/a.png"/><use href="#r"/><circle style="fill:url(https://jahat.example/x)" r="5"/></svg>';
+        $r = $kirim(['gambar' => UploadedFile::fake()->createWithContent('logo.svg', $svg)])->assertCreated();
+        $this->assertSame('SVG', $r->json('data.jenis'));
+        $bersih = Storage::disk('public')->get(str_replace('/storage/', '', $r->json('url')));
+        foreach (['script', 'onload', 'onclick', 'foreignObject', 'jahat.example'] as $x) $this->assertStringNotContainsString($x, $bersih);
+        $this->assertStringContainsString('width="2048" height="1024"', $bersih);
+        $this->assertStringContainsString('href="#r"', $bersih);
+        $kirim(['gambar' => UploadedFile::fake()->createWithContent('x.svg', '<!DOCTYPE svg [<!ENTITY a "b">]><svg viewBox="0 0 1 1"/>')])->assertUnprocessable();
+        $kirim(['gambar' => UploadedFile::fake()->createWithContent('x.svg', '<html><body>bukan svg</body></html>')])->assertUnprocessable();
+
+        // Lottie: expression (kode di kunci "x") dibuang; gambar luar ditolak
+        $lottie = ['v' => '5.7.0', 'fr' => 30, 'ip' => 0, 'op' => 60, 'w' => 200, 'h' => 200, 'assets' => [], 'layers' => [[
+            'ty' => 4, 'ks' => ['o' => ['a' => 0, 'k' => 100, 'x' => 'eval("alert(1)")'], 'p' => ['a' => 1, 'k' => [['t' => 0, 's' => [0, 0], 'i' => ['x' => [0.5], 'y' => [1]]]]]],
+        ]]];
+        $r = $kirim(['lottie' => UploadedFile::fake()->createWithContent('anim.json', json_encode($lottie))])->assertCreated();
+        $this->assertSame(['LOTTIE', 30, 60], [$r->json('data.jenis'), $r->json('lottie.fr'), $r->json('lottie.op')]);
+        $isi = json_decode(Storage::disk('public')->get(str_replace('/storage/', '', $r->json('url'))), true);
+        $this->assertArrayNotHasKey('x', $isi['layers'][0]['ks']['o']);
+        $this->assertSame([0.5], $isi['layers'][0]['ks']['p']['k'][0]['i']['x']); // angka easing tetap
+        $lottie['assets'] = [['id' => 'img', 'w' => 10, 'h' => 10, 'u' => 'https://jahat.example/', 'p' => 'a.png']];
+        $kirim(['lottie' => UploadedFile::fake()->createWithContent('anim.json', json_encode($lottie))])->assertUnprocessable();
+        $kirim(['lottie' => UploadedFile::fake()->createWithContent('anim.json', '{"bukan":"lottie"}')])->assertUnprocessable();
+
+        // Naskah: elemen lottie & gambar SVG diterima, jalur liar dibuang
+        $n = $this->postJson('/api/video-belajar/terapkan-gaya', ['gaya' => 'ceria', 'warna' => false, 'naskah' => ['rasio' => '16:9', 'adegan' => [['elemen' => [
+            ['tipe' => 'lottie', 'isi' => $r->json('url'), 'gaya' => ['ulang' => false, 'kecepatan' => 9]],
+            ['tipe' => 'lottie', 'isi' => '/storage/lain/a.json'],
+            ['tipe' => 'gambar', 'isi' => '/storage/video-aset/aset_abc.svg'],
+        ]]]]])->assertOk()->json('naskah.adegan.0.elemen');
+        $this->assertSame(['lottie', 'gambar'], array_column($n, 'tipe'));
+        $this->assertSame([false, 3.0], [$n[0]['gaya']['ulang'], (float) $n[0]['gaya']['kecepatan']]);
+    }
+
+    public function test_e3_impor_desain_canva(): void
+    {
+        $this->sebagai($this->sekolah->admin)->putJson('/api/video-belajar/studio', ['id_pembuat' => $this->sekolah->guruA->id])->assertOk();
+        $this->sebagai($this->sekolah->guruA)->getJson('/api/video-belajar/canva')->assertOk()->assertJsonPath('data.terkonfigurasi', false);
+        $this->postJson('/api/video-belajar/canva/sambung', ['asal' => 'https://web.sekolah.test'])->assertUnprocessable();
+
+        // Admin mengisi kredensial integrasi; secret terenkripsi dan tidak pernah dikirim balik
+        $this->sebagai($this->sekolah->admin)->getJson('/api/settings')->assertOk();
+        $this->postJson('/api/settings', ['canva_client_id' => 'OC-uji123', 'canva_client_secret' => 'cnvca-rahasia'])->assertOk();
+        $this->assertNotSame('cnvca-rahasia', \DB::table('school_settings')->value('canva_client_secret'));
+        $set = $this->getJson('/api/settings')->assertOk();
+        $this->assertTrue($set->json('has_canva_client_secret'));
+        $this->assertArrayNotHasKey('canva_client_secret', $set->json());
+
+        $this->sebagai($this->sekolah->guruA);
+        $this->postJson('/api/video-belajar/canva/sambung', ['asal' => 'javascript:alert(1)'])->assertUnprocessable();
+        $url = $this->postJson('/api/video-belajar/canva/sambung', ['asal' => 'https://web.sekolah.test'])->assertOk()->json('url');
+        parse_str(parse_url($url, PHP_URL_QUERY), $q);
+        $this->assertSame(['OC-uji123', 'S256', 'https://web.sekolah.test/api/video-belajar/canva/kembali'], [$q['client_id'], $q['code_challenge_method'], $q['redirect_uri']]);
+
+        $png = base64_decode(self::PNG);
+        Http::fake([
+            'api.canva.com/rest/v1/oauth/token' => Http::sequence()
+                ->push(['access_token' => 'akses-1', 'refresh_token' => 'segar-1', 'expires_in' => 14400, 'token_type' => 'Bearer'])
+                ->push(['access_token' => 'akses-2', 'refresh_token' => 'segar-2', 'expires_in' => 14400, 'token_type' => 'Bearer']),
+            'api.canva.com/rest/v1/users/me/profile' => Http::response(['profile' => ['display_name' => 'Guru Uji']]),
+            'api.canva.com/rest/v1/designs*' => Http::response(['items' => [['id' => 'DAF123', 'title' => 'Poster PPDB', 'thumbnail' => ['url' => 'https://document-export.canva.com/t.png'], 'page_count' => 2]]]),
+            'api.canva.com/rest/v1/exports/JOB1' => Http::response(['job' => ['id' => 'JOB1', 'status' => 'success', 'urls' => ['https://export-download.canva.com/1.png', 'https://export-download.canva.com/2.png']]]),
+            'api.canva.com/rest/v1/exports' => Http::response(['job' => ['id' => 'JOB1', 'status' => 'in_progress']]),
+            'export-download.canva.com/*' => Http::response($png, 200, ['Content-Type' => 'image/png']),
+        ]);
+
+        // Callback tanpa login: state tak dikenal ditolak; state sah menyimpan token terenkripsi
+        $this->get('/api/video-belajar/canva/kembali?state=' . str_repeat('a', 40) . '&code=x')->assertStatus(400);
+        $this->get("/api/video-belajar/canva/kembali?state={$q['state']}&code=kode-uji")->assertRedirect('https://web.sekolah.test/canva-selesai.html?canva=tersambung');
+        $this->get("/api/video-belajar/canva/kembali?state={$q['state']}&code=kode-uji")->assertStatus(400); // state sekali pakai
+        $this->assertNotSame('akses-1', \DB::table('canva_token')->value('access_token'));
+        $this->getJson('/api/video-belajar/canva')->assertJsonPath('data.tersambung', true)->assertJsonPath('data.nama', 'Guru Uji');
+        Http::assertSent(fn($r) => $r->url() === 'https://api.canva.com/rest/v1/oauth/token' && $r['grant_type'] === 'authorization_code'
+            && $r['code_verifier'] && $r->hasHeader('Authorization', 'Basic ' . base64_encode('OC-uji123:cnvca-rahasia')));
+
+        $this->getJson('/api/video-belajar/canva/desain?cari=ppdb')->assertOk()->assertJsonPath('data.items.0.judul', 'Poster PPDB');
+
+        // Token kedaluwarsa → diperbarui dengan refresh token (sekali pakai), lalu ekspor 2 halaman jadi aset gambar
+        \DB::table('canva_token')->update(['kedaluwarsa' => now()->subMinute()]);
+        $r = $this->postJson('/api/video-belajar/canva/impor', ['id_desain' => 'DAF123', 'judul' => 'Poster PPDB', 'format' => 'png', 'halaman' => [1, 2]])->assertCreated();
+        $this->assertCount(2, $r->json('data'));
+        $this->assertSame('Canva: Poster PPDB (hal. 2)', $r->json('data.1.nama_asli'));
+        Storage::disk('public')->assertExists(str_replace('/storage/', '', $r->json('data.0.path')));
+        Http::assertSent(fn($r) => str_ends_with($r->url(), '/oauth/token') && $r['grant_type'] === 'refresh_token' && $r['refresh_token'] === 'segar-1');
+        Http::assertSent(fn($r) => str_ends_with($r->url(), '/exports') && $r['format'] === ['type' => 'png', 'pages' => [1, 2]] && $r->hasHeader('Authorization', 'Bearer akses-2'));
+
+        // Guru lain bukan pembuat video tidak boleh; putuskan menghapus token
+        $this->sebagai($this->sekolah->guruB)->getJson('/api/video-belajar/canva/desain')->assertForbidden();
+        $this->sebagai($this->sekolah->guruA)->deleteJson('/api/video-belajar/canva/sambung')->assertOk();
+        $this->assertSame(0, \DB::table('canva_token')->count());
+    }
+
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     public function test_d2_musik_keluar_izin_foto_siswa_tujuan_dan_templat(): void

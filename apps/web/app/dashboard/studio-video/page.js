@@ -150,7 +150,8 @@ function Studio() {
   const unggah = async (file, jenis = "gambar") => {
     const fd = new FormData();
     fd.append(jenis, file);
-    if (jenis === "gambar") {
+    // SVG (gambar vektor) dan Lottie bukan foto, jadi tidak perlu ditanya soal foto siswa
+    if (jenis === "gambar" && !/svg/i.test(file.type) && !/\.svg$/i.test(file.name)) {
       // Foto siswa di video publik (promosi, pengumuman, acara) wajib berizin orang tua (UU Pelindungan Data Pribadi)
       const { value, isConfirmed } = await Swal.fire({
         title: "Apakah gambar ini memuat foto siswa?", input: "radio", inputValue: "tidak",
@@ -452,7 +453,7 @@ function Studio() {
         </div>
       </div>
 
-      {pustaka && <PustakaAset jenisAwal={pustaka.jenis} judul={pustaka.ganti ? "Ganti dari pustaka" : "Pustaka aset"} onPilih={pilihPustaka} onTutup={() => setPustaka(null)} />}
+      {pustaka && <PustakaAset jenisAwal={pustaka.jenis} judul={pustaka.ganti ? "Ganti dari pustaka" : "Pustaka aset"} onPilih={pilihPustaka} onTutup={() => setPustaka(null)} onUnggah={unggah} />}
       {modalGaya && <ModalGaya naskah={naskah} daftar={atur.gaya_tersedia || []} onTutup={() => setModalGaya(false)}
         onHasil={(n) => { catatSekarang(); setNaskah({ ...n, merek: { ...n.merek, logo: n.merek?.logo || naskah.merek?.logo || null } }); setModalGaya(false); }} />}
       {papan && <ModalPapanCerita rasio={naskah.rasio} referensi={referensi} tujuanAwal={meta.tujuan} daftarGaya={atur.gaya_tersedia || []} gayaAwal={naskah.gaya} onTutup={() => setPapan(false)}

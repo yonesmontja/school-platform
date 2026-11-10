@@ -11,7 +11,9 @@ namespace App\Services;
 class NaskahVideo
 {
     public const MESIN = ['REMOTION', 'REVIDEO'];
-    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk', 'ikon'];
+    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk', 'ikon', 'lottie'];
+    /** Animasi Lottie unggahan sekolah (dibersihkan BersihAset), disimpan sebagai JSON di storage aset Studio. */
+    private const LOTTIE = '#^/storage/video-aset/[\w.-]+\.json$#';
     /** Ikon pustaka Tabler (MIT): "outline/nama" atau "filled/nama", berkas di apps/web/public/pustaka/ikon. */
     private const IKON = '#^(outline|filled)/[a-z0-9-]{1,60}$#';
     public const BENTUK = ['kotak', 'bulat', 'lingkaran', 'panah', 'bintang', 'garis'];
@@ -45,7 +47,7 @@ class NaskahVideo
     ];
     public const MAKS_ADEGAN = 20;
     public const MAKS_ELEMEN = 12;
-    private const ASET = '#^/storage/video-aset/[\w.-]+\.(png|jpe?g|webp)$#';
+    private const ASET = '#^/storage/video-aset/[\w.-]+\.(png|jpe?g|webp|svg)$#';
     private const ASET_AUDIO = '#^/storage/video-aset/[\w.-]+\.(mp3|m4a|ogg|wav)$#';
 
     public static function rapikan(array $p): array
@@ -99,9 +101,10 @@ class NaskahVideo
             'bentuk' => in_array($e['isi'] ?? null, self::BENTUK, true) ? $e['isi'] : 'kotak',
             'emoji' => self::teks($e['isi'] ?? '', 16),
             'ikon' => is_string($e['isi'] ?? null) && preg_match(self::IKON, $e['isi']) ? $e['isi'] : null,
+            'lottie' => is_string($e['isi'] ?? null) && preg_match(self::LOTTIE, $e['isi']) ? $e['isi'] : null,
             default => self::teks($e['isi'] ?? '', 300),
         };
-        if (in_array($tipe, ['gambar', 'ikon'], true) && !$isi) return null;
+        if (in_array($tipe, ['gambar', 'ikon', 'lottie'], true) && !$isi) return null;
         return [
             'id' => preg_replace('/[^\w-]/', '', (string) ($e['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'tipe' => $tipe,
@@ -125,7 +128,10 @@ class NaskahVideo
                 'huruf' => in_array($g['huruf'] ?? null, self::HURUF, true) ? $g['huruf'] : null,
                 'kaca' => (bool) ($g['kaca'] ?? false),
                 'emoji' => ($g['emoji'] ?? null) === 'datar' ? 'datar' : '3d', // emoji 3D Fluent bila tersedia
-            ],
+            ] + ($tipe === 'lottie' ? [
+                'ulang' => (bool) ($g['ulang'] ?? true), // animasi Lottie berulang atau berhenti di frame akhir
+                'kecepatan' => self::angka($g['kecepatan'] ?? 1, 0.25, 3, 1),
+            ] : []),
             'masuk' => [
                 'preset' => in_array($m['preset'] ?? null, self::MASUK, true) ? $m['preset'] : 'pudar',
                 'mulai' => self::angka($m['mulai'] ?? 0, 0, 30, 0),
