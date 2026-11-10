@@ -1,6 +1,7 @@
 // Layanan render Video Belajar (Fase 19 Tahap C, jalur B). Mengambil antrean dari core-api, membuat narasi suara
-// (Piper lokal, atau ElevenLabs/Gemini lewat core-api), merender MP4 + sampul dengan Remotion, menyimpan hasil ke
-// storage core-api (/hasil = storage/app/public), lalu melapor selesai/gagal. Satu video dikerjakan dalam satu waktu.
+// (Piper lokal, atau ElevenLabs/Gemini lewat core-api), merender MP4 + sampul dengan Remotion atau Revideo (sesuai
+// mesin video), menyimpan hasil ke storage core-api (/hasil = storage/app/public), lalu melapor selesai/gagal.
+// Satu video dikerjakan dalam satu waktu. Revideo (MIT) hanya untuk video rakitan Studio; templat lain tetap Remotion.
 import { bundle } from "@remotion/bundler";
 import { ensureBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { spawn } from "node:child_process";
@@ -17,8 +18,9 @@ const SUARA = "/tmp/suara";
 const PORT = 9123;
 const MODEL_PIPER = process.env.MODEL_PIPER || "/opt/piper/id_ID-news_tts-medium.onnx";
 const KONKURENSI = Number(process.env.KONKURENSI || 2);
-// Layanan ini menulis render untuk mesin Remotion; worker Revideo kelak mengambil antrean ?mesin=REVIDEO
-const MESIN = "REMOTION";
+// Antrean mesin yang dilayani (urut prioritas). MESIN=REMOTION menonaktifkan Revideo di layanan ini.
+const MESIN = (process.env.MESIN || "REMOTION,REVIDEO").split(",").map((m) => m.trim().toUpperCase()).filter(Boolean);
+const BROWSER_REVIDEO = process.env.REVIDEO_BROWSER || undefined;
 const JEDA_MS = 5000;
 
 const tunggu = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -105,9 +107,20 @@ async function kerjakan(job, serveUrl) {
   const props = JSON.parse(JSON.stringify(job.props || {}));
   props.judul = props.judul || job.judul;
   props.asetDasar = `http://127.0.0.1:${PORT}`; // gambar /storage/video-aset/… dibaca dari storage lokal
-  log(`Render ${job.id_video} (${job.templat}, suara ${job.suara}, ${props.adegan?.length || 0} adegan)`);
+  const revideo = job.mesin === "REVIDEO";
+  if (revideo && job.templat !== "Rakitan") throw new Error("Mesin Revideo hanya untuk video rakitan Studio; templat ini dirender dengan Remotion.");
+  log(`Render ${job.id_video} (${job.templat}, mesin ${revideo ? "Revideo" : "Remotion"}, suara ${job.suara}, ${props.adegan?.length || 0} adegan)`);
   const berkasSuara = await siapkanNarasi(job, props);
   try {
+    if (revideo) {
+      const { renderRevideo } = await import("./revideo/render.mjs");
+      const nama = `vid_${crypto.randomBytes(10).toString("hex")}`;
+      const mp4 = path.join(HASIL, "video", `${nama}.mp4`);
+      const { detik } = await renderRevideo(props, mp4, path.join(HASIL, "video", `poster_${nama}.jpg`), { browser: BROWSER_REVIDEO });
+      await lapor(job.id_video, "selesai", { file_url: `/storage/video/${nama}.mp4`, poster_url: `/storage/video/poster_${nama}.jpg`, durasi_detik: Math.max(1, Math.round(detik)) });
+      log(`Selesai ${job.id_video} (Revideo): ${(fs.statSync(mp4).size / 1024 / 1024).toFixed(1)} MB, ${Math.round(detik)} detik`);
+      return;
+    }
     const composition = await selectComposition({ serveUrl, id: job.templat, inputProps: props });
     const nama = `vid_${crypto.randomBytes(10).toString("hex")}`;
     const mp4 = path.join(HASIL, "video", `${nama}.mp4`);
@@ -126,14 +139,17 @@ async function utama() {
   await ensureBrowser();
   log("Menyiapkan bundel templat…");
   const serveUrl = await bundle({ entryPoint: path.resolve("src/index.jsx") });
-  log("Layanan render siap; menunggu antrean.");
+  log(`Layanan render siap (mesin: ${MESIN.join(", ")}); menunggu antrean.`);
   for (;;) {
     let job = null;
-    try {
-      const res = await fetch(`${API}/api/internal/render/berikut?mesin=${MESIN}`, { headers: kepala });
-      job = res.ok ? (await res.json()).data : null;
-      if (!res.ok) log(`Antrean tidak bisa dibaca: HTTP ${res.status}`);
-    } catch (e) { log(`core-api belum bisa dihubungi: ${e.message}`); }
+    for (const mesin of MESIN) {
+      try {
+        const res = await fetch(`${API}/api/internal/render/berikut?mesin=${mesin}`, { headers: kepala });
+        job = res.ok ? (await res.json()).data : null;
+        if (!res.ok) log(`Antrean ${mesin} tidak bisa dibaca: HTTP ${res.status}`);
+      } catch (e) { log(`core-api belum bisa dihubungi: ${e.message}`); break; }
+      if (job) break;
+    }
     if (!job) { await tunggu(JEDA_MS); continue; }
     try { await kerjakan(job, serveUrl); }
     catch (e) {

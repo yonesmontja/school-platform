@@ -3,8 +3,12 @@
 // Posisi & ukuran elemen dalam persen bingkai sehingga satu naskah cocok untuk semua rasio. Naskah tidak terikat
 // Remotion: komponen ini hanya salah satu "penulis render"; bentuk naskahnya sama dengan App\Services\NaskahVideo.
 import React from "react";
-import { AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
-import { FPS, estimasiDetik, ukuranRasio } from "./umum.jsx";
+import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
+import { ukuranRasio } from "./umum.jsx";
+import { awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, hitungDurasiRakitan, jendelaNarasi, keadaanElemen, keadaanTransisi, subtitlePada, volumeMusik } from "./gerakRakitan.js";
+
+// Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
+export { awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
 
 export const MASUK = [
   ["pudar", "Pudar"], ["geser-kiri", "Geser dari kiri"], ["geser-kanan", "Geser dari kanan"], ["geser-atas", "Turun dari atas"],
@@ -23,25 +27,10 @@ export const HURUF = {
   "DejaVu Sans": "'DejaVu Sans', Verdana, sans-serif",
 };
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
-const jepit = { extrapolateLeft: "clamp", extrapolateRight: "clamp" };
-
-/** Lama adegan (detik): durasi manual (tidak lebih pendek dari narasinya) atau perkiraan dari narasi. */
-export function detikAdeganRakitan(a) {
-  const audio = a?.detik ? a.detik + 0.8 : 0;
-  const dasar = a?.durasi ? a.durasi : (String(a?.narasi || "").trim() ? estimasiDetik(a.narasi) : 4);
-  return Math.min(40, Math.max(2, dasar, audio));
-}
-export const hitungDurasiRakitan = (p) => Math.max(1, (p?.adegan || []).reduce((n, a) => n + Math.round(detikAdeganRakitan(a) * FPS), 0));
 export function metadataRakitan(p) {
   const { lebar, tinggi } = ukuranRasio(p?.rasio);
   return { durationInFrames: hitungDurasiRakitan(p), width: lebar, height: tinggi };
 }
-/** Frame awal tiap adegan. */
-export function awalAdegan(p) {
-  let n = 0;
-  return (p?.adegan || []).map((a) => { const d = n; n += Math.round(detikAdeganRakitan(a) * FPS); return d; });
-}
-
 const srcAset = (url, dasar) => (!url ? null : /^https?:|^data:|^blob:/.test(url) ? url : `${dasar || ""}${url}`);
 
 function Bentuk({ isi, g }) {
@@ -63,55 +52,14 @@ function Bentuk({ isi, g }) {
 export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const mulai = Math.round((e.masuk?.mulai || 0) * fps);
-  const dur = Math.max(1, Math.round((e.masuk?.durasi || 0.6) * fps));
-  const f = frame - mulai;
-  const t = interpolate(f, [0, dur], [0, 1], { ...jepit, easing: Easing.out(Easing.cubic) });
-  const pegas = spring({ frame: f, fps, config: { damping: 9 }, durationInFrames: Math.round(dur * 1.6) });
-  const ada = f >= 0 ? 1 : 0;
-  let op = t, tx = 0, ty = 0, sc = 1, rot = 0, clip, nKetik = null;
-  switch (e.masuk?.preset) {
-    case "tidak": op = ada; break;
-    case "geser-kiri": tx = (t - 1) * lebar * 0.35; break;
-    case "geser-kanan": tx = (1 - t) * lebar * 0.35; break;
-    case "geser-atas": ty = (t - 1) * tinggi * 0.35; break;
-    case "geser-bawah": ty = (1 - t) * tinggi * 0.35; break;
-    case "pop": sc = pegas; op = Math.min(1, t * 3); break;
-    case "zoom": sc = 0.3 + 0.7 * t; break;
-    case "putar": rot = (1 - t) * -200; sc = 0.2 + 0.8 * t; break;
-    case "mantul": ty = (pegas - 1) * tinggi * 0.45; op = ada; break;
-    case "sapu": clip = `inset(0 ${(1 - t) * 100}% 0 0)`; op = ada; break;
-    case "ketik": if (e.tipe === "teks") { nKetik = Math.floor(interpolate(f, [0, dur], [0, String(e.isi).length], jepit)); op = ada; } break;
-    default: break;
-  }
-  // Animasi keluar (opsional): elemen hilang pada detik tertentu dalam adegan
-  if (e.keluar?.pada != null) {
-    const pada = Math.round(e.keluar.pada * fps);
-    const tk = interpolate(frame - pada, [0, 12], [0, 1], { ...jepit, easing: Easing.in(Easing.cubic) });
-    switch (e.keluar.preset) {
-      case "pudar": op *= 1 - tk; break;
-      case "geser-kiri": tx -= tk * lebar * 0.4; op *= 1 - tk; break;
-      case "geser-kanan": tx += tk * lebar * 0.4; op *= 1 - tk; break;
-      case "geser-atas": ty -= tk * tinggi * 0.4; op *= 1 - tk; break;
-      case "geser-bawah": ty += tk * tinggi * 0.4; op *= 1 - tk; break;
-      case "zoom": sc *= 1 - 0.8 * tk; op *= 1 - tk; break;
-      default: if (frame >= pada) op = 0;
-    }
-  }
-  const detik = Math.max(0, f) / fps;
-  switch (e.gerak) {
-    case "melambung": ty += Math.sin(detik * Math.PI * 1.1) * 10 * k; break;
-    case "denyut": sc *= 1 + 0.06 * Math.sin(detik * Math.PI * 2.2); break;
-    case "goyang": rot += Math.sin(detik * Math.PI * 1.8) * 6; break;
-    case "putar": rot += detik * 45; break;
-    default: break;
-  }
+  const { op, tx, ty, sc, rot, sapu, nKetik } = keadaanElemen(e, frame, fps, lebar, tinggi, k);
+  const clip = sapu > 0 ? `inset(0 ${sapu * 100}% 0 0)` : undefined;
   const g = e.gaya || {};
   const kotak = {
     position: "absolute", left: `${e.x}%`, top: `${e.y}%`, width: `${e.w}%`,
     ...(e.tipe === "teks" ? {} : { height: `${e.h}%` }),
-    transform: `translate(-50%, -50%) translate(${tx}px, ${ty}px) rotate(${(e.rot || 0) + rot}deg) scale(${sc})`,
-    opacity: op * (g.buram ?? 1), clipPath: clip, WebkitClipPath: clip,
+    transform: `translate(-50%, -50%) translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sc})`,
+    opacity: op, clipPath: clip, WebkitClipPath: clip,
     filter: g.bayangan && e.tipe !== "teks" ? `drop-shadow(0 ${6 * k}px ${10 * k}px rgba(0,0,0,.35))` : undefined,
   };
   if (e.tipe === "teks") {
@@ -148,26 +96,10 @@ function Latar({ l, asetDasar }) {
   return <AbsoluteFill style={{ background: l?.tipe === "gradien" ? `linear-gradient(135deg, ${l.warna}, ${l.warna2})` : l?.warna || "#fff" }} />;
 }
 
-/** Potong narasi menjadi baris subtitle (± 8 kata) dengan waktu sebanding jumlah kata. */
-export function barisSubtitle(narasi, detikBicara) {
-  const kata = String(narasi || "").trim().split(/\s+/).filter(Boolean);
-  if (!kata.length) return [];
-  const potong = [];
-  let buf = [];
-  kata.forEach((w, i) => {
-    buf.push(w);
-    if (buf.length >= 8 || /[.!?]$/.test(w) || (buf.length >= 5 && /[,;:]$/.test(w)) || i === kata.length - 1) { potong.push(buf.join(" ")); buf = []; }
-  });
-  const total = kata.length;
-  let jalan = 0;
-  return potong.map((b) => { const n = b.split(" ").length; const r = { teks: b, dari: (jalan / total) * detikBicara, sampai: ((jalan + n) / total) * detikBicara }; jalan += n; return r; });
-}
-
 function Subtitle({ a, huruf, k, tegak }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const bicara = a.detik || Math.max(1, detikAdeganRakitan(a) - 0.6);
-  const baris = barisSubtitle(a.narasi, bicara).find((b) => frame / fps >= b.dari && frame / fps < b.sampai);
+  const baris = subtitlePada(a, frame / fps);
   if (!baris) return null;
   return (
     <div style={{ position: "absolute", left: "6%", right: "6%", bottom: tegak ? "17%" : "6%", display: "flex", justifyContent: "center" }}>
@@ -178,9 +110,8 @@ function Subtitle({ a, huruf, k, tegak }) {
 
 function Adegan({ a, p, huruf, k, lebar, tinggi, tegak }) {
   const frame = useCurrentFrame();
-  const t = interpolate(frame, [0, 12], [0, 1], { ...jepit, easing: Easing.out(Easing.cubic) });
-  const tr = a.transisi === "tidak" ? {} : a.transisi === "geser" ? { transform: `translateX(${(1 - t) * 100}%)` }
-    : a.transisi === "zoom" ? { transform: `scale(${1.15 - 0.15 * t})`, opacity: t } : { opacity: t };
+  const { op, geser, sc } = keadaanTransisi(a.transisi, frame);
+  const tr = { opacity: op, transform: geser ? `translateX(${geser * 100}%)` : sc !== 1 ? `scale(${sc})` : undefined };
   return (
     <AbsoluteFill style={tr}>
       <Latar l={a.latar} asetDasar={p.asetDasar} />
@@ -199,16 +130,12 @@ function Logo({ merek, asetDasar, k }) {
 }
 
 /** Musik latar berulang; volume mengecil saat narasi berbicara dan memudar di awal & akhir video. */
-function Musik({ p, awal }) {
+function Musik({ p }) {
   const { durationInFrames, fps } = useVideoConfig();
   const m = p?.musik;
   if (!m?.src) return null;
-  const jendela = (p.adegan || []).map((a, i) => (a.audio && a.detik ? [awal[i], awal[i] + Math.round(a.detik * fps)] : null)).filter(Boolean);
-  const volume = (f) => {
-    const redam = m.redam !== false && jendela.some(([d, s]) => f >= d - 6 && f <= s + 6) ? 0.3 : 1;
-    const pudar = Math.min(1, f / 15, (durationInFrames - f) / 30);
-    return Math.max(0, (m.volume ?? 0.35) * redam * pudar);
-  };
+  const jendela = jendelaNarasi(p);
+  const volume = (f) => volumeMusik(m, jendela, f, durationInFrames);
   return <Audio src={srcAset(m.src, p.asetDasar)} loop volume={volume} />;
 }
 
@@ -221,12 +148,12 @@ export const Rakitan = (p) => {
   return (
     <AbsoluteFill style={{ background: "#000", fontFamily: huruf }}>
       {(p?.adegan || []).map((a, i) => (
-        <Sequence key={i} from={awal[i]} durationInFrames={Math.round(detikAdeganRakitan(a) * FPS)}>
+        <Sequence key={i} from={awal[i]} durationInFrames={frameAdegan(a)}>
           <Adegan a={a} p={p} huruf={huruf} k={k} lebar={lebar} tinggi={tinggi} tegak={tegak} />
         </Sequence>
       ))}
       <Logo merek={p?.merek} asetDasar={p?.asetDasar} k={k} />
-      <Musik p={p} awal={awal} />
+      <Musik p={p} />
     </AbsoluteFill>
   );
 };

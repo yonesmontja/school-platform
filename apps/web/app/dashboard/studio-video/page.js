@@ -291,7 +291,9 @@ function Studio() {
             {atur.mesin_tersedia.map((m) => <option key={m.kode} value={m.kode} disabled={!m.aktif && atur.mesin !== m.kode}>{m.nama}{m.aktif ? "" : " — belum tersedia"}</option>)}
           </select>
         </div>
-        <div className="col-md-3 small text-body-secondary">Naskah video sama untuk semua mesin, jadi bisa pindah mesin kapan saja.</div>
+        <div className="col-md-3 small text-body-secondary">
+          {atur.mesin_tersedia.find((m) => m.kode === atur.mesin)?.catatan} Naskah video sama untuk semua mesin, jadi bisa pindah mesin kapan saja.
+        </div>
       </div>
     </div></div>
   );

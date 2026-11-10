@@ -1,7 +1,7 @@
 {
   "name": "video-render",
   "private": true,
-  "description": "Layanan render Video Belajar (Remotion + suara Piper/ElevenLabs/Gemini) untuk EduRapor",
+  "description": "Layanan render Video Belajar (Remotion/Revideo + suara Piper/ElevenLabs/Gemini) untuk EduRapor",
   "type": "module",
   "scripts": {
     "start": "node worker.mjs"
@@ -9,6 +9,12 @@
   "dependencies": {
     "@remotion/bundler": "4.0.541",
     "@remotion/renderer": "4.0.541",
+    "@revideo/2d": "0.11.0",
+    "@revideo/core": "0.11.0",
+    "@revideo/ffmpeg": "0.11.0",
+    "@revideo/renderer": "0.11.0",
+    "@revideo/ui": "0.11.0",
+    "@revideo/vite-plugin": "0.11.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "remotion": "4.0.541"

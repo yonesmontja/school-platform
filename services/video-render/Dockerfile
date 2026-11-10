@@ -15,13 +15,18 @@ RUN pip3 install --break-system-packages --no-cache-dir piper-tts \
     && mkdir -p /opt/piper && cd /opt/piper && python3 -m piper.download_voices id_ID-news_tts-medium
 
 WORKDIR /app
+# Revideo memakai Puppeteer; browser-nya tidak diunduh terpisah karena memakai Chrome headless milik Remotion.
+# Telemetri Revideo dimatikan.
+ENV PUPPETEER_SKIP_DOWNLOAD=true DISABLE_TELEMETRY=true
 COPY services/video-render/package.json services/video-render/package-lock.json ./
 RUN npm ci --no-fund --no-audit
 # Browser render Remotion diunduh saat build agar render pertama tidak menunggu
 RUN node -e "import('@remotion/renderer').then((r) => r.ensureBrowser())"
+ENV REVIDEO_BROWSER=/app/node_modules/.remotion/chrome-headless-shell/linux64/chrome-headless-shell-linux64/chrome-headless-shell
 
 COPY apps/web/components/video/templat ./templat
 COPY services/video-render/src ./src
+COPY services/video-render/revideo ./revideo
 COPY services/video-render/worker.mjs ./
 
 CMD ["node", "worker.mjs"]

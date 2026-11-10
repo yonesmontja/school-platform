@@ -3,5 +3,6 @@
 !services/video-render/package.json
 !services/video-render/package-lock.json
 !services/video-render/src
+!services/video-render/revideo
 !services/video-render/worker.mjs
 !apps/web/components/video/templat

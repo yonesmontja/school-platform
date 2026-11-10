@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\VideoBelajar;
 use App\Services\SuaraService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -33,8 +34,10 @@ class RenderInternalController extends Controller
         VideoBelajar::where('render_status', 'PROSES')->where('render_mulai', '<', now()->subMinutes(self::BATAS_PROSES_MENIT))
             ->update(['render_status' => 'ANTRE', 'render_pesan' => 'Render sebelumnya terhenti; dicoba lagi.']);
         $mesin = in_array($request->query('mesin'), \App\Services\NaskahVideo::MESIN, true) ? $request->query('mesin') : 'REMOTION';
+        // Tanda layanan render mesin ini hidup (dipakai pengaturan Studio untuk mengaktifkan pilihan mesin)
+        Cache::put("render_hidup_{$mesin}", now()->toIso8601String(), now()->addMinutes(3));
         $video = DB::transaction(function () use ($mesin) {
-            // Tiap layanan render mengambil antrean mesinnya sendiri (bawaan Remotion; worker Revideo kelak memakai ?mesin=REVIDEO)
+            // Layanan render mengambil antrean per mesin (?mesin=REMOTION / ?mesin=REVIDEO)
             $v = VideoBelajar::where('render_status', 'ANTRE')->where('mesin', $mesin)->orderBy('updated_at')->lockForUpdate()->first();
             if ($v) $v->update(['render_status' => 'PROSES', 'render_mulai' => now()]);
             return $v;

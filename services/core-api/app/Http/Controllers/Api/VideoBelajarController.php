@@ -22,6 +22,7 @@ use App\Services\StudioAIService;
 use App\Services\SuaraService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -179,6 +180,8 @@ class VideoBelajarController extends Controller
         abort_unless($video->sumber === 'RENDER', 422, 'Hanya video dari templat yang bisa dirender ulang.');
         abort_if($video->render_status === 'PROSES', 422, 'Video sedang dirender. Tunggu sampai selesai.');
         $data = $this->validasiTemplat($request, false, $video->templat);
+        // Video rakitan dirender ulang dengan mesin yang sedang dipilih admin
+        if ($video->templat === 'Rakitan') $data['mesin'] = self::pengaturanStudio()['mesin'];
         $video->update($data + ['render_status' => 'ANTRE', 'render_pesan' => null, 'status' => 'DRAF', 'disetujui_oleh' => null, 'disetujui_pada' => null]);
         return response()->json(['success' => true, 'message' => 'Video masuk antrean render ulang.', 'data' => $video->fresh(self::RELASI)]);
     }
@@ -235,6 +238,20 @@ class VideoBelajarController extends Controller
         ];
     }
 
+    /** Mesin render beserta statusnya: aktif bila layanan render mesin itu mengambil antrean dalam 3 menit terakhir. */
+    public static function mesinTersedia(): array
+    {
+        $hidup = fn(string $m) => Cache::has("render_hidup_{$m}");
+        return [
+            ['kode' => 'REMOTION', 'nama' => 'Remotion', 'aktif' => true,
+                'catatan' => 'Mesin bawaan untuk semua templat video, termasuk video rakitan Studio.'],
+            ['kode' => 'REVIDEO', 'nama' => 'Revideo (MIT)', 'aktif' => $hidup('REVIDEO'),
+                'catatan' => $hidup('REVIDEO')
+                    ? 'Video rakitan Studio dirender Revideo (lisensi MIT). Pratinjau di browser tetap memakai Remotion dengan gerak yang sama.'
+                    : 'Layanan render Revideo belum aktif; video ber-mesin Revideo menunggu di antrean sampai layanannya hidup.'],
+        ];
+    }
+
     private function cekStudio(Request $request): void
     {
         abort_unless($request->user()->id === self::pengaturanStudio()['id_pembuat'], 403,
@@ -250,8 +267,7 @@ class VideoBelajarController extends Controller
             'atur' => $u->isAdmin(),
             'pembuat' => $p['id_pembuat'] ? User::find($p['id_pembuat'])?->only(['id', 'name', 'role']) : null,
             'kandidat' => $u->isAdmin() ? User::whereIn('role', ['admin', 'kepsek', 'guru'])->where('aktif', true)->orderBy('name')->get(['id', 'name', 'role']) : [],
-            'mesin_tersedia' => [['kode' => 'REMOTION', 'nama' => 'Remotion', 'aktif' => true], ['kode' => 'REVIDEO', 'nama' => 'Revideo (MIT)', 'aktif' => false,
-                'catatan' => 'Penulis render Revideo belum dipasang; video ber-mesin Revideo menunggu di antrean sampai layanannya tersedia.']],
+            'mesin_tersedia' => self::mesinTersedia(),
         ]]);
     }
 

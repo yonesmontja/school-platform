@@ -1,0 +1,179 @@
+// Penulis render Revideo untuk naskah rakitan Studio Rakit Video. Bentuk naskahnya sama dengan komposisi Remotion
+// (apps/web/components/video/templat/rakitan.jsx); waktu & animasi dihitung oleh gerakRakitan.js yang sama, jadi
+// keduanya bergerak identik. Adegan digambar per frame: tiap `yield` = satu frame. Audio (narasi & musik) tidak
+// diputar di sini; worker mencampurnya sendiri lalu menempelkannya ke video hasil render.
+import { Circle, Gradient, Img, Line, Node, Rect, Txt, makeScene2D } from "@revideo/2d";
+import { loadImage, useScene } from "@revideo/core";
+import { FPS, frameAdegan, keadaanElemen, keadaanTransisi, subtitlePada } from "../templat/gerakRakitan.js";
+
+const HURUF = {
+  "Nunito": "Nunito, 'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
+  "Noto Sans": "'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
+  "Noto Serif": "'Noto Serif', 'DejaVu Serif', Georgia, serif",
+  "DejaVu Sans": "'DejaVu Sans', Verdana, sans-serif",
+};
+const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
+const RATA = { kiri: "left", kanan: "right" };
+
+const srcAset = (url, dasar) => (!url ? null : /^https?:|^data:|^blob:/.test(url) ? url : `${dasar || ""}${url}`);
+/** Ukuran gambar agar muat (contain) atau menutupi (cover) kotak. */
+function pas(img, w, h, tutup) {
+  const nw = img?.naturalWidth || w, nh = img?.naturalHeight || h;
+  const s = tutup ? Math.max(w / nw, h / nh) : Math.min(w / nw, h / nh);
+  return [nw * s, nh * s];
+}
+
+/** Bentuk dasar dalam kotak w×h (setara SVG viewBox 0–100 di komposisi Remotion). */
+function buatBentuk(isi, g, w, h) {
+  const garis = g.garis ? { stroke: g.garis, lineWidth: 3 } : {};
+  const titik = (daftar, skalaW, skalaH) => daftar.map(([x, y]) => [(x / 100 - 0.5) * skalaW, (y / 100 - 0.5) * skalaH]);
+  switch (isi) {
+    case "bulat": return new Circle({ width: w * 0.98, height: h * 0.98, fill: g.warna, ...garis });
+    case "lingkaran": return new Circle({ width: w * 0.92, height: h * 0.92, stroke: g.warna, lineWidth: 6 });
+    case "panah": return new Line({ points: titik([[0, 35], [62, 35], [62, 10], [100, 50], [62, 90], [62, 65], [0, 65]], w, h), closed: true, fill: g.warna, ...garis });
+    case "bintang": {
+      const s = Math.min(w, h);
+      return new Line({ points: titik([[50, 3], [61, 37], [97, 37], [68, 58], [79, 93], [50, 72], [21, 93], [32, 58], [3, 37], [39, 37]], s, s), closed: true, fill: g.warna, ...garis });
+    }
+    case "garis": return new Rect({ width: w, height: h * 0.12, radius: h * 0.06, fill: g.warna });
+    default: return new Rect({ width: w, height: h, radius: ((g.sudut || 0) / 100) * Math.min(w, h), fill: g.warna, ...garis });
+  }
+}
+
+/** Satu elemen → simpul Revideo + fungsi pembaru per frame. */
+function* buatElemen(e, c) {
+  const { lebar: W, tinggi: H, k, huruf, asetDasar } = c;
+  const g = e.gaya || {};
+  const w = (e.w / 100) * W, h = (e.h / 100) * H;
+  let isi, lebarIsi = w, ketik = null;
+  if (e.tipe === "teks") {
+    // Revideo tidak mengenal white-space: pre-wrap, jadi tiap baris menjadi satu Txt dalam tata letak kolom
+    const u = (g.ukuran || 60) * k;
+    const gayaTeks = {
+      width: w, textWrap: true, fontFamily: huruf, fontSize: u, lineHeight: u * 1.18, fill: g.warna || "#1f2937",
+      fontWeight: g.tebal ? 800 : 400, fontStyle: g.miring ? "italic" : "normal", textAlign: RATA[g.rata] || "center",
+      ...(g.garis ? { stroke: g.garis, lineWidth: Math.max(1, u * 0.05), strokeFirst: true } : {}),
+      ...(g.bayangan ? { shadowColor: "rgba(0,0,0,.45)", shadowBlur: 10 * k, shadowOffset: [0, 4 * k] } : {}),
+    };
+    const baris = String(e.isi ?? "").split(/\r?\n/);
+    const daun = baris.map((b) => new Txt({ ...gayaTeks, text: b || " " }));
+    isi = new Rect({ layout: true, direction: "column", children: daun,
+      ...(g.latar ? { padding: [0.25 * u, 0.45 * u], fill: g.latar, radius: (g.sudut || 0) * k } : {}) });
+    if (g.latar) lebarIsi = w + 0.9 * u;
+    // Efek ketik: n huruf pertama dibagi ke baris-baris (baris yang belum diketik tidak tampil)
+    ketik = (n) => {
+      let sisa = n;
+      daun.forEach((d, i) => {
+        const tampil = baris[i].slice(0, Math.max(0, sisa));
+        d.text(sisa < 0 ? "" : tampil || " ");
+        sisa -= baris[i].length + 1;
+      });
+    };
+  } else if (e.tipe === "emoji") {
+    isi = new Txt({ text: String(e.isi ?? ""), fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: (g.ukuran || 120) * k, fill: "#000" });
+  } else if (e.tipe === "gambar") {
+    const src = srcAset(e.isi, asetDasar);
+    const anak = [];
+    if (src) {
+      const img = yield loadImage(src);
+      const [iw, ih] = pas(img, w, h, false);
+      anak.push(new Img({ src, width: iw, height: ih }));
+    }
+    isi = new Rect({ width: w, height: h, radius: (g.sudut || 0) * k, clip: true, children: anak });
+  } else {
+    isi = buatBentuk(e.isi, g, w, h);
+  }
+  if (g.bayangan && e.tipe !== "teks") { isi.shadowColor("rgba(0,0,0,.35)"); isi.shadowBlur(10 * k); isi.shadowOffset([0, 6 * k]); }
+
+  // "Sapu": konten dipotong dari kanan oleh persegi pemotong yang melebar dari tepi kiri
+  const sapu = e.masuk?.preset === "sapu" ? new Rect({ clip: true, height: H * 4 }) : null;
+  if (sapu) sapu.add(isi);
+  const simpul = new Node({ x: (e.x / 100 - 0.5) * W, y: (e.y / 100 - 0.5) * H, children: [sapu || isi] });
+  const x0 = simpul.x(), y0 = simpul.y();
+  const perbarui = (f) => {
+    const s = keadaanElemen(e, f, FPS, W, H, k);
+    simpul.position([x0 + s.tx, y0 + s.ty]).rotation(s.rot).scale(s.sc).opacity(Math.max(0, s.op));
+    if (ketik && s.nKetik !== null) ketik(s.nKetik);
+    if (sapu) {
+      const lebarTampak = lebarIsi * (1 - s.sapu);
+      sapu.width(Math.max(0.001, lebarTampak)).x(-lebarIsi / 2 + lebarTampak / 2);
+      isi.x(-sapu.x());
+    }
+  };
+  return { simpul, perbarui };
+}
+
+function* buatLatar(l, c) {
+  const { lebar: W, tinggi: H, asetDasar } = c;
+  if (l?.tipe === "gambar" && l.gambar) {
+    const src = srcAset(l.gambar, asetDasar);
+    const img = yield loadImage(src);
+    const [iw, ih] = pas(img, W, H, true);
+    return new Rect({ width: W, height: H, clip: true, fill: "#000", children: [
+      new Img({ src, width: iw, height: ih }),
+      ...(l.redup > 0 ? [new Rect({ width: W, height: H, fill: `rgba(0,0,0,${l.redup})` })] : []),
+    ] });
+  }
+  if (l?.tipe === "gradien") {
+    // Setara CSS linear-gradient(135deg, …): garis gradien diagonal ke kanan bawah sepanjang (W+H)·sin 45°
+    const p = ((W + H) * Math.SQRT1_2) / 2, d = [Math.SQRT1_2 * p, Math.SQRT1_2 * p];
+    return new Rect({ width: W, height: H, fill: new Gradient({ type: "linear", from: [-d[0], -d[1]], to: d, stops: [{ offset: 0, color: l.warna }, { offset: 1, color: l.warna2 }] }) });
+  }
+  return new Rect({ width: W, height: H, fill: l?.warna || "#fff" });
+}
+
+function buatSubtitle(c) {
+  const { lebar: W, tinggi: H, k, huruf, tegak } = c;
+  const teks = new Txt({ text: "", fontFamily: huruf, fontSize: 34 * k, lineHeight: 34 * k * 1.3, fontWeight: 700, fill: "#fff", textAlign: "center", textWrap: true });
+  const kotak = new Rect({ layout: true, maxWidth: W * 0.88, padding: [6 * k, 16 * k], fill: "rgba(0,0,0,.62)", radius: 10 * k, offset: [0, 1],
+    y: H / 2 - H * (tegak ? 0.17 : 0.06), children: [teks] });
+  return { kotak, teks };
+}
+
+export default makeScene2D("rakitan", function* (view) {
+  const p = useScene().variables.get("naskah", {})();
+  const W = Number(useScene().variables.get("lebar", 1280)()), H = Number(useScene().variables.get("tinggi", 720)());
+  const c = { lebar: W, tinggi: H, k: Math.min(W, H) / 720, tegak: H > W * 1.05, huruf: HURUF[p?.merek?.huruf] || HURUF.Nunito, asetDasar: p?.asetDasar };
+  view.fill("#000");
+
+  // Logo sekolah di atas semua adegan
+  let logo = null;
+  const m = p?.merek;
+  if (m?.logo && m.posisi_logo !== "tidak") {
+    const [v, hz] = (m.posisi_logo || "kanan-atas").split("-").reverse();
+    const s = 110 * c.k, src = srcAset(m.logo, c.asetDasar);
+    const img = yield loadImage(src);
+    const [iw, ih] = pas(img, s, s, false);
+    const tepi = 24 * c.k + s / 2;
+    logo = new Img({ src, width: iw, height: ih, x: hz === "kiri" ? -W / 2 + tepi : W / 2 - tepi, y: v === "atas" ? -H / 2 + tepi : H / 2 - tepi });
+  }
+
+  for (const a of p?.adegan || []) {
+    const grup = new Node({});
+    grup.add(yield* buatLatar(a.latar, c));
+    const elemen = [];
+    for (const e of a.elemen || []) {
+      const el = yield* buatElemen(e, c);
+      grup.add(el.simpul);
+      elemen.push(el);
+    }
+    const sub = p.subtitle && a.narasi ? buatSubtitle(c) : null;
+    if (sub) grup.add(sub.kotak);
+    view.add(grup);
+    if (logo) { view.add(logo); logo.moveToTop(); }
+
+    const n = frameAdegan(a);
+    for (let f = 0; f < n; f++) {
+      const tr = keadaanTransisi(a.transisi, f);
+      grup.opacity(tr.op).x(tr.geser * W).scale(tr.sc);
+      elemen.forEach((el) => el.perbarui(f));
+      if (sub) {
+        const baris = subtitlePada(a, f / FPS);
+        sub.kotak.opacity(baris ? 1 : 0);
+        sub.teks.text(baris ? baris.teks : " ");
+      }
+      yield;
+    }
+    grup.remove();
+  }
+});

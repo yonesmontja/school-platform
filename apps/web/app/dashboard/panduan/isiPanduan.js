@@ -157,7 +157,7 @@ export const BAGIAN = [
       "Papan cerita untuk video Pembelajaran ikut membaca Pustaka Dokumen (pilih mapelnya) agar isinya sesuai CP dan panduan resmi.",
       "Hanya video bertujuan Pembelajaran yang tampil di Portal Siswa; video lain diunduh dari Pustaka Video (tombol Unduh) untuk dibagikan setelah disetujui.",
       "Tombol Templat: simpan naskah sebagai templat sekolah berkategori (Pembelajaran, PPDB & promosi, Pengumuman, Hari besar, Prestasi) dan pakai lagi untuk video berikutnya.",
-      "Naskah video tidak terikat satu mesin render; admin bisa memilih mesin (Remotion sekarang, Revideo setelah layanannya dipasang).",
+      "Naskah video tidak terikat satu mesin render. Admin memilih mesin di kartu pengaturan Studio: Remotion (bawaan, semua templat) atau Revideo (lisensi MIT, khusus video rakitan Studio). Pratinjau di browser selalu memakai Remotion; kedua mesin menghitung gerak dari rumus yang sama sehingga hasilnya sama. Render ulang memakai mesin yang sedang dipilih.",
     ],
   },
   {

@@ -3,15 +3,10 @@
 // diimpor langsung oleh Next.js maupun bundler Remotion. Semua ukuran mengikuti bingkai (rasio aspek apa pun).
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { RASIO, estimasiDetik } from "./gerakRakitan.js";
 
 export const FPS = 30;
-// Rasio aspek → ukuran bingkai (sekitar 720p agar render cepat dan berkas kecil)
-export const RASIO = {
-  "16:9": { lebar: 1280, tinggi: 720, label: "16:9 mendatar (proyektor, YouTube)" },
-  "9:16": { lebar: 720, tinggi: 1280, label: "9:16 tegak (Reels, TikTok, Status WA)" },
-  "1:1": { lebar: 1080, tinggi: 1080, label: "1:1 persegi (feed Instagram/Facebook)" },
-  "4:3": { lebar: 1024, tinggi: 768, label: "4:3 (layar kelas lama)" },
-};
+export { RASIO };
 export const ukuranRasio = (r) => RASIO[r] || RASIO["16:9"];
 export const LEBAR = 1280;
 export const TINGGI = 720;
@@ -26,10 +21,7 @@ export function useBingkai() {
 }
 
 /** Perkiraan lama adegan dari teks narasi (sekitar 2,3 kata per detik untuk anak), 4–20 detik. */
-export function estimasiDetik(narasi) {
-  const kata = String(narasi || "").trim().split(/\s+/).filter(Boolean).length;
-  return Math.min(20, Math.max(4, kata / 2.3 + 1.5));
-}
+export { estimasiDetik };
 
 /** Lama satu adegan (detik): panjang rekaman narasi bila ada, ditambah jeda; selain itu perkiraan. */
 export const detikAdegan = (a, minimal = 4) => Math.max(minimal, a?.detik ? a.detik + 1.2 : estimasiDetik(a?.narasi));
