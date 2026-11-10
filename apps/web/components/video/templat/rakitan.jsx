@@ -5,27 +5,24 @@
 import React from "react";
 import { AbsoluteFill, Audio, Img, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { ukuranRasio } from "./umum.jsx";
-import { awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, hitungDurasiRakitan, jendelaNarasi, keadaanElemen, keadaanTransisi, subtitlePada, volumeMusik } from "./gerakRakitan.js";
+import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, subtitlePada, teksHitung, volumeMusik } from "./gerakRakitan.js";
 
 // Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
-export { awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
+export { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
 
 export const MASUK = [
   ["pudar", "Pudar"], ["geser-kiri", "Geser dari kiri"], ["geser-kanan", "Geser dari kanan"], ["geser-atas", "Turun dari atas"],
   ["geser-bawah", "Naik dari bawah"], ["pop", "Pop (memantul)"], ["zoom", "Membesar"], ["putar", "Berputar masuk"],
-  ["mantul", "Jatuh memantul"], ["ketik", "Mengetik (teks)"], ["sapu", "Disapu"], ["tidak", "Langsung muncul"],
+  ["mantul", "Jatuh memantul"], ["ketik", "Mengetik (teks)"], ["kata", "Kata demi kata (teks)"], ["hitung", "Angka menghitung naik (teks)"],
+  ["sapu", "Disapu"], ["tidak", "Langsung muncul"],
 ];
+export const KAMERA = [["tidak", "Diam"], ["zoom-masuk", "Zoom masuk pelan"], ["zoom-keluar", "Zoom keluar pelan"], ["geser-kiri", "Geser ke kiri"], ["geser-kanan", "Geser ke kanan"]];
+export const HIAS = [["tidak", "Tanpa hiasan"], ["gumpalan", "Gumpalan warna lembut"], ["bokeh", "Bokeh melayang"], ["garis", "Garis diagonal"], ["titik", "Pola titik"], ["gelombang", "Gelombang"]];
 export const GERAK = [["tidak", "Diam"], ["melambung", "Melayang"], ["denyut", "Berdenyut"], ["goyang", "Bergoyang"], ["putar", "Berputar terus"]];
 export const KELUAR = [["tidak", "Langsung hilang"], ["pudar", "Memudar"], ["geser-kiri", "Geser ke kiri"], ["geser-kanan", "Geser ke kanan"],
   ["geser-atas", "Naik ke atas"], ["geser-bawah", "Turun ke bawah"], ["zoom", "Mengecil"]];
 export const TRANSISI = [["pudar", "Pudar"], ["geser", "Geser"], ["zoom", "Zoom"], ["tidak", "Langsung"]];
 export const BENTUK = [["kotak", "Kotak"], ["bulat", "Bulat/elips"], ["lingkaran", "Lingkaran garis"], ["panah", "Panah"], ["bintang", "Bintang"], ["garis", "Garis"]];
-export const HURUF = {
-  "Nunito": "'Nunito', 'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
-  "Noto Sans": "'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
-  "Noto Serif": "'Noto Serif', 'DejaVu Serif', Georgia, serif",
-  "DejaVu Sans": "'DejaVu Sans', Verdana, sans-serif",
-};
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
 export function metadataRakitan(p) {
   const { lebar, tinggi } = ukuranRasio(p?.rasio);
@@ -63,16 +60,35 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     filter: g.bayangan && e.tipe !== "teks" ? `drop-shadow(0 ${6 * k}px ${10 * k}px rgba(0,0,0,.35))` : undefined,
   };
   if (e.tipe === "teks") {
-    const isi = nKetik === null ? e.isi : String(e.isi).slice(0, nKetik);
-    return (
-      <div style={{
-        ...kotak, fontFamily: huruf, fontSize: (g.ukuran || 60) * k, lineHeight: 1.18, color: g.warna, fontWeight: g.tebal ? 800 : 400,
-        fontStyle: g.miring ? "italic" : "normal", textAlign: { kiri: "left", kanan: "right" }[g.rata] || "center", whiteSpace: "pre-wrap", overflowWrap: "anywhere",
-        background: g.latar || undefined, padding: g.latar ? `${0.25 * (g.ukuran || 60) * k}px ${0.45 * (g.ukuran || 60) * k}px` : 0, borderRadius: (g.sudut || 0) * k,
-        WebkitTextStroke: g.garis ? `${Math.max(1, (g.ukuran || 60) * k * 0.05)}px ${g.garis}` : undefined, paintOrder: "stroke fill",
-        textShadow: g.bayangan ? `0 ${4 * k}px ${10 * k}px rgba(0,0,0,.45)` : undefined,
-      }}>{isi}</div>
-    );
+    const u = (g.ukuran || 60) * k, rata = { kiri: "left", kanan: "right" }[g.rata] || "center";
+    const kaca = g.kaca ? gayaKaca(g.warna) : null;
+    const berkotak = g.latar || kaca;
+    const gayaHuruf = {
+      fontFamily: huruf, fontSize: u, lineHeight: 1.18, color: g.warna, fontWeight: g.tebal ? 800 : 400, fontStyle: g.miring ? "italic" : "normal",
+      WebkitTextStroke: g.garis ? `${Math.max(1, u * 0.05)}px ${g.garis}` : undefined, paintOrder: "stroke fill",
+      textShadow: g.bayangan ? `0 ${4 * k}px ${10 * k}px rgba(0,0,0,.45)` : undefined,
+    };
+    const kulit = {
+      ...kotak, ...gayaHuruf, textAlign: rata, whiteSpace: "pre-wrap", overflowWrap: "anywhere",
+      background: kaca ? kaca.isi : g.latar || undefined, padding: berkotak ? `${0.25 * u}px ${0.45 * u}px` : 0,
+      borderRadius: (kaca ? Math.max(g.sudut || 0, 14) : g.sudut || 0) * k,
+      boxShadow: kaca ? `inset 0 0 0 ${1.5 * k}px ${kaca.garis}` : undefined,
+    };
+    if (e.masuk?.preset === "kata") {
+      const kata = kataTeks(e.isi), n = kata.filter(Boolean).length;
+      let i = 0;
+      return (
+        <div style={{ ...kulit, display: "flex", flexWrap: "wrap", justifyContent: { left: "start", right: "end" }[rata] || "center", columnGap: 0.28 * u }}>
+          {kata.map((w, j) => {
+            if (w === null) return <div key={j} style={{ flexBasis: "100%", height: 0 }} />;
+            const s = keadaanKata(e, frame, fps, i++, n);
+            return <span key={j} style={{ display: "inline-block", opacity: s.op, transform: `scale(${s.sc})` }}>{w}</span>;
+          })}
+        </div>
+      );
+    }
+    const isi = e.masuk?.preset === "hitung" ? teksHitung(e.isi, frame, fps, e) : nKetik === null ? e.isi : String(e.isi).slice(0, nKetik);
+    return <div style={kulit}>{isi}</div>;
   }
   if (e.tipe === "emoji") {
     return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: 1 }}>{e.isi}</div>;
@@ -96,6 +112,22 @@ function Latar({ l, asetDasar }) {
   return <AbsoluteFill style={{ background: l?.tipe === "gradien" ? `linear-gradient(135deg, ${l.warna}, ${l.warna2})` : l?.warna || "#fff" }} />;
 }
 
+/** Latar hias bergerak (bentuk dari primitifHias, sama dengan penulis render Revideo). */
+function Hias({ l, lebar, tinggi }) {
+  const frame = useCurrentFrame();
+  if (!l?.hias || l.hias === "tidak") return null;
+  const bentuk = primitifHias(l.hias, frame, lebar, tinggi, l.warna_hias || "#ffffff");
+  return (
+    <svg viewBox={`0 0 ${lebar} ${tinggi}`} width="100%" height="100%" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      {bentuk.map((b, i) => (b.jenis === "lingkaran"
+        ? <circle key={i} cx={b.x} cy={b.y} r={b.r} fill={b.warna} opacity={b.op} style={b.blur ? { filter: `blur(${b.blur}px)` } : undefined} />
+        : b.jenis === "kotak"
+          ? <rect key={i} x={b.x - b.w / 2} y={b.y - b.h / 2} width={b.w} height={b.h} fill={b.warna} opacity={b.op} transform={`rotate(${b.rot} ${b.x} ${b.y})`} />
+          : <polygon key={i} points={b.titik.map((t) => t.join(",")).join(" ")} fill={b.warna} opacity={b.op} />))}
+    </svg>
+  );
+}
+
 function Subtitle({ a, huruf, k, tegak }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -112,10 +144,14 @@ function Adegan({ a, p, huruf, k, lebar, tinggi, tegak }) {
   const frame = useCurrentFrame();
   const { op, geser, sc } = keadaanTransisi(a.transisi, frame);
   const tr = { opacity: op, transform: geser ? `translateX(${geser * 100}%)` : sc !== 1 ? `scale(${sc})` : undefined };
+  const kam = keadaanKamera(a.kamera, frame, frameAdegan(a), lebar);
   return (
     <AbsoluteFill style={tr}>
-      <Latar l={a.latar} asetDasar={p.asetDasar} />
-      {(a.elemen || []).map((e) => <ElemenRakitan key={e.id} e={e} huruf={huruf} asetDasar={p.asetDasar} k={k} lebar={lebar} tinggi={tinggi} />)}
+      <AbsoluteFill style={{ transform: kam.sc !== 1 || kam.tx ? `translateX(${kam.tx}px) scale(${kam.sc})` : undefined }}>
+        <Latar l={a.latar} asetDasar={p.asetDasar} />
+        <Hias l={a.latar} lebar={lebar} tinggi={tinggi} />
+        {(a.elemen || []).map((e) => <ElemenRakitan key={e.id} e={e} huruf={e.tipe === "teks" ? hurufElemen(e, p.merek) : huruf} asetDasar={p.asetDasar} k={k} lebar={lebar} tinggi={tinggi} />)}
+      </AbsoluteFill>
       {p.subtitle && a.narasi && <Subtitle a={a} huruf={huruf} k={k} tegak={tegak} />}
       {a.audio && <Audio src={a.audio} />}
     </AbsoluteFill>
@@ -173,7 +209,7 @@ export function elemenBaru(tipe, warna = "#2563eb") {
   return { ...dasar, isi: "kotak", w: 30, h: 20, gaya: { ...gaya, warna, sudut: 8 }, masuk: { preset: "zoom", mulai: 0, durasi: 0.5 } };
 }
 
-export const adeganBaru = (warna = "#dbeafe") => ({ narasi: "", durasi: 4, transisi: "pudar", latar: { tipe: "gradien", warna: "#ffffff", warna2: warna, gambar: null, redup: 0 }, elemen: [] });
+export const adeganBaru = (warna = "#dbeafe") => ({ narasi: "", durasi: 4, transisi: "pudar", kamera: "tidak", latar: { tipe: "gradien", warna: "#ffffff", warna2: warna, gambar: null, redup: 0, hias: "tidak", warna_hias: "#ffffff" }, elemen: [] });
 
 export const NASKAH_CONTOH = {
   rasio: "9:16", judul: "Ayo Bersekolah di Sekolah Kami", subtitle: true,

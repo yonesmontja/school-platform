@@ -181,6 +181,7 @@
  "POST /video-belajar/papan-cerita": "Papan cerita AI → naskah Studio (adegan, teks, emoji, narasi, tata letak baku)",
  "POST /video-belajar/tautan": "Tautan video ke modul ajar (per pertemuan) atau sesi jadwal",
  "POST /video-belajar/templat": "Buat video dari templat / ubah isian & render ulang (masuk antrean)",
+ "POST /video-belajar/terapkan-gaya": "Terapkan gaya visual siap pakai (Ceria/Elegan/Formal/Modern) ke naskah Studio: font, latar hias, kamera, animasi teks, kartu kaca, palet",
  "POST /video-belajar/{}": "Detail & tempat dipakai / ubah (multipart, berkas pengganti opsional) / hapus",
  "POST /video-belajar/{}/ajukan": "Alur persetujuan video (setujui/revisi: kepala sekolah)",
  "POST /video-belajar/{}/render": "Buat video dari templat / ubah isian & render ulang (masuk antrean)",

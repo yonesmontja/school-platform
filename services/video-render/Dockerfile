@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --break-system-packages --no-cache-dir piper-tts \
     && mkdir -p /opt/piper && cd /opt/piper && python3 -m piper.download_voices id_ID-news_tts-medium
 
+# Font video Studio (OFL: Nunito, Playfair Display, Poppins) — berkas yang sama dengan pratinjau web
+COPY apps/web/public/fonts/video /usr/share/fonts/truetype/video
+RUN fc-cache -f
+
 WORKDIR /app
 # Revideo memakai Puppeteer; browser-nya tidak diunduh terpisah karena memakai Chrome headless milik Remotion.
 # Telemetri Revideo dimatikan.

@@ -268,6 +268,7 @@ class VideoBelajarController extends Controller
             'pembuat' => $p['id_pembuat'] ? User::find($p['id_pembuat'])?->only(['id', 'name', 'role']) : null,
             'kandidat' => $u->isAdmin() ? User::whereIn('role', ['admin', 'kepsek', 'guru'])->where('aktif', true)->orderBy('name')->get(['id', 'name', 'role']) : [],
             'mesin_tersedia' => self::mesinTersedia(),
+            'gaya_tersedia' => NaskahVideo::daftarGaya(),
         ]]);
     }
 
@@ -348,15 +349,31 @@ class VideoBelajarController extends Controller
             'jumlah_adegan' => 'required|integer|min:3|max:8',
             'id_mapel' => 'nullable|exists:subjects,id_mapel',
             'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+            'gaya' => ['nullable', Rule::in(array_keys(NaskahVideo::GAYA))],
         ]);
         $atur = self::pengaturanStudio();
         // Video pembelajaran membaca Pustaka Dokumen agar isinya sesuai CP & panduan resmi
         $sumber = $d['tujuan'] === 'PEMBELAJARAN' ? $pustaka->pasang($ai, $d['permintaan'], $d['id_mapel'] ?? null) : [];
         $papan = $ai->papanCerita($d + ['sekolah' => $atur['nama_sekolah'], 'warna' => $atur['merek']['warna'] ?? []], $d['ai_mode']);
         if ($papan === null) return response()->json(['message' => $ai->galat()], 422);
-        $naskah = NaskahVideo::dariPapanCerita($papan, $d['rasio'], $atur['merek']);
+        $naskah = NaskahVideo::dariPapanCerita($papan, $d['rasio'], $atur['merek'], $d['gaya'] ?? null);
         return response()->json(['success' => true, 'message' => 'Papan cerita ' . count($naskah['adegan']) . ' adegan tersusun. Periksa teks, narasi, dan tata letaknya.'
             . PustakaDokumenService::catatanSumber($sumber), 'naskah' => $naskah, 'rujukan' => $sumber]);
+    }
+
+    /** Terapkan gaya visual siap pakai ke naskah yang sedang dirakit (font, latar hias, kamera, animasi teks, palet). */
+    public function terapkanGaya(Request $request)
+    {
+        $this->cekStudio($request);
+        $d = $request->validate([
+            'naskah' => 'required|array',
+            'naskah.adegan' => 'required|array|min:1|max:' . NaskahVideo::MAKS_ADEGAN,
+            'gaya' => ['required', Rule::in(array_keys(NaskahVideo::GAYA))],
+            'warna' => 'boolean',
+        ]);
+        // Naskah utuh (validate() hanya mengembalikan kunci yang punya aturan, mis. rasio & merek akan hilang); dibersihkan rapikan()
+        $naskah = NaskahVideo::terapkanGaya((array) $request->input('naskah'), $d['gaya'], (bool) ($d['warna'] ?? true));
+        return response()->json(['success' => true, 'message' => 'Gaya ' . NaskahVideo::GAYA[$d['gaya']]['nama'] . ' diterapkan ke ' . count($naskah['adegan']) . ' adegan.', 'naskah' => $naskah]);
     }
 
     // ===== Templat naskah sekolah =====

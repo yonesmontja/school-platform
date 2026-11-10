@@ -97,6 +97,8 @@ export function keadaanElemen(e, frame, fps, lebar, tinggi, k) {
     case "putar": rot = (1 - t) * -200; sc = 0.2 + 0.8 * t; break;
     case "mantul": ty = (p() - 1) * tinggi * 0.45; op = ada; break;
     case "sapu": sapu = 1 - t; op = ada; break;
+    case "kata": op = ada; break; // tiap kata memudar sendiri (keadaanKata)
+    case "hitung": op = Math.min(1, t * 4); break;
     case "ketik": if (e.tipe === "teks") { nKetik = Math.floor(antara(f, [0, dur], [0, String(e.isi).length])); op = ada; } break;
     default: break;
   }
@@ -166,4 +168,122 @@ export function volumeMusik(m, jendela, f, durasiFrame) {
   const redam = m.redam !== false && jendela.some(([d, s]) => f >= d - 6 && f <= s + 6) ? 0.3 : 1;
   const pudar = Math.min(1, f / 15, (durasiFrame - f) / 30);
   return Math.max(0, (m.volume ?? 0.35) * redam * pudar);
+}
+
+// ===== E1: gaya visual (font, kamera, latar hias, teks kinetik, kartu kaca) =====
+
+/** Font video (berkas OFL di apps/web/public/fonts/video; dipasang juga di image layanan render). */
+export const HURUF = {
+  "Nunito": "Nunito, 'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
+  "Poppins": "Poppins, 'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
+  "Playfair Display": "'Playfair Display', 'Noto Serif', Georgia, serif",
+  "Noto Sans": "'Noto Sans', 'DejaVu Sans', Arial, sans-serif",
+  "Noto Serif": "'Noto Serif', 'DejaVu Serif', Georgia, serif",
+  "DejaVu Sans": "'DejaVu Sans', Verdana, sans-serif",
+};
+export const hurufElemen = (e, merek) => HURUF[e?.gaya?.huruf] || HURUF[merek?.huruf] || HURUF.Nunito;
+
+const pelanTengah = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
+/** Gerak kamera pelan sepanjang adegan: skala & geser (px) untuk seluruh isi adegan kecuali subtitle. */
+export function keadaanKamera(kamera, f, n, lebar) {
+  const p = pelanTengah(Math.min(1, Math.max(0, f / Math.max(1, n - 1))));
+  switch (kamera) {
+    case "zoom-masuk": return { sc: 1 + 0.08 * p, tx: 0 };
+    case "zoom-keluar": return { sc: 1.08 - 0.08 * p, tx: 0 };
+    case "geser-kiri": return { sc: 1.08, tx: (0.5 - p) * 0.06 * lebar };
+    case "geser-kanan": return { sc: 1.08, tx: (p - 0.5) * 0.06 * lebar };
+    default: return { sc: 1, tx: 0 };
+  }
+}
+
+// Bilangan acak semu yang tetap (sama di setiap frame & mesin)
+const acak = (i, s = 1) => { const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
+
+/**
+ * Latar hias bergerak → daftar bentuk sederhana (koordinat px dari kiri-atas bingkai):
+ * {jenis: "lingkaran", x, y, r, warna, op, blur} | {jenis: "kotak", x, y, w, h, rot, warna, op} | {jenis: "poligon", titik: [[x,y]...], warna, op}
+ */
+export function primitifHias(hias, f, W, H, warna = "#ffffff") {
+  const d = f / FPS, m = Math.min(W, H), M = Math.max(W, H), hasil = [];
+  switch (hias) {
+    case "gumpalan":
+      for (let i = 0; i < 4; i++) {
+        hasil.push({ jenis: "lingkaran", x: W * (0.15 + 0.7 * acak(i, 1)) + Math.sin(d * 0.35 + i * 1.7) * W * 0.08,
+          y: H * (0.15 + 0.7 * acak(i, 2)) + Math.cos(d * 0.3 + i * 2.3) * H * 0.08, r: M * (0.22 + 0.12 * acak(i, 3)),
+          warna, op: 0.22 + 0.12 * acak(i, 4), blur: m * 0.09 });
+      }
+      break;
+    case "bokeh":
+      for (let i = 0; i < 16; i++) {
+        const cepat = 0.02 + 0.03 * acak(i, 2), y = (((acak(i, 3) - d * cepat) % 1) + 1) % 1;
+        hasil.push({ jenis: "lingkaran", x: W * acak(i, 1) + Math.sin(d * 0.8 + i) * m * 0.015, y: H * (y * 1.2 - 0.1),
+          r: m * (0.012 + 0.04 * acak(i, 4)), warna, op: 0.12 + 0.25 * acak(i, 5), blur: m * 0.004 });
+      }
+      break;
+    case "garis": {
+      const lebarG = M * 0.05, jarak = M * 0.16, geser = (d * M * 0.03) % jarak;
+      for (let i = -3; i < Math.ceil((W + H) / jarak) + 2; i++) {
+        hasil.push({ jenis: "kotak", x: i * jarak + geser - H * 0.3, y: H / 2, w: lebarG, h: M * 2, rot: 30, warna, op: 0.07 });
+      }
+      break;
+    }
+    case "titik": {
+      const jarak = m * 0.07, gx = (d * m * 0.012) % jarak, gy = (d * m * 0.008) % jarak;
+      for (let x = -1; x < W / jarak + 1; x++) for (let y = -1; y < H / jarak + 1; y++) {
+        hasil.push({ jenis: "lingkaran", x: x * jarak + gx, y: y * jarak + gy, r: m * 0.0055, warna, op: 0.2, blur: 0 });
+      }
+      break;
+    }
+    case "gelombang":
+      [[0.78, 0.035, 0.12, 0.6], [0.85, 0.03, 0.22, -0.8]].forEach(([dasar, tinggi, op, laju], j) => {
+        const titik = [];
+        for (let i = 0; i <= 32; i++) {
+          const x = (i / 32) * W;
+          titik.push([x, H * dasar + Math.sin((i / 32) * Math.PI * 4 + d * laju + j * 2) * H * tinggi]);
+        }
+        titik.push([W, H], [0, H]);
+        hasil.push({ jenis: "poligon", titik, warna, op });
+      });
+      break;
+    default: break;
+  }
+  return hasil;
+}
+
+/** Kecerahan warna hex (0–255). */
+export const kecerahan = (hex) => {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
+  return m ? 0.299 * parseInt(m[1], 16) + 0.587 * parseInt(m[2], 16) + 0.114 * parseInt(m[3], 16) : 128;
+};
+/** Kartu kaca: isian & garis tepi transparan; lebih pekat bila teksnya gelap. */
+export function gayaKaca(warnaTeks) {
+  const gelap = kecerahan(warnaTeks) < 128;
+  return gelap ? { isi: "rgba(255,255,255,0.62)", garis: "rgba(255,255,255,0.9)" } : { isi: "rgba(255,255,255,0.14)", garis: "rgba(255,255,255,0.42)" };
+}
+
+/** Animasi "kata": kata ke-i muncul memudar & membesar bergiliran sepanjang durasi masuk. */
+export function keadaanKata(e, frame, fps, i, n) {
+  const mulai = Math.round((e.masuk?.mulai || 0) * fps);
+  const sebar = Math.max(1, Math.round((e.masuk?.durasi || 0.6) * fps));
+  const awal = mulai + (n > 1 ? (i * sebar) / n : 0);
+  const t = antara(frame - awal, [0, 10], [0, 1], pelanAkhir);
+  return { op: t, sc: 0.86 + 0.14 * t };
+}
+/** Potong teks menjadi kata; "\n" menjadi tanda pindah baris (null). */
+export const kataTeks = (isi) => String(isi ?? "").split(/(\r?\n)/).flatMap((b) => (/\n/.test(b) ? [null] : b.split(/\s+/).filter(Boolean)));
+
+/** Animasi "hitung": angka pertama dalam teks naik dari 0 ke nilainya (ribuan bertitik ala Indonesia). */
+export function teksHitung(isi, frame, fps, e) {
+  const s = String(isi ?? "");
+  const m = /\d[\d.]*(,\d+)?/.exec(s);
+  if (!m) return s;
+  const desimal = m[1] ? m[1].length - 1 : 0;
+  const nilai = parseFloat(m[0].replace(/\./g, "").replace(",", "."));
+  const mulai = Math.round((e.masuk?.mulai || 0) * fps), dur = Math.max(1, Math.round((e.masuk?.durasi || 0.6) * fps));
+  const t = antara(frame - mulai, [0, dur], [0, 1], pelanAkhir);
+  const v = nilai * t;
+  const [bulat, pecah] = v.toFixed(desimal).split(".");
+  const angka = bulat.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (pecah ? "," + pecah : "");
+  return s.slice(0, m.index) + angka + s.slice(m.index + m[0].length);
 }

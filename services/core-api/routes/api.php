@@ -302,6 +302,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::patch('/aset/{id}', [VideoBelajarController::class, 'ubahAset'])->whereNumber('id');
             Route::get('/templat-studio', [VideoBelajarController::class, 'daftarTemplatStudio']);
             Route::post('/papan-cerita', [VideoBelajarController::class, 'papanCerita'])->middleware('throttle:20,1');
+            Route::post('/terapkan-gaya', [VideoBelajarController::class, 'terapkanGaya'])->middleware('throttle:60,1');
             Route::post('/templat-studio', [VideoBelajarController::class, 'simpanTemplatStudio']);
             Route::put('/templat-studio/{id}', [VideoBelajarController::class, 'simpanTemplatStudio']);
             Route::delete('/templat-studio/{id}', [VideoBelajarController::class, 'hapusTemplatStudio']);

@@ -11,7 +11,7 @@ import { API_ORIGIN } from "@/app/lib/config";
 import { minta } from "@/components/banksoal/api";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { FPS, RASIO, ukuranRasio } from "@/components/video/templat/index.js";
-import { NASKAH_CONTOH, Rakitan, adeganBaru, awalAdegan, detikAdeganRakitan, elemenBaru, hitungDurasiRakitan, idBaru } from "@/components/video/templat/rakitan.jsx";
+import { HURUF, NASKAH_CONTOH, Rakitan, adeganBaru, awalAdegan, detikAdeganRakitan, elemenBaru, hitungDurasiRakitan, idBaru } from "@/components/video/templat/rakitan.jsx";
 import { PanelAdegan, PanelElemen, PanelMerek, PanelMusik } from "@/components/video/studio/PanelStudio";
 import Timeline from "@/components/video/studio/Timeline";
 
@@ -50,6 +50,7 @@ function Studio() {
   const [waktu, setWaktu] = useState(null); // detik dalam adegan yang ditampilkan kanvas (null = saat semua elemen sudah muncul)
   const [templat, setTemplat] = useState(false);
   const [papan, setPapan] = useState(false);
+  const [modalGaya, setModalGaya] = useState(false);
   const [adeganAktif, setAdeganAktif] = useState(0);
   const [pilih, setPilih] = useState(null); // id elemen
   const [tab, setTab] = useState("properti");
@@ -334,6 +335,7 @@ function Studio() {
         <div className="ms-auto d-flex gap-2">
           {!idVideo && <button type="button" className="btn btn-sm btn-outline-secondary" onClick={naskahBaru}><i className="bi bi-file-earmark-plus me-1"></i>Baru</button>}
           <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setPapan(true)}><i className="bi bi-stars me-1"></i>Papan cerita AI</button>
+          <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setModalGaya(true)}><i className="bi bi-palette me-1"></i>Gaya visual</button>
           <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTemplat(true)}><i className="bi bi-collection me-1"></i>Templat</button>
           <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => putar(false)}><i className="bi bi-play-fill me-1"></i>Putar semua</button>
           <button type="button" className="btn btn-sm btn-primary" onClick={() => { setMeta((m) => ({ ...m, judul: m.judul || naskah.judul })); setKirim(true); }}><i className="bi bi-film me-1"></i>{idVideo ? "Render ulang" : "Render video"}</button>
@@ -435,7 +437,9 @@ function Studio() {
         </div>
       </div>
 
-      {papan && <ModalPapanCerita rasio={naskah.rasio} referensi={referensi} tujuanAwal={meta.tujuan} onTutup={() => setPapan(false)}
+      {modalGaya && <ModalGaya naskah={naskah} daftar={atur.gaya_tersedia || []} onTutup={() => setModalGaya(false)}
+        onHasil={(n) => { catatSekarang(); setNaskah({ ...n, merek: { ...n.merek, logo: n.merek?.logo || naskah.merek?.logo || null } }); setModalGaya(false); }} />}
+      {papan && <ModalPapanCerita rasio={naskah.rasio} referensi={referensi} tujuanAwal={meta.tujuan} daftarGaya={atur.gaya_tersedia || []} gayaAwal={naskah.gaya} onTutup={() => setPapan(false)}
         onHasil={(n, tujuan) => { catatSekarang(); setNaskah({ ...n, merek: { ...n.merek, logo: n.merek?.logo || naskah.merek?.logo || null } }); setMeta((m) => ({ ...m, tujuan, judul: m.judul || n.judul })); setAdeganAktif(0); setPilih(null); setPapan(false); }} />}
       {templat && <ModalTemplat naskah={naskah} onTutup={() => setTemplat(false)}
         onPakai={(t) => { catatSekarang(); setNaskah({ ...salin(t.naskah), merek: t.naskah.merek?.logo ? t.naskah.merek : { ...t.naskah.merek, logo: naskah.merek?.logo || null } }); setAdeganAktif(0); setPilih(null); setTemplat(false); toast(`Templat "${t.judul}" dipakai`); }} />}
@@ -522,8 +526,8 @@ function ModalRender({ naskah, meta, setMeta, referensi, suaraList, idVideo, onT
 }
 
 /** Papan cerita AI: satu kalimat permintaan → naskah berisi adegan, teks, emoji, dan narasi untuk disunting. */
-function ModalPapanCerita({ rasio, referensi, tujuanAwal, onTutup, onHasil }) {
-  const [f, setF] = useState({ permintaan: "", tujuan: tujuanAwal || "PROMOSI", jumlah_adegan: 5, id_mapel: "" });
+function ModalPapanCerita({ rasio, referensi, tujuanAwal, daftarGaya, gayaAwal, onTutup, onHasil }) {
+  const [f, setF] = useState({ permintaan: "", tujuan: tujuanAwal || "PROMOSI", jumlah_adegan: 5, id_mapel: "", gaya: gayaAwal || "ceria" });
   const [mode, setMode] = useState(bacaAiMode);
   const [proses, setProses] = useState(false);
   const contoh = {
@@ -556,6 +560,10 @@ function ModalPapanCerita({ rasio, referensi, tujuanAwal, onTutup, onHasil }) {
               <div className="row g-2">
                 <div className="col-6"><label className="form-label small mb-1" htmlFor="pcJumlah">Jumlah adegan</label>
                   <input id="pcJumlah" type="number" className="form-control" min={3} max={8} value={f.jumlah_adegan} onChange={(e) => setF({ ...f, jumlah_adegan: Number(e.target.value) })} /></div>
+                <div className="col-12"><label className="form-label small mb-1" htmlFor="pcGaya">Gaya visual</label>
+                  <select id="pcGaya" className="form-select" value={f.gaya} onChange={(e) => setF({ ...f, gaya: e.target.value })}>
+                    {daftarGaya.map((x) => <option key={x.kode} value={x.kode}>{x.nama} — {x.huruf[0]}{x.huruf[1] !== x.huruf[0] ? ` + ${x.huruf[1]}` : ""}</option>)}
+                  </select></div>
                 <div className="col-6"><label className="form-label small mb-1" htmlFor="pcAi">Penyedia AI</label>
                   <select id="pcAi" className="form-select" value={mode} onChange={(e) => setMode(e.target.value)}>{AI_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
                 {f.tujuan === "PEMBELAJARAN" && (
@@ -572,6 +580,56 @@ function ModalPapanCerita({ rasio, referensi, tujuanAwal, onTutup, onHasil }) {
               <button className="btn btn-primary" disabled={proses}>{proses ? <><span className="spinner-border spinner-border-sm me-1"></span>AI menyusun…</> : <><i className="bi bi-stars me-1"></i>Susun papan cerita</>}</button>
             </div>
           </form>
+        </div>
+      </div>
+      <div className="modal-backdrop show"></div>
+    </>
+  );
+}
+
+/** Gaya visual siap pakai: font, latar hias bergerak, gerak kamera, animasi teks, kartu kaca, dan palet untuk seluruh naskah. */
+function ModalGaya({ naskah, daftar, onTutup, onHasil }) {
+  const [gaya, setGaya] = useState(naskah.gaya || daftar[0]?.kode || "ceria");
+  const [warna, setWarna] = useState(true);
+  const [proses, setProses] = useState(false);
+  const terapkan = async () => {
+    setProses(true);
+    try {
+      const r = await minta("POST", "/video-belajar/terapkan-gaya", { naskah, gaya, warna });
+      onHasil(r.naskah);
+      Swal.fire({ icon: "success", title: "Gaya diterapkan", text: `${r.message} Bisa dikembalikan dengan Ctrl+Z.`, timer: 2200, showConfirmButton: false });
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); setProses(false); }
+  };
+  return (
+    <>
+      <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Gaya visual">
+        <div className="modal-dialog modal-lg">
+          <div className="modal-content border-0 shadow">
+            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-palette text-primary me-2"></i>Gaya visual</h5>
+              <button type="button" className="btn-close" onClick={onTutup} disabled={proses} aria-label="Tutup"></button></div>
+            <div className="modal-body">
+              <div className="row g-2" role="radiogroup" aria-label="Pilih gaya">
+                {daftar.map((x) => (
+                  <div key={x.kode} className="col-6 col-md-3">
+                    <button type="button" role="radio" aria-checked={gaya === x.kode} onClick={() => setGaya(x.kode)}
+                      className={`studio-gaya w-100 text-start border rounded-3 p-0 overflow-hidden ${gaya === x.kode ? "border-primary border-2" : ""}`}>
+                      <div className="studio-gaya-contoh" style={{ background: `linear-gradient(135deg, ${x.palet[0]}, ${x.palet[1]})`, fontFamily: HURUF[x.huruf[0]] }}>Aa</div>
+                      <div className="p-2"><div className="fw-semibold small">{x.nama}</div><div className="text-body-secondary" style={{ fontSize: ".72rem" }}>{x.huruf[0]}{x.huruf[1] !== x.huruf[0] ? ` + ${x.huruf[1]}` : ""}</div></div>
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="form-check form-switch mt-3">
+                <input className="form-check-input" type="checkbox" role="switch" id="gyWarna" checked={warna} onChange={(e) => setWarna(e.target.checked)} />
+                <label className="form-check-label small" htmlFor="gyWarna">Ganti warna latar dengan palet gaya ini</label>
+              </div>
+              <div className="form-text">Mengatur font judul &amp; isi, hiasan latar bergerak, gerak kamera, transisi, animasi teks, dan kartu kaca di semua adegan. Isi teks, narasi, gambar, dan posisi elemen tidak berubah.</div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Batal</button>
+              <button type="button" className="btn btn-primary" onClick={terapkan} disabled={proses}>{proses ? <><span className="spinner-border spinner-border-sm me-1"></span>Menerapkan…</> : <><i className="bi bi-check2 me-1"></i>Terapkan</>}</button>
+            </div>
+          </div>
         </div>
       </div>
       <div className="modal-backdrop show"></div>

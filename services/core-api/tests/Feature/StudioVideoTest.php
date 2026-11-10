@@ -114,6 +114,47 @@ class StudioVideoTest extends TestCase
         $this->assertSame(['REMOTION', 'ANTRE'], [VideoBelajar::find($id)->mesin, VideoBelajar::find($id)->render_status]);
     }
 
+    public function test_e1_gaya_visual_tata_letak_baru_dan_terapkan_gaya(): void
+    {
+        config(['services.ai_services.gemini_key' => 'uji']);
+        $this->sebagai($this->sekolah->admin)->putJson('/api/video-belajar/studio', ['id_pembuat' => $this->sekolah->guruA->id])->assertOk();
+        $papan = ['judul' => 'Profil Sekolah', 'adegan' => [
+            ['tata' => 'fakta', 'narasi' => 'Kini kami mendidik seribu dua ratus siswa.', 'judul' => '1.250 siswa', 'subjudul' => 'tahun ajaran ini', 'emoji' => '🎓', 'latar' => '#ffcc00'],
+            ['tata' => 'kutipan', 'narasi' => 'Semboyan kami.', 'judul' => 'Belajar dengan hati, tumbuh bersama', 'subjudul' => 'Semboyan sekolah', 'latar' => '#2563eb'],
+            ['tata' => 'perbandingan', 'narasi' => 'Dulu dan sekarang.', 'judul' => 'Dulu vs Sekarang', 'poin' => [['emoji' => '📒', 'teks' => 'Papan tulis'], ['emoji' => '💻', 'teks' => 'Kelas digital']]],
+            ['tata' => 'linimasa', 'narasi' => 'Tiga langkah mendaftar.', 'judul' => 'Cara Mendaftar', 'poin' => [['teks' => 'Isi formulir'], ['teks' => 'Verifikasi'], ['teks' => 'Mulai belajar']]],
+        ]];
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode($papan)]]]]]])]);
+        $this->sebagai($this->sekolah->guruA);
+        $n = $this->postJson('/api/video-belajar/papan-cerita', ['permintaan' => 'Video profil sekolah yang elegan', 'tujuan' => 'PROMOSI', 'rasio' => '16:9', 'jumlah_adegan' => 4, 'ai_mode' => 'GEMINI', 'gaya' => 'elegan'])
+            ->assertOk()->json('naskah');
+        $this->assertSame('elegan', $n['gaya']);
+        [$fakta, $kutipan, $banding, $lini] = $n['adegan'];
+        // Gaya Elegan: palet gelap sendiri, latar gumpalan, kamera bergerak, judul Playfair, teks pendukung berkartu kaca
+        $this->assertSame(['gradien', '#0f172a', 'gumpalan', 'zoom-masuk'], [$fakta['latar']['tipe'], $fakta['latar']['warna'], $fakta['latar']['hias'], $fakta['kamera']]);
+        $judul = collect($fakta['elemen'])->firstWhere('isi', '1.250 siswa');
+        $this->assertSame(['hitung', 'Playfair Display'], [$judul['masuk']['preset'], $judul['gaya']['huruf']]); // angka menghitung naik
+        $this->assertTrue(collect($fakta['elemen'])->firstWhere('isi', 'tahun ajaran ini')['gaya']['kaca']);
+        $this->assertSame('— Semboyan sekolah', collect($kutipan['elemen'])->last()['isi']);
+        $this->assertSame(['📒', 'Papan tulis', '💻', 'Kelas digital', 'vs'], array_values(array_slice(array_column($banding['elemen'], 'isi'), 1)));
+        $this->assertCount(11, $lini['elemen']); // judul + garis + 3 × (lingkaran + nomor + label)
+        $bulat = collect($lini['elemen'])->firstWhere('isi', 'bulat');
+        $this->assertEqualsWithDelta($bulat['w'] * 16 / 9, $bulat['h'], 0.05); // tetap bulat di bingkai 16:9
+
+        // Terapkan gaya Modern ke naskah yang sedang dirakit; kolom tak dikenal dibersihkan
+        $n['adegan'][0]['latar']['hias'] = 'sihir';
+        $n['adegan'][0]['kamera'] = 'terbang';
+        $n['rasio'] = '9:16';
+        $m = $this->postJson('/api/video-belajar/terapkan-gaya', ['naskah' => $n, 'gaya' => 'modern'])->assertOk()->json('naskah');
+        $this->assertSame(['9:16', true], [$m['rasio'], $m['subtitle']]); // kunci naskah di luar adegan tetap utuh
+        $this->assertSame(['modern', 'Poppins', '#7c3aed', 'gelombang', 'geser-kiri'], [$m['gaya'], $m['merek']['huruf'], $m['adegan'][0]['latar']['warna'], $m['adegan'][0]['latar']['hias'], $m['adegan'][0]['kamera']]);
+        $this->assertSame('hitung', collect($m['adegan'][0]['elemen'])->firstWhere('isi', '1.250 siswa')['masuk']['preset']); // hitung dipertahankan
+        $this->assertSame('kata', collect($m['adegan'][1]['elemen'])->firstWhere('isi', 'Belajar dengan hati, tumbuh bersama')['masuk']['preset']);
+        $this->postJson('/api/video-belajar/terapkan-gaya', ['naskah' => $n, 'gaya' => 'mewah'])->assertUnprocessable();
+        $this->sebagai($this->sekolah->guruB)->postJson('/api/video-belajar/terapkan-gaya', ['naskah' => $n, 'gaya' => 'modern'])->assertForbidden();
+        $this->assertSame(['ceria', 'elegan', 'formal', 'modern'], array_column($this->sebagai($this->sekolah->admin)->getJson('/api/video-belajar/studio')->json('data.gaya_tersedia'), 'kode'));
+    }
+
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     public function test_d2_musik_keluar_izin_foto_siswa_tujuan_dan_templat(): void

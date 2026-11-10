@@ -98,6 +98,16 @@ test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", asy
   await pc.getByRole("button", { name: /Susun papan cerita/ }).click();
   await expect(page.locator(".swal2-popup")).toContainText("Papan cerita siap");
   await page.locator(".swal2-confirm").click();
+
+  // E1: terapkan gaya visual Elegan ke seluruh naskah (lewat server), lalu periksa kamera & hiasan adegan
+  await page.getByRole("button", { name: /Gaya visual/ }).click();
+  const gy = page.getByRole("dialog", { name: "Gaya visual" });
+  await gy.getByRole("radio", { name: /Elegan/ }).click();
+  await gy.getByRole("button", { name: /Terapkan/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("Gaya Elegan diterapkan ke 3 adegan");
+  await expect(gy).toBeHidden();
+  await expect(page.getByLabel("Gerak kamera")).toHaveValue("zoom-masuk");
+  await expect(page.getByLabel("Hiasan bergerak")).toHaveValue("gumpalan");
   await expect(page.getByRole("button", { name: /^Adegan \d/ })).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Adegan 3" })).toContainText("Narasi adegan 3");
 

@@ -1,6 +1,6 @@
 "use client";
 // Panel properti Studio Rakit Video: elemen terpilih, adegan, dan merek sekolah.
-import { BENTUK, GERAK, HURUF, KELUAR, MASUK, TRANSISI } from "../templat/rakitan.jsx";
+import { BENTUK, GERAK, HIAS, HURUF, KAMERA, KELUAR, MASUK, TRANSISI } from "../templat/rakitan.jsx";
 import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 
 export const EMOJI_STUDIO = ["⭐", "🏫", "📚", "✏️", "🎨", "🎉", "👍", "❤️", "🌟", "🏆", "🎓", "⚽", "🎵", "🌳", "🌺", "☀️", "🐟", "🍌", "🥥", "🐦", "🛶", "⛰️", "💡", "📣", "✅", "👋", "😊", "🤝", "🧒", "👩‍🏫"];
@@ -72,7 +72,16 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah }) {
               <button key={v} type="button" className={`btn ${g.rata === v ? "btn-primary" : "btn-outline-primary"}`} onClick={() => gaya({ rata: v })} aria-label={`Rata ${v}`}><i className={`bi ${ik}`}></i></button>
             ))}
           </div>
-          <InputWarna id="stLatar" label="Latar teks" nilai={g.latar} palet={palet} bolehKosong onUbah={(v) => gaya({ latar: v })} />
+          <div className="mb-2"><Label htmlFor="stHurufEl">Font teks ini</Label>
+            <select id="stHurufEl" className="form-select form-select-sm" value={g.huruf || ""} onChange={(x) => gaya({ huruf: x.target.value || null })}>
+              <option value="">Ikuti font merek</option>
+              {Object.keys(HURUF).map((h) => <option key={h} value={h} style={{ fontFamily: HURUF[h] }}>{h}</option>)}
+            </select></div>
+          <div className="form-check form-switch mb-2">
+            <input className="form-check-input" type="checkbox" role="switch" id="stKaca" checked={!!g.kaca} onChange={(x) => gaya({ kaca: x.target.checked })} />
+            <label className="form-check-label small" htmlFor="stKaca">Kartu kaca (latar transparan berbingkai)</label>
+          </div>
+          {!g.kaca && <InputWarna id="stLatar" label="Latar teks" nilai={g.latar} palet={palet} bolehKosong onUbah={(v) => gaya({ latar: v })} />}
         </>
       )}
       {(e.tipe === "teks" || e.tipe === "bentuk") && <InputWarna id="stGaris" label="Garis tepi" nilai={g.garis} palet={palet} bolehKosong onUbah={(v) => gaya({ garis: v })} />}
@@ -87,7 +96,11 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah }) {
       <hr className="my-2" />
       <div className="small text-uppercase text-body-secondary fw-bold mb-2">Animasi</div>
       <div className="mb-2"><Label htmlFor="stMasuk">Masuk</Label>
-        <select id="stMasuk" className="form-select form-select-sm" value={e.masuk?.preset} onChange={(x) => masuk({ preset: x.target.value })}>{MASUK.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+        <select id="stMasuk" className="form-select form-select-sm" value={e.masuk?.preset} onChange={(x) => masuk({ preset: x.target.value })}>
+          {MASUK.filter(([v]) => e.tipe === "teks" || !["ketik", "kata", "hitung"].includes(v)).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        {e.masuk?.preset === "kata" && <div className="form-text">Kata muncul bergiliran selama &ldquo;Lama&rdquo;; makin banyak kata, perpanjang lamanya.</div>}
+        {e.masuk?.preset === "hitung" && <div className="form-text">Angka pertama dalam teks (mis. 1.250 atau 98%) menghitung naik dari 0 selama &ldquo;Lama&rdquo;.</div>}</div>
       <div className="row g-2">
         <div className="col-6"><Label htmlFor="stMulai">Mulai (detik)</Label><input id="stMulai" type="number" className="form-control form-control-sm" min={0} max={30} step={0.1} value={e.masuk?.mulai ?? 0} onChange={(x) => masuk({ mulai: Number(x.target.value) })} /></div>
         <div className="col-6"><Label htmlFor="stLama">Lama (detik)</Label><input id="stLama" type="number" className="form-control form-control-sm" min={0.1} max={5} step={0.1} value={e.masuk?.durasi ?? 0.6} onChange={(x) => masuk({ durasi: Number(x.target.value) })} /></div>
@@ -143,6 +156,8 @@ export function PanelAdegan({ a, nomor, palet, onUbah, onUnggah }) {
       <Angka id="stDurasi" label="Lama adegan" nilai={a.durasi ?? 4} min={2} max={30} step={0.5} satuan="detik; diperpanjang otomatis bila narasi lebih lama" onUbah={(v) => onUbah({ durasi: v })} />
       <div className="mb-2"><Label htmlFor="stTransisi">Transisi masuk</Label>
         <select id="stTransisi" className="form-select form-select-sm" value={a.transisi} onChange={(x) => onUbah({ transisi: x.target.value })}>{TRANSISI.map(([v, lb]) => <option key={v} value={v}>{lb}</option>)}</select></div>
+      <div className="mb-2"><Label htmlFor="stKamera">Gerak kamera</Label>
+        <select id="stKamera" className="form-select form-select-sm" value={a.kamera || "tidak"} onChange={(x) => onUbah({ kamera: x.target.value })}>{KAMERA.map(([v, lb]) => <option key={v} value={v}>{lb}</option>)}</select></div>
       <hr className="my-2" />
       <div className="small text-uppercase text-body-secondary fw-bold mb-2">Latar</div>
       <div className="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Jenis latar">
@@ -159,6 +174,9 @@ export function PanelAdegan({ a, nomor, palet, onUbah, onUnggah }) {
           <Angka id="stRedup" label="Gelapkan gambar" nilai={l.redup ?? 0} min={0} max={0.8} step={0.05} onUbah={(v) => latar({ redup: v })} />
         </>
       )}
+      <div className="mb-2"><Label htmlFor="stHias">Hiasan bergerak</Label>
+        <select id="stHias" className="form-select form-select-sm" value={l.hias || "tidak"} onChange={(x) => latar({ hias: x.target.value })}>{HIAS.map(([v, lb]) => <option key={v} value={v}>{lb}</option>)}</select></div>
+      {l.hias && l.hias !== "tidak" && <InputWarna id="stWarnaHias" label="Warna hiasan" nilai={l.warna_hias || "#ffffff"} palet={palet} onUbah={(v) => latar({ warna_hias: v })} />}
     </div>
   );
 }
