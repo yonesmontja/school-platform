@@ -12,6 +12,7 @@ import KisiKisi from "@/components/banksoal/KisiKisi";
 import ImporSoal from "@/components/banksoal/ImporSoal";
 import PaketSoal from "@/components/banksoal/PaketSoal";
 import { minta } from "@/components/banksoal/api";
+import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 
 const TAB = [
   { id: "soal", label: "Bank Soal", icon: "bi-collection" },
@@ -244,23 +245,15 @@ function BankSoalPage() {
                           <div className="d-flex flex-wrap gap-1 justify-content-end">
                             <button className="btn btn-sm btn-outline-secondary" onClick={() => setTerbuka((t) => ({ ...t, [s.id_soal]: !t[s.id_soal] }))} aria-label={terbuka[s.id_soal] ? "Tutup pratinjau" : "Lihat soal"}>
                               <i className={`bi ${terbuka[s.id_soal] ? "bi-eye-slash" : "bi-eye"}`}></i></button>
-                            {bolehUbah(s) && (s.status !== "DIAJUKAN" || bolehSetujui) && (
-                              <button className="btn btn-sm btn-outline-primary" onClick={() => setEditor({ soal: s })} aria-label="Ubah soal"><i className="bi bi-pencil"></i></button>
-                            )}
-                            {bolehUbah(s) && ["DRAF", "REVISI"].includes(s.status) && (
-                              <button className="btn btn-sm btn-outline-warning" onClick={() => minta("POST", "/bank-soal/ajukan", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error"))}
-                                title="Ajukan ke kepala sekolah" aria-label="Ajukan soal"><i className="bi bi-send"></i></button>
-                            )}
-                            {bolehSetujui && s.status === "DIAJUKAN" && (
-                              <button className="btn btn-sm btn-success" onClick={() => minta("POST", "/bank-soal/setujui", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error"))}
-                                aria-label="Setujui soal" title="Setujui"><i className="bi bi-patch-check"></i></button>
-                            )}
-                            {bolehUbah(s) && s.status === "DIAJUKAN" && !bolehSetujui && (
-                              <button className="btn btn-sm btn-outline-secondary" onClick={() => tarik(s)} title="Tarik pengajuan untuk diubah" aria-label="Tarik pengajuan"><i className="bi bi-arrow-return-left"></i></button>
-                            )}
-                            {bolehUbah(s) && (s.status !== "DISETUJUI" || isPengelola) && (
-                              <button className="btn btn-sm btn-outline-danger" onClick={() => hapus(s)} aria-label="Hapus soal"><i className="bi bi-trash"></i></button>
-                            )}
+                            <MenuAksi label="Aksi soal" items={[
+                              aksiUbah(() => setEditor({ soal: s }), bolehUbah(s) && (s.status !== "DIAJUKAN" || bolehSetujui)),
+                              { label: "Ajukan ke kepala sekolah", ikon: "bi-send", tampil: bolehUbah(s) && ["DRAF", "REVISI"].includes(s.status),
+                                onClick: () => minta("POST", "/bank-soal/ajukan", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error")) },
+                              { label: "Setujui", ikon: "bi-patch-check", tampil: bolehSetujui && s.status === "DIAJUKAN",
+                                onClick: () => minta("POST", "/bank-soal/setujui", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error")) },
+                              { label: "Tarik pengajuan", ikon: "bi-arrow-return-left", tampil: bolehUbah(s) && s.status === "DIAJUKAN" && !bolehSetujui, onClick: () => tarik(s) },
+                              aksiHapus(() => hapus(s), bolehUbah(s) && (s.status !== "DISETUJUI" || isPengelola)),
+                            ]} />
                           </div>
                         </div>
                       </div>

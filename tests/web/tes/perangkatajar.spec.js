@@ -25,7 +25,11 @@ test("guru mengisi CP lalu menyusun dan mengajukan ATP", async ({ page, masuk })
   await expect(page.locator(".editor-atp")).toContainText("Fase B");
 
   // Baris 1: TP yang sudah ada; baris 2: TP baru
-  await page.getByRole("button", { name: "tambah baris" }).click();
+  // Klik bisa kalah cepat dengan pemuatan data editor (baris tertimpa); ulangi sampai baris 1 benar-benar ada
+  await expect(async () => {
+    await page.getByRole("button", { name: "tambah baris" }).click();
+    await expect(page.getByLabel("Elemen CP baris 1")).toBeVisible({ timeout: 2000 });
+  }).toPass();
   await pilih(page.getByLabel("Elemen CP baris 1"), "Bilangan");
   await pilih(page.getByLabel("Materi baris 1"), "Pecahan Sederhana");
   await pilih(page.getByLabel("Pilih TP yang ada baris 1"), "Membandingkan dua pecahan");
@@ -48,6 +52,11 @@ test("kepala sekolah menyetujui ATP dan TP baru masuk ke referensi", async ({ pa
   await page.goto("/dashboard/notifikasi");
   await page.locator(".notif-kartu", { hasText: "ATP menunggu persetujuan" }).getByRole("link", { name: /Buka/ }).click();
   await expect(page).toHaveURL(/perangkat-ajar\?status=DIAJUKAN/);
+  // Menu ⋮ di kartu: aksi cepat tanpa membuka editor; Esc menutup tanpa membuka kartu
+  await page.locator(".kartu-atp", { hasText: "ATP Matematika" }).getByRole("button", { name: /^Aksi untuk/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Buka" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".menu-aksi")).toHaveCount(0);
   await page.locator(".kartu-atp", { hasText: "ATP Matematika" }).click();
   await page.getByRole("button", { name: "Setujui" }).click();
   await page.locator(".swal2-confirm").click();

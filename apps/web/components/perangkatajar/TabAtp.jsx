@@ -4,6 +4,8 @@ import Swal from "sweetalert2";
 import { AI_MODES, DIMENSI, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { minta } from "@/components/banksoal/api";
 import { cetakAtp } from "./cetakAtp";
+import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
+import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
 
 const barisKosong = () => ({ id_cp: "", id_materi: "", materi_usulan: "", id_indikator: "", tp_usulan: "", alokasi_jp: "", minggu: "", dimensi: "", profil_lulusan: [], catatan: "" });
 const keEditor = (b) => ({ ...barisKosong(), ...Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v ?? (k === "profil_lulusan" ? [] : "")])) });
@@ -20,6 +22,17 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
     minta("GET", `/perangkat-ajar/atp${status ? `?status=${status}` : ""}`).then((r) => setDaftar(r.data)).catch((err) => Swal.fire("Gagal memuat", err.message, "error"));
   }, [status]);
   useEffect(() => { muat(); }, [muat]);
+
+  const itemAtp = (a) => {
+    const bisaUbah = akses.isAdmin || a.dibuat_oleh === akses.user?.id;
+    return [
+      { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(a.id_atp) },
+      ...itemPersetujuan({ dasar: `/perangkat-ajar/atp/${a.id_atp}`, status: a.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
+        pesanAjukan: "Ajukan ATP ke kepala sekolah?", pesanSetujui: "Setujui ATP ini? TP baru akan ditambahkan ke Referensi Penilaian." }),
+      { label: "Buat modul ajar", ikon: "bi-journal-plus", tampil: a.status === "DISETUJUI" && !akses.isKepsek && !!onBuatModul, onClick: () => onBuatModul(a.id_atp) },
+      aksiHapus(() => hapusDariKartu(`/perangkat-ajar/atp/${a.id_atp}`, { judul: "Hapus ATP ini?", teks: "TP yang sudah dibuat dari ATP ini tetap ada.", selesai: muat }), bisaUbah),
+    ];
+  };
 
   if (buka) return <EditorAtp id={buka} referensi={referensi} akses={akses} onBuatModul={onBuatModul} onKembali={() => { setBuka(null); muat(); }} />;
 
@@ -42,7 +55,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
             {daftar.map((a) => {
               const st = STATUS[a.status];
               return (
-                <div key={a.id_atp} className="card shadow-sm kartu-atp" role="button" tabIndex={0} onClick={() => setBuka(a.id_atp)} onKeyDown={(e) => e.key === "Enter" && setBuka(a.id_atp)}>
+                <div key={a.id_atp} className="card shadow-sm kartu-atp" role="button" tabIndex={0} onClick={() => setBuka(a.id_atp)} onKeyDown={tombolKartu(() => setBuka(a.id_atp))}>
                   <div className="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
                     <div className="me-auto min-w-0">
                       <div className="fw-semibold">{a.judul}</div>
@@ -51,6 +64,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
                     </div>
                     <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.icon} me-1`}></i>{st.label}</span>
                     {a.versi > 1 && <span className="badge text-bg-light border">v{a.versi}</span>}
+                    <MenuAksi label={`Aksi untuk ${a.judul}`} items={itemAtp(a)} />
                   </div>
                 </div>
               );

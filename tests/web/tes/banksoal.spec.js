@@ -31,7 +31,8 @@ test("guru menulis soal pilihan ganda per TP dan mengajukannya", async ({ page, 
   const kartu = page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" });
   await expect(kartu).toContainText("Draf");
   await expect(kartu).toContainText("Membandingkan dua pecahan");
-  await kartu.getByRole("button", { name: "Ajukan soal" }).click();
+  await kartu.getByRole("button", { name: "Aksi soal" }).click();
+  await page.getByRole("menuitem", { name: "Ajukan ke kepala sekolah" }).click();
   await expect(kartu).toContainText("Menunggu persetujuan");
 });
 
@@ -71,12 +72,15 @@ test("guru memperbaiki dan mengajukan lagi, kepala sekolah menyetujui", async ({
   await masuk("guru");
   await page.goto("/dashboard/bank-soal");
   const kartu = page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" });
-  await kartu.getByRole("button", { name: "Ajukan soal" }).click();
+  await kartu.getByRole("button", { name: "Aksi soal" }).click();
+  await page.getByRole("menuitem", { name: "Ajukan ke kepala sekolah" }).click();
   await expect(kartu).toContainText("Menunggu persetujuan");
 
   await masuk("kepsek");
   await page.goto("/dashboard/bank-soal?status=DIAJUKAN");
-  await page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" }).getByRole("button", { name: "Setujui soal" }).click();
+  await page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" }).getByRole("button", { name: "Aksi soal" }).click();
+  await expect(page.getByRole("menuitem", { name: "Hapus" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Setujui" }).click();
   await expect(page.locator(".kartu-soal", { hasText: "Manakah yang lebih besar" })).toHaveCount(0);
 });
 

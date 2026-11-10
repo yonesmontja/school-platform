@@ -60,15 +60,22 @@ export function bukaMenuAksi(anchor, items) {
     else if (e.key === "Tab") tutup();
   };
   const geser = (e) => { if (!el.contains(e.target)) tutup(); };
+  // Didengar di window fase capture (lebih dulu dari handler delegasi Bootstrap yang juga capture di document).
+  // Tombol di dalam menu tidak diteruskan: Bootstrap akan mencari tombol data-bs-toggle untuk .dropdown-menu ini,
+  // yang tidak ada, lalu melempar error.
+  const tombolLuar = (e) => {
+    if (el.contains(e.target) && ["Escape", "ArrowDown", "ArrowUp", "Tab"].includes(e.key)) e.stopPropagation();
+    tombol(e);
+  };
   setTimeout(() => document.addEventListener("mousedown", luar), 0);
-  document.addEventListener("keydown", tombol);
+  window.addEventListener("keydown", tombolLuar, true);
   window.addEventListener("scroll", geser, true);
   window.addEventListener("resize", tutup);
   menuAktif = {
     el, anchor,
     lepas: () => {
       document.removeEventListener("mousedown", luar);
-      document.removeEventListener("keydown", tombol);
+      window.removeEventListener("keydown", tombolLuar, true);
       window.removeEventListener("scroll", geser, true);
       window.removeEventListener("resize", tutup);
     },

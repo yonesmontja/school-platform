@@ -6,6 +6,8 @@ import { minta } from "@/components/banksoal/api";
 import { BAGIAN_RPM, LANGKAH_RPM, isiKosong } from "./rpm";
 import { cetakModul, unduhWord } from "./cetakModul";
 import { VideoTertaut } from "@/components/video/video";
+import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
+import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
 
 /** Daftar modul ajar RPM; dibuat dari ATP yang disetujui atau dari TP langsung. */
 export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulAwal }) {
@@ -18,6 +20,16 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulA
     minta("GET", `/perangkat-ajar/modul${status ? `?status=${status}` : ""}`).then((r) => setDaftar(r.data)).catch((err) => Swal.fire("Gagal memuat", err.message, "error"));
   }, [status]);
   useEffect(() => { muat(); }, [muat]);
+
+  const itemModul = (m) => {
+    const bisaUbah = akses.isAdmin || m.dibuat_oleh === akses.user?.id;
+    return [
+      { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(m.id_modul) },
+      ...itemPersetujuan({ dasar: `/perangkat-ajar/modul/${m.id_modul}`, status: m.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
+        pesanAjukan: "Ajukan modul ke kepala sekolah?", pesanSetujui: "Setujui modul ajar ini?" }),
+      aksiHapus(() => hapusDariKartu(`/perangkat-ajar/modul/${m.id_modul}`, { judul: "Hapus modul ini?", selesai: muat }), bisaUbah),
+    ];
+  };
 
   if (buka) return <EditorModul id={buka} referensi={referensi} akses={akses} onKembali={() => { setBuka(null); muat(); }} />;
 
@@ -40,7 +52,7 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulA
             {daftar.map((m) => {
               const st = STATUS[m.status];
               return (
-                <div key={m.id_modul} className="card shadow-sm kartu-modul" role="button" tabIndex={0} onClick={() => setBuka(m.id_modul)} onKeyDown={(e) => e.key === "Enter" && setBuka(m.id_modul)}>
+                <div key={m.id_modul} className="card shadow-sm kartu-modul" role="button" tabIndex={0} onClick={() => setBuka(m.id_modul)} onKeyDown={tombolKartu(() => setBuka(m.id_modul))}>
                   <div className="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
                     <div className="me-auto min-w-0">
                       <div className="fw-semibold">{m.judul}</div>
@@ -54,6 +66,7 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulA
                     </div>
                     {m.sumber === "AI" && <span className="badge text-bg-light border fw-normal"><i className="bi bi-magic me-1"></i>AI</span>}
                     <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.icon} me-1`}></i>{st.label}</span>
+                    <MenuAksi label={`Aksi untuk ${m.judul}`} items={itemModul(m)} />
                   </div>
                 </div>
               );

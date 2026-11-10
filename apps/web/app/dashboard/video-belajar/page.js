@@ -8,6 +8,8 @@ import { minta } from "@/components/banksoal/api";
 import { KartuVideo, PutarVideo, STATUS_VIDEO, TUJUAN_VIDEO, bacaVideo, durasi } from "@/components/video/video";
 import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 import BuatDariTemplat from "@/components/video/BuatDariTemplat";
+import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
+import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
 
 const SUMBER = { REMOTION: "Motion graphic (dibuat Claude/Remotion)", RENDER: "Dari templat aplikasi", UNGGAH: "Unggahan guru" };
 const MAKS_MB = 20;
@@ -230,6 +232,22 @@ function PustakaVideo() {
     return () => clearInterval(t);
   }, [data, muat]);
 
+  const itemVideo = (v) => {
+    const bisa = akses.isAdmin || v.dibuat_oleh === akses.user?.id;
+    const siap = !!v.file_url && !["ANTRE", "PROSES", "GAGAL"].includes(v.render_status);
+    const unduh = () => Object.assign(document.createElement("a"), { href: srcGambar(v.file_url), download: "" }).click();
+    return [
+      { label: "Buka & putar", ikon: "bi-play-circle", onClick: () => setBuka(v.id_video) },
+      { label: "Buka di Studio", ikon: "bi-easel3", tampil: bisa && v.sumber === "RENDER" && v.templat === "Rakitan" && v.render_status !== "PROSES",
+        onClick: () => { window.location.href = `/dashboard/studio-video?video=${v.id_video}`; } },
+      { label: "Unduh", ikon: "bi-download", tampil: siap, onClick: unduh },
+      ...itemPersetujuan({ dasar: `/video-belajar/${v.id_video}`, status: v.status, bisaUbah: bisa, isKepsek: akses.isKepsek, selesai: muat, bisaTarik: false,
+        pesanAjukan: "Ajukan video ke kepala sekolah?",
+        pesanSetujui: v.tujuan && v.tujuan !== "PEMBELAJARAN" ? "Setujui video ini? Video siap diunduh dan dibagikan." : "Setujui video ini? Siswa akan bisa melihatnya." }),
+      aksiHapus(() => hapusDariKartu(`/video-belajar/${v.id_video}`, { judul: "Hapus video ini?", teks: v.dipakai > 0 ? `Video ini dipakai di ${v.dipakai} tempat; semua tautannya ikut dilepas.` : undefined, selesai: muat }), bisa),
+    ];
+  };
+
   return (
     <div className="container-fluid mt-3 mb-5">
       <div className="d-flex flex-wrap align-items-start gap-2 mb-3">
@@ -251,13 +269,14 @@ function PustakaVideo() {
         : (
           <div className="d-flex flex-wrap gap-3">
             {data.map((v) => (
-              <div key={v.id_video} className="kartu-pustaka" role="button" tabIndex={0} onClick={() => setBuka(v.id_video)} onKeyDown={(e) => e.key === "Enter" && setBuka(v.id_video)} style={{ width: 220 }}>
+              <div key={v.id_video} className="kartu-pustaka" role="button" tabIndex={0} onClick={() => setBuka(v.id_video)} onKeyDown={tombolKartu(() => setBuka(v.id_video))} style={{ width: 220 }}>
                 <div className="pe-none"><KartuVideo video={v} /></div>
                 <div className="small text-muted mt-1">{v.mapel?.nama_mapel || "Umum"}{v.kelas && ` · ${v.kelas.nama_kelas}`}</div>
-                <div className="d-flex gap-1 flex-wrap mt-1">
+                <div className="d-flex gap-1 flex-wrap align-items-center mt-1">
                   <span className={`badge text-bg-${STATUS_VIDEO[v.status][1]}`}>{STATUS_VIDEO[v.status][0]}</span>
                   {v.tujuan && v.tujuan !== "PEMBELAJARAN" && <span className="badge text-bg-info fw-normal">{TUJUAN_VIDEO[v.tujuan]}</span>}
                   {v.dipakai > 0 && <span className="badge text-bg-light border fw-normal">dipakai {v.dipakai}×</span>}
+                  <MenuAksi className="ms-auto" label={`Aksi untuk ${v.judul}`} items={itemVideo(v)} />
                 </div>
               </div>
             ))}
