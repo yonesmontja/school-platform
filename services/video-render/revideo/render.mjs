@@ -14,7 +14,8 @@ export const FFMPEG = process.env.FFMPEG || require("@ffmpeg-installer/ffmpeg").
 const LAJU = 48000;
 const KERJA = process.env.REVIDEO_KERJA || "/tmp/revideo";
 const AKAR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const BATAS_MS = Number(process.env.REVIDEO_BATAS_MENIT || 20) * 60_000;
+// Video API 1080p sepanjang 60–120 detik bisa butuh 15–30 menit di server sekolah
+const BATAS_MS = Number(process.env.REVIDEO_BATAS_MENIT || 50) * 60_000;
 
 /** Revideo menggambar video tanpa suara di proses anak (lihat anak.mjs), dihentikan bila melewati batas waktu. */
 function gambarVideo(tugas, folder) {
@@ -133,7 +134,12 @@ export async function renderRevideo(props, mp4, jpg, opsi = {}) {
   const folder = path.join(KERJA, id);
   fs.mkdirSync(folder, { recursive: true });
   try {
-    const bisu = await gambarVideo({ props, lebar, tinggi, folder, ffmpeg: FFMPEG, browser: opsi.browser }, folder);
+    const tugas = { props, lebar, tinggi, folder, ffmpeg: FFMPEG, browser: opsi.browser };
+    // Halaman render kadang gagal dimuat dalam 30 detik saat server sibuk ("Navigation timeout"): coba sekali lagi
+    const bisu = await gambarVideo(tugas, folder).catch((e) => {
+      if (!/Navigation timeout/i.test(String(e?.message))) throw e;
+      return gambarVideo(tugas, folder);
+    });
     const wav = await campurAudio(props, path.join(folder, "audio.wav"));
     const detik = hitungDurasiRakitan(props) / FPS;
     await jalankan(wav

@@ -107,7 +107,9 @@ async function siapkanNarasi(job, props) {
     const nama = `${job.id_video}-${kunci}-${crypto.randomBytes(4).toString("hex")}.wav`;
     const f = path.join(SUARA, nama);
     if (job.suara === "LOKAL") await piper(String(teks), f);
-    else await suaraBerbayar(job.suara, String(teks), f, job.suara === "AZURE" ? { voice: props.voice, laju: laju > 1 ? laju : undefined } : {});
+    // API render v1: Azure memakai nama suara payload; Gemini memakai suara pilihan (bawaan Charon) dengan gaya narator berita
+    else await suaraBerbayar(job.suara, String(teks), f, job.suara === "AZURE" ? { voice: props.voice, laju: laju > 1 ? laju : undefined }
+      : job.suara === "GEMINI" && props.voice_gemini ? { voice: props.voice_gemini, gaya: "berita", laju: laju > 1 ? laju : undefined } : {});
     berkas.push(f);
     pasang({ audio: `http://127.0.0.1:${PORT}/${nama}`, detik: Math.round(durasiWav(f) * 100) / 100 });
   }

@@ -53,13 +53,18 @@ class SuaraService
     }
 
     /** Ubah teks menjadi WAV dengan penyedia berbayar. LOKAL & TANPA tidak lewat sini. */
-    public function buat(string $suara, string $teks, ?string $voice = null, float $laju = 1.0): ?string
+    /**
+     * @param string|null $voice nama suara penyedia (Azure: id-ID-ArdiNeural; Gemini: Charon, Kore, …)
+     * @param float $laju > 1 = bacaan dipercepat agar muat di durasi adegan (Azure: prosody; Gemini: instruksi)
+     * @param string $gaya 'anak' (Video Belajar, ceria) atau 'berita' (API render: narator berita)
+     */
+    public function buat(string $suara, string $teks, ?string $voice = null, float $laju = 1.0, string $gaya = 'anak'): ?string
     {
         $this->galat = null;
         $s = SchoolSetting::first();
         return match ($suara) {
             'ELEVENLABS_NETRAL', 'ELEVENLABS_KLON' => $this->elevenlabs($s, $teks, $suara === 'ELEVENLABS_KLON' ? $s?->elevenlabs_voice_klon : ($s?->elevenlabs_voice_netral ?: self::ELEVENLABS_BAWAAN)),
-            'GEMINI' => $this->gemini($s, $teks),
+            'GEMINI' => $this->gemini($s, $teks, $voice, $laju, $gaya),
             'AZURE' => $this->azure($s, $teks, $voice ?: 'id-ID-ArdiNeural', $laju),
             default => $this->gagal("Suara {$suara} tidak dibuat di core-api."),
         };
@@ -85,17 +90,24 @@ class SuaraService
         }
     }
 
-    private function gemini(?SchoolSetting $s, string $teks): ?string
+    /** Suara bawaan Gemini yang dikenal (prebuilt voices); nama lain diganti suara bawaan sekolah. */
+    public const SUARA_GEMINI = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Callirrhoe', 'Autonoe', 'Enceladus', 'Iapetus',
+        'Umbriel', 'Algieba', 'Despina', 'Erinome', 'Algenib', 'Rasalgethi', 'Laomedeia', 'Achernar', 'Alnilam', 'Schedar', 'Gacrux', 'Pulcherrima',
+        'Achird', 'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat'];
+
+    private function gemini(?SchoolSetting $s, string $teks, ?string $voice = null, float $laju = 1.0, string $gaya = 'anak'): ?string
     {
         $key = $s?->api_key_gemini ?: config('services.ai_services.gemini_key');
         if (!$key) return $this->gagal('API key Gemini belum diisi di Pengaturan Sekolah.');
         try {
             $res = Http::timeout(120)->withHeaders(['x-goog-api-key' => $key])
                 ->post('https://generativelanguage.googleapis.com/v1beta/models/' . self::MODEL_GEMINI_TTS . ':generateContent', [
-                    'contents' => [['parts' => [['text' => "Bacakan dengan suara ceria, jelas, dan bersemangat untuk anak SD, dalam bahasa Indonesia: {$teks}"]]]],
+                    'contents' => [['parts' => [['text' => $gaya === 'berita'
+                        ? 'Bacakan sebagai narator berita televisi: tegas, jelas, tenang, dalam bahasa Indonesia' . ($laju > 1.05 ? ', dengan tempo agak cepat' : '') . ": {$teks}"
+                        : "Bacakan dengan suara ceria, jelas, dan bersemangat untuk anak SD, dalam bahasa Indonesia: {$teks}"]]]],
                     'generationConfig' => [
                         'responseModalities' => ['AUDIO'],
-                        'speechConfig' => ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => $s?->gemini_tts_voice ?: 'Kore']]],
+                        'speechConfig' => ['voiceConfig' => ['prebuiltVoiceConfig' => ['voiceName' => in_array($voice, self::SUARA_GEMINI, true) ? $voice : ($s?->gemini_tts_voice ?: 'Kore')]]],
                     ],
                 ]);
             if (!$res->successful()) return $this->gagal('Gemini menolak: HTTP ' . $res->status() . ' ' . mb_substr($res->json('error.message') ?? '', 0, 200));

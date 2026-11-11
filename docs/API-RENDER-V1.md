@@ -48,7 +48,7 @@ Formatnya mengikuti Bab 8 spesifikasi teknis v2. Kolom yang tidak dikenal disimp
 | `format.fps` | – | hanya `30` |
 | `format.durationSec` | ya | 5–180. Harus sama dengan `endSec` adegan terakhir |
 | `scenes[]` | ya | 1–20 adegan, berurutan tanpa celah (`startSec` = `endSec` sebelumnya), maks. 40 detik per adegan |
-| `voice` | – | nama suara Azure Neural, mis. `id-ID-ArdiNeural` |
+| `voice` | – | nama suara Azure Neural (mis. `id-ID-ArdiNeural`) atau suara bawaan Gemini (mis. `Charon`, `Orus`, `Kore`) |
 | `audio.narration` | – | URL **https** ke MP3/WAV/M4A/OGG (maks. 30 MB) untuk satu narasi utuh. Bila diisi, server tidak membuat suara |
 | `audio.music`, `audio.musicVolume` | – | URL **https** musik latar (maks. 15 MB) dan volumenya (0–1). Musik otomatis diredam saat narasi |
 | `sources[]` | – | `publisher` tampil di adegan penutup sebagai "Sumber: …" |
@@ -70,9 +70,10 @@ Nilai `motion` yang dikenal: `fade-slide-up`, `twist-marker`, `fade`, `pop`, `wo
 ### Narasi
 
 1. Bila `audio.narration` berupa URL https, berkas itu diputar dari detik 0.
-2. Bila tidak, server membuat suara dari teks tiap adegan (`text`, atau `question` untuk `closing`) dengan **Azure Speech** (`voice`).
-   Kunci dan region Azure diisi admin di **Pengaturan → Suara Azure**. Selama kunci belum diisi, server memakai suara lokal Piper dan memberi peringatan.
-3. Bila narasi suatu adegan lebih panjang dari durasinya, bacaan dipercepat sampai 25%. Bila masih tidak muat, **adegan diperpanjang** dan `duration_sec` hasil akhir bisa melebihi `durationSec`. Ini dilaporkan di `warnings`.
+2. Bila tidak, server membuat suara dari teks tiap adegan (`text`, atau `question` untuk `closing`), dengan urutan penyedia:
+   **Azure Speech** (kunci & region di **Pengaturan → Suara Azure**) → **Gemini** (API key Gemini di Pengaturan; gaya narator berita,
+   suara `Charon` kecuali `voice` menyebut suara Gemini lain) → suara lokal **Piper**. Penyedia yang dipakai dan alasannya tercantum di `warnings`.
+3. Bila narasi suatu adegan lebih panjang dari durasinya, bacaan dipercepat sampai 25% (Azure; Gemini diminta bertempo agak cepat; Piper tidak). Bila masih tidak muat, **adegan diperpanjang** dan `duration_sec` hasil akhir bisa melebihi `durationSec`. Ini dilaporkan di `warnings`.
    Patokan kasar: ±2,5 kata per detik. Contohnya, hook 3 detik muat sekitar 7 kata.
 
 ### Gerbang verifikasi peta

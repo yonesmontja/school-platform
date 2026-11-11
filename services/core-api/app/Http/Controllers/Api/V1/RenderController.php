@@ -121,7 +121,8 @@ class RenderController extends Controller
             'template' => ['required', 'string', 'in:' . implode(',', array_keys(AdeganApi::TEMPLAT))],
             'episode' => 'nullable|string|max:120',
             'language' => 'nullable|string|max:10',
-            'voice' => ['nullable', 'string', 'max:60', 'regex:/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z]+Neural$/'],
+            // Nama suara Azure (id-ID-ArdiNeural) atau suara bawaan Gemini (Charon, Kore, …)
+            'voice' => ['nullable', 'string', 'max:60', 'regex:/^([a-z]{2,3}-[A-Z]{2}-[A-Za-z]+Neural|[A-Z][a-z]+)$/'],
             'format' => 'required|array',
             'format.width' => 'required|integer', 'format.height' => 'required|integer',
             'format.fps' => 'nullable|integer|in:30',

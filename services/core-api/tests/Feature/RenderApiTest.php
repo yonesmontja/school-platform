@@ -152,6 +152,29 @@ class RenderApiTest extends TestCase
         $this->postJson('/api/internal/render/suara', ['suara' => 'AZURE', 'teks' => 'x', 'voice' => 'id-ID-<x>'], ['X-Render-Secret' => 'rahasia-uji'])->assertUnprocessable();
     }
 
+    public function test_suara_gemini_bila_azure_belum_ada(): void
+    {
+        Sanctum::actingAs($this->sekolah->admin);
+        $this->getJson('/api/settings')->assertOk();
+        $this->postJson('/api/settings', ['api_key_gemini' => 'kunci-gemini'])->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        $r = $this->api()->postJson('/api/v1/renders', $this->payload())->assertStatus(202);
+        $job = RenderApi::find($r->json('job_id'));
+        $this->assertSame(['GEMINI', 'Charon'], [$job->suara, $job->props['voice_gemini']]);
+        $this->assertTrue(collect($r->json('warnings'))->contains(fn($w) => str_contains($w, 'suara Gemini Charon')));
+        // Payload boleh langsung menyebut suara Gemini
+        $r2 = $this->api()->postJson('/api/v1/renders', $this->payload(['voice' => 'Orus']))->assertStatus(202);
+        $this->assertSame('Orus', RenderApi::find($r2->json('job_id'))->props['voice_gemini']);
+
+        // Endpoint suara internal: gaya narator berita + nama suara diteruskan ke Gemini
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['candidates' => [['content' => ['parts' => [['inlineData' => ['data' => base64_encode(str_repeat("\x00", 480))]]]]]]])]);
+        $this->postJson('/api/internal/render/suara', ['suara' => 'GEMINI', 'teks' => 'Kapal induk lewat.', 'voice' => 'Charon', 'gaya' => 'berita', 'laju' => 1.2], ['X-Render-Secret' => 'rahasia-uji'])
+            ->assertOk()->assertHeader('Content-Type', 'audio/wav');
+        Http::assertSent(fn($q) => str_contains($q['contents'][0]['parts'][0]['text'], 'narator berita') && str_contains($q['contents'][0]['parts'][0]['text'], 'tempo agak cepat')
+            && $q['generationConfig']['speechConfig']['voiceConfig']['prebuiltVoiceConfig']['voiceName'] === 'Charon');
+    }
+
     public function test_admin_mengelola_tempat_terverifikasi(): void
     {
         Sanctum::actingAs($this->sekolah->admin);

@@ -96,7 +96,7 @@ class VideoRenderTest extends TestCase
     public function test_render_macet_diantrekan_ulang_dan_suara_berbayar_lewat_core_api(): void
     {
         VideoBelajar::create(['id_video' => 'VID-M', 'judul' => 'Macet', 'file_url' => '', 'sumber' => 'RENDER', 'templat' => 'Berhitung', 'props' => ['adegan' => []],
-            'suara' => 'LOKAL', 'render_status' => 'PROSES', 'render_mulai' => now()->subHour(), 'status' => 'DRAF']);
+            'suara' => 'LOKAL', 'render_status' => 'PROSES', 'render_mulai' => now()->subMinutes(90), 'status' => 'DRAF']);
         $this->assertSame('VID-M', $this->getJson('/api/internal/render/berikut', ['X-Render-Secret' => self::KUNCI])->json('data.id_video'));
 
         // ElevenLabs: PCM dibungkus WAV; API key tidak pernah keluar ke layanan render

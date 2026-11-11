@@ -54,10 +54,18 @@ class AdeganApi
             }
         } else {
             if (!empty($audio['narration'])) $peringatan[] = 'audio.narration bukan URL https (mis. asset://), jadi tidak bisa diambil server; narasi dibuat dari teks adegan.';
+            // Urutan suara: Azure (bila kunci ada) → Gemini (kunci Gemini sekolah) → Piper lokal
             $s = SchoolSetting::first();
             $azure = !empty($s?->getAttributes()['azure_speech_key']) && $s?->azure_speech_region;
-            $suara = $azure ? 'AZURE' : 'LOKAL';
-            if (!$azure) $peringatan[] = 'Kunci Azure Speech belum diisi di Pengaturan; narasi memakai suara lokal Piper, bukan ' . ($p['voice'] ?? 'Azure') . '.';
+            $gemini = !empty($s?->getAttributes()['api_key_gemini']) || config('services.ai_services.gemini_key');
+            $minta = (string) ($p['voice'] ?? 'id-ID-ArdiNeural');
+            $suara = $azure ? 'AZURE' : ($gemini ? 'GEMINI' : 'LOKAL');
+            if ($suara === 'GEMINI') {
+                $suaraGemini = in_array($minta, SuaraService::SUARA_GEMINI, true) ? $minta : 'Charon';
+                if ($minta !== $suaraGemini) $peringatan[] = "Kunci Azure Speech belum diisi; narasi memakai suara Gemini {$suaraGemini} (gaya narator berita), bukan {$minta}.";
+            } elseif ($suara === 'LOKAL') {
+                $peringatan[] = 'Kunci Azure Speech dan Gemini belum diisi di Pengaturan; narasi memakai suara lokal Piper, bukan ' . $minta . '.';
+            }
         }
 
         $musik = null;
@@ -101,6 +109,7 @@ class AdeganApi
             'merek' => ['logo' => null, 'posisi_logo' => 'tidak', 'huruf' => 'Poppins', 'warna' => [self::LAUT, self::AKSEN]],
             'adegan' => $adegan,
             'voice' => $p['voice'] ?? 'id-ID-ArdiNeural',
+            'voice_gemini' => $suaraGemini ?? 'Charon',
         ];
         if ($narasiUtuh) $props['narasi_utuh'] = ['src' => $narasiUtuh];
         return ['props' => $props, 'suara' => $suara, 'peringatan' => $peringatan, 'aset' => $aset];

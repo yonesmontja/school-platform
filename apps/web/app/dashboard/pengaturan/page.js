@@ -429,7 +429,7 @@ export default function PengaturanSekolahPage() {
             <h5 className="fw-bold text-secondary mb-0">Suara Azure (API Render)</h5>
             <p className="small text-muted mb-0">
               Dipakai video dari API Render (mis. suara <code>id-ID-ArdiNeural</code>). Buat resource <b>Speech</b> di Azure Portal (paket F0 gratis cukup untuk uji), lalu salin Key 1 dan Region-nya.
-              Bila kosong, narasi API Render memakai suara lokal Piper.
+              Bila kosong, narasi API Render memakai suara Gemini (bila API key Gemini diisi) atau suara lokal Piper.
             </p>
             <ApiKeyField
               provider={AZURE_KEY}

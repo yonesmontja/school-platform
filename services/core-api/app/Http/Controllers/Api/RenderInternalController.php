@@ -20,7 +20,8 @@ use Illuminate\Support\Str;
 class RenderInternalController extends Controller
 {
     // Render yang macet lebih dari ini dianggap gagal dan diantrekan ulang
-    private const BATAS_PROSES_MENIT = 30;
+    // Lebih lama dari batas render Revideo (50 menit) agar render panjang yang masih berjalan tidak diantrekan dobel
+    private const BATAS_PROSES_MENIT = 60;
 
     private function cekKunci(Request $request): void
     {
@@ -67,8 +68,10 @@ class RenderInternalController extends Controller
     {
         $this->cekKunci($request);
         $request->validate(['suara' => 'required|in:ELEVENLABS_NETRAL,ELEVENLABS_KLON,GEMINI,AZURE', 'teks' => 'required|string|max:2000',
-            'voice' => ['nullable', 'string', 'max:60', 'regex:/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z]+Neural$/'], 'laju' => 'nullable|numeric|min:1|max:1.25']);
-        $wav = $suara->buat($request->suara, $request->teks, $request->voice, (float) ($request->laju ?: 1));
+            // Azure: id-ID-ArdiNeural; Gemini: nama suara bawaan (Charon, Kore, …)
+            'voice' => ['nullable', 'string', 'max:60', 'regex:/^([a-z]{2,3}-[A-Z]{2}-[A-Za-z]+Neural|[A-Z][a-z]+)$/'], 'laju' => 'nullable|numeric|min:1|max:1.25',
+            'gaya' => 'nullable|in:anak,berita']);
+        $wav = $suara->buat($request->suara, $request->teks, $request->voice, (float) ($request->laju ?: 1), $request->gaya ?: 'anak');
         if ($wav === null) return response()->json(['message' => $suara->galat()], 422);
         return response($wav, 200, ['Content-Type' => 'audio/wav']);
     }
