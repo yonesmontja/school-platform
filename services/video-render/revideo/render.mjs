@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FPS, awalAdegan, hitungDurasiRakitan, jendelaNarasi, ukuranRasio, volumeMusik } from "../templat/gerakRakitan.js";
+import { FPS, awalAdegan, hitungDurasiRakitan, jendelaNarasi, ukuranNaskah, volumeMusik } from "../templat/gerakRakitan.js";
 
 const require = createRequire(import.meta.url);
 export const FFMPEG = process.env.FFMPEG || require("@ffmpeg-installer/ffmpeg").path;
@@ -83,6 +83,12 @@ export async function campurAudio(props, keluar) {
     for (let j = 0; j < s.length && mulai + j < n; j++) campur[mulai + j] += s[j];
     ada = true;
   }
+  // Narasi utuh satu berkas (API render v1) mulai di awal video
+  if (props.narasi_utuh?.src) {
+    const s = await dekode(srcAset(props.narasi_utuh.src, props.asetDasar));
+    for (let j = 0; j < s.length && j < n; j++) campur[j] += s[j];
+    ada = ada || s.length > 0;
+  }
   const m = props.musik;
   if (m?.src) {
     const s = await dekode(srcAset(m.src, props.asetDasar));
@@ -105,7 +111,7 @@ export async function campurAudio(props, keluar) {
  * @returns {Promise<{detik: number}>}
  */
 export async function renderRevideo(props, mp4, jpg, opsi = {}) {
-  const { lebar, tinggi } = ukuranRasio(props.rasio);
+  const { lebar, tinggi } = ukuranNaskah(props);
   const id = crypto.randomBytes(6).toString("hex");
   const folder = path.join(KERJA, id);
   fs.mkdirSync(folder, { recursive: true });

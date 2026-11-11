@@ -33,6 +33,8 @@ class SchoolSettingController extends Controller
             'gemini_tts_voice' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z]+$/'],
             'canva_client_id' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9_-]+$/'],
             'canva_client_secret' => ['nullable', 'string', 'max:300'],
+            'azure_speech_key' => ['nullable', 'string', 'max:200'],
+            'azure_speech_region' => ['nullable', 'string', 'max:40', 'regex:/^[a-z0-9]+$/'],
             'ai_model_name' => 'nullable|string|max:100',
             'no_wa_kepsek' => 'nullable|string|max:30',
             'no_wa_admin' => 'nullable|string|max:30',

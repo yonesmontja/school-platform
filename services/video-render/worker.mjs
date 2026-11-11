@@ -33,16 +33,28 @@ fs.mkdirSync(path.join(HASIL, "video"), { recursive: true });
 
 // Berkas suara (dan gambar aset Studio dari storage core-api) dilayani lewat HTTP lokal agar bisa dipakai saat render
 const TIPE_GAMBAR = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".json": "application/json",
-  ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav" };
+  ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm" };
 http.createServer((req, res) => {
   const jalur = decodeURIComponent(req.url.split("?")[0]);
   const pustaka = /^\/pustaka\/(emoji|ikon\/outline|ikon\/filled)\/[\w-]+\.(webp|svg)$/.exec(jalur);
-  const aset = !!pustaka || jalur.startsWith("/storage/video-aset/");
+  // Aset Studio, dan narasi/musik unduhan API render v1 (storage publik render-api/aset)
+  const folder = jalur.startsWith("/storage/video-aset/") ? "video-aset" : jalur.startsWith("/storage/render-api/aset/") ? path.join("render-api", "aset") : null;
+  const aset = !!pustaka || !!folder;
   const f = pustaka ? path.join(PUSTAKA, pustaka[1], path.basename(jalur))
-    : aset ? path.join(HASIL, "video-aset", path.basename(jalur)) : path.join(SUARA, path.basename(jalur));
+    : folder ? path.join(HASIL, folder, path.basename(jalur)) : path.join(SUARA, path.basename(jalur));
   if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); }
   const tipe = aset ? TIPE_GAMBAR[path.extname(f).toLowerCase()] || "application/octet-stream" : "audio/wav";
-  res.writeHead(200, { "Content-Type": tipe, "Access-Control-Allow-Origin": "*", "Content-Length": fs.statSync(f).size });
+  const ukuran = fs.statSync(f).size;
+  // Permintaan Range (dipakai elemen <video> saat mencari posisi klip)
+  const r = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
+  if (r && ukuran > 0) {
+    const awal = r[1] === "" ? Math.max(0, ukuran - Number(r[2])) : Number(r[1]);
+    const akhir = r[1] !== "" && r[2] !== "" ? Math.min(ukuran - 1, Number(r[2])) : ukuran - 1;
+    if (awal > akhir || awal >= ukuran) { res.writeHead(416, { "Content-Range": `bytes */${ukuran}` }); return res.end(); }
+    res.writeHead(206, { "Content-Type": tipe, "Access-Control-Allow-Origin": "*", "Accept-Ranges": "bytes", "Content-Range": `bytes ${awal}-${akhir}/${ukuran}`, "Content-Length": akhir - awal + 1 });
+    return fs.createReadStream(f, { start: awal, end: akhir }).pipe(res);
+  }
+  res.writeHead(200, { "Content-Type": tipe, "Access-Control-Allow-Origin": "*", "Accept-Ranges": "bytes", "Content-Length": ukuran });
   fs.createReadStream(f).pipe(res);
 }).listen(PORT, "127.0.0.1");
 
@@ -70,9 +82,10 @@ function piper(teks, keluar) {
   });
 }
 
-async function suaraBerbayar(suara, teks, keluar) {
+async function suaraBerbayar(suara, teks, keluar, opsi = {}) {
+  // opsi.voice & opsi.laju dipakai suara Azure (API render v1): nama suara dari payload, bacaan dipercepat agar muat
   const res = await fetch(`${API}/api/internal/render/suara`, {
-    method: "POST", headers: { ...kepala, "Content-Type": "application/json" }, body: JSON.stringify({ suara, teks }),
+    method: "POST", headers: { ...kepala, "Content-Type": "application/json" }, body: JSON.stringify({ suara, teks, ...opsi }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || `Suara ${suara} gagal (HTTP ${res.status}).`);
   fs.writeFileSync(keluar, Buffer.from(await res.arrayBuffer()));
@@ -81,7 +94,7 @@ async function suaraBerbayar(suara, teks, keluar) {
 /** Buat semua narasi dan tempel audio + lamanya ke props. */
 async function siapkanNarasi(job, props) {
   if (!job.suara || job.suara === "TANPA") return [];
-  const perAdegan = (props.adegan || []).map((a, i) => [`a${i}`, a.narasi, (v) => { Object.assign(props.adegan[i], v); }]);
+  const perAdegan = (props.adegan || []).map((a, i) => [`a${i}`, a.narasi, (v) => { Object.assign(props.adegan[i], v); }, a.laju]);
   // Video rakitan Studio tidak punya layar pembuka/penutup otomatis
   const bagian = job.templat === "Rakitan" ? perAdegan : [
     ["pembuka", narasiPembuka(props.judul), (v) => { props.pembuka = { ...(props.pembuka || {}), ...v }; }],
@@ -89,12 +102,12 @@ async function siapkanNarasi(job, props) {
     ["penutup", narasiPenutup(props.penutup?.teks), (v) => { props.penutup = { ...(props.penutup || {}), ...v }; }],
   ];
   const berkas = [];
-  for (const [kunci, teks, pasang] of bagian) {
+  for (const [kunci, teks, pasang, laju] of bagian) {
     if (!String(teks || "").trim()) continue;
     const nama = `${job.id_video}-${kunci}-${crypto.randomBytes(4).toString("hex")}.wav`;
     const f = path.join(SUARA, nama);
     if (job.suara === "LOKAL") await piper(String(teks), f);
-    else await suaraBerbayar(job.suara, String(teks), f);
+    else await suaraBerbayar(job.suara, String(teks), f, job.suara === "AZURE" ? { voice: props.voice, laju: laju > 1 ? laju : undefined } : {});
     berkas.push(f);
     pasang({ audio: `http://127.0.0.1:${PORT}/${nama}`, detik: Math.round(durasiWav(f) * 100) / 100 });
   }

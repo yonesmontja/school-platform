@@ -27,6 +27,8 @@ use App\Http\Controllers\Api\RenderInternalController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\HariLiburController;
+use App\Http\Controllers\Api\RenderApiAdminController;
+use App\Http\Controllers\Api\V1\RenderController as RenderV1Controller;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
@@ -62,6 +64,18 @@ Route::prefix('internal/render')->middleware('throttle:120,1')->group(function (
     Route::post('/suara', [RenderInternalController::class, 'suara']);
     Route::post('/{id}/selesai', [RenderInternalController::class, 'selesai']);
     Route::post('/{id}/gagal', [RenderInternalController::class, 'gagal']);
+});
+
+// API render publik v1 untuk aplikasi luar (mis. asisten AI "Muse"): kunci API, bukan login pengguna
+Route::prefix('v1')->group(function () {
+    // Unduh hasil lewat tautan bertanda tangan (berlaku 7 hari) yang dikembalikan GET /v1/renders/{id}
+    Route::get('/renders/{id}/{jenis}', [RenderV1Controller::class, 'berkas'])->whereIn('jenis', ['video', 'poster'])->name('render-api.berkas')->middleware('throttle:60,1');
+    Route::middleware(['kunci.api', 'throttle:render-api'])->group(function () {
+        Route::get('/templates', [RenderV1Controller::class, 'templates']);
+        Route::get('/places', [RenderV1Controller::class, 'places']);
+        Route::post('/renders', [RenderV1Controller::class, 'store'])->middleware('throttle:10,1');
+        Route::get('/renders/{id}', [RenderV1Controller::class, 'show']);
+    });
 });
 
 // Callback OAuth Canva (E3): dibuka peramban dari Canva tanpa token login; dikenali lewat state sekali pakai
@@ -144,6 +158,18 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     // ===== KHUSUS ADMIN: master data inti, pengaturan sistem, akun pengguna =====
     Route::middleware('role:admin')->group(function () {
         Route::post('/settings', [SchoolSettingController::class, 'update']);
+        // API render v1 (aplikasi luar): kunci API, riwayat job, tabel tempat peta terverifikasi
+        Route::prefix('render-api')->group(function () {
+            Route::get('/', [RenderApiAdminController::class, 'ringkasan']);
+            Route::post('/klien', [RenderApiAdminController::class, 'buatKlien']);
+            Route::patch('/klien/{id}', [RenderApiAdminController::class, 'ubahKlien'])->whereNumber('id');
+            Route::delete('/klien/{id}', [RenderApiAdminController::class, 'hapusKlien'])->whereNumber('id');
+            Route::delete('/job/{id}', [RenderApiAdminController::class, 'hapusJob']);
+            Route::get('/tempat', [RenderApiAdminController::class, 'tempat']);
+            Route::post('/tempat', [RenderApiAdminController::class, 'simpanTempat']);
+            Route::put('/tempat/{id}', [RenderApiAdminController::class, 'simpanTempat'])->whereNumber('id');
+            Route::delete('/tempat/{id}', [RenderApiAdminController::class, 'hapusTempat'])->whereNumber('id');
+        });
         // Dokumentasi API (dibaca dari router; juga OpenAPI 3 untuk Postman/Insomnia)
         Route::get('/dokumentasi', [DokumentasiApiController::class, 'index']);
         Route::get('/dokumentasi/openapi.json', [DokumentasiApiController::class, 'openapi']);

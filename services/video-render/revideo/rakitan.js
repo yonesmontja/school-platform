@@ -5,7 +5,7 @@
 import { Circle, Gradient, Img, Line, Node, Rect, Txt, blur, makeScene2D } from "@revideo/2d";
 import { loadImage, useScene } from "@revideo/core";
 import lottie from "lottie-web/build/player/lottie_light_canvas";
-import { FPS, HURUF, POLA_LOTTIE, frameAdegan, frameLottie, gayaKaca, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
+import { FPS, HURUF, POLA_LOTTIE, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
 import { srcEmoji3d } from "../templat/emoji3d.js";
 
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
@@ -44,12 +44,51 @@ class KanvasLuar extends Node {
   }
 }
 
+/** Peta (API render v1) di kanvas 2D, setara SVG PetaRakitan di komposisi Remotion. */
+function gambarPeta(cx, e, geo, darat, kisi, st, w, h, k, huruf) {
+  const g = e.gaya || {};
+  const aksen = g.aksen || "#fbbf24", garis = g.garis || "#38bdf8";
+  const fs = (g.ukuran || 30) * k;
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  cx.clearRect(0, 0, w, h);
+  cx.fillStyle = g.latar || "#06223a"; cx.fillRect(0, 0, w, h);
+  cx.save(); cx.globalAlpha = 0.07; cx.strokeStyle = "#ffffff"; cx.lineWidth = 1.2 * k; cx.stroke(kisi); cx.restore();
+  cx.save(); cx.translate(0, 3 * k); cx.globalAlpha = 0.18; cx.fillStyle = garis; cx.fill(darat, "evenodd"); cx.restore();
+  cx.fillStyle = g.warna || "#1f4e5f"; cx.fill(darat, "evenodd");
+  geo.label.forEach((l, i) => {
+    cx.save(); cx.globalAlpha = st.label[i] * 0.9; cx.fillStyle = "#bae6fd"; cx.textAlign = "center"; cx.textBaseline = "alphabetic";
+    cx.font = `italic 600 ${fs * 0.8}px ${huruf}`; cx.letterSpacing = `${fs * 0.12}px`;
+    cx.fillText(String(l.nama).toUpperCase(), l.xy[0], l.xy[1]); cx.restore();
+  });
+  const r = ruteSampai(geo.rute, st.rute);
+  if (r.d) {
+    cx.save(); cx.strokeStyle = garis; cx.lineWidth = 5 * k; cx.lineCap = "round"; cx.lineJoin = "round";
+    cx.shadowColor = garis; cx.shadowBlur = 12 * k; cx.stroke(new Path2D(r.d)); cx.restore();
+  }
+  if (r.ujung) {
+    cx.save(); cx.translate(r.ujung[0], r.ujung[1]); cx.rotate(r.sudut); cx.fillStyle = "#ffffff";
+    cx.beginPath(); cx.moveTo(12 * k, 0); cx.lineTo(-8 * k, -8 * k); cx.lineTo(-4 * k, 0); cx.lineTo(-8 * k, 8 * k); cx.closePath(); cx.fill(); cx.restore();
+  }
+  geo.titik.forEach((p, i) => {
+    const s = st.titik[i];
+    if (s.skala <= 0) return;
+    const [x, y] = p.xy;
+    if (s.denyut >= 0) { cx.save(); cx.globalAlpha = 1 - s.denyut; cx.strokeStyle = aksen; cx.lineWidth = 3 * k; cx.beginPath(); cx.arc(x, y, (10 + 26 * s.denyut) * k, 0, Math.PI * 2); cx.stroke(); cx.restore(); }
+    cx.save(); cx.fillStyle = aksen; cx.strokeStyle = "#ffffff"; cx.lineWidth = 3 * k; cx.beginPath(); cx.arc(x, y, 10 * k * s.skala, 0, Math.PI * 2); cx.fill(); cx.stroke(); cx.restore();
+    cx.save(); cx.globalAlpha = s.label; cx.font = `800 ${fs}px ${huruf}`; cx.textAlign = p.kiri ? "right" : "left"; cx.textBaseline = "alphabetic";
+    cx.lineJoin = "round"; cx.lineWidth = 6 * k; cx.strokeStyle = "#04121f"; cx.fillStyle = "#ffffff";
+    const teks = `${p.ikon === "port" ? "⚓ " : ""}${p.nama}`;
+    const lx = x + (p.kiri ? -18 : 18) * k;
+    cx.strokeText(teks, lx, y - 18 * k); cx.fillText(teks, lx, y - 18 * k); cx.restore();
+  });
+}
+
 /** Satu elemen → simpul Revideo + fungsi pembaru per frame. */
 function* buatElemen(e, c) {
   const { lebar: W, tinggi: H, k, huruf, asetDasar } = c;
   const g = e.gaya || {};
   const w = (e.w / 100) * W, h = (e.h / 100) * H;
-  let isi, lebarIsi = w, ketik = null, animasiTeks = null, animasiLottie = null;
+  let isi, lebarIsi = w, ketik = null, animasiTeks = null, animasiLottie = null, animasiPeta = null;
   if (e.tipe === "teks") {
     const u = (g.ukuran || 60) * k;
     const gayaTeks = {
@@ -62,19 +101,20 @@ function* buatElemen(e, c) {
     const kulit = kaca
       ? { padding: [0.25 * u, 0.45 * u], fill: kaca.isi, stroke: kaca.garis, lineWidth: 1.5 * k, radius: Math.max(g.sudut || 0, 14) * k }
       : g.latar ? { padding: [0.25 * u, 0.45 * u], fill: g.latar, radius: (g.sudut || 0) * k } : {};
-    if (kaca || g.latar) lebarIsi = w + 0.9 * u;
+    // Lebar kotak sudah termasuk padding (box-sizing: border-box, sama dengan komposisi Remotion & pratinjau Studio)
+    const lebarTeks = kaca || g.latar ? Math.max(u, w - 0.9 * u) : w;
     if (e.masuk?.preset === "kata") {
       // Kata demi kata: tiap kata satu Txt dalam baris fleksibel yang membungkus (sama dengan flex-wrap di Remotion)
       const kata = kataTeks(e.isi), n = kata.filter(Boolean).length;
       const daun = kata.map((x) => (x === null ? new Rect({ width: "100%", height: 0 }) : new Txt({ ...gayaTeks, text: x })));
-      isi = new Rect({ layout: true, direction: "row", wrap: "wrap", width: w + (kaca || g.latar ? 0.9 * u : 0), gap: [0.28 * u, 0],
+      isi = new Rect({ layout: true, direction: "row", wrap: "wrap", width: w, gap: [0.28 * u, 0],
         justifyContent: { left: "start", right: "end" }[RATA[g.rata]] || "center", children: daun, ...kulit });
       const kataSaja = daun.filter((d, i) => kata[i] !== null);
       animasiTeks = (f) => kataSaja.forEach((d, i) => { const s = keadaanKata(e, f, FPS, i, n); d.opacity(s.op).scale(s.sc); });
     } else {
       // Revideo tidak mengenal white-space: pre-wrap, jadi tiap baris menjadi satu Txt dalam tata letak kolom
       const baris = String(e.isi ?? "").split(/\r?\n/);
-      const daun = baris.map((b) => new Txt({ ...gayaTeks, width: w, textWrap: true, text: b || " " }));
+      const daun = baris.map((b) => new Txt({ ...gayaTeks, width: lebarTeks, textWrap: true, text: b || " " }));
       isi = new Rect({ layout: true, direction: "column", children: daun, ...kulit });
       if (e.masuk?.preset === "hitung") {
         animasiTeks = (f) => { const t = teksHitung(e.isi, f, FPS, e).split(/\r?\n/); daun.forEach((d, i) => d.text(t[i] || " ")); };
@@ -108,6 +148,17 @@ function* buatElemen(e, c) {
       anak.push(new Img({ src: data, width: sisi, height: sisi }));
     }
     isi = new Node({ children: anak });
+  } else if (e.tipe === "peta") {
+    isi = new KanvasLuar({});
+    const kanvas = document.createElement("canvas");
+    kanvas.width = Math.max(1, Math.round(w)); kanvas.height = Math.max(1, Math.round(h));
+    const cx = kanvas.getContext("2d");
+    const geo = geometriPeta(e.peta, kanvas.width, kanvas.height);
+    const darat = new Path2D(geo.darat), kisi = new Path2D(geo.kisi);
+    yield document.fonts.load(`800 30px ${huruf}`).catch(() => null);
+    isi.kanvas = kanvas;
+    animasiPeta = (f) => gambarPeta(cx, e, geo, darat, kisi, keadaanPeta(e.peta, f / FPS), kanvas.width, kanvas.height, k, huruf);
+    animasiPeta(0);
   } else if (e.tipe === "lottie") {
     // Lottie (lottie-web "light canvas", tanpa expression) digambar ke kanvas w×h, disetel ke frame tiap yield
     isi = new KanvasLuar({});
@@ -149,6 +200,7 @@ function* buatElemen(e, c) {
     if (ketik && s.nKetik !== null) ketik(s.nKetik);
     if (animasiTeks) animasiTeks(f);
     if (animasiLottie) animasiLottie(f);
+    if (animasiPeta) animasiPeta(f);
     if (sapu) {
       const lebarTampak = lebarIsi * (1 - s.sapu);
       sapu.width(Math.max(0.001, lebarTampak)).x(-lebarIsi / 2 + lebarTampak / 2);

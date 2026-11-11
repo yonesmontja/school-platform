@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Request API cukup dijawab 401 JSON; halaman login ada di frontend Next.js.
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/*') ? null : url('/'));
         // role:admin,kepsek → hanya peran tersebut; role (tanpa argumen) → semua peran asalkan akun aktif
-        $middleware->alias(['role' => \App\Http\Middleware\EnsureRole::class]);
+        $middleware->alias(['role' => \App\Http\Middleware\EnsureRole::class, 'kunci.api' => \App\Http\Middleware\KunciApi::class]);
         // Batas laju umum untuk semua route API (RateLimiter 'api' di AppServiceProvider)
         $middleware->throttleApi();
         // Audit trail: setiap tindakan yang mengubah data dicatat ke Log Aktivitas

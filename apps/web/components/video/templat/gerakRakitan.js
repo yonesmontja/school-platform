@@ -159,6 +159,8 @@ export function subtitlePada(a, detik) {
 
 /** Rentang bicara narasi (frame video) untuk meredam musik latar. */
 export function jendelaNarasi(p) {
+  // Narasi utuh satu berkas (API render v1): musik diredam sepanjang video
+  if (p?.narasi_utuh?.src) return [[0, hitungDurasiRakitan(p)]];
   const awal = awalAdegan(p);
   return (p?.adegan || []).map((a, i) => (a.audio && a.detik ? [awal[i], awal[i] + Math.round(a.detik * FPS)] : null)).filter(Boolean);
 }
@@ -317,3 +319,106 @@ export function frameLottie(e, frame, fps, meta) {
   const lf = (Math.max(0, frame - mulai) / fps) * (e?.gaya?.kecepatan || 1) * (meta?.fr || 30);
   return e?.gaya?.ulang === false ? Math.min(lf, n - 1) : lf % n;
 }
+
+// ===== Ukuran bingkai & elemen peta (API render v1) =====
+
+/** Ukuran bingkai naskah: rasio dasar (±720p), atau sisi pendek 1080 px bila resolusi "1080p". */
+export function ukuranNaskah(p) {
+  const u = ukuranRasio(p?.rasio);
+  if (p?.resolusi !== "1080p") return u;
+  const f = 1080 / Math.min(u.lebar, u.tinggi);
+  return { ...u, lebar: Math.round(u.lebar * f), tinggi: Math.round(u.tinggi * f) };
+}
+
+const mercY = (lat) => Math.log(Math.tan(Math.PI / 4 + (Math.max(-85, Math.min(85, lat)) * Math.PI) / 360));
+
+/** Proyeksi Mercator bujur/lintang → piksel kotak w×h (bbox sudah disesuaikan perbandingannya; sisa dibagi rata). */
+function proyeksiPeta(bbox, w, h) {
+  const [x0, y0, x1, y1] = bbox;
+  const m0 = mercY(y0), m1 = mercY(y1);
+  const lw = x1 - x0, lh = ((m1 - m0) * 180) / Math.PI;
+  const s = Math.max(w / lw, h / lh);
+  const ox = (w - lw * s) / 2, oy = (h - lh * s) / 2;
+  return (lon, lat) => [ox + (lon - x0) * s, oy + ((m1 - mercY(lat)) * 180 * s) / Math.PI];
+}
+
+/** Catmull-Rom → titik-titik halus untuk rute, beserta panjang kumulatif. */
+function haluskanRute(pts, langkah = 14) {
+  if (pts.length < 2) return { titik: pts, panjang: [0] };
+  const hasil = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 1; k <= langkah; k++) {
+      const t = k / langkah, t2 = t * t, t3 = t2 * t;
+      hasil.push([0, 1].map((d) => 0.5 * (2 * p1[d] + (-p0[d] + p2[d]) * t + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * t2 + (-p0[d] + 3 * p1[d] - 3 * p2[d] + p3[d]) * t3)));
+    }
+  }
+  const panjang = [0];
+  for (let i = 1; i < hasil.length; i++) panjang.push(panjang[i - 1] + Math.hypot(hasil[i][0] - hasil[i - 1][0], hasil[i][1] - hasil[i - 1][1]));
+  return { titik: hasil, panjang };
+}
+
+/**
+ * Geometri peta dalam piksel kotak elemen (dihitung sekali per ukuran): path SVG daratan & garis lintang/bujur,
+ * titik rute yang dihaluskan, penanda, dan label wilayah. Dipakai Remotion (SVG) dan Revideo (Path/Circle/Txt).
+ */
+export function geometriPeta(peta, w, h) {
+  const p = proyeksiPeta(peta?.bbox || [0, 0, 1, 1], w, h);
+  let darat = "";
+  for (const r of peta?.daratan || []) {
+    for (let i = 0; i + 1 < r.length; i += 2) {
+      const [x, y] = p(r[i], r[i + 1]);
+      darat += `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    darat += "Z";
+  }
+  // Garis lintang/bujur tiap 1°, 2°, atau 5° mengikuti luas bingkai
+  const [x0, y0, x1, y1] = peta?.bbox || [0, 0, 1, 1];
+  const jarak = x1 - x0 > 25 ? 5 : x1 - x0 > 8 ? 2 : 1;
+  let kisi = "";
+  for (let lon = Math.ceil(x0 / jarak) * jarak; lon <= x1; lon += jarak) { const [a, b] = p(lon, y0), [c, d] = p(lon, y1); kisi += `M${a.toFixed(1)} ${b.toFixed(1)}L${c.toFixed(1)} ${d.toFixed(1)}`; }
+  for (let lat = Math.ceil(y0 / jarak) * jarak; lat <= y1; lat += jarak) { const [a, b] = p(x0, lat), [c, d] = p(x1, lat); kisi += `M${a.toFixed(1)} ${b.toFixed(1)}L${c.toFixed(1)} ${d.toFixed(1)}`; }
+  const rute = haluskanRute((peta?.rute || []).map(([lon, lat]) => p(lon, lat)));
+  return {
+    darat, kisi, rute,
+    // Label penanda di kiri titik bila titik dekat tepi kanan, agar tidak terpotong bingkai
+    titik: (peta?.titik || []).map((t) => { const xy = p(t.lon, t.lat); return { ...t, xy, kiri: xy[0] > w * 0.6 }; }),
+    label: (peta?.label || []).map((t) => ({ ...t, xy: p(t.lon, t.lat) })),
+  };
+}
+
+/** Rute yang sudah tergambar sampai proporsi u (0–1): path SVG, ujung, dan sudut arah (radian). */
+export function ruteSampai(rute, u) {
+  const { titik, panjang } = rute;
+  if (titik.length < 2 || u <= 0) return { d: "", ujung: null, sudut: 0 };
+  const target = panjang[panjang.length - 1] * Math.min(1, u);
+  let d = `M${titik[0][0].toFixed(1)} ${titik[0][1].toFixed(1)}`;
+  let i = 1;
+  for (; i < titik.length && panjang[i] <= target; i++) d += `L${titik[i][0].toFixed(1)} ${titik[i][1].toFixed(1)}`;
+  let ujung = titik[i - 1], dari = titik[Math.max(0, i - 2)];
+  if (i < titik.length) {
+    const s = (target - panjang[i - 1]) / Math.max(1e-6, panjang[i] - panjang[i - 1]);
+    dari = titik[i - 1];
+    ujung = [dari[0] + (titik[i][0] - dari[0]) * s, dari[1] + (titik[i][1] - dari[1]) * s];
+    d += `L${ujung[0].toFixed(1)} ${ujung[1].toFixed(1)}`;
+  }
+  return { d, ujung, sudut: Math.atan2(ujung[1] - dari[1], ujung[0] - dari[0]) };
+}
+
+/**
+ * Waktu animasi peta pada detik t sejak adegan mulai: penanda muncul bergantian lalu berdenyut, label wilayah memudar
+ * masuk, rute tergambar dari detik 0,9 selama 2,8 detik dengan easing halus.
+ */
+export function keadaanPeta(peta, t) {
+  const halus = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const pop = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2));
+  return {
+    titik: (peta?.titik || []).map((_, i) => {
+      const mulai = 0.4 + i * 0.3;
+      return { skala: pop((t - mulai) / 0.45), denyut: t > mulai ? ((t - mulai) % 1.6) / 1.6 : -1, label: halus((t - mulai - 0.25) / 0.4) };
+    }),
+    label: (peta?.label || []).map((_, i) => halus((t - 0.6 - i * 0.25) / 0.6)),
+    rute: halus((t - 0.9) / 2.8),
+  };
+}
+

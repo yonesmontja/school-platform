@@ -275,3 +275,17 @@ test("admin menambah libur sekolah; kalender jadwal menolak tanggal itu", async 
   await page.locator(".swal2-confirm").click();
   await expect(kartu).toHaveCount(0);
 });
+
+test("admin membuat kunci API Render; kunci tampil sekali lalu tercatat di daftar", async ({ page, masuk }) => {
+  await masuk("admin");
+  await page.goto("/dashboard/api-render");
+  await page.getByRole("button", { name: "Buat kunci API" }).click();
+  await page.locator(".swal2-input").fill("Muse Uji");
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator("#kunciBaru")).toHaveValue(/^srk_[A-Za-z0-9]{40}$/);
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".kartu-kunci", { hasText: "Muse Uji" })).toContainText("srk_");
+  await page.getByRole("button", { name: /Tempat peta/ }).click();
+  await page.getByRole("searchbox", { name: "Cari tempat" }).fill("malaka");
+  await expect(page.locator(".kartu-tempat", { hasText: "Selat Malaka" })).toBeVisible();
+});

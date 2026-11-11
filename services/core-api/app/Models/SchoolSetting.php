@@ -16,6 +16,7 @@ class SchoolSetting extends Model
         'wa_api_token',
         'api_key_elevenlabs',
         'canva_client_secret',
+        'azure_speech_key',
     ];
 
     protected $fillable = [
@@ -54,6 +55,8 @@ class SchoolSetting extends Model
         'merek_video',
         'canva_client_id',
         'canva_client_secret',
+        'azure_speech_key',
+        'azure_speech_region',
     ];
 
     protected $hidden = self::API_KEY_FIELDS;
@@ -68,6 +71,7 @@ class SchoolSetting extends Model
         'has_wa_api_token',
         'has_api_key_elevenlabs',
         'has_canva_client_secret',
+        'has_azure_speech_key',
     ];
 
     protected $casts = [
@@ -79,6 +83,7 @@ class SchoolSetting extends Model
         'wa_api_token' => 'encrypted',
         'api_key_elevenlabs' => 'encrypted',
         'canva_client_secret' => 'encrypted',
+        'azure_speech_key' => 'encrypted',
         'status_wa_api' => 'boolean',
         'guru_boleh_unggah_dokumen' => 'boolean',
         'id_pembuat_video' => 'integer',
@@ -101,4 +106,5 @@ class SchoolSetting extends Model
     public function getHasWaApiTokenAttribute(): bool { return $this->hasKey('wa_api_token'); }
     public function getHasApiKeyElevenlabsAttribute(): bool { return $this->hasKey('api_key_elevenlabs'); }
     public function getHasCanvaClientSecretAttribute(): bool { return $this->hasKey('canva_client_secret'); }
+    public function getHasAzureSpeechKeyAttribute(): bool { return $this->hasKey('azure_speech_key'); }
 }

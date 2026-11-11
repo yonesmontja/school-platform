@@ -77,6 +77,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
       { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
       { href: "/dashboard/dokumentasi-api", label: "Dokumentasi API", icon: "bi-braces", peran: ["admin"] },
+      { href: "/dashboard/api-render", label: "API Render", icon: "bi-broadcast", peran: ["admin"] },
       PANDUAN_ITEM,
     ],
   },

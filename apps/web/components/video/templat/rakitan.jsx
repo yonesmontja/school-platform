@@ -2,12 +2,12 @@
 // (teks, emoji, gambar, bentuk) dengan animasi masuk, gerak berulang, transisi, narasi, subtitle, dan merek sekolah.
 // Posisi & ukuran elemen dalam persen bingkai sehingga satu naskah cocok untuk semua rasio. Naskah tidak terikat
 // Remotion: komponen ini hanya salah satu "penulis render"; bentuk naskahnya sama dengan App\Services\NaskahVideo.
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import lottie from "lottie-web/build/player/lottie_light_canvas";
 import { AbsoluteFill, Audio, Img, Sequence, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { ukuranRasio } from "./umum.jsx";
 import { srcEmoji3d } from "./emoji3d.js";
-import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, frameLottie, gayaKaca, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik, POLA_LOTTIE } from "./gerakRakitan.js";
+import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, ukuranNaskah, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik, POLA_LOTTIE } from "./gerakRakitan.js";
 
 // Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
 export { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
@@ -27,7 +27,7 @@ export const TRANSISI = [["pudar", "Pudar"], ["geser", "Geser"], ["zoom", "Zoom"
 export const BENTUK = [["kotak", "Kotak"], ["bulat", "Bulat/elips"], ["lingkaran", "Lingkaran garis"], ["panah", "Panah"], ["bintang", "Bintang"], ["garis", "Garis"]];
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
 export function metadataRakitan(p) {
-  const { lebar, tinggi } = ukuranRasio(p?.rasio);
+  const { lebar, tinggi } = ukuranNaskah(p);
   return { durationInFrames: hitungDurasiRakitan(p), width: lebar, height: tinggi };
 }
 const srcAset = (url, dasar) => (!url ? null : /^https?:|^data:|^blob:/.test(url) ? url : `${dasar || ""}${url}`);
@@ -100,6 +100,9 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     }
     return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: 1 }}>{e.isi}</div>;
   }
+  if (e.tipe === "peta") {
+    return <div style={kotak}><PetaRakitan e={e} w={(e.w / 100) * lebar} h={(e.h / 100) * tinggi} k={k} t={frame / fps} huruf={huruf} /></div>;
+  }
   if (e.tipe === "lottie") {
     return <div style={kotak}>{POLA_LOTTIE.test(String(e.isi || "")) && <LottieRakitan e={e} src={srcAset(e.isi, asetDasar)} frame={frame} fps={fps} />}</div>;
   }
@@ -112,6 +115,45 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     return <div style={{ ...kotak, borderRadius: (g.sudut || 0) * k, overflow: "hidden" }}>{src && <Img src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}</div>;
   }
   return <div style={kotak}><Bentuk isi={e.isi} g={g} /></div>;
+}
+
+/** Peta (API render v1): laut, kisi lintang/bujur, daratan Natural Earth, rute lewat laut, penanda, dan label wilayah. */
+function PetaRakitan({ e, w, h, k, t, huruf }) {
+  const geo = useMemo(() => geometriPeta(e.peta, w, h), [e.peta, w, h]);
+  const st = keadaanPeta(e.peta, t);
+  const g = e.gaya || {};
+  const aksen = g.aksen || "#fbbf24", garis = g.garis || "#38bdf8";
+  const r = ruteSampai(geo.rute, st.rute);
+  const fs = (g.ukuran || 30) * k;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", overflow: "hidden" }}>
+      <defs>
+        <filter id={`pendar-${e.id}`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation={6 * k} result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+      </defs>
+      <rect width={w} height={h} fill={g.latar || "#06223a"} />
+      <path d={geo.kisi} stroke="#ffffff" strokeOpacity={0.07} strokeWidth={1.2 * k} fill="none" />
+      <path d={geo.darat} fill={garis} fillOpacity={0.18} transform={`translate(0 ${3 * k})`} />
+      <path d={geo.darat} fill={g.warna || "#1f4e5f"} fillRule="evenodd" />
+      {geo.label.map((l, i) => (
+        <text key={i} x={l.xy[0]} y={l.xy[1]} textAnchor="middle" fontFamily={huruf} fontSize={fs * 0.8} fontStyle="italic" fontWeight={600} letterSpacing={fs * 0.12} fill="#bae6fd" opacity={st.label[i] * 0.9}>{String(l.nama).toUpperCase()}</text>
+      ))}
+      {r.d && <path d={r.d} stroke={garis} strokeWidth={5 * k} fill="none" strokeLinecap="round" strokeLinejoin="round" filter={`url(#pendar-${e.id})`} />}
+      {r.ujung && <polygon points={`${12 * k},0 ${-8 * k},${-8 * k} ${-4 * k},0 ${-8 * k},${8 * k}`} fill="#ffffff" transform={`translate(${r.ujung[0]} ${r.ujung[1]}) rotate(${(r.sudut * 180) / Math.PI})`} />}
+      {geo.titik.map((p, i) => {
+        const s = st.titik[i];
+        const [x, y] = p.xy;
+        return (
+          <g key={i} opacity={s.skala > 0 ? 1 : 0}>
+            {s.denyut >= 0 && <circle cx={x} cy={y} r={(10 + 26 * s.denyut) * k} fill="none" stroke={aksen} strokeWidth={3 * k} opacity={1 - s.denyut} />}
+            <circle cx={x} cy={y} r={10 * k * s.skala} fill={aksen} stroke="#ffffff" strokeWidth={3 * k} />
+            <g opacity={s.label} transform={`translate(${x + (p.kiri ? -18 : 18) * k} ${y - 18 * k})`}>
+              <text textAnchor={p.kiri ? "end" : "start"} fontFamily={huruf} fontSize={fs} fontWeight={800} fill="#ffffff" stroke="#04121f" strokeWidth={6 * k} paintOrder="stroke" strokeLinejoin="round">{`${p.ikon === "port" ? "⚓ " : ""}${p.nama}`}</text>
+            </g>
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 /** Ikon SVG dari pustaka: teksnya dimuat sekali (render ditahan sampai siap), lalu diwarnai dan digambar tajam. */
@@ -251,6 +293,7 @@ export const Rakitan = (p) => {
         </Sequence>
       ))}
       <Logo merek={p?.merek} asetDasar={p?.asetDasar} k={k} />
+      {p?.narasi_utuh?.src && <Audio src={srcAset(p.narasi_utuh.src, p.asetDasar)} />}
       <Musik p={p} />
     </AbsoluteFill>
   );

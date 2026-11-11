@@ -53,13 +53,14 @@ class SuaraService
     }
 
     /** Ubah teks menjadi WAV dengan penyedia berbayar. LOKAL & TANPA tidak lewat sini. */
-    public function buat(string $suara, string $teks): ?string
+    public function buat(string $suara, string $teks, ?string $voice = null, float $laju = 1.0): ?string
     {
         $this->galat = null;
         $s = SchoolSetting::first();
         return match ($suara) {
             'ELEVENLABS_NETRAL', 'ELEVENLABS_KLON' => $this->elevenlabs($s, $teks, $suara === 'ELEVENLABS_KLON' ? $s?->elevenlabs_voice_klon : ($s?->elevenlabs_voice_netral ?: self::ELEVENLABS_BAWAAN)),
             'GEMINI' => $this->gemini($s, $teks),
+            'AZURE' => $this->azure($s, $teks, $voice ?: 'id-ID-ArdiNeural', $laju),
             default => $this->gagal("Suara {$suara} tidak dibuat di core-api."),
         };
     }
@@ -104,6 +105,33 @@ class SuaraService
         } catch (\Exception $e) {
             Log::error('Suara Gemini: ' . $e->getMessage());
             return $this->gagal('Gemini tidak bisa dihubungi.');
+        }
+    }
+
+    /**
+     * Azure AI Speech (dipakai API render v1, mis. suara id-ID-ArdiNeural). Kunci & region di Pengaturan Sekolah.
+     * $laju > 1 mempercepat bacaan (maks. 1,25) agar narasi muat di durasi adegan yang ditentukan payload.
+     */
+    private function azure(?SchoolSetting $s, string $teks, string $voice, float $laju): ?string
+    {
+        $key = $s?->azure_speech_key;
+        $region = $s?->azure_speech_region;
+        if (!$key || !$region) return $this->gagal('Kunci dan region Azure Speech belum diisi di Pengaturan Sekolah.');
+        if (!preg_match('/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z]+Neural$/', $voice)) return $this->gagal("Nama suara Azure tidak dikenali: {$voice}.");
+        $bahasa = substr($voice, 0, strrpos($voice, '-'));
+        $persen = (int) round((max(1.0, min(1.25, $laju)) - 1) * 100);
+        $ssml = '<speak version="1.0" xml:lang="' . $bahasa . '"><voice name="' . $voice . '"><prosody rate="+' . $persen . '%">'
+            . htmlspecialchars($teks, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</prosody></voice></speak>';
+        try {
+            $res = Http::timeout(120)->withHeaders([
+                'Ocp-Apim-Subscription-Key' => $key, 'X-Microsoft-OutputFormat' => 'riff-24khz-16bit-mono-pcm', 'User-Agent' => 'EduRapor-Studio',
+            ])->withBody($ssml, 'application/ssml+xml')->post('https://' . $region . '.tts.speech.microsoft.com/cognitiveservices/v1');
+            if (!$res->successful()) return $this->gagal('Azure Speech menolak: HTTP ' . $res->status() . ($res->status() === 401 ? ' (kunci/region salah)' : ''));
+            if (!str_starts_with($res->body(), 'RIFF')) return $this->gagal('Azure Speech tidak mengembalikan WAV.');
+            return $res->body();
+        } catch (\Exception $e) {
+            Log::error('Suara Azure: ' . $e->getMessage());
+            return $this->gagal('Azure Speech tidak bisa dihubungi.');
         }
     }
 

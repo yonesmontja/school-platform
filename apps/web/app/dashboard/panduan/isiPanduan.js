@@ -377,6 +377,7 @@ export const BAGIAN = [
     langkah: [
       "Referensi Penilaian → Semester: tambahkan semester baru dan atur statusnya Aktif.",
       "Referensi Penilaian → Hari Libur: cocokkan libur nasional dan cuti bersama tahun ini dengan SKB 3 Menteri, lalu tambahkan libur sekolah sendiri (mis. HUT sekolah). Tanggal libur tidak bisa dipakai untuk jadwal, presensi, nilai, dan jurnal; jadwal berulang otomatis melewatinya.",
+      "Akun & Sistem → API Render (admin): buat kunci API untuk aplikasi luar yang membuat video lewat API (mis. asisten AI Muse), pantau riwayat render, dan tambahkan tempat terverifikasi untuk adegan peta. Kunci hanya tampil sekali; simpan di tempat aman. Isi kunci Azure Speech di Pengaturan bila ingin suara Azure.",
       "Master Data: periksa Master Kelas (wali kelas), Master Siswa (siswa baru dan kenaikan kelas), Master Guru, dan Master Mapel (KKM per mapel).",
       "Referensi Penilaian: lengkapi High Level (Elemen CP), Aktivitas (jenis asesmen diagnostik/formatif/sumatif), serta Materi berisi Tujuan Pembelajaran dan indikatornya.",
       "Pastikan setiap guru punya akun yang terhubung ke data Master Guru (Manajemen Pengguna).",

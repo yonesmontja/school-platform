@@ -18,7 +18,8 @@ const AI_PROVIDERS = [
 const WA_TOKEN = { field: 'wa_api_token', label: 'Token Fonnte', placeholder: 'Tempel token device dari dashboard Fonnte' };
 // Client Secret integrasi Canva (impor desain di Studio Rakit Video): terenkripsi, tidak dikirim balik
 const CANVA_SECRET = { field: 'canva_client_secret', label: 'Canva: Client Secret', placeholder: 'Tempel Client Secret (diawali cnvca) dari Canva Developer Portal' };
-const SECRET_FIELDS = [...AI_PROVIDERS, WA_TOKEN, CANVA_SECRET];
+const AZURE_KEY = { field: 'azure_speech_key', label: 'Azure Speech: Key', placeholder: 'Tempel Key 1 dari resource Speech di Azure Portal' };
+const SECRET_FIELDS = [...AI_PROVIDERS, WA_TOKEN, CANVA_SECRET, AZURE_KEY];
 
 const emptyPerProvider = (value) => Object.fromEntries(SECRET_FIELDS.map((p) => [p.field, value]));
 
@@ -423,6 +424,30 @@ export default function PengaturanSekolahPage() {
                 setApiKeyInputs((prev) => ({ ...prev, canva_client_secret: '' }));
               }}
             />
+
+            <hr className="my-4" />
+            <h5 className="fw-bold text-secondary mb-0">Suara Azure (API Render)</h5>
+            <p className="small text-muted mb-0">
+              Dipakai video dari API Render (mis. suara <code>id-ID-ArdiNeural</code>). Buat resource <b>Speech</b> di Azure Portal (paket F0 gratis cukup untuk uji), lalu salin Key 1 dan Region-nya.
+              Bila kosong, narasi API Render memakai suara lokal Piper.
+            </p>
+            <ApiKeyField
+              provider={AZURE_KEY}
+              hasKey={!!formData.has_azure_speech_key}
+              value={apiKeyInputs.azure_speech_key}
+              onChange={(v) => setApiKeyInputs((prev) => ({ ...prev, azure_speech_key: v }))}
+              show={showApiKeys.azure_speech_key}
+              onToggleShow={() => setShowApiKeys((prev) => ({ ...prev, azure_speech_key: !prev.azure_speech_key }))}
+              hapus={hapusApiKeys.azure_speech_key}
+              onToggleHapus={(checked) => {
+                setHapusApiKeys((prev) => ({ ...prev, azure_speech_key: checked }));
+                setApiKeyInputs((prev) => ({ ...prev, azure_speech_key: '' }));
+              }}
+            />
+            <div className="col-md-6">
+              <label className="form-label fw-bold small text-muted" htmlFor="azureRegion">Azure Speech: Region</label>
+              <input id="azureRegion" type="text" className="form-control" name="azure_speech_region" placeholder="mis. southeastasia" value={formData.azure_speech_region || ''} onChange={handleInputChange} />
+            </div>
 
             <hr className="my-4" />
             <h5 className="fw-bold text-secondary mb-0">Integrasi WhatsApp</h5>
