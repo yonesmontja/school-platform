@@ -37,6 +37,7 @@ const MENU_GROUPS = [
     id: "referensi", label: "Referensi Penilaian", icon: "bi-sliders2",
     items: [
       { href: "/dashboard/master-periode", label: "Semester", icon: "bi-calendar-week", peran: PENGELOLA },
+      { href: "/dashboard/hari-libur", label: "Hari Libur", icon: "bi-calendar-x" },
       { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
       { href: "/dashboard/master-mbk", label: "Aktivitas", icon: "bi-list-check" },
       { href: "/dashboard/master-materi", label: "Materi", icon: "bi-journal-bookmark" },

@@ -4,9 +4,9 @@ const { test, expect } = require("../bantu");
 
 const HALAMAN = {
   admin: ["", "master-siswa", "master-keluarga", "master-guru", "master-kelas", "master-mapel", "master-materi",
-    "master-periode", "master-kategori", "master-mbk", "nilai", "bank-soal", "import-excel", "jurnal", "jadwal", "presensi",
+    "master-periode", "hari-libur", "master-kategori", "master-mbk", "nilai", "bank-soal", "import-excel", "jurnal", "jadwal", "presensi",
     "diagnostik", "p5", "rapor", "laporan-stnkm", "pengguna", "pengaturan", "log-aktivitas", "notifikasi", "akun", "panduan"],
-  guru: ["", "nilai", "bank-soal", "jurnal", "jadwal", "presensi", "diagnostik", "p5", "rapor", "laporan-stnkm", "notifikasi", "akun", "panduan"],
+  guru: ["", "nilai", "bank-soal", "jurnal", "jadwal", "hari-libur", "presensi", "diagnostik", "p5", "rapor", "laporan-stnkm", "notifikasi", "akun", "panduan"],
   ortu: ["portal", "notifikasi", "akun", "panduan"],
 };
 

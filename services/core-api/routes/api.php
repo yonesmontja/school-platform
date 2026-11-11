@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\VideoBelajarController;
 use App\Http\Controllers\Api\RenderInternalController;
 use App\Http\Controllers\Api\UjianController;
 use App\Http\Controllers\Api\RemedialController;
+use App\Http\Controllers\Api\HariLiburController;
 use App\Http\Controllers\Api\PeriodeController;
 use App\Http\Controllers\Api\KategoriPenilaianController;
 use App\Http\Controllers\Api\MBKController;
@@ -103,6 +104,14 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::post('/log-aktivitas/event', [LogAktivitasController::class, 'event'])->middleware('throttle:120,1');
     // Pusat notifikasi "Perlu Tindakan" (isi disesuaikan peran di NotifikasiService)
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    // Kalender hari libur selain Minggu: semua akun membaca; admin & kepala sekolah mengelola
+    Route::get('/hari-libur', [HariLiburController::class, 'index']);
+    Route::middleware('role:admin,kepsek')->group(function () {
+        Route::post('/hari-libur', [HariLiburController::class, 'store']);
+        Route::post('/hari-libur/tandai-cek', [HariLiburController::class, 'tandaiCek']);
+        Route::put('/hari-libur/{id}', [HariLiburController::class, 'update'])->whereNumber('id');
+        Route::delete('/hari-libur/{id}', [HariLiburController::class, 'destroy'])->whereNumber('id');
+    });
     Route::post('/notifikasi/baca', [NotifikasiController::class, 'baca']);
 
     // Log Aktivitas: admin & kepsek melihat semua, guru hanya miliknya (dicek di controller)

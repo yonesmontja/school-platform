@@ -106,6 +106,12 @@ export default function JadwalPage() {
   }, [rentang?.start?.getTime(), rentang?.end?.getTime(), muatUlang]);
   const segarkan = () => setMuatUlang((n) => n + 1);
 
+  // Hari libur (selain Minggu): diarsir di kalender dan ditandai namanya; jadwal di tanggal ini ditolak server
+  const [libur, setLibur] = useState(new Map());
+  useEffect(() => {
+    kirimAPI("GET", "/hari-libur").then((r) => r.ok && setLibur(new Map((r.json.data || []).map((h) => [h.tanggal, h.nama])))).catch(() => {});
+  }, []);
+
   // --- WARNA & FILTER ---
   const warnaGuru = useMemo(() => new Map((refData?.teachers || []).map((t, i) => [t.id_guru, PALET_GURU[i % PALET_GURU.length]])), [refData]);
   const warnaSesi = useCallback((r) => (
@@ -123,6 +129,9 @@ export default function JadwalPage() {
   }, [rows, guruTersembunyi, statusTersembunyi, filterKelas, cari]);
 
   const sekarang = Date.now();
+  const eventLibur = useMemo(() => [...libur].map(([tgl, nama]) => ({
+    id: `libur-${tgl}`, start: tgl, allDay: true, display: "background", title: nama, classNames: ["gc-libur"], editable: false,
+  })), [libur]);
   const events = useMemo(() => rowsTampil.map((r) => {
     const warna = warnaSesi(r);
     return {
@@ -132,7 +141,7 @@ export default function JadwalPage() {
       editable: milikSendiri(r.id_guru),
       extendedProps: { row: r },
     };
-  }), [rowsTampil, warnaSesi, milikSendiri]);
+  }).concat(eventLibur), [rowsTampil, warnaSesi, milikSendiri, eventLibur]);
 
   const tanggalBerisi = useMemo(() => new Set(rows.map((r) => r.mulai.slice(0, 10))), [rows]);
   const detail = rows.find((r) => r.id_jadwal === detailId) || null;
@@ -158,6 +167,7 @@ export default function JadwalPage() {
   const onSelect = (info) => {
     api()?.unselect();
     if (adalahMinggu(info.start)) return Swal.fire("Hari Minggu", pesanMinggu(info.start), "info");
+    if (libur.has(ymd(info.start))) return Swal.fire("Hari libur", `${libur.get(ymd(info.start))}. Pilih hari sekolah lain, atau ubah daftar di menu Hari Libur.`, "info");
     if (info.allDay) {
       const m = new Date(info.start); m.setHours(7, 30, 0, 0);
       bukaBaru(m);
@@ -444,7 +454,7 @@ export default function JadwalPage() {
           editable
           dayMaxEvents
           businessHours={{ daysOfWeek: [1, 2, 3, 4, 5, 6], startTime: "07:00", endTime: "15:00" }}
-          dayCellClassNames={(arg) => (arg.date.getDay() === 0 ? ["gc-minggu"] : [])}
+          dayCellClassNames={(arg) => (arg.date.getDay() === 0 || libur.has(ymd(arg.date)) ? ["gc-minggu"] : [])}
           events={events}
           datesSet={onDatesSet}
           select={onSelect}

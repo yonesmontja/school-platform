@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\HariLibur;
 use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
@@ -153,6 +154,7 @@ class JadwalController extends Controller
 
         // Daftar tanggal sesi sesuai pola pengulangan
         $tanggal = [$mulai->copy()->startOfDay()];
+        $libur = [];
         if ($request->pola !== 'sekali') {
             $hari = $request->pola === 'harian' ? [1, 2, 3, 4, 5] : array_map('intval', $request->hari ?? []);
             if (!$hari) throw ValidationException::withMessages(['hari' => 'Pilih minimal satu hari pertemuan.']);
@@ -160,9 +162,12 @@ class JadwalController extends Controller
             if ($sampai->lt($mulai)) throw ValidationException::withMessages(['sampai' => 'Batas akhir harus setelah tanggal mulai.']);
             if ($sampai->gt($mulai->copy()->addYear())) throw ValidationException::withMessages(['sampai' => 'Pengulangan maksimal 1 tahun.']);
 
+            // Hari libur (nasional, cuti bersama, sekolah) dilewati, tidak membatalkan seluruh pengulangan
             $tanggal = [];
             for ($d = $mulai->copy()->startOfDay(); $d->lte($sampai); $d->addDay()) {
-                if (in_array($d->dayOfWeek, $hari, true)) $tanggal[] = $d->copy();
+                if (!in_array($d->dayOfWeek, $hari, true)) continue;
+                if ($nama = HariLibur::namaPada($d)) { $libur[] = $d->locale('id')->translatedFormat('j M') . " ({$nama})"; continue; }
+                $tanggal[] = $d->copy();
             }
             if (!$tanggal) throw ValidationException::withMessages(['hari' => 'Tidak ada tanggal yang cocok dalam rentang tersebut.']);
             if (count($tanggal) > self::MAKS_SESI) throw ValidationException::withMessages(['sampai' => 'Terlalu banyak sesi (maks. ' . self::MAKS_SESI . ').']);
@@ -203,8 +208,10 @@ class JadwalController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => count($ids) > 1 ? count($ids) . ' sesi jadwal berulang disimpan.' : 'Jadwal disimpan.',
+            'message' => (count($ids) > 1 ? count($ids) . ' sesi jadwal berulang disimpan.' : 'Jadwal disimpan.')
+                . ($libur ? ' ' . count($libur) . ' tanggal libur dilewati: ' . implode(', ', array_slice($libur, 0, 5)) . (count($libur) > 5 ? ', …' : '') . '.' : ''),
             'jumlah' => count($ids),
+            'libur_dilewati' => $libur,
             'data' => TransJadwal::with(self::RELASI)->whereIn('id_jadwal', $ids)->orderBy('mulai')->get(),
         ], 201);
     }
@@ -288,7 +295,7 @@ class JadwalController extends Controller
 
         foreach ($slot as $s) {
             if ($s['selesai']->lte($s['mulai'])) throw ValidationException::withMessages(['selesai' => 'Durasi sesi tidak valid.']);
-            if ($s['mulai']->isSunday()) throw ValidationException::withMessages(['mulai' => BukanHariMinggu::pesan($s['mulai'])]);
+            if ($alasan = BukanHariMinggu::alasan($s['mulai'])) throw ValidationException::withMessages(['mulai' => $alasan]);
         }
         if (!$request->boolean('abaikan_bentrok') && ($bentrok = $this->cariBentrok($slot, $target->pluck('id_jadwal')->all()))->isNotEmpty()) {
             return $this->responBentrok($bentrok);

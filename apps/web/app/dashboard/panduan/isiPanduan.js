@@ -376,6 +376,7 @@ export const BAGIAN = [
     href: "/dashboard/master-periode",
     langkah: [
       "Referensi Penilaian → Semester: tambahkan semester baru dan atur statusnya Aktif.",
+      "Referensi Penilaian → Hari Libur: cocokkan libur nasional dan cuti bersama tahun ini dengan SKB 3 Menteri, lalu tambahkan libur sekolah sendiri (mis. HUT sekolah). Tanggal libur tidak bisa dipakai untuk jadwal, presensi, nilai, dan jurnal; jadwal berulang otomatis melewatinya.",
       "Master Data: periksa Master Kelas (wali kelas), Master Siswa (siswa baru dan kenaikan kelas), Master Guru, dan Master Mapel (KKM per mapel).",
       "Referensi Penilaian: lengkapi High Level (Elemen CP), Aktivitas (jenis asesmen diagnostik/formatif/sumatif), serta Materi berisi Tujuan Pembelajaran dan indikatornya.",
       "Pastikan setiap guru punya akun yang terhubung ke data Master Guru (Manajemen Pengguna).",

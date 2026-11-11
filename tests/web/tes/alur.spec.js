@@ -258,3 +258,20 @@ test("kolom Aksi memakai menu tiga titik: Ubah membuka formulir, Esc menutup men
   await page.getByRole("button", { name: /^Aksi untuk/ }).first().click();
   await expect(page.getByRole("menuitem", { name: "Reset kata sandi" })).toBeVisible();
 });
+
+test("admin menambah libur sekolah; kalender jadwal menolak tanggal itu", async ({ page, masuk }) => {
+  await masuk("admin");
+  await page.goto("/dashboard/hari-libur");
+  await page.getByRole("button", { name: "Tambah hari libur" }).click();
+  await page.locator("#hlTgl").fill("2030-01-09");
+  await page.locator("#hlNama").fill("HUT Sekolah Uji");
+  await page.locator(".swal2-confirm").click();
+  const kartu = page.locator(".kartu-libur", { hasText: "HUT Sekolah Uji" });
+  await expect(kartu).toContainText("Libur sekolah");
+  await expect(page.getByRole("button", { name: "2030" })).toHaveClass(/btn-primary/);
+
+  await kartu.getByRole("button", { name: /^Aksi untuk/ }).click();
+  await page.getByRole("menuitem", { name: "Hapus" }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(kartu).toHaveCount(0);
+});
