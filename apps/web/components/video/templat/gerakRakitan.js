@@ -422,3 +422,23 @@ export function keadaanPeta(peta, t) {
   };
 }
 
+// ===== Elemen video (klip unggahan / MP4 Canva) =====
+
+export const POLA_VIDEO = /^\/storage\/video-aset\/[\w.-]+\.(mp4|webm)$/;
+
+/**
+ * Detik klip yang tampil pada detik adegan t: klip mulai berputar saat elemen masuk (masuk.mulai) dari detik
+ * `potong`; bila `ulang` dan lama klip diketahui, berulang; bila tidak, berhenti di frame akhir.
+ * Sebelum elemen masuk, frame pertama klip ditampilkan. Nilai null = klip sudah habis (tidak berbunyi lagi).
+ */
+export function waktuKlip(e, t) {
+  const g = e?.gaya || {};
+  const potong = g.potong || 0;
+  const lokal = t - (e?.masuk?.mulai || 0);
+  if (lokal < 0) return { detik: potong, bunyi: false };
+  // Catatan: hasil detik adalah awal frame klip; mesin Revideo mencari sedikit sebelum itu (lihat revideo/rakitan.js)
+  const panjang = g.durasi_klip ? Math.max(0.05, g.durasi_klip - potong) : null;
+  if (!panjang) return { detik: potong + lokal, bunyi: true };
+  if (g.ulang !== false) return { detik: potong + (lokal % panjang), bunyi: true };
+  return lokal < panjang ? { detik: potong + lokal, bunyi: true } : { detik: potong + panjang - 1 / FPS, bunyi: false };
+}

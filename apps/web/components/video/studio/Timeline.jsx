@@ -4,7 +4,7 @@
 // klik penggaris untuk melihat kanvas pada detik itu.
 import { useRef } from "react";
 
-const label = (e) => ({ teks: `T  ${String(e.isi || "").slice(0, 18)}`, emoji: `${e.isi}  Emoji`, gambar: "🖼  Gambar", bentuk: `◆  ${e.isi}`, ikon: `✦  ${String(e.isi || "").split("/")[1] || "Ikon"}`, lottie: "▶  Lottie" }[e.tipe]);
+const label = (e) => ({ teks: `T  ${String(e.isi || "").slice(0, 18)}`, emoji: `${e.isi}  Emoji`, gambar: "🖼  Gambar", bentuk: `◆  ${e.isi}`, ikon: `✦  ${String(e.isi || "").split("/")[1] || "Ikon"}`, lottie: "▶  Lottie", video: "🎬  Video" }[e.tipe]);
 const bulat = (v) => Math.round(v * 10) / 10;
 
 export default function Timeline({ adegan, durasi, waktu, onWaktu, pilih, onPilih, onUbah, onCatat }) {

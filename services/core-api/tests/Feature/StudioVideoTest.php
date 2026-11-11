@@ -275,6 +275,42 @@ class StudioVideoTest extends TestCase
         $this->assertSame(0, \DB::table('canva_token')->count());
     }
 
+    public function test_e4_elemen_video_unggah_dan_mp4_canva(): void
+    {
+        $this->sebagai($this->sekolah->admin)->putJson('/api/video-belajar/studio', ['id_pembuat' => $this->sekolah->guruA->id])->assertOk();
+        $this->sebagai($this->sekolah->guruA);
+        $mp4 = "\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2" . str_repeat("\x00", 64);
+        $r = $this->post('/api/video-belajar/aset', ['video' => UploadedFile::fake()->createWithContent('klip.mp4', $mp4)->mimeType('video/mp4'), 'foto_siswa' => '1', 'izin_ortu' => '0'],
+            ['Accept' => 'application/json'])->assertCreated();
+        $this->assertSame(['VIDEO', true, false], [$r->json('data.jenis'), $r->json('data.foto_siswa'), $r->json('data.izin_ortu')]);
+        $this->assertMatchesRegularExpression('#^/storage/video-aset/aset_\w+\.mp4$#', $r->json('url'));
+        $this->post('/api/video-belajar/aset', ['video' => UploadedFile::fake()->createWithContent('x.mp4', '<html>')], ['Accept' => 'application/json'])->assertUnprocessable();
+
+        // Naskah: elemen video diterima dengan gaya klip yang dibatasi; jalur liar dibuang
+        $n = $this->postJson('/api/video-belajar/terapkan-gaya', ['gaya' => 'ceria', 'warna' => false, 'naskah' => ['rasio' => '16:9', 'adegan' => [['elemen' => [
+            ['tipe' => 'video', 'isi' => $r->json('url'), 'gaya' => ['bisu' => false, 'ulang' => false, 'volume' => 5, 'potong' => 2, 'durasi_klip' => 8.5, 'isi_bingkai' => 'muat']],
+            ['tipe' => 'video', 'isi' => '/storage/lain/x.mp4'],
+        ]]]]])->assertOk()->json('naskah.adegan.0.elemen');
+        $this->assertCount(1, $n);
+        $g = $n[0]['gaya'];
+        $this->assertSame([false, false, 1.0, 2.0, 8.5, 'muat'], [$g['bisu'], $g['ulang'], (float) $g['volume'], (float) $g['potong'], (float) $g['durasi_klip'], $g['isi_bingkai']]);
+        // Video berisi siswa tanpa izin ikut diperiksa seperti foto sebelum dibagikan
+        $this->assertSame([$r->json('url')], \App\Services\NaskahVideo::asetGambar(['adegan' => [['elemen' => $n]]]));
+
+        // Canva: ekspor MP4 (satu berkas) menjadi aset VIDEO
+        $this->sebagai($this->sekolah->admin)->postJson('/api/settings', ['canva_client_id' => 'OC-uji', 'canva_client_secret' => 'cnvca-x'])->assertOk();
+        \DB::table('canva_token')->insert(['id_user' => $this->sekolah->guruA->id, 'access_token' => encrypt('akses'), 'refresh_token' => encrypt('segar'),
+            'kedaluwarsa' => now()->addHour(), 'created_at' => now(), 'updated_at' => now()]);
+        Http::fake([
+            'api.canva.com/rest/v1/exports/JOBV' => Http::response(['job' => ['id' => 'JOBV', 'status' => 'success', 'urls' => ['https://export-download.canva.com/v.mp4']]]),
+            'api.canva.com/rest/v1/exports' => Http::response(['job' => ['id' => 'JOBV', 'status' => 'in_progress']]),
+            'export-download.canva.com/*' => Http::response($mp4, 200, ['Content-Type' => 'video/mp4']),
+        ]);
+        $c = $this->sebagai($this->sekolah->guruA)->postJson('/api/video-belajar/canva/impor', ['id_desain' => 'DAFV', 'judul' => 'Promo', 'format' => 'mp4', 'tegak' => true])->assertCreated();
+        $this->assertSame(['VIDEO', 'Canva: Promo (video)'], [$c->json('data.0.jenis'), $c->json('data.0.nama_asli')]);
+        Http::assertSent(fn($q) => str_ends_with($q->url(), '/exports') && $q['format'] === ['type' => 'mp4', 'quality' => 'vertical_1080p']);
+    }
+
     private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     public function test_d2_musik_keluar_izin_foto_siswa_tujuan_dan_templat(): void

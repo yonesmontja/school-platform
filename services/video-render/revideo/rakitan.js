@@ -2,10 +2,10 @@
 // (apps/web/components/video/templat/rakitan.jsx); waktu & animasi dihitung oleh gerakRakitan.js yang sama, jadi
 // keduanya bergerak identik. Adegan digambar per frame: tiap `yield` = satu frame. Audio (narasi & musik) tidak
 // diputar di sini; worker mencampurnya sendiri lalu menempelkannya ke video hasil render.
-import { Circle, Gradient, Img, Line, Node, Rect, Txt, blur, makeScene2D } from "@revideo/2d";
-import { loadImage, useScene } from "@revideo/core";
+import { Circle, Gradient, Img, Line, Node, Rect, Txt, Video, blur, makeScene2D } from "@revideo/2d";
+import { createSignal, loadImage, useScene } from "@revideo/core";
 import lottie from "lottie-web/build/player/lottie_light_canvas";
-import { FPS, HURUF, POLA_LOTTIE, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung } from "../templat/gerakRakitan.js";
+import { FPS, HURUF, POLA_LOTTIE, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, hurufElemen, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, waktuKlip, POLA_VIDEO } from "../templat/gerakRakitan.js";
 import { srcEmoji3d } from "../templat/emoji3d.js";
 
 const EMOJI = "'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
@@ -88,7 +88,7 @@ function* buatElemen(e, c) {
   const { lebar: W, tinggi: H, k, huruf, asetDasar } = c;
   const g = e.gaya || {};
   const w = (e.w / 100) * W, h = (e.h / 100) * H;
-  let isi, lebarIsi = w, ketik = null, animasiTeks = null, animasiLottie = null, animasiPeta = null;
+  let isi, lebarIsi = w, ketik = null, animasiTeks = null, animasiLottie = null, animasiPeta = null, animasiVideo = null;
   if (e.tipe === "teks") {
     const u = (g.ukuran || 60) * k;
     const gayaTeks = {
@@ -148,6 +148,29 @@ function* buatElemen(e, c) {
       anak.push(new Img({ src: data, width: sisi, height: sisi }));
     }
     isi = new Node({ children: anak });
+  } else if (e.tipe === "video") {
+    // Klip video: waktu klip tiap frame dari waktuKlip() (sama dengan Sequence/Loop/Freeze di Remotion); suaranya
+    // dicampur terpisah di render.mjs. Ukuran asli dibaca dari metadata untuk isi penuh (cover) / muat (contain).
+    const src = POLA_VIDEO.test(String(e.isi || "")) ? srcAset(e.isi, asetDasar) : null;
+    const anak = [];
+    if (src) {
+      const ukuran = yield new Promise((ok) => {
+        const v = document.createElement("video");
+        v.preload = "metadata"; v.muted = true;
+        v.onloadedmetadata = () => ok([v.videoWidth || w, v.videoHeight || h]);
+        v.onerror = () => ok([w, h]);
+        setTimeout(() => ok([w, h]), 15000);
+        v.src = src;
+      });
+      const s = g.isi_bingkai === "muat" ? Math.min(w / ukuran[0], h / ukuran[1]) : Math.max(w / ukuran[0], h / ukuran[1]);
+      const waktu = createSignal(Math.max(0, waktuKlip(e, 0).detik - 0.3 / FPS));
+      // URL unik per elemen: dua elemen dengan klip yang sama tidak berbagi satu dekoder (pencarian bolak-balik meleset)
+      anak.push(new Video({ src: `${src}${src.includes("?") ? "&" : "?"}el=${encodeURIComponent(e.id || "")}`, width: ukuran[0] * s, height: ukuran[1] * s, time: waktu, play: false, volume: 0, decoder: "web" }));
+      // Dicari sedikit sebelum awal frame: dekoder "web" bisa mengambil frame berikutnya bila tepat di batas frame.
+      // Sisa selisih yang mungkin: ±1 frame (33 ms) dibanding Remotion; dekoder "ffmpeg" butuh plugin server Revideo.
+      animasiVideo = (f) => waktu(Math.max(0, waktuKlip(e, f / FPS).detik - 0.3 / FPS));
+    }
+    isi = new Rect({ width: w, height: h, radius: (g.sudut || 0) * k, clip: true, children: anak });
   } else if (e.tipe === "peta") {
     isi = new KanvasLuar({});
     const kanvas = document.createElement("canvas");
@@ -201,6 +224,7 @@ function* buatElemen(e, c) {
     if (animasiTeks) animasiTeks(f);
     if (animasiLottie) animasiLottie(f);
     if (animasiPeta) animasiPeta(f);
+    if (animasiVideo) animasiVideo(f);
     if (sapu) {
       const lebarTampak = lebarIsi * (1 - s.sapu);
       sapu.width(Math.max(0.001, lebarTampak)).x(-lebarIsi / 2 + lebarTampak / 2);

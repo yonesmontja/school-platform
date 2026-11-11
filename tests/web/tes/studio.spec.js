@@ -1,6 +1,7 @@
 // Studio Rakit Video (D1): admin menunjuk satu pembuat video; pembuat merakit adegan (tambah teks, ubah isi,
 // geser di kanvas, undo), mengganti rasio, lalu mengirim naskah ke antrean render.
-const { test, expect, api } = require("../bantu");
+const { test, expect, api, unggahApi } = require("../bantu");
+const path = require("node:path");
 
 test.describe.configure({ mode: "serial" });
 
@@ -79,7 +80,7 @@ test("admin menunjuk pembuat video; pembuat merakit adegan dan mengirim ke antre
 test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", async ({ page, masuk }) => {
   test.setTimeout(240_000);
   const admin = await masuk("admin");
-  await masuk("guru");
+  const guru = await masuk("guru");
   // Respons AI ditiru (database tes tanpa API key); penyusunan tata letak dari papan cerita diuji di backend
   const naskah = { rasio: "9:16", judul: "PPDB E2E", subtitle: true, musik: null,
     merek: { logo: null, posisi_logo: "kanan-atas", huruf: "Nunito", warna: ["#2563eb"] },
@@ -150,6 +151,18 @@ test("papan cerita AI mengisi naskah, lalu dirender ke dua rasio sekaligus", asy
   await expect(page.getByText("Animasi Lottie", { exact: true }).first()).toBeVisible();
   await expect(page.getByLabel("Putar berulang (mati = berhenti di akhir)")).toBeChecked();
   await expect(page.locator("canvas").first()).toBeVisible(); // lottie-web menggambar di kanvas pratinjau
+  // E4: klip video (WebM; Chromium Playwright tanpa H.264) diunggah lewat API tes (isi berkas biner tidak ikut pada
+  // permintaan yang disadap, lihat unggahApi), lalu dipilih dari Unggahan sekolah menjadi elemen video bisu & berulang
+  await unggahApi(guru, "/video-belajar/aset", { foto_siswa: "0" }, { nama: "video", path: path.join(__dirname, "..", "data", "klip.webm"), tipe: "video/webm" });
+  await page.getByRole("button", { name: /Pustaka aset/ }).click();
+  await pk.getByRole("tab", { name: /Unggahan sekolah/ }).click();
+  await expect(pk.getByRole("button", { name: /Unggah video/ })).toBeVisible();
+  await pk.getByRole("button", { name: /^Video klip\.webm/ }).click();
+  await expect(pk).toBeHidden();
+  await expect(page.getByText("Klip video (2 detik)")).toBeVisible();
+  await expect(page.getByLabel("Bisukan suara klip")).toBeChecked();
+  await expect(page.locator(".studio-tl-label").filter({ hasText: "Video" })).toHaveCount(1);
+  await expect(page.locator(".studio-pratinjau video, video").first()).toBeAttached();
   await page.getByRole("button", { name: /Pustaka aset/ }).click();
   await pk.getByRole("tab", { name: /Canva/ }).click();
   await expect(pk).toContainText("Integrasi Canva belum diatur");

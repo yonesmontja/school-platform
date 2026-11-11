@@ -40,7 +40,7 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah, onPustak
   const keluar = (x) => onUbah({ keluar: { preset: "pudar", pada: null, ...e.keluar, ...x } });
   return (
     <div>
-      <div className="small text-uppercase text-body-secondary fw-bold mb-2">{{ teks: "Teks", emoji: "Emoji", gambar: "Gambar", bentuk: "Bentuk", ikon: "Ikon", lottie: "Animasi Lottie" }[e.tipe]}</div>
+      <div className="small text-uppercase text-body-secondary fw-bold mb-2">{{ teks: "Teks", emoji: "Emoji", gambar: "Gambar", bentuk: "Bentuk", ikon: "Ikon", lottie: "Animasi Lottie", video: "Video" }[e.tipe]}</div>
       {e.tipe === "teks" && (
         <div className="mb-2"><Label htmlFor="stIsi">Isi teks</Label>
           <textarea id="stIsi" className="form-control form-control-sm" rows={2} maxLength={300} value={e.isi} onChange={(x) => onUbah({ isi: x.target.value })} /></div>
@@ -85,12 +85,31 @@ export function PanelElemen({ e, palet, durasiAdegan, onUbah, onUnggah, onPustak
           <Angka id="stKecepatan" label="Kecepatan" nilai={g.kecepatan ?? 1} min={0.25} max={3} step={0.25} onUbah={(v) => gaya({ kecepatan: v })} />
           <div className="form-text">Animasi mulai bersama animasi masuk; ukurannya mengikuti kotak elemen.</div></div>
       )}
+      {e.tipe === "video" && (
+        <div className="mb-2"><div className="form-label small mb-1">Klip video{g.durasi_klip ? ` (${g.durasi_klip} detik)` : ""}</div>
+          <button type="button" className="btn btn-sm btn-outline-primary w-100" onClick={() => onPustaka?.("unggahan")}><i className="bi bi-collection me-1"></i>Ganti video</button>
+          <div className="form-check form-switch mt-2">
+            <input className="form-check-input" type="checkbox" role="switch" id="stBisu" checked={g.bisu !== false} onChange={(x) => gaya({ bisu: x.target.checked })} />
+            <label className="form-check-label small" htmlFor="stBisu">Bisukan suara klip</label>
+          </div>
+          {g.bisu === false && <Angka id="stVolume" label="Volume klip" nilai={g.volume ?? 1} min={0} max={1} step={0.1} onUbah={(v) => gaya({ volume: v })} />}
+          <div className="form-check form-switch">
+            <input className="form-check-input" type="checkbox" role="switch" id="stUlangVideo" checked={g.ulang !== false} onChange={(x) => gaya({ ulang: x.target.checked })} />
+            <label className="form-check-label small" htmlFor="stUlangVideo">Putar berulang (mati = berhenti di akhir)</label>
+          </div>
+          <Angka id="stPotong" label="Mulai dari detik" nilai={g.potong ?? 0} min={0} max={Math.max(0, (g.durasi_klip || 600) - 0.5)} step={0.5} onUbah={(v) => gaya({ potong: v })} />
+          <Label htmlFor="stIsiBingkai">Isi kotak</Label>
+          <select id="stIsiBingkai" className="form-select form-select-sm" value={g.isi_bingkai || "penuh"} onChange={(x) => gaya({ isi_bingkai: x.target.value })}>
+            <option value="penuh">Penuh (dipotong agar memenuhi kotak)</option><option value="muat">Muat (seluruh gambar terlihat)</option>
+          </select>
+          <div className="form-text">Klip mulai berputar bersama animasi masuk. Video yang memperlihatkan siswa butuh izin orang tua.</div></div>
+      )}
       {e.tipe === "bentuk" && (
         <div className="mb-2"><Label htmlFor="stBentuk">Bentuk</Label>
           <select id="stBentuk" className="form-select form-select-sm" value={e.isi} onChange={(x) => onUbah({ isi: x.target.value })}>{BENTUK.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
       )}
       {(e.tipe === "teks" || e.tipe === "emoji") && <Angka id="stUkuran" label="Ukuran huruf" nilai={g.ukuran} min={10} max={400} onUbah={(v) => gaya({ ukuran: v })} />}
-      {e.tipe !== "gambar" && e.tipe !== "lottie" && <InputWarna id="stWarna" label={e.tipe === "bentuk" ? "Warna isi" : "Warna"} nilai={g.warna} palet={palet} onUbah={(v) => gaya({ warna: v })} />}
+      {!["gambar", "lottie", "video"].includes(e.tipe) && <InputWarna id="stWarna" label={e.tipe === "bentuk" ? "Warna isi" : "Warna"} nilai={g.warna} palet={palet} onUbah={(v) => gaya({ warna: v })} />}
       {e.tipe === "teks" && (
         <>
           <div className="btn-group btn-group-sm mb-2 me-2" role="group" aria-label="Gaya teks">

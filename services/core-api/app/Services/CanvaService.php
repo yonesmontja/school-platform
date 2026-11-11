@@ -134,15 +134,20 @@ class CanvaService
      * Ekspor desain ke PNG/JPG dan unduh per halaman (maks. 10). Mengembalikan isi biner tiap halaman.
      * @return array<int, string>
      */
-    public function ekspor(int $idUser, string $idDesain, string $format, array $halaman, bool $transparan): array
+    public function ekspor(int $idUser, string $idDesain, string $format, array $halaman, bool $transparan, bool $tegak = false): array
     {
-        $fmt = $format === 'jpg' ? ['type' => 'jpg', 'quality' => 90] : array_filter(['type' => 'png', 'transparent_background' => $transparan ?: null]);
+        $fmt = match ($format) {
+            'jpg' => ['type' => 'jpg', 'quality' => 90],
+            // Video: satu MP4 untuk halaman terpilih (animasi Canva ikut), kualitas 1080p sesuai orientasi
+            'mp4' => ['type' => 'mp4', 'quality' => ($tegak ? 'vertical' : 'horizontal') . '_1080p'],
+            default => array_filter(['type' => 'png', 'transparent_background' => $transparan ?: null]),
+        };
         if ($halaman) $fmt['pages'] = array_values(array_slice($halaman, 0, self::MAKS_HALAMAN));
         $r = $this->api($idUser)->post(self::API . '/exports', ['design_id' => $idDesain, 'format' => $fmt]);
         if (!$r->successful()) throw self::galat($r);
         $id = $r->json('job.id');
         $job = $r->json('job');
-        for ($i = 0; $i < 30 && ($job['status'] ?? '') === 'in_progress'; $i++) {
+        for ($i = 0; $i < ($format === 'mp4' ? 75 : 30) && ($job['status'] ?? '') === 'in_progress'; $i++) {
             usleep(min(4000, 800 + $i * 300) * 1000);
             $c = $this->api($idUser)->get(self::API . "/exports/{$id}");
             if (!$c->successful()) throw self::galat($c);
@@ -158,7 +163,7 @@ class CanvaService
             if (!preg_match('#^https://[^/]+\.(canva\.com|canva-export\.com|canva\.cn|amazonaws\.com|cloudfront\.net)/#', $url)) {
                 throw new RuntimeException('Alamat unduhan Canva tidak dikenal.');
             }
-            $f = Http::timeout(60)->withOptions(['stream' => false])->get($url);
+            $f = Http::timeout($format === 'mp4' ? 240 : 60)->withOptions(['stream' => false])->get($url);
             if (!$f->successful()) throw new RuntimeException('Gagal mengunduh hasil ekspor Canva.');
             $hasil[] = $f->body();
         }

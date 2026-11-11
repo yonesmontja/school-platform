@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FPS, awalAdegan, hitungDurasiRakitan, jendelaNarasi, ukuranNaskah, volumeMusik } from "../templat/gerakRakitan.js";
+import { FPS, POLA_VIDEO, awalAdegan, frameAdegan, hitungDurasiRakitan, jendelaNarasi, ukuranNaskah, volumeMusik, waktuKlip } from "../templat/gerakRakitan.js";
 
 const require = createRequire(import.meta.url);
 export const FFMPEG = process.env.FFMPEG || require("@ffmpeg-installer/ffmpeg").path;
@@ -82,6 +82,23 @@ export async function campurAudio(props, keluar) {
     const mulai = Math.round((awal[i] / FPS) * LAJU);
     for (let j = 0; j < s.length && mulai + j < n; j++) campur[mulai + j] += s[j];
     ada = true;
+  }
+  // Suara klip video yang tidak dibisukan: diputar mengikuti waktuKlip() selama adegannya tampil
+  for (const [i, a] of (props.adegan || []).entries()) {
+    for (const e of a.elemen || []) {
+      if (e.tipe !== "video" || e.gaya?.bisu !== false || !POLA_VIDEO.test(String(e.isi || ""))) continue;
+      const s = await dekode(srcAset(e.isi, props.asetDasar)).catch(() => new Float32Array(0));
+      if (!s.length) continue;
+      const mulai = Math.round((awal[i] / FPS) * LAJU), akhir = Math.min(n, Math.round(((awal[i] + frameAdegan(a)) / FPS) * LAJU));
+      const vol = e.gaya.volume ?? 1;
+      for (let j = mulai; j < akhir; j++) {
+        const w = waktuKlip(e, (j - mulai) / LAJU);
+        if (!w.bunyi) continue;
+        const idx = Math.floor(w.detik * LAJU);
+        if (idx < s.length) campur[j] += s[idx] * vol;
+      }
+      ada = true;
+    }
   }
   // Narasi utuh satu berkas (API render v1) mulai di awal video
   if (props.narasi_utuh?.src) {

@@ -4,10 +4,10 @@
 // Remotion: komponen ini hanya salah satu "penulis render"; bentuk naskahnya sama dengan App\Services\NaskahVideo.
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import lottie from "lottie-web/build/player/lottie_light_canvas";
-import { AbsoluteFill, Audio, Img, Sequence, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Freeze, Img, Loop, OffthreadVideo, Sequence, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { ukuranRasio } from "./umum.jsx";
 import { srcEmoji3d } from "./emoji3d.js";
-import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, ukuranNaskah, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik, POLA_LOTTIE } from "./gerakRakitan.js";
+import { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, frameAdegan, frameLottie, gayaKaca, geometriPeta, keadaanPeta, ruteSampai, ukuranNaskah, hitungDurasiRakitan, hurufElemen, jendelaNarasi, kataTeks, keadaanElemen, keadaanKamera, keadaanKata, keadaanTransisi, primitifHias, sisiEmoji3d, srcIkon, subtitlePada, svgIkon, teksHitung, volumeMusik, POLA_LOTTIE, POLA_VIDEO } from "./gerakRakitan.js";
 
 // Waktu & animasi dihitung di gerakRakitan.js (dipakai juga oleh penulis render Revideo)
 export { HURUF, awalAdegan, barisSubtitle, detikAdeganRakitan, hitungDurasiRakitan };
@@ -100,6 +100,9 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     }
     return <div style={{ ...kotak, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: EMOJI, fontSize: (g.ukuran || 120) * k, lineHeight: 1 }}>{e.isi}</div>;
   }
+  if (e.tipe === "video") {
+    return <div style={{ ...kotak, borderRadius: (g.sudut || 0) * k, overflow: "hidden" }}>{POLA_VIDEO.test(String(e.isi || "")) && <VideoRakitan e={e} src={srcAset(e.isi, asetDasar)} fps={fps} />}</div>;
+  }
   if (e.tipe === "peta") {
     return <div style={kotak}><PetaRakitan e={e} w={(e.w / 100) * lebar} h={(e.h / 100) * tinggi} k={k} t={frame / fps} huruf={huruf} /></div>;
   }
@@ -115,6 +118,29 @@ export function ElemenRakitan({ e, huruf, asetDasar, k, lebar, tinggi }) {
     return <div style={{ ...kotak, borderRadius: (g.sudut || 0) * k, overflow: "hidden" }}>{src && <Img src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}</div>;
   }
   return <div style={kotak}><Bentuk isi={e.isi} g={g} /></div>;
+}
+
+/**
+ * Klip video: frame pertama sebelum elemen masuk, lalu berputar dari detik `potong`; berulang (Loop) atau berhenti
+ * di frame akhir (Freeze). Aturannya sama dengan waktuKlip() yang dipakai mesin Revideo.
+ */
+function VideoRakitan({ e, src, fps }) {
+  const g = e.gaya || {};
+  const mulai = Math.round((e.masuk?.mulai || 0) * fps);
+  const potong = Math.round((g.potong || 0) * fps);
+  const panjang = g.durasi_klip ? Math.max(1, Math.round(g.durasi_klip * fps) - potong) : null;
+  const klip = (
+    <OffthreadVideo src={src} startFrom={potong} muted={g.bisu !== false} volume={g.volume ?? 1} pauseWhenBuffering
+      style={{ width: "100%", height: "100%", objectFit: g.isi_bingkai === "muat" ? "contain" : "cover" }} />
+  );
+  const putar = <Sequence from={mulai}>{panjang && g.ulang !== false ? <Loop durationInFrames={panjang}>{klip}</Loop> : klip}</Sequence>;
+  // Frame adegan dibekukan (Freeze active): sebelum masuk → frame pertama klip; setelah habis (tanpa ulang) → frame akhir
+  const habis = panjang && g.ulang === false ? mulai + panjang : Infinity;
+  return (
+    <Freeze frame={mulai} active={(f) => f < mulai}>
+      {Number.isFinite(habis) ? <Freeze frame={habis - 1} active={(f) => f >= habis}>{putar}</Freeze> : putar}
+    </Freeze>
+  );
 }
 
 /** Peta (API render v1): laut, kisi lintang/bujur, daratan Natural Earth, rute lewat laut, penanda, dan label wilayah. */
@@ -312,6 +338,7 @@ export function elemenBaru(tipe, warna = "#2563eb") {
   if (tipe === "emoji") return { ...dasar, isi: "⭐", w: 25, h: 25, gaya: { ...gaya, ukuran: 160, emoji: "3d" } };
   if (tipe === "ikon") return { ...dasar, isi: "outline/star", w: 18, h: 18, gaya: { ...gaya, warna } };
   if (tipe === "lottie") return { ...dasar, isi: null, w: 40, h: 40, gaya: { ...gaya, ulang: true, kecepatan: 1 }, masuk: { preset: "pudar", mulai: 0, durasi: 0.4 } };
+  if (tipe === "video") return { ...dasar, isi: null, w: 60, h: 45, gaya: { ...gaya, sudut: 4, bisu: true, ulang: true, volume: 1, potong: 0, durasi_klip: null, isi_bingkai: "penuh" }, masuk: { preset: "pudar", mulai: 0, durasi: 0.4 } };
   if (tipe === "gambar") return { ...dasar, isi: null, w: 40, h: 40, gaya: { ...gaya, sudut: 4 }, masuk: { preset: "zoom", mulai: 0.2, durasi: 0.6 } };
   return { ...dasar, isi: "kotak", w: 30, h: 20, gaya: { ...gaya, warna, sudut: 8 }, masuk: { preset: "zoom", mulai: 0, durasi: 0.5 } };
 }

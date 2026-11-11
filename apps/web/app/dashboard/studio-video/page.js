@@ -151,10 +151,10 @@ function Studio() {
     const fd = new FormData();
     fd.append(jenis, file);
     // SVG (gambar vektor) dan Lottie bukan foto, jadi tidak perlu ditanya soal foto siswa
-    if (jenis === "gambar" && !/svg/i.test(file.type) && !/\.svg$/i.test(file.name)) {
+    if ((jenis === "gambar" && !/svg/i.test(file.type) && !/\.svg$/i.test(file.name)) || jenis === "video") {
       // Foto siswa di video publik (promosi, pengumuman, acara) wajib berizin orang tua (UU Pelindungan Data Pribadi)
       const { value, isConfirmed } = await Swal.fire({
-        title: "Apakah gambar ini memuat foto siswa?", input: "radio", inputValue: "tidak",
+        title: jenis === "video" ? "Apakah video ini memperlihatkan siswa?" : "Apakah gambar ini memuat foto siswa?", input: "radio", inputValue: "tidak",
         inputOptions: { tidak: "Tidak", izin: "Ya, orang tua sudah memberi izin", belum: "Ya, belum ada izin orang tua" },
         confirmButtonText: "Unggah", showCancelButton: true, cancelButtonText: "Batal",
       });
@@ -183,12 +183,16 @@ function Studio() {
     setPilih(e.id); setTab("properti");
   };
   // Pilihan dari pustaka aset: tambah elemen baru, atau ganti isi elemen terpilih (posisi & animasi tetap)
-  const pilihPustaka = ({ tipe, isi }) => {
+  const pilihPustaka = ({ tipe, isi, durasi }) => {
+    // Video: lama klip disimpan agar bisa berulang tepat; titik mulai klip kembali ke 0 saat klip diganti
+    const klip = tipe === "video" ? { durasi_klip: durasi || null, potong: 0 } : {};
     if (pustaka?.ganti && elemen) {
       const baru = elemenBaru(tipe, palet[0]);
-      ubahElemen(elemen.id, elemen.tipe === tipe ? { isi } : { tipe, isi, gaya: { ...elemen.gaya, ...baru.gaya, ...(tipe === "ikon" ? {} : { ukuran: elemen.gaya?.ukuran || baru.gaya.ukuran }) } });
+      ubahElemen(elemen.id, elemen.tipe === tipe ? { isi, ...(tipe === "video" ? { gaya: { ...elemen.gaya, ...klip } } : {}) }
+        : { tipe, isi, gaya: { ...elemen.gaya, ...baru.gaya, ...klip, ...(tipe === "ikon" ? {} : { ukuran: elemen.gaya?.ukuran || baru.gaya.ukuran }) } });
     } else {
-      const e = { ...elemenBaru(tipe, palet[0]), isi };
+      const b = elemenBaru(tipe, palet[0]);
+      const e = { ...b, isi, gaya: { ...b.gaya, ...klip } };
       ubahNaskah((n) => { n.adegan[adeganAktif].elemen.push(e); return n; });
       setPilih(e.id); setTab("properti");
     }

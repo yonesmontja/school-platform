@@ -91,7 +91,8 @@ class CanvaController extends Controller
         $d = $request->validate([
             'id_desain' => ['required', 'string', 'max:60', 'regex:/^[A-Za-z0-9_-]+$/'],
             'judul' => 'nullable|string|max:200',
-            'format' => 'required|in:png,jpg',
+            'format' => 'required|in:png,jpg,mp4',
+            'tegak' => 'nullable|boolean',
             'halaman' => 'nullable|array|max:10',
             'halaman.*' => 'integer|min:1|max:500',
             'transparan' => 'nullable|boolean',
@@ -99,10 +100,21 @@ class CanvaController extends Controller
             'izin_ortu' => 'nullable|boolean',
         ]);
         try {
-            $berkas = $this->canva->ekspor($request->user()->id, $d['id_desain'], $d['format'], $d['halaman'] ?? [], (bool) ($d['transparan'] ?? false));
+            $berkas = $this->canva->ekspor($request->user()->id, $d['id_desain'], $d['format'], $d['halaman'] ?? [], (bool) ($d['transparan'] ?? false), $request->boolean('tegak'));
         } catch (RuntimeException $e) { return $this->gagal($e); }
 
         $hasil = [];
+        if ($d['format'] === 'mp4') {
+            $isi = $berkas[0] ?? '';
+            if (substr($isi, 4, 4) !== 'ftyp' || strlen($isi) > 100 * 1024 * 1024) throw ValidationException::withMessages(['id_desain' => 'Hasil ekspor Canva bukan video MP4 yang bisa dipakai (maks. 100 MB).']);
+            Storage::disk('public')->put($path = 'video-aset/aset_' . Str::lower(Str::random(20)) . '.mp4', $isi);
+            $aset = VideoAset::create([
+                'path' => "/storage/{$path}", 'jenis' => 'VIDEO', 'diunggah_oleh' => $request->user()->id,
+                'nama_asli' => mb_substr('Canva: ' . ($d['judul'] ?? $d['id_desain']) . ' (video)', 0, 250),
+                'foto_siswa' => $request->boolean('foto_siswa'), 'izin_ortu' => $request->boolean('izin_ortu'),
+            ]);
+            return response()->json(['success' => true, 'message' => 'Video diimpor dari Canva.', 'data' => [$aset]], 201);
+        }
         foreach ($berkas as $i => $isi) {
             $info = @getimagesizefromstring($isi);
             $ext = ['image/png' => 'png', 'image/jpeg' => 'jpg'][$info['mime'] ?? ''] ?? null;

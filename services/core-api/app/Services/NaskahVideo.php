@@ -11,7 +11,9 @@ namespace App\Services;
 class NaskahVideo
 {
     public const MESIN = ['REMOTION', 'REVIDEO'];
-    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk', 'ikon', 'lottie'];
+    public const TIPE = ['teks', 'emoji', 'gambar', 'bentuk', 'ikon', 'lottie', 'video'];
+    /** Klip video unggahan sekolah / ekspor MP4 Canva untuk elemen `video`. */
+    public const VIDEO = '#^/storage/video-aset/[\w.-]+\.(mp4|webm)$#';
     /** Animasi Lottie unggahan sekolah (dibersihkan BersihAset), disimpan sebagai JSON di storage aset Studio. */
     private const LOTTIE = '#^/storage/video-aset/[\w.-]+\.json$#';
     /** Ikon pustaka Tabler (MIT): "outline/nama" atau "filled/nama", berkas di apps/web/public/pustaka/ikon. */
@@ -102,9 +104,10 @@ class NaskahVideo
             'emoji' => self::teks($e['isi'] ?? '', 16),
             'ikon' => is_string($e['isi'] ?? null) && preg_match(self::IKON, $e['isi']) ? $e['isi'] : null,
             'lottie' => is_string($e['isi'] ?? null) && preg_match(self::LOTTIE, $e['isi']) ? $e['isi'] : null,
+            'video' => is_string($e['isi'] ?? null) && preg_match(self::VIDEO, $e['isi']) ? $e['isi'] : null,
             default => self::teks($e['isi'] ?? '', 300),
         };
-        if (in_array($tipe, ['gambar', 'ikon', 'lottie'], true) && !$isi) return null;
+        if (in_array($tipe, ['gambar', 'ikon', 'lottie', 'video'], true) && !$isi) return null;
         return [
             'id' => preg_replace('/[^\w-]/', '', (string) ($e['id'] ?? '')) ?: bin2hex(random_bytes(4)),
             'tipe' => $tipe,
@@ -131,6 +134,13 @@ class NaskahVideo
             ] + ($tipe === 'lottie' ? [
                 'ulang' => (bool) ($g['ulang'] ?? true), // animasi Lottie berulang atau berhenti di frame akhir
                 'kecepatan' => self::angka($g['kecepatan'] ?? 1, 0.25, 3, 1),
+            ] : []) + ($tipe === 'video' ? [
+                'bisu' => (bool) ($g['bisu'] ?? true),          // suara klip dimatikan (bawaan) atau ikut terdengar
+                'ulang' => (bool) ($g['ulang'] ?? true),        // klip berulang bila lebih pendek dari tampilnya
+                'volume' => self::angka($g['volume'] ?? 1, 0, 1, 1),
+                'potong' => self::angka($g['potong'] ?? 0, 0, 600, 0),   // mulai dari detik ke-n klip
+                'durasi_klip' => self::angka($g['durasi_klip'] ?? null, 0.1, 3600, null),
+                'isi_bingkai' => ($g['isi_bingkai'] ?? null) === 'muat' ? 'muat' : 'penuh',
             ] : []),
             'masuk' => [
                 'preset' => in_array($m['preset'] ?? null, self::MASUK, true) ? $m['preset'] : 'pudar',
@@ -386,7 +396,7 @@ class NaskahVideo
         $aset = [$naskah['merek']['logo'] ?? null];
         foreach ($naskah['adegan'] ?? [] as $a) {
             $aset[] = $a['latar']['gambar'] ?? null;
-            foreach ($a['elemen'] ?? [] as $e) if (($e['tipe'] ?? null) === 'gambar') $aset[] = $e['isi'] ?? null;
+            foreach ($a['elemen'] ?? [] as $e) if (in_array($e['tipe'] ?? null, ['gambar', 'video'], true)) $aset[] = $e['isi'] ?? null;
         }
         return array_values(array_unique(array_filter($aset)));
     }

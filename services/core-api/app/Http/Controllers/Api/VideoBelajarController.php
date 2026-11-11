@@ -311,16 +311,21 @@ class VideoBelajarController extends Controller
     {
         $this->cekPembuatAtauAdmin($request);
         $request->validate([
-            'gambar' => 'required_without_all:audio,lottie|file|max:5120',
-            'audio' => 'required_without_all:gambar,lottie|file|max:10240|mimetypes:' . implode(',', array_keys(self::MIME_AUDIO)),
-            'lottie' => 'required_without_all:gambar,audio|file|max:3072',
+            'gambar' => 'required_without_all:audio,lottie,video|file|max:5120',
+            'audio' => 'required_without_all:gambar,lottie,video|file|max:10240|mimetypes:' . implode(',', array_keys(self::MIME_AUDIO)),
+            'lottie' => 'required_without_all:gambar,audio,video|file|max:3072',
+            // Klip video untuk elemen `video` Studio (maks. 20 MB, batas unggah PHP)
+            'video' => 'required_without_all:gambar,audio,lottie|file|max:20480|mimetypes:' . implode(',', array_keys(self::MIME_VIDEO)),
             'foto_siswa' => 'nullable|boolean',
             'izin_ortu' => 'nullable|boolean',
         ]);
         $nama = 'aset_' . Str::lower(Str::random(20));
         $meta = null;
         try {
-            if ($request->hasFile('audio')) {
+            if ($request->hasFile('video')) {
+                $f = $request->file('video');
+                [$jenis, $path] = ['VIDEO', $f->storeAs('video-aset', "{$nama}." . self::MIME_VIDEO[$f->getMimeType()], 'public')];
+            } elseif ($request->hasFile('audio')) {
                 $f = $request->file('audio');
                 [$jenis, $path] = ['AUDIO', $f->storeAs('video-aset', "{$nama}." . self::MIME_AUDIO[$f->getMimeType()], 'public')];
             } elseif ($request->hasFile('lottie')) {
@@ -341,10 +346,11 @@ class VideoBelajarController extends Controller
                 }
             }
         } catch (\RuntimeException $e) {
-            throw ValidationException::withMessages([$request->hasFile('lottie') ? 'lottie' : ($request->hasFile('audio') ? 'audio' : 'gambar') => $e->getMessage()]);
+            throw ValidationException::withMessages([collect(['video', 'lottie', 'audio'])->first(fn($k) => $request->hasFile($k)) ?? 'gambar' => $e->getMessage()]);
         }
         $path = "/storage/{$path}";
-        $foto = $jenis === 'GAMBAR';
+        // Foto dan klip video bisa memuat wajah siswa: perlu penanda izin orang tua
+        $foto = in_array($jenis, ['GAMBAR', 'VIDEO'], true);
         $aset = VideoAset::create(['path' => $path, 'jenis' => $jenis, 'nama_asli' => mb_substr($f->getClientOriginalName(), 0, 250),
             'foto_siswa' => $foto && $request->boolean('foto_siswa'), 'izin_ortu' => $foto && $request->boolean('izin_ortu'), 'diunggah_oleh' => $request->user()->id]);
         return response()->json(['success' => true, 'url' => $path, 'data' => $aset, 'lottie' => $meta], 201);

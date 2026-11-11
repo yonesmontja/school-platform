@@ -1,6 +1,6 @@
 "use client";
 // Pustaka aset Studio (E2/E3): cari & pilih emoji 3D (Fluent Emoji, Microsoft, MIT) dan ikon (Tabler Icons, MIT),
-// aset unggahan sekolah (gambar, SVG, animasi Lottie), dan desain dari akun Canva pembuat video.
+// aset unggahan sekolah (gambar, SVG, animasi Lottie, klip video), dan desain dari akun Canva pembuat video.
 // Berkas & indeksnya ada di /pustaka (apps/web/public/pustaka, disalin juga ke layanan render), jadi tidak ada
 // unduhan dari luar saat menyunting maupun merender. Indeks dimuat sekali saat panel pertama kali dibuka.
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -167,9 +167,20 @@ export default function PustakaAset({ jenisAwal = "emoji", judul = "Pustaka aset
   );
 }
 
-const LABEL_JENIS = { GAMBAR: "Gambar", SVG: "SVG", LOTTIE: "Lottie" };
+const LABEL_JENIS = { GAMBAR: "Gambar", SVG: "SVG", LOTTIE: "Lottie", VIDEO: "Video" };
+const TIPE_ASET = { LOTTIE: "lottie", VIDEO: "video" };
+const TERIMA = { lottie: "application/json,.json", video: "video/mp4,video/webm", gambar: "image/png,image/jpeg,image/webp,image/svg+xml,.svg" };
 
-/** Aset milik sekolah: gambar/SVG/Lottie yang pernah diunggah atau diimpor dari Canva, plus unggah baru. */
+/** Lama klip (detik) dari metadata, agar elemen video bisa berulang tepat di akhir klip. */
+const lamaKlip = (src) => new Promise((ok) => {
+  const v = Object.assign(document.createElement("video"), { preload: "metadata", muted: true });
+  v.onloadedmetadata = () => ok(Number.isFinite(v.duration) ? Math.round(v.duration * 100) / 100 : null);
+  v.onerror = () => ok(null);
+  setTimeout(() => ok(null), 10000);
+  v.src = src;
+});
+
+/** Aset milik sekolah: gambar/SVG/Lottie/video yang pernah diunggah atau diimpor dari Canva, plus unggah baru. */
 function TabUnggahan({ onPilih, onUnggah }) {
   const [daftar, setDaftar] = useState(null);
   const [saring, setSaring] = useState("");
@@ -179,35 +190,39 @@ function TabUnggahan({ onPilih, onUnggah }) {
   }, []);
   const unggahBaru = async (jenis) => {
     const f = await new Promise((ok) => {
-      const i = Object.assign(document.createElement("input"), { type: "file", accept: jenis === "lottie" ? "application/json,.json" : "image/png,image/jpeg,image/webp,image/svg+xml,.svg" });
+      const i = Object.assign(document.createElement("input"), { type: "file", accept: TERIMA[jenis] });
       i.onchange = () => ok(i.files?.[0]); i.click();
     });
     if (!f || !onUnggah) return;
     setProses(true);
     const url = await onUnggah(f, jenis);
     setProses(false);
-    if (url) onPilih({ tipe: jenis === "lottie" ? "lottie" : "gambar", isi: url });
+    if (url) await pilih(jenis === "gambar" ? "gambar" : jenis, url);
   };
+  const pilih = async (tipe, isi) => onPilih(tipe === "video" ? { tipe, isi, durasi: await lamaKlip(isi) } : { tipe, isi });
   const tampil = (daftar || []).filter((a) => !saring || a.jenis === saring);
   return (
     <div>
       <div className="d-flex flex-wrap gap-2 align-items-center mb-2">
         <button type="button" className="btn btn-sm btn-primary" disabled={proses} onClick={() => unggahBaru("gambar")}><i className="bi bi-image me-1"></i>Unggah gambar / SVG</button>
         <button type="button" className="btn btn-sm btn-primary" disabled={proses} onClick={() => unggahBaru("lottie")}><i className="bi bi-film me-1"></i>Unggah animasi Lottie</button>
+        <button type="button" className="btn btn-sm btn-primary" disabled={proses} onClick={() => unggahBaru("video")}><i className="bi bi-camera-video me-1"></i>Unggah video</button>
         {proses && <span className="spinner-border spinner-border-sm"></span>}
         <label className="visually-hidden" htmlFor="pkJenis">Jenis aset</label>
         <select id="pkJenis" className="form-select form-select-sm ms-auto" style={{ width: "auto" }} value={saring} onChange={(e) => setSaring(e.target.value)}>
-          <option value="">Semua jenis</option><option value="GAMBAR">Gambar</option><option value="SVG">SVG</option><option value="LOTTIE">Lottie</option>
+          <option value="">Semua jenis</option><option value="GAMBAR">Gambar</option><option value="SVG">SVG</option><option value="LOTTIE">Lottie</option><option value="VIDEO">Video</option>
         </select>
       </div>
-      <div className="form-text mb-2">SVG dibersihkan dari skrip &amp; tautan luar (maks. 1 MB). Lottie: JSON dari After Effects/LottieFiles dengan gambar tertanam (maks. 3 MB); kode expression dibuang.</div>
+      <div className="form-text mb-2">SVG dibersihkan dari skrip &amp; tautan luar (maks. 1 MB). Lottie: JSON dari After Effects/LottieFiles dengan gambar tertanam (maks. 3 MB); kode expression dibuang. Video: MP4/WebM maks. 20 MB.</div>
       {!daftar && <div className="text-center text-body-secondary py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memuat aset sekolah…</div>}
-      {daftar && !tampil.length && <div className="text-center text-body-secondary py-4">Belum ada aset. Unggah gambar, SVG, atau animasi Lottie milik sekolah.</div>}
+      {daftar && !tampil.length && <div className="text-center text-body-secondary py-4">Belum ada aset. Unggah gambar, SVG, animasi Lottie, atau video milik sekolah.</div>}
       <div className="studio-pustaka studio-pustaka-besar">
         {tampil.map((a) => (
           <button key={a.id} type="button" className="studio-pustaka-item flex-column" title={a.nama_asli || a.path} aria-label={`${LABEL_JENIS[a.jenis] || "Aset"} ${a.nama_asli || ""}`}
-            onClick={() => onPilih({ tipe: a.jenis === "LOTTIE" ? "lottie" : "gambar", isi: a.path })}>
-            {a.jenis === "LOTTIE" ? <i className="bi bi-film fs-2 text-primary"></i> : <img src={a.path} alt="" loading="lazy" style={{ maxWidth: "80%", maxHeight: "62%", objectFit: "contain" }} />}
+            onClick={() => pilih(TIPE_ASET[a.jenis] || "gambar", a.path)}>
+            {a.jenis === "LOTTIE" ? <i className="bi bi-film fs-2 text-primary"></i>
+              : a.jenis === "VIDEO" ? <video src={`${a.path}#t=0.5`} muted preload="metadata" style={{ maxWidth: "80%", maxHeight: "62%", objectFit: "contain" }} />
+              : <img src={a.path} alt="" loading="lazy" style={{ maxWidth: "80%", maxHeight: "62%", objectFit: "contain" }} />}
             <span className="studio-pustaka-nama">{LABEL_JENIS[a.jenis]} · {a.nama_asli || "tanpa nama"}</span>
           </button>
         ))}
@@ -223,7 +238,7 @@ function TabCanva({ onSelesai }) {
   const [desain, setDesain] = useState(null);
   const [lanjutan, setLanjutan] = useState(null);
   const [pilih, setPilih] = useState(null);
-  const [opsi, setOpsi] = useState({ format: "png", halaman: "1", transparan: false, foto: "tidak" });
+  const [opsi, setOpsi] = useState({ format: "png", halaman: "1", transparan: false, foto: "tidak", tegak: false });
   const [proses, setProses] = useState(false);
   const [galat, setGalat] = useState("");
 
@@ -270,7 +285,7 @@ function TabCanva({ onSelesai }) {
     try {
       const r = await minta("POST", "/video-belajar/canva/impor", {
         id_desain: pilih.id, judul: pilih.judul, format: opsi.format, halaman: halaman.length ? halaman.slice(0, 10) : undefined,
-        transparan: opsi.format === "png" && opsi.transparan, foto_siswa: opsi.foto !== "tidak", izin_ortu: opsi.foto === "izin",
+        transparan: opsi.format === "png" && opsi.transparan, tegak: opsi.format === "mp4" && opsi.tegak, foto_siswa: opsi.foto !== "tidak", izin_ortu: opsi.foto === "izin",
       });
       Swal.fire({ icon: "success", title: "Diimpor dari Canva", text: `${r.message} Pilih di tab Unggahan sekolah.`, timer: 2200, showConfirmButton: false });
       setPilih(null); onSelesai();
@@ -296,12 +311,16 @@ function TabCanva({ onSelesai }) {
           <div className="fw-semibold mb-2">{pilih.judul}{pilih.halaman ? <span className="text-body-secondary small"> · {pilih.halaman} halaman</span> : null}</div>
           <div className="row g-2">
             <div className="col-6"><label className="form-label small mb-1" htmlFor="cvFormat">Format</label>
-              <select id="cvFormat" className="form-select form-select-sm" value={opsi.format} onChange={(e) => setOpsi({ ...opsi, format: e.target.value })}><option value="png">PNG (tajam)</option><option value="jpg">JPG (lebih kecil)</option></select></div>
+              <select id="cvFormat" className="form-select form-select-sm" value={opsi.format} onChange={(e) => setOpsi({ ...opsi, format: e.target.value })}><option value="png">PNG (tajam)</option><option value="jpg">JPG (lebih kecil)</option><option value="mp4">Video MP4 (dengan animasi)</option></select></div>
             <div className="col-6"><label className="form-label small mb-1" htmlFor="cvHal">Halaman</label>
               <input id="cvHal" className="form-control form-control-sm" value={opsi.halaman} onChange={(e) => setOpsi({ ...opsi, halaman: e.target.value })} placeholder="1, 2, 3 atau semua" /></div>
             {opsi.format === "png" && <div className="col-12"><div className="form-check form-switch">
               <input className="form-check-input" type="checkbox" role="switch" id="cvTrans" checked={opsi.transparan} onChange={(e) => setOpsi({ ...opsi, transparan: e.target.checked })} />
               <label className="form-check-label small" htmlFor="cvTrans">Latar transparan (perlu Canva berbayar/Education)</label></div></div>}
+            {opsi.format === "mp4" && <div className="col-12"><div className="form-check form-switch">
+              <input className="form-check-input" type="checkbox" role="switch" id="cvTegak" checked={opsi.tegak} onChange={(e) => setOpsi({ ...opsi, tegak: e.target.checked })} />
+              <label className="form-check-label small" htmlFor="cvTegak">Video tegak (9:16)</label></div>
+              <div className="form-text">Halaman terpilih digabung menjadi satu video 1080p (maks. 100 MB). Ekspor video bisa memakan waktu 1–3 menit.</div></div>}
             <div className="col-12"><label className="form-label small mb-1" htmlFor="cvFoto">Memuat foto siswa?</label>
               <select id="cvFoto" className="form-select form-select-sm" value={opsi.foto} onChange={(e) => setOpsi({ ...opsi, foto: e.target.value })}>
                 <option value="tidak">Tidak</option><option value="izin">Ya, orang tua sudah memberi izin</option><option value="belum">Ya, belum ada izin orang tua</option></select></div>
