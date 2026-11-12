@@ -2,8 +2,7 @@
 // naskah siswa, lembar jawaban, serta kunci & rubrik untuk guru.
 import { HURUF, labelBentuk } from "./konstanta";
 import { srcGambar, srcSvg } from "./PratinjauSoal";
-
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+import { esc, gayaHalamanMengalir, judulHtml, kopHtml, muatSekolah, siapkanJendela, tulisJendela } from "@/app/lib/dokumenResmi";
 const teks = (v) => esc(v).replace(/\n/g, "<br>");
 
 // Acak tetap (sama setiap cetak) berdasarkan id butir, agar naskah dan kunci selalu cocok
@@ -87,10 +86,7 @@ function lembarJawaban(butir) {
 }
 
 const GAYA = `
-  @page { size: A4; margin: 15mm 14mm; }
-  body { font-family: "Times New Roman", serif; font-size: 12pt; color: #000; margin: 0; }
-  .kop { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-  .kop h1 { font-size: 14pt; margin: 0; } .kop h2 { font-size: 13pt; margin: 2px 0 0; }
+  body { font-family: "Times New Roman", serif; font-size: 12pt; }
   .meta { width: 100%; font-size: 11pt; margin-bottom: 8px; } .meta td { padding: 1px 4px; }
   .petunjuk { border: 1px solid #000; padding: 6px 8px; font-size: 11pt; margin-bottom: 10px; }
   .butir { break-inside: avoid; margin-bottom: 12px; display: flex; gap: 6px; }
@@ -115,9 +111,8 @@ const GAYA = `
   .halaman-baru { break-before: page; }
 `;
 
-function kop(paket, sub) {
-  const sekolah = paket.sekolah?.nama_sekolah || "";
-  return `<div class="kop"><h1>${esc(sekolah)}</h1><h2>${esc(paket.judul)}${sub ? ` — ${esc(sub)}` : ""}</h2></div>
+function kop(paket, sub, sek) {
+  return `${kopHtml(sek)}${judulHtml(paket.judul, sub || "")}
     <table class="meta"><tr><td>Mata pelajaran: <b>${esc(paket.mapel?.nama_mapel)}</b></td><td>Kelas: <b>${esc(paket.kelas?.nama_kelas || "")}</b></td>
     <td>${paket.tanggal ? `Tanggal: ${esc(new Date(paket.tanggal + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }))}` : ""}</td>
     <td>${paket.durasi_menit ? `Waktu: ${paket.durasi_menit} menit` : ""}</td></tr>
@@ -126,22 +121,25 @@ function kop(paket, sub) {
 
 /** Buka jendela cetak. jenis: "naskah" | "lembar" | "kunci" | "lengkap" (naskah + lembar jawaban). */
 export function cetakPaket(paket, jenis) {
+  const w = siapkanJendela();
+  if (!w) return false;
+  muatSekolah(paket.sekolah).then((sek) => tulisPaket(w, paket, jenis, sek));
+  return true;
+}
+
+function tulisPaket(w, paket, jenis, sek) {
   const butir = paket.butir || [];
-  const naskah = () => `${kop(paket)}${paket.petunjuk ? `<div class="petunjuk"><b>Petunjuk:</b> ${teks(paket.petunjuk)}</div>` : ""}
+  const naskah = () => `${kop(paket, "", sek)}${paket.petunjuk ? `<div class="petunjuk"><b>Petunjuk:</b> ${teks(paket.petunjuk)}</div>` : ""}
     ${butir.map((b, n) => `<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, false)}</div></div>`).join("")}`;
-  const lembar = () => `${kop(paket, "Lembar Jawaban")}${lembarJawaban(butir)}
+  const lembar = () => `${kop(paket, "Lembar Jawaban", sek)}${lembarJawaban(butir)}
     <div class="catatan">Hitamkan atau silang pilihanmu dengan jelas. Lembar ini bisa difoto guru untuk dikoreksi.</div>`;
-  const kunci = () => `<div class="kop"><h1>${esc(paket.sekolah?.nama_sekolah || "")}</h1><h2>${esc(paket.judul)} — Kunci &amp; Rubrik (untuk guru)</h2></div>
+  const kunci = () => `${kopHtml(sek)}${judulHtml(paket.judul, "Kunci & Rubrik (untuk guru)")}
     ${butir.map((b, n) => `<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, true)}
       ${b.soal.pembahasan ? `<div><i>Pembahasan:</i> ${teks(b.soal.pembahasan)}</div>` : ""}
       <div class="info">${esc(labelBentuk(b.soal.bentuk))} · ${esc(b.soal.level_kognitif || "")} · skor maks. ${b.skor_maks}${b.soal.indikator?.deskripsi ? ` · TP: ${esc(b.soal.indikator.deskripsi)}` : ""}
       · STNKM ${["S", "T", "N", "K", "M"].filter((d) => Number(b.soal[`dim_${d}`]) > 0).map((d) => `${d} ${Number(b.soal[`dim_${d}`]).toFixed(1)}`).join(" ")}</div></div></div>`).join("")}`;
 
   const isi = { naskah: naskah(), lembar: lembar(), kunci: kunci(), lengkap: `${naskah()}<div class="halaman-baru"></div>${lembar()}` }[jenis];
-  const w = window.open("", "_blank");
-  if (!w) return false;
-  w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>${esc(paket.judul)}</title><style>${GAYA}</style></head><body>${isi}
-    <script>window.onload=()=>{const t=[...document.images].map(i=>i.complete?Promise.resolve():new Promise(r=>{i.onload=i.onerror=r}));Promise.all(t).then(()=>window.print())}</script></body></html>`);
-  w.document.close();
-  return true;
+  const judulDok = { naskah: "Naskah Soal", lembar: "Lembar Jawaban", kunci: "Kunci & Rubrik", lengkap: "Naskah Soal" }[jenis];
+  tulisJendela(w, paket.judul, `${gayaHalamanMengalir(sek, `${paket.judul} · ${judulDok}`, { margin: "14mm 14mm 17mm" })}${GAYA}`, isi);
 }

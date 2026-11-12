@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { bacaUser, useAkses } from "@/app/lib/akses";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
@@ -392,166 +391,23 @@ export default function MasterSiswaPage() {
     if (data.length === 0)
       return Swal.fire("Kosong", "Tidak ada data untuk diekspor", "warning");
 
-    Swal.fire({
-      title: "Menyiapkan PDF...",
-      text: "Memuat data tanda tangan...",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
+    Swal.fire({ title: "Menyiapkan PDF...", text: "Memuat kop dan tanda tangan...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    // Wali kelas (kanan) hanya bila satu kelas dipilih
+    const kelas = filterKelas !== "ALL" ? masterData.classes.find((c) => String(c.id_kelas) === String(filterKelas)) : null;
+    const wali = kelas && typeof kelas.wali_kelas === "object" ? kelas.wali_kelas : null;
+    const kanan = kelas ? {
+      jabatan: `Wali ${kelas.nama_kelas}`, nama: wali?.nama_guru, nip: wali?.nip_nik,
+      ttdDataUrl: wali?.ttd_guru_url ? await getBase64ImageFromUrl(wali.ttd_guru_url) : null,
+    } : null;
+
+    await generateProfessionalPDF(data, "Laporan Data Siswa", schoolSettings, null, {
+      sub: `${kelas ? kelas.nama_kelas : "Semua kelas"} · Jumlah siswa: ${data.length}`,
+      columnStyles: { 0: { halign: "center" }, 3: { halign: "center" }, 4: { halign: "center" }, 5: { halign: "center" }, 6: { halign: "center" } },
+      kanan,
     });
 
-    const headers = Object.keys(data[0]);
-    const rows = data.map((obj) => Object.values(obj));
-    const doc = new jsPDF("landscape", "mm", "a4");
-
-    // 1. Ambil Data Dinamis untuk TTD
-    const namaKepsek =
-      schoolSettings?.nama_kepsek || "..............................";
-    const nipKepsek =
-      schoolSettings?.nip_kepsek || "..............................";
-    const kota = schoolSettings?.kota || "....................";
-
-    // Cari Wali Kelas berdasarkan filterKelas yang dipilih
-    let namaWali = "..............................";
-    let nipWali = "..............................";
-    let waliKelasData = null;
-
-    if (filterKelas !== "ALL") {
-      const selectedClass = masterData.classes.find(
-        (c) => String(c.id_kelas) === String(filterKelas),
-      );
-      // Tambahkan pengecekan tipe data
-      if (selectedClass && selectedClass.wali_kelas && typeof selectedClass.wali_kelas === 'object') {
-        waliKelasData = selectedClass.wali_kelas;
-        namaWali = waliKelasData.nama_guru || namaWali;
-        nipWali = waliKelasData.nip_nik || nipWali;
-        console.log("Data Wali Kelas ditemukan:", waliKelasData);
-      } else {
-        console.warn("Wali Kelas belum diatur atau relasi API tidak terbaca.");
-      }
-    } else {
-      console.warn("Filter Kelas masih 'Semua Kelas'. Pilih kelas spesifik agar TTD Wali Kelas muncul.");
-    }
-
-    // 2. Ambil Gambar TTD sebagai Base64 (Menggunakan Promise.all agar parallel)
-    const [ttdKepsekBase64, ttdWaliBase64] = await Promise.all([
-      getBase64ImageFromUrl(schoolSettings?.ttd_kepsek_url),
-      getBase64ImageFromUrl(waliKelasData?.ttd_guru_url),
-    ]);
-
-    // --- KOP SURAT ---
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("LAPORAN DATA SISWA", 148, 15, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Sistem Informasi Akademik & Analitik STNKM", 148, 21, {
-      align: "center",
-    });
-    doc.text(`Dicetak pada: ${new Date().toLocaleString("id-ID")}`, 148, 26, {
-      align: "center",
-    });
-    doc.setLineWidth(0.5);
-    doc.line(14, 29, 283, 29);
-
-    autoTable(doc, {
-      head: [headers],
-      body: rows,
-      startY: 33,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: {
-        fillColor: [63, 81, 181],
-        textColor: 255,
-        halign: "center",
-        fontStyle: "bold",
-      },
-      columnStyles: {
-        0: { halign: "center" },
-        3: { halign: "center" },
-        4: { halign: "center" },
-        5: { halign: "center" },
-        6: { halign: "center" },
-      },
-      margin: { bottom: 60 },
-
-      didDrawPage: function (data) {
-        const pageHeight = doc.internal.pageSize.height;
-        const pageWidth = doc.internal.pageSize.width;
-
-        // FOOTER
-        let str = "Halaman " + doc.internal.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.text(str, pageWidth - 20, pageHeight - 8);
-        doc.text(
-          "Dokumen ini dihasilkan secara otomatis oleh sistem.",
-          14,
-          pageHeight - 8,
-        );
-
-        // RUANG TANDA TANGAN (KIRI: KEPSEK)
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("Mengetahui,", 20, pageHeight - 50);
-        doc.text("Kepala Sekolah", 20, pageHeight - 45);
-
-        // Sisipkan Gambar TTD Kepsek (Jika ada)
-        if (ttdKepsekBase64) {
-          // Parameter: base64, format, x, y, width, height
-          doc.addImage(ttdKepsekBase64, "PNG", 20, pageHeight - 42, 30, 15);
-          // Catatan: sesuaikan X dan Y agar posisinya pas di atas garis
-        }
-
-        doc.text(
-          "........................................",
-          20,
-          pageHeight - 25,
-        );
-        doc.text(`( ${namaKepsek} )`, 20, pageHeight - 20);
-        doc.text(`NIP. ${nipKepsek}`, 20, pageHeight - 15);
-
-        // RUANG TANDA TANGAN (KANAN: WALI KELAS)
-        doc.text(
-          `${kota}, ${new Date().toLocaleDateString("id-ID")}`,
-          pageWidth - 80,
-          pageHeight - 50,
-        );
-        doc.text("Wali Kelas", pageWidth - 80, pageHeight - 45);
-
-        // Sisipkan Gambar TTD Wali Kelas (Jika ada)
-        if (ttdWaliBase64) {
-          doc.addImage(
-            ttdWaliBase64,
-            "PNG",
-            pageWidth - 80,
-            pageHeight - 42,
-            30,
-            15,
-          );
-        }
-
-        doc.text(
-          "........................................",
-          pageWidth - 80,
-          pageHeight - 25,
-        );
-        doc.text(`( ${namaWali} )`, pageWidth - 80, pageHeight - 20);
-        doc.text(`NIP. ${nipWali}`, pageWidth - 80, pageHeight - 15);
-      },
-    });
-
-    const pdfBlobUrl = doc.output("bloburl");
-    window.open(pdfBlobUrl, "_blank");
-
-    Swal.fire({
-      toast: true,
-      position: "top-end",
-      icon: "success",
-      title: "PDF berhasil dibuat",
-      showConfirmButton: false,
-      timer: 2000,
-    });
+    Swal.fire({ toast: true, position: "top-end", icon: "success", title: "PDF berhasil dibuat", showConfirmButton: false, timer: 2000 });
   };
 
   // --- FUNGSI CRUD & MODAL (Sama seperti sebelumnya, tidak diubah) ---

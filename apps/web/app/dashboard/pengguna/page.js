@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { API_URL, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from "@/app/lib/akses";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+import { cetakSuratAkun } from "@/components/pengguna/cetakAkun";
 
 const ROLES = ["admin", "kepsek", "guru", "siswa", "ortu"];
 const FORM_KOSONG = { name: "", role: "guru", email: "", username: "", password: "", id_guru: "", id_siswa: "", id_ortu: "", id_wali: "", aktif: true, wajib_ganti_password: true };
@@ -82,7 +83,7 @@ export default function ManajemenPenggunaPage() {
       const d = await api(form.id ? `/users/${form.id}` : "/users", { method: form.id ? "PUT" : "POST", body: JSON.stringify(body) });
       setForm(null);
       await muat();
-      if (d.kredensial) setKredensial({ judul: "Akun dibuat", daftar: [d.kredensial] });
+      if (d.kredensial) setKredensial({ judul: form.id ? "Kata sandi diperbarui" : "Akun dibuat", daftar: [d.kredensial] });
       else Swal.fire({ toast: true, position: "top-end", icon: "success", title: d.message, showConfirmButton: false, timer: 1800 });
     } catch (err) {
       Swal.fire("Gagal menyimpan", err.message, "error");
@@ -350,7 +351,7 @@ function FormAkun({ form, setF, refData, menyimpan, onSimpan, onTutup }) {
   );
 }
 
-// Kata sandi hanya tampil sekali; sediakan salin, unduh CSV, dan cetak kartu login
+// Kata sandi hanya tampil sekali; sediakan salin, unduh CSV, dan cetak surat akun berkop sekolah
 function DaftarKredensial({ judul, daftar, onTutup }) {
   const teks = daftar.map((k) => `${k.nama}\t${k.login}\t${k.password}`).join("\n");
   const salin = async () => {
@@ -365,17 +366,9 @@ function DaftarKredensial({ judul, daftar, onTutup }) {
     a.click();
     URL.revokeObjectURL(url);
   };
-  const cetak = () => {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    w.document.write(`<html><head><title>Kartu Login</title><style>
-      body{font-family:system-ui,sans-serif;margin:16px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-      .k{border:1px dashed #888;border-radius:8px;padding:12px;break-inside:avoid}.n{font-weight:700;margin-bottom:6px}
-      .l{font-family:monospace;font-size:14px}small{color:#666}</style></head><body><div class="grid">
-      ${daftar.map((k) => `<div class="k"><div class="n">${esc(k.nama)}</div><div class="l">Login: <b>${esc(k.login)}</b></div><div class="l">Sandi: <b>${esc(k.password)}</b></div><small>Ganti kata sandi setelah login pertama.</small></div>`).join("")}
-      </div><script>window.onload=()=>window.print()</script></body></html>`);
-    w.document.close();
+  const [mode, setMode] = useState(daftar.length > 1 ? "ringkas" : "pribadi");
+  const cetak = async () => {
+    if (!(await cetakSuratAkun(daftar, { mode }))) Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini, lalu coba lagi.", "warning");
   };
 
   return (
@@ -384,7 +377,13 @@ function DaftarKredensial({ judul, daftar, onTutup }) {
         <div className="modal-footer">
           <button className="btn btn-outline-secondary" onClick={salin}><i className="bi bi-clipboard me-1"></i>Salin</button>
           <button className="btn btn-outline-success" onClick={unduhCSV}><i className="bi bi-filetype-csv me-1"></i>Unduh CSV</button>
-          <button className="btn btn-outline-primary" onClick={cetak}><i className="bi bi-printer me-1"></i>Cetak Kartu</button>
+          {daftar.length > 1 && (
+            <select className="form-select w-auto" value={mode} onChange={(e) => setMode(e.target.value)} title="Tata letak surat akun">
+              <option value="pribadi">1 akun per halaman</option>
+              <option value="ringkas">4 akun per halaman</option>
+            </select>
+          )}
+          <button className="btn btn-outline-primary" onClick={cetak}><i className="bi bi-file-earmark-pdf me-1"></i>Cetak Surat Akun (PDF)</button>
           <button className="btn btn-primary fw-bold" onClick={onTutup}>Selesai</button>
         </div>
       )}>

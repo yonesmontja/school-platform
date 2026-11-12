@@ -1,5 +1,6 @@
 "use client";
 import jsPDF from "jspdf";
+import { gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
 import autoTable from "jspdf-autotable";
 
 const NAMA_SISTEM = "Sistem Informasi Akademik & Analitik STNKM";
@@ -104,94 +105,53 @@ export function eksporCSV({ table, namaFile }) {
   URL.revokeObjectURL(url);
 }
 
-const kopPDF = (doc, { judul, konteks, sekolah }) => {
-  const pw = doc.internal.pageSize.getWidth();
-  doc.setTextColor(33, 37, 41);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.text(String(sekolah?.nama_sekolah || NAMA_SISTEM).toUpperCase(), pw / 2, 14, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  const alamat = [sekolah?.alamat_sekolah, sekolah?.npsn ? `NPSN: ${sekolah.npsn}` : null].filter(Boolean).join(" • ");
-  if (alamat) doc.text(alamat, pw / 2, 19, { align: "center" });
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(judul.toUpperCase(), pw / 2, 27, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(108, 117, 125);
-  doc.text(`${konteks} • Dicetak: ${tanggalCetak()}`, pw / 2, 32, { align: "center" });
-  doc.setDrawColor(33, 37, 41);
-  doc.setLineWidth(0.6);
-  doc.line(12, 35, pw - 12, 35);
-  return 40;
-};
-
-const ttdPDF = (doc, y, { sekolah, petugas, jabatanKanan = "Guru / Petugas Analitik" }) => {
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
-  if (y > ph - 45) { doc.addPage(); y = 20; }
-  doc.setTextColor(33, 37, 41);
-  doc.setFontSize(10);
-  const kiri = pw * 0.25, kanan = pw * 0.75;
-  doc.text("Mengetahui,", kiri, y, { align: "center" });
-  doc.text("Kepala Sekolah", kiri, y + 5, { align: "center" });
-  doc.text(`${sekolah?.kota || "-"}, ${tanggalCetak()}`, kanan, y, { align: "center" });
-  doc.text(jabatanKanan, kanan, y + 5, { align: "center" });
-  doc.setFont("helvetica", "bold");
-  doc.text(sekolah?.nama_kepsek || "....................................", kiri, y + 27, { align: "center" });
-  doc.text(petugas || "....................................", kanan, y + 27, { align: "center" });
-  doc.setFont("helvetica", "normal");
-  doc.text(`NIP. ${sekolah?.nip_kepsek || "-"}`, kiri, y + 32, { align: "center" });
-};
-
-// PDF: kop, grafik proporsional, tabel rincian, dan tanda tangan
+// PDF: kop sekolah resmi (diulang tiap halaman), grafik proporsional, tabel rincian, tanda tangan, kaki halaman
 export async function eksporPDF({ config, judul, konteks, table, sekolah, petugas, namaFile }) {
+  const sek = await muatSekolah(sekolah);
   const doc = new jsPDF("landscape", "mm", "a4");
   const pw = doc.internal.pageSize.getWidth();
-  let y = kopPDF(doc, { judul, konteks, sekolah });
+  let y = kopPdf(doc, sek, { judul, sub: konteks });
   if (config) {
-    const lebarMm = pw - 24, tinggiMm = 95;
+    const lebarMm = pw - 28, tinggiMm = 92;
     const grafik = await renderGrafikStatis(config, Math.round(lebarMm * 4), Math.round(tinggiMm * 4), 3);
-    doc.addImage(grafik.toDataURL("image/png"), "PNG", 12, y, lebarMm, tinggiMm);
+    doc.addImage(grafik.toDataURL("image/png"), "PNG", 14, y, lebarMm, tinggiMm);
     y += tinggiMm + 4;
   }
   if (table?.rows?.length) {
     autoTable(doc, {
-      head: [["No", ...table.headers]],
-      body: table.rows.map((r, i) => [i + 1, ...r]),
+      ...gayaTabelResmi,
+      head: [["No", ...table.headers].map(teksPdf)],
+      body: table.rows.map((r, i) => [i + 1, ...r].map(teksPdf)),
       startY: y,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1.6 },
-      headStyles: { fillColor: [52, 58, 64], textColor: 255, halign: "center" },
-      margin: { left: 12, right: 12 },
     });
-    y = doc.lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 12;
   }
-  ttdPDF(doc, y, { sekolah, petugas });
+  ttdPdf(doc, sek, y + 5, { kanan: { jabatan: "Guru / Petugas Analitik", nama: petugas } });
+  selesaikanPdf(doc, sek, { judul, sub: konteks });
   doc.save(`${namaFileAman(namaFile)}.pdf`);
 }
 
 // PDF laporan EWS: statistik ringkas + tabel rincian temuan
-export function eksporPDFEws({ records, judulFilter, konteks, sekolah, petugas, namaFile }) {
+export async function eksporPDFEws({ records, judulFilter, konteks, sekolah, petugas, namaFile }) {
+  const sek = await muatSekolah(sekolah);
   const doc = new jsPDF("landscape", "mm", "a4");
-  let y = kopPDF(doc, { judul: "Laporan Sistem Peringatan Dini (EWS)", konteks: `${judulFilter} • ${konteks}`, sekolah });
+  const judul = "Laporan Sistem Peringatan Dini (EWS)";
+  const sub = `${judulFilter} | ${konteks}`;
+  const y = kopPdf(doc, sek, { judul, sub });
   const hitung = (s) => records.filter((r) => r.skor === s).length;
-  doc.setTextColor(33, 37, 41);
-  doc.setFontSize(9);
-  doc.text(`Total terdeteksi: ${records.length} siswa   |   Bahaya: ${hitung(3)}   |   Perhatian: ${hitung(2)}   |   Waspada: ${hitung(1)}`, 12, y);
+  doc.setFontSize(9).text(`Total terdeteksi: ${records.length} siswa   |   Bahaya: ${hitung(3)}   |   Perhatian: ${hitung(2)}   |   Waspada: ${hitung(1)}`, 14, y);
   autoTable(doc, {
+    ...gayaTabelResmi,
     head: [["No", "Peserta Didik", "Kelas", "Tingkat Risiko", "Kategori", "Detail Temuan", "Rencana Tindak Lanjut"]],
     body: records.map((r, i) => [i + 1, `${r.nama_siswa}\nNISN: ${r.nisn || r.id_siswa}`, r.kelas, r.tingkatan, r.kategori.join(", "),
-      r.issues.map((x) => `• [${x.kategori}] ${x.deskripsi}`).join("\n"), "Konseling / pendampingan khusus"]),
+      r.issues.map((x) => `- [${x.kategori}] ${x.deskripsi}`).join("\n"), "Konseling / pendampingan khusus"].map(teksPdf)),
     startY: y + 3,
-    theme: "grid",
-    styles: { fontSize: 8, cellPadding: 1.6, valign: "middle" },
-    headStyles: { fillColor: [220, 53, 69], textColor: 255, halign: "center" },
+    styles: { ...gayaTabelResmi.styles, valign: "middle" },
+    headStyles: { ...gayaTabelResmi.headStyles, fillColor: [185, 28, 28] },
     columnStyles: { 0: { cellWidth: 9, halign: "center" }, 5: { cellWidth: 95 } },
-    margin: { left: 12, right: 12 },
   });
-  ttdPDF(doc, doc.lastAutoTable.finalY + 10, { sekolah, petugas, jabatanKanan: "Koordinator BK / Wali Kelas" });
+  ttdPdf(doc, sek, doc.lastAutoTable.finalY + 17, { kanan: { jabatan: "Koordinator BK / Wali Kelas", nama: petugas } });
+  selesaikanPdf(doc, sek, { judul, sub });
   doc.save(`${namaFileAman(namaFile)}.pdf`);
 }
 

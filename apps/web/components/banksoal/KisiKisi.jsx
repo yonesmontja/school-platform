@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
+import { ATAS_ISI, gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
 import autoTable from "jspdf-autotable";
 import { BENTUK, DIMENSI, KESULITAN, LEVEL, STATUS, labelBentuk } from "./konstanta";
 import ModalDrafAI from "./ModalDrafAI";
@@ -53,22 +54,26 @@ export default function KisiKisi({ referensi, onSoalBerubah }) {
     catch (err) { Swal.fire("Gagal", err.message, "error"); }
   };
 
-  const unduhPdf = (k) => {
+  const unduhPdf = async (k) => {
+    const sek = await muatSekolah();
     const doc = new jsPDF("landscape", "mm", "a4");
-    doc.setFont("helvetica", "bold").setFontSize(14).text(`Kisi-kisi: ${k.judul}`, 14, 15);
-    doc.setFont("helvetica", "normal").setFontSize(10).text(`${k.mapel?.nama_mapel || ""}${k.kelas ? ` | Kelas ${k.kelas.nama_kelas}` : ""}`, 14, 21);
+    const judul = `Kisi-kisi Soal: ${k.judul}`;
+    const sub = `${k.mapel?.nama_mapel || ""}${k.kelas ? ` | Kelas ${k.kelas.nama_kelas}` : ""}`;
+    kopPdf(doc, sek, { judul, sub });
     autoTable(doc, {
-      startY: 26, theme: "grid", styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [32, 107, 196] },
+      ...gayaTabelResmi, startY: ATAS_ISI, styles: { ...gayaTabelResmi.styles, fontSize: 9 },
       head: [["No", "Materi", "Tujuan pembelajaran", "Bentuk", "Level", "Kesulitan", "Dimensi", "Jumlah", "Nomor soal"]],
       body: (() => {
         let no = 1;
         return k.baris.map((b, i) => {
-          const nomor = b.jumlah > 1 ? `${no}–${no + b.jumlah - 1}` : `${no}`;
+          const nomor = b.jumlah > 1 ? `${no}-${no + b.jumlah - 1}` : `${no}`;
           no += b.jumlah;
-          return [i + 1, b.materi?.nama_materi || "-", b.indikator?.deskripsi || "-", labelBentuk(b.bentuk), b.level_kognitif, b.tingkat_kesulitan, b.dimensi || "-", b.jumlah, nomor];
+          return [i + 1, b.materi?.nama_materi || "-", b.indikator?.deskripsi || "-", labelBentuk(b.bentuk), b.level_kognitif, b.tingkat_kesulitan, b.dimensi || "-", b.jumlah, nomor].map(teksPdf);
         });
       })(),
     });
+    ttdPdf(doc, sek, doc.lastAutoTable.finalY + 12, { kanan: { jabatan: "Guru Mata Pelajaran", nama: k.pembuat?.name } });
+    selesaikanPdf(doc, sek, { judul, sub });
     doc.save(`Kisi-kisi_${k.judul}.pdf`.replace(/[^\w.\-]+/g, "_"));
   };
 

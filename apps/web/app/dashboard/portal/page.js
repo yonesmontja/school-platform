@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
+import { ATAS_ISI, gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
 import autoTable from "jspdf-autotable";
 import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
 import {
@@ -59,20 +60,16 @@ const statusTindak = (r) => {
   return r.nilai_remedial >= r.kkm ? { kunci: "tuntas", t: "Tuntas", w: "success", i: "bi-patch-check" } : { kunci: "belum", t: "Belum tuntas", w: "danger", i: "bi-arrow-repeat" };
 };
 const cocok = (teks, ...isi) => !teks || isi.some((v) => String(v ?? "").toLowerCase().includes(teks.toLowerCase()));
-// Huruf bawaan jsPDF hanya Latin-1
-const teksPdf = (v) => String(v ?? "-").replace(/[\u2013\u2014]/g, "-").replace(/\u00b7/g, "|");
 
-/** Daftar portal sebagai PDF: judul, identitas siswa, lalu tabel. */
-function unduhPdf({ judul, siswa, periode, head, body }) {
+/** Daftar portal sebagai PDF resmi: kop sekolah, identitas siswa, tabel, tanda tangan, kaki halaman. */
+async function unduhPdf({ judul, siswa, periode, head, body }) {
+  const sek = await muatSekolah();
   const doc = new jsPDF("portrait", "mm", "a4");
-  doc.setFont("helvetica", "bold").setFontSize(14).text(judul, 14, 16);
-  doc.setFont("helvetica", "normal").setFontSize(10);
-  doc.text(teksPdf(`${siswa?.nama_siswa || "-"} · Kelas ${siswa?.kelas?.nama_kelas || "-"} · ${periode}`), 14, 23);
-  doc.text(`Dicetak ${new Date().toLocaleString("id-ID")}`, 14, 28);
-  autoTable(doc, {
-    head: [head], body: body.map((b) => b.map(teksPdf)), startY: 33, theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [32, 107, 196], textColor: 255, fontStyle: "bold" },
-  });
+  const sub = `${siswa?.nama_siswa || "-"} · Kelas ${siswa?.kelas?.nama_kelas || "-"} · ${periode}`;
+  kopPdf(doc, sek, { judul, sub });
+  autoTable(doc, { ...gayaTabelResmi, head: [head.map(teksPdf)], body: body.map((b) => b.map(teksPdf)), startY: ATAS_ISI, styles: { ...gayaTabelResmi.styles, fontSize: 9 } });
+  ttdPdf(doc, sek, doc.lastAutoTable.finalY + 12);
+  selesaikanPdf(doc, sek, { judul, sub });
   doc.save(`${judul}_${siswa?.nama_siswa || "siswa"}.pdf`.replace(/[^\w.\-]+/g, "_"));
 }
 

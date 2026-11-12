@@ -98,7 +98,7 @@ class UserController extends Controller
             'success' => true,
             'message' => 'Akun dibuat.',
             'data' => $user->load(self::RELASI),
-            'kredensial' => ['nama' => $user->name, 'login' => $user->username ?: $user->email, 'password' => $password],
+            'kredensial' => self::kredensial($user, $password),
         ], 201);
     }
 
@@ -126,7 +126,13 @@ class UserController extends Controller
             $user->tokens()->delete();
         }
 
-        return response()->json(['success' => true, 'message' => 'Akun diperbarui.', 'data' => $user->load(self::RELASI)]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Akun diperbarui.',
+            'data' => $user->load(self::RELASI),
+            // Kata sandi baru dari admin ditampilkan sekali agar bisa dicetak/dibagikan ke pemilik akun
+            ...($request->filled('password') ? ['kredensial' => self::kredensial($user, $request->password)] : []),
+        ]);
     }
 
     public function destroy(Request $request, $id)
@@ -143,6 +149,15 @@ class UserController extends Controller
         return response()->json(['success' => true, 'message' => 'Akun dihapus.']);
     }
 
+    /** Data akun yang ditampilkan sekali kepada admin (dicetak sebagai surat akun). */
+    private static function kredensial(User $user, string $password): array
+    {
+        return [
+            'nama' => $user->name, 'role' => $user->role, 'login' => $user->username ?: $user->email,
+            'password' => $password, 'wajib_ganti_password' => (bool) $user->wajib_ganti_password,
+        ];
+    }
+
     public function resetPassword($id)
     {
         $user = User::findOrFail($id);
@@ -153,7 +168,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Kata sandi direset. Berikan kata sandi sementara ini kepada pemilik akun.',
-            'kredensial' => ['nama' => $user->name, 'login' => $user->username ?: $user->email, 'password' => $password],
+            'kredensial' => self::kredensial($user, $password),
         ]);
     }
 
@@ -185,7 +200,7 @@ class UserController extends Controller
             return $calon->map(function ($c) {
                 $password = self::passwordAcak();
                 User::create([...$c, 'password' => $password, 'aktif' => true, 'wajib_ganti_password' => true]);
-                return ['nama' => $c['name'], 'role' => $c['role'], 'login' => $c['username'], 'password' => $password];
+                return ['nama' => $c['name'], 'role' => $c['role'], 'login' => $c['username'], 'password' => $password, 'wajib_ganti_password' => true];
             })->values();
         });
 

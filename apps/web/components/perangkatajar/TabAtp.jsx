@@ -276,7 +276,7 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
             <button className="btn btn-sm btn-outline-danger" onClick={kembalikan} disabled={!!proses}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
           </>}
           {atp.status === "DISETUJUI" && !akses.isKepsek && onBuatModul && <button className="btn btn-sm btn-outline-success" onClick={() => onBuatModul(atp.id_atp)}><i className="bi bi-journal-plus me-1"></i>Buat modul ajar</button>}
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => cetakAtp({ ...atp, baris: kotor ? baris.map((b) => ({ ...b, cp: cp.find((c) => c.id_cp === b.id_cp), materi: materi.find((m) => m.id_materi === b.id_materi), indikator: semuaTp[b.id_indikator] })) : atp.baris, total_jp: totalJp }, referensi.sekolah)
+          <button className="btn btn-sm btn-outline-secondary" onClick={async () => (await cetakAtp({ ...atp, baris: kotor ? baris.map((b) => ({ ...b, cp: cp.find((c) => c.id_cp === b.id_cp), materi: materi.find((m) => m.id_materi === b.id_materi), indikator: semuaTp[b.id_indikator] })) : atp.baris, total_jp: totalJp }, referensi.sekolah))
             || Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info")}><i className="bi bi-printer me-1"></i>Cetak</button>
           {bisaUbah && <button className="btn btn-sm btn-outline-danger" onClick={hapus} disabled={!!proses} aria-label="Hapus ATP"><i className="bi bi-trash"></i></button>}
         </div>

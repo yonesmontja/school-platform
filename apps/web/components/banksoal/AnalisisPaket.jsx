@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
+import { ATAS_ISI, gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
 import autoTable from "jspdf-autotable";
 import { DIMENSI, HURUF, labelBentuk } from "./konstanta";
 import { minta } from "./api";
@@ -27,21 +28,24 @@ export default function AnalisisPaket({ paket }) {
       Belum ada jawaban yang lengkap dikoreksi.{a.belum_lengkap > 0 && ` ${a.belum_lengkap} siswa masih punya butir yang belum diberi skor.`}</div>
   );
 
-  const unduhPdf = () => {
+  const unduhPdf = async () => {
+    const sek = await muatSekolah();
     const doc = new jsPDF("landscape", "mm", "a4");
-    doc.setFont("helvetica", "bold").setFontSize(13).text(`Analisis Butir: ${paket.judul}`, 14, 14);
-    doc.setFont("helvetica", "normal").setFontSize(9).text(
-      `${paket.mapel?.nama_mapel || ""} | ${paket.kelas?.nama_kelas || ""} | ${a.jumlah_siswa} siswa | rata-rata ${a.rata_nilai} | tuntas ${a.tuntas}/${a.jumlah_siswa} (KKM ${a.kkm}) | reliabilitas ${a.reliabilitas ?? "-"} (${reliabel(a.reliabilitas)})`, 14, 20);
+    const judul = `Analisis Butir Soal: ${paket.judul}`;
+    const sub = `${paket.mapel?.nama_mapel || ""} | ${paket.kelas?.nama_kelas || ""} | ${a.jumlah_siswa} siswa | rata-rata ${a.rata_nilai} | tuntas ${a.tuntas}/${a.jumlah_siswa} (KKM ${a.kkm}) | reliabilitas ${a.reliabilitas ?? "-"} (${reliabel(a.reliabilitas)})`;
+    kopPdf(doc, sek, { judul, sub });
     autoTable(doc, {
-      startY: 25, styles: { fontSize: 8 }, headStyles: { fillColor: [32, 107, 196] },
+      ...gayaTabelResmi, startY: ATAS_ISI,
       head: [["No", "Bentuk", "Level", "TP", "p", "Kesukaran", "D", "Daya beda", "Saran"]],
-      body: a.butir.map((b) => [b.nomor, labelBentuk(b.bentuk), b.level_kognitif || "", b.tp || "", b.p ?? "", KESUKARAN[b.kesukaran]?.[0] || "", b.d ?? "-", DAYA_BEDA[b.daya_beda]?.[0] || "-", b.saran || ""]),
+      body: a.butir.map((b) => [b.nomor, labelBentuk(b.bentuk), b.level_kognitif || "", b.tp || "", b.p ?? "", KESUKARAN[b.kesukaran]?.[0] || "", b.d ?? "-", DAYA_BEDA[b.daya_beda]?.[0] || "-", b.saran || ""].map(teksPdf)),
     });
     autoTable(doc, {
-      startY: doc.lastAutoTable.finalY + 6, styles: { fontSize: 8 }, headStyles: { fillColor: [47, 179, 68] },
+      ...gayaTabelResmi, startY: doc.lastAutoTable.finalY + 6,
       head: [["TP", "Materi", "Butir", "Rata-rata (%)", "Tuntas"]],
-      body: a.per_tp.map((t) => [t.tp || "(tanpa TP)", t.materi || "", t.jumlah_butir, t.rata ?? "", `${t.tuntas}/${a.jumlah_siswa}`]),
+      body: a.per_tp.map((t) => [t.tp || "(tanpa TP)", t.materi || "", t.jumlah_butir, t.rata ?? "", `${t.tuntas}/${a.jumlah_siswa}`].map(teksPdf)),
     });
+    ttdPdf(doc, sek, doc.lastAutoTable.finalY + 12, { kanan: { jabatan: "Guru Mata Pelajaran", nama: paket.pembuat?.name } });
+    selesaikanPdf(doc, sek, { judul, sub });
     doc.save(`analisis-${paket.judul.replace(/[^\w-]+/g, "_")}.pdf`);
   };
 

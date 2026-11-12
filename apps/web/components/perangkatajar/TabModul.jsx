@@ -355,7 +355,7 @@ function EditorModul({ id, referensi, akses, onKembali }) {
             <button className="btn btn-sm btn-success" onClick={() => aksi("setujui", "Setujui modul ajar ini?")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Setujui</button>
             <button className="btn btn-sm btn-outline-danger" onClick={kembalikan} disabled={!!proses}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
           </>}
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => cetakModul(dokumen, referensi.sekolah) || Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info")}><i className="bi bi-printer me-1"></i>Cetak</button>
+          <button className="btn btn-sm btn-outline-secondary" onClick={async () => (await cetakModul(dokumen, referensi.sekolah)) || Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info")}><i className="bi bi-printer me-1"></i>Cetak</button>
           <button className="btn btn-sm btn-outline-secondary" onClick={() => unduhWord(dokumen, referensi.sekolah)}><i className="bi bi-file-earmark-word me-1"></i>Word</button>
           {bisa && <button className="btn btn-sm btn-outline-danger" onClick={hapus} disabled={!!proses} aria-label="Hapus modul"><i className="bi bi-trash"></i></button>}
         </div>

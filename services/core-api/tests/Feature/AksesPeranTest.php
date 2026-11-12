@@ -178,4 +178,24 @@ class AksesPeranTest extends TestCase
         // GR-A & GR-B sudah punya akun di data uji, jadi tidak boleh dibuat ganda
         $this->assertSame(1, User::where('id_guru', 'GR-A')->where('aktif', true)->count());
     }
+
+    public function test_kata_sandi_baru_dari_admin_dikembalikan_sekali_untuk_surat_akun(): void
+    {
+        $guru = $this->sekolah->guruA;
+        $data = ['name' => $guru->name, 'role' => 'guru', 'id_guru' => $guru->id_guru, 'username' => 'guru.surat', 'email' => null, 'aktif' => true];
+
+        // Ubah tanpa kata sandi: tidak ada kredensial
+        $this->sebagai($this->sekolah->admin)->putJson("/api/users/{$guru->id}", $data)->assertOk()->assertJsonMissingPath('kredensial');
+
+        // Kata sandi baru tanpa wajib ganti: kredensial memuat peran dan status wajib ganti
+        $this->putJson("/api/users/{$guru->id}", $data + ['password' => 'sandiBaru2026', 'wajib_ganti_password' => false])->assertOk()
+            ->assertJsonPath('kredensial.login', 'guru.surat')
+            ->assertJsonPath('kredensial.password', 'sandiBaru2026')
+            ->assertJsonPath('kredensial.role', 'guru')
+            ->assertJsonPath('kredensial.wajib_ganti_password', false);
+
+        $this->postJson("/api/users/{$guru->id}/reset-password")->assertOk()->assertJsonPath('kredensial.wajib_ganti_password', true);
+        $this->postJson('/api/users/generate', ['jenis' => 'siswa'])->assertOk()
+            ->assertJsonPath('kredensial.0.role', 'siswa')->assertJsonPath('kredensial.0.wajib_ganti_password', true);
+    }
 }
