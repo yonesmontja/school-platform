@@ -4,6 +4,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { API_URL } from "@/app/lib/config";
+import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -31,6 +32,16 @@ const COLUMN_ALIASES = {
 };
 
 const isEmpty = (v) => v === undefined || v === null || String(v).trim() === "";
+// Sel indikator di template remedial yang tidak perlu diulang berisi "✓ tuntas"; dianggap kosong
+const kosongIndikator = (v) => isEmpty(v) || /tuntas|^[-–]$/i.test(String(v).trim());
+const formatAngka = (v) => (Number.isInteger(v) ? v : Number(v).toFixed(1));
+
+// Nama dianggap cocok bila tiap kata di file adalah awal salah satu kata nama di sistem ("Budi S." cocok dengan "Budi Santoso")
+const kataNama = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+const namaCocok = (dariFile, diSistem) => {
+  const f = kataNama(dariFile), s = kataNama(diSistem);
+  return !f.length || f.every((k) => s.some((t) => t.startsWith(k)));
+};
 const toNumber = (v) => {
   if (typeof v === "number") return v;
   const n = Number(String(v).trim().replace(",", "."));
@@ -161,6 +172,10 @@ export default function ImportExcelPage() {
 
   const isNilai = mode === "NILAI";
   const siswaById = useMemo(() => new Map(ref.students.map((s) => [String(s.id_siswa), s])), [ref.students]);
+  // NISN juga diterima di kolom id_siswa, karena sheet Data Siswa menampilkannya
+  const siswaByNisn = useMemo(() => new Map(ref.students.filter((s) => s.nisn).map((s) => [String(s.nisn).trim(), s])), [ref.students]);
+  const kkmMapel = Number(ref.subjects.find((m) => m.id_mapel === meta.id_mapel)?.kkm ?? 75);
+  const tanggalLibur = useAlasanBukanHariSekolah(isNilai ? meta.tanggal : "");
   const siswaKelas = useMemo(() => ref.students.filter((s) => s.id_kelas === meta.id_kelas), [ref.students, meta.id_kelas]);
   const kelasTerpilih = ref.classes.find((k) => k.id_kelas === meta.id_kelas);
   const indikatorMateri = materis.find((m) => m.id_materi === meta.id_materi)?.indikator || [];
@@ -198,6 +213,21 @@ export default function ImportExcelPage() {
   }, [rencanaRemedial]);
   const rencanaTerbuka = useMemo(() => [...rencanaBySiswa.values()].filter((r) => r.status === "DIRENCANAKAN"), [rencanaBySiswa]);
 
+  // Nilai reguler yang sudah tersimpan pada penilaian + tanggal terpilih, agar pratinjau menunjukkan nilai yang akan diganti
+  const [nilaiTersimpan, setNilaiTersimpan] = useState(() => new Map());
+  useEffect(() => {
+    if (!isNilai || !metaLengkap) { setNilaiTersimpan(new Map()); return; }
+    let batal = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal });
+        const data = await safeFetch(`${API_URL}/nilai/students?${params}`, { headers: authHeader() });
+        if (!batal) setNilaiTersimpan(new Map((data.students || []).filter((s) => s.id_nilai).map((s) => [String(s.id_siswa), Number(s.nilai)])));
+      } catch (err) { if (!batal) setNilaiTersimpan(new Map()); }
+    })();
+    return () => { batal = true; };
+  }, [isNilai, metaLengkap, meta.id_kelas, meta.id_mapel, meta.id_periode, meta.id_jenis, meta.id_materi, meta.tanggal]);
+
   // --- TEMPLATE ---
   // remedial = true: hanya siswa dengan rencana tindak lanjut terbuka, kolom tipe sudah berisi REMEDIAL
   const handleDownloadTemplate = (remedial = false) => {
@@ -211,15 +241,29 @@ export default function ImportExcelPage() {
     const petunjukTipe = "Kolom tipe (opsional): kosong/NORMAL = nilai reguler; REMEDIAL = nilai remedial bagi siswa yang sudah punya rencana tindak lanjut pada penilaian ini.";
     if (remedial) {
       const info = ["nilai_asal", "tindak_lanjut", "tanggal_rencana"];
-      const isian = metode === "OTOMATIS" ? ["nilai"] : [...DIMENSI, "Rata-rata"];
+      // Nilai asal per indikator: kolom untuk indikator yang belum mencapai KKM pada siswa mana pun (sama dengan Input Nilai)
+      const lemah = (r) => (r.nilai_asal?.nilai_indikator || []).filter((i) => Number(i.nilai) < kkmMapel);
+      const indRemedial = metode !== "OTOMATIS" ? [] : [...new Map(rencanaTerbuka.flatMap(lemah).map((i) => [i.id_indikator, i])).values()]
+        .sort((a, b) => (a.indikator?.urutan ?? 0) - (b.indikator?.urutan ?? 0));
+      const kolomInd = indRemedial.map((i, n) => kolomIndikator(n + 1, { id_indikator: i.id_indikator, deskripsi: i.indikator?.deskripsi || i.id_indikator }));
+      const isian = metode === "OTOMATIS" ? [...kolomInd, "nilai"] : [...DIMENSI, "Rata-rata"];
       header = ["id_siswa", "nama_siswa", ...info, ...isian, "tipe"];
-      rows = rencanaTerbuka.map((r) => [
-        r.id_siswa, r.siswa?.nama_siswa || r.id_siswa, Number(r.nilai_asal?.nilai), r.opsi_tindakan, String(r.tanggal_rencana).slice(0, 10),
-        ...isian.map(() => ""), "REMEDIAL",
-      ]);
+      rows = rencanaTerbuka.map((r) => {
+        const lemahSiswa = new Set(lemah(r).map((i) => i.id_indikator));
+        return [
+          r.id_siswa, r.siswa?.nama_siswa || r.id_siswa, Number(r.nilai_asal?.nilai), r.opsi_tindakan, String(r.tanggal_rencana).slice(0, 10),
+          ...indRemedial.map((i) => (lemahSiswa.has(i.id_indikator) ? "" : "✓ tuntas")),
+          ...(metode === "OTOMATIS" ? [""] : [...DIMENSI, "Rata-rata"].map(() => "")), "REMEDIAL",
+        ];
+      });
       petunjuk = [
         "Template ini berisi siswa yang sedang menjalani remedial pada penilaian terpilih.",
-        `Isi kolom ${metode === "OTOMATIS" ? "nilai (0-100)" : "poin S, T, N, K, M dan/atau Rata-rata"} dengan hasil remedial. Kosongkan bila siswa belum mengikuti remedial.`,
+        ...(kolomInd.length ? [
+          "Nilai asal dinilai per indikator: isi nilai remedial (0-100) di kolom indikator yang kosong. Sel bertanda \"✓ tuntas\" tidak perlu diulang dan tetap memakai nilai asalnya.",
+          "Nilai remedial = rata-rata seluruh indikator setelah perbaikan. Kolom nilai hanya dipakai untuk siswa yang nilai asalnya tidak per indikator.",
+          ...indRemedial.map((i, n) => `Indikator ${n + 1}: ${i.indikator?.deskripsi || i.id_indikator}`),
+        ] : [`Isi kolom ${metode === "OTOMATIS" ? "nilai (0-100)" : "poin S, T, N, K, M dan/atau Rata-rata"} dengan hasil remedial.`]),
+        "Kosongkan baris siswa yang belum mengikuti remedial.",
         "Kolom nilai_asal, tindak_lanjut dan tanggal_rencana hanya informasi; tidak dibaca saat import.",
         "Tanggal pada parameter import dicatat sebagai tanggal pelaksanaan remedial. Rencana siswa otomatis berstatus Selesai.",
       ];
@@ -325,36 +369,54 @@ export default function ImportExcelPage() {
     return rawRows.map((row, idx) => {
       const get = (k) => (colMap[k] ? row[colMap[k]] : "");
       const errors = [], skips = [];
-      const idSiswa = String(get("id_siswa")).trim();
-      const siswa = siswaById.get(idSiswa);
-      const out = { rowNum: idx + 2, id_siswa: idSiswa, nama: siswa?.nama_siswa || String(get("nama_siswa") || "-") };
+      const isiKolomId = String(get("id_siswa")).trim();
+      const siswa = siswaById.get(isiKolomId) || siswaByNisn.get(isiKolomId);
+      // Baris dengan NISN disimpan memakai ID siswa
+      const idSiswa = siswa ? String(siswa.id_siswa) : isiKolomId;
+      const namaFile = String(get("nama_siswa") ?? "").trim();
+      const out = { rowNum: idx + 2, id_siswa: idSiswa, nama: siswa?.nama_siswa || namaFile || "-" };
 
-      if (!idSiswa) errors.push("ID siswa kosong");
-      else if (!siswa) errors.push("ID siswa tidak terdaftar");
+      if (!isiKolomId) errors.push("ID siswa kosong");
+      else if (!siswa) errors.push("ID siswa / NISN tidak terdaftar");
       else if (isNilai && meta.id_kelas && siswa.id_kelas !== meta.id_kelas) errors.push("Bukan siswa kelas terpilih");
+      // ID yang salah salin membuat nilai masuk ke siswa lain: nama di file dibandingkan dengan nama pemilik ID
+      if (siswa && namaFile && !namaCocok(namaFile, siswa.nama_siswa)) out.cek = `Nama di file: "${namaFile}"`;
 
       if (isNilai) {
+        // Kolom tipe opsional: REMEDIAL menautkan nilai ke rencana tindak lanjut siswa; kosong = reguler
+        const rawTipe = normKey(get("tipe") ?? "");
+        if (["remedial", "rem", "r"].includes(rawTipe)) out.tipe = "REMEDIAL";
+        else if (["", "normal", "reguler", "regular", "n"].includes(rawTipe)) out.tipe = "NORMAL";
+        else errors.push("Tipe harus NORMAL atau REMEDIAL");
+        const rencana = out.tipe === "REMEDIAL" && siswa ? rencanaBySiswa.get(idSiswa) : null;
+        // Remedial per indikator: indikator yang diulang menggantikan nilai asalnya (sama dengan server)
+        const asalInd = Object.fromEntries((rencana?.nilai_asal?.nilai_indikator || []).map((i) => [i.id_indikator, Number(i.nilai)]));
+        const remedialPerIndikator = Object.keys(asalInd).length > 0;
+
         if (metode === "OTOMATIS") {
           // Nilai per indikator lebih dulu; bila semua kosong, pakai kolom nilai
           const petaInd = {};
           let adaIsianInd = false;
           (colMap.indikator || []).forEach(({ key, id }) => {
             const raw = row[key];
-            if (isEmpty(raw)) return;
+            if (kosongIndikator(raw)) return;
             adaIsianInd = true;
             const v = toNumber(raw);
             const no = indikatorMateri.findIndex((i) => i.id_indikator === id) + 1;
-            if (!no) errors.push(`Kolom ${id} bukan indikator aktif materi terpilih`);
-            else if (isNaN(v)) errors.push(`Indikator ${no} bukan angka`);
-            else if (v < 0 || v > 100) errors.push(`Indikator ${no} di luar 0-100`);
+            const label = no ? `Indikator ${no}` : id;
+            if (remedialPerIndikator ? !(id in asalInd) : !no) {
+              errors.push(remedialPerIndikator ? `${id} tidak dinilai pada nilai asal siswa ini` : `Kolom ${id} bukan indikator aktif materi terpilih`);
+            } else if (isNaN(v)) errors.push(`${label} bukan angka`);
+            else if (v < 0 || v > 100) errors.push(`${label} di luar 0-100`);
             else petaInd[id] = v;
           });
           const angka = Object.values(petaInd);
           const raw = get("nilai");
           if (angka.length) {
             out.nilai_indikator = petaInd;
-            out.nilai = Math.round((angka.reduce((a, b) => a + b, 0) / angka.length) * 100) / 100;
-            out.info_indikator = `${angka.length} indikator`;
+            const semua = remedialPerIndikator ? Object.values({ ...asalInd, ...petaInd }) : angka;
+            out.nilai = Math.round((semua.reduce((a, b) => a + b, 0) / semua.length) * 100) / 100;
+            out.info_indikator = remedialPerIndikator ? `${angka.length} indikator diulang` : `${angka.length} indikator`;
           } else if (isEmpty(raw)) {
             // Isian indikator yang salah bukan baris kosong: tetap ditandai error
             if (!adaIsianInd) skips.push("Nilai kosong");
@@ -382,15 +444,10 @@ export default function ImportExcelPage() {
           else out.nilai = rata;
           DIMENSI.forEach((d) => { out[`poin_${d}`] = poin[d] ?? 0; });
         }
-        // Kolom tipe opsional: REMEDIAL menautkan nilai ke rencana tindak lanjut siswa; kosong = reguler
-        const rawTipe = normKey(get("tipe") ?? "");
-        if (["remedial", "rem", "r"].includes(rawTipe)) out.tipe = "REMEDIAL";
-        else if (["", "normal", "reguler", "regular", "n"].includes(rawTipe)) out.tipe = "NORMAL";
-        else errors.push("Tipe harus NORMAL atau REMEDIAL");
         out.tipe_info = out.tipe === "NORMAL" ? "Reguler" : "Remedial";
+        if (out.tipe === "NORMAL" && nilaiTersimpan.has(idSiswa)) out.lama = formatAngka(nilaiTersimpan.get(idSiswa));
         if (out.tipe === "REMEDIAL" && siswa) {
           // Dicocokkan di sini agar baris yang tidak punya rencana dilewati, bukan menggagalkan seluruh import
-          const rencana = rencanaBySiswa.get(idSiswa);
           if (!metaPenilaian) errors.push("Lengkapi parameter penilaian untuk mencocokkan rencana remedial");
           else if (!rencana) errors.push("Belum punya rencana tindak lanjut pada penilaian ini");
           else out.tipe_info = rencana.status === "SELESAI"
@@ -422,33 +479,38 @@ export default function ImportExcelPage() {
       const status = skips.length ? "skip" : errors.length ? "error" : "ok";
       return { ...out, status, pesan: status === "skip" ? skips.join(", ") : errors.join(", ") };
     });
-  }, [rawRows, colMap, siswaById, isNilai, metode, meta.id_kelas, rencanaBySiswa, metaPenilaian, indikatorMateri]);
+  }, [rawRows, colMap, siswaById, siswaByNisn, isNilai, metode, meta.id_kelas, rencanaBySiswa, metaPenilaian, indikatorMateri, nilaiTersimpan]);
 
   const ringkasan = useMemo(() => ({
     total: validated.length,
     ok: validated.filter((r) => r.status === "ok").length,
     skip: validated.filter((r) => r.status === "skip").length,
     error: validated.filter((r) => r.status === "error").length,
+    // Siap disimpan tetapi perlu dilihat: nama berbeda dengan pemilik ID, atau menggantikan nilai yang sudah tersimpan
+    cekNama: validated.filter((r) => r.status === "ok" && r.cek).length,
+    ganti: validated.filter((r) => r.status === "ok" && r.lama !== undefined).length,
   }), [validated]);
 
-  const tampil = hanyaBermasalah ? validated.filter((r) => r.status !== "ok") : validated;
+  const tampil = hanyaBermasalah ? validated.filter((r) => r.status !== "ok" || r.cek) : validated;
   const totalPreviewPages = Math.max(1, Math.ceil(tampil.length / PREVIEW_PAGE_SIZE));
   const currentPreviewPage = Math.min(previewPage, totalPreviewPages);
   const pageRows = tampil.slice((currentPreviewPage - 1) * PREVIEW_PAGE_SIZE, currentPreviewPage * PREVIEW_PAGE_SIZE);
 
   const terlaluBanyak = !isNilai && ringkasan.ok > MAX_JURNAL_ROWS;
-  const bisaSimpan = ringkasan.ok > 0 && ringkasan.error === 0 && metaLengkap && !terlaluBanyak && !saving;
+  const liburNilai = isNilai && !!tanggalLibur;
+  const bisaSimpan = ringkasan.ok > 0 && ringkasan.error === 0 && metaLengkap && !terlaluBanyak && !liburNilai && !saving;
 
   // --- SIMPAN ---
   const handleSubmit = async () => {
     if (!metaLengkap) return Swal.fire("Lengkapi Atribut", "Isi Kelas, Mapel, Periode, Jenis Penilaian, Materi, dan Tanggal terlebih dahulu.", "warning");
+    if (liburNilai) return Swal.fire("Bukan hari sekolah", tanggalLibur, "warning");
     if (ringkasan.error > 0) return Swal.fire("Masih Ada Error", "Perbaiki baris bertanda merah di file, lalu unggah ulang.", "warning");
     const siap = validated.filter((r) => r.status === "ok");
 
     const konfirmasi = await Swal.fire({
       title: `Simpan ${siap.length} ${isNilai ? "nilai" : "jurnal"}?`,
       html: isNilai
-        ? `Nilai reguler yang sudah ada untuk siswa, materi, jenis penilaian, dan tanggal yang sama akan <b>diperbarui</b>; tanggal berbeda disimpan sebagai penilaian baru.${siap.some((r) => r.tipe === "REMEDIAL") ? `<br>${siap.filter((r) => r.tipe === "REMEDIAL").length} nilai remedial akan menuntaskan rencana tindak lanjut siswanya.` : ""}${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`
+        ? `${ringkasan.ganti ? `<b>${ringkasan.ganti}</b> siswa sudah punya nilai pada tanggal ini; nilai lamanya akan <b>diganti</b>.` : "Semua nilai reguler disimpan sebagai nilai baru."}${siap.some((r) => r.tipe === "REMEDIAL") ? `<br>${siap.filter((r) => r.tipe === "REMEDIAL").length} nilai remedial akan menuntaskan rencana tindak lanjut siswanya.` : ""}${ringkasan.cekNama ? `<br><span class="text-warning-emphasis"><b>${ringkasan.cekNama}</b> baris namanya berbeda dengan pemilik ID siswa. Pastikan ID-nya benar.</span>` : ""}${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`
         : `Setiap baris disimpan sebagai jurnal baru.${ringkasan.skip ? `<br>${ringkasan.skip} baris kosong dilewati.` : ""}`,
       icon: "question", showCancelButton: true, confirmButtonText: "Ya, simpan", cancelButtonText: "Batal",
     });
@@ -482,10 +544,14 @@ export default function ImportExcelPage() {
           }),
         });
       resetFile();
+      // Tautan langsung ke lembar nilai yang baru diimpor (didukung halaman Input Nilai)
+      const lembar = new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal });
+      const n = Number(res.perlu_tindak_lanjut) || 0;
       await Swal.fire({
-        icon: "success", title: "Import Berhasil", text: res.message,
-        showCancelButton: true, confirmButtonText: isNilai ? "Lihat di Input Nilai" : "Lihat di Jurnal", cancelButtonText: "Import lagi",
-      }).then((r) => { if (r.isConfirmed) window.location.assign(isNilai ? "/dashboard/nilai" : "/dashboard/jurnal"); });
+        icon: n ? "info" : "success", title: "Import Berhasil",
+        html: `${res.message}${isNilai && n ? `<br><br><b>${n}</b> siswa di bawah KKM ${kkmMapel} belum punya rencana tindak lanjut. Atur lewat tombol <b>Tindak Lanjut</b> di lembar Input Nilai.` : ""}`,
+        showCancelButton: true, confirmButtonText: isNilai ? (n ? "Buka lembar & atur tindak lanjut" : "Lihat di Input Nilai") : "Lihat di Jurnal", cancelButtonText: "Import lagi",
+      }).then((r) => { if (r.isConfirmed) window.location.assign(isNilai ? `/dashboard/nilai?${lembar}` : "/dashboard/jurnal"); });
     } catch (err) { Swal.fire("Gagal Menyimpan", err.message, "error"); }
     finally { setSaving(false); }
   };
@@ -520,6 +586,7 @@ export default function ImportExcelPage() {
     ? [...(metode === "OTOMATIS"
       ? [{ key: "nilai", label: "Nilai" }, ...(colMap.indikator?.length ? [{ key: "info_indikator", label: "Dari Indikator" }] : [])]
       : [...DIMENSI.map((d) => ({ key: `poin_${d}`, label: d })), { key: "nilai", label: "Rata-rata" }]),
+      ...(ringkasan.ganti ? [{ key: "lama", label: "Nilai Lama (diganti)" }] : []),
       ...(colMap.tipe ? [{ key: "tipe_info", label: "Tipe" }] : [])]
     : [{ key: "tanggal", label: "Tanggal" }, { key: "narasi", label: "Narasi Kejadian", wide: true }, ...DIMENSI.map((d) => ({ key: `val_${d}`, label: d }))];
 
@@ -602,7 +669,8 @@ export default function ImportExcelPage() {
                       "col-12 col-sm-6 col-lg-4", materis.length === 0)}
                     <div className="col-12 col-sm-6 col-lg-4">
                       <label className="form-label fw-semibold small mb-1">Tanggal Penilaian</label>
-                      <input type="date" className="form-control" value={meta.tanggal} onChange={(e) => setField("tanggal", e.target.value)} />
+                      <input type="date" className={`form-control ${tanggalLibur ? "is-invalid" : ""}`} value={meta.tanggal} onChange={(e) => setField("tanggal", e.target.value)} />
+                      {tanggalLibur && <div className="invalid-feedback">{tanggalLibur}</div>}
                     </div>
                   </>
                 ) : (
@@ -693,7 +761,7 @@ export default function ImportExcelPage() {
               <div className="form-check form-switch mb-0">
                 <input className="form-check-input" type="checkbox" id="hanyaBermasalah" checked={hanyaBermasalah}
                   onChange={(e) => { setHanyaBermasalah(e.target.checked); setPreviewPage(1); }} />
-                <label className="form-check-label small" htmlFor="hanyaBermasalah">Tampilkan hanya baris bermasalah</label>
+                <label className="form-check-label small" htmlFor="hanyaBermasalah">Tampilkan hanya baris bermasalah atau perlu dicek</label>
               </div>
               <small className="text-muted">{tampil.length} baris ditampilkan</small>
             </div>
@@ -725,6 +793,11 @@ export default function ImportExcelPage() {
                       <td className="text-center">
                         <span className={`badge ${STATUS_META[r.status].cls}`}>{STATUS_META[r.status].label}</span>
                         {r.pesan && <div className="small text-body-secondary mt-1">{r.pesan}</div>}
+                        {r.cek && (
+                          <div className="small text-warning-emphasis mt-1" title="Nama di file berbeda dengan pemilik ID siswa ini. Pastikan ID-nya tidak salah salin.">
+                            <i className="bi bi-exclamation-triangle me-1"></i>{r.cek}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -750,10 +823,14 @@ export default function ImportExcelPage() {
                 <span className="text-danger fw-semibold"><i className="bi bi-exclamation-triangle me-1"></i>{ringkasan.error} baris error. Perbaiki file lalu unggah ulang.</span>
               ) : !metaLengkap ? (
                 <span className="text-warning-emphasis fw-semibold"><i className="bi bi-exclamation-circle me-1"></i>Lengkapi atribut nilai di atas sebelum menyimpan.</span>
+              ) : liburNilai ? (
+                <span className="text-danger fw-semibold"><i className="bi bi-calendar-x me-1"></i>{tanggalLibur}</span>
               ) : terlaluBanyak ? (
                 <span className="text-danger fw-semibold"><i className="bi bi-exclamation-triangle me-1"></i>Maksimal {MAX_JURNAL_ROWS} jurnal per import. Pecah file menjadi beberapa bagian.</span>
               ) : (
-                <span className="text-success fw-semibold"><i className="bi bi-check-circle me-1"></i>{ringkasan.ok} baris siap disimpan.</span>
+                <span className="text-success fw-semibold"><i className="bi bi-check-circle me-1"></i>{ringkasan.ok} baris siap disimpan.
+                  {ringkasan.cekNama > 0 && <span className="text-warning-emphasis ms-1">{ringkasan.cekNama} baris namanya perlu dicek.</span>}
+                </span>
               )}
             </small>
             <button type="button" className="btn btn-success fw-semibold px-4" onClick={handleSubmit} disabled={!bisaSimpan}>

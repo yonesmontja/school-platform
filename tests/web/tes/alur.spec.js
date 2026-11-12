@@ -38,6 +38,42 @@ test("guru mengisi nilai satu materi dengan 2 indikator", async ({ page, masuk }
   expect(abner.nilai_indikator).toEqual({ "IND-E1": 60, "IND-E2": 70 });
 });
 
+test("import Excel: NISN diterima, nama yang tidak cocok ditandai, nilai lama terlihat, hari Minggu ditolak", async ({ page, masuk }) => {
+  await masuk("guru");
+  await page.goto("/dashboard/import-excel");
+  await pilih(selectBerlabel(page, "Kelas"), "4A");
+  await pilih(selectBerlabel(page, "Mata Pelajaran"), "Matematika");
+  await pilih(selectBerlabel(page, "Jenis Penilaian"), "Ulangan Harian");
+  await pilih(selectBerlabel(page, "Topik / Materi"), "Pecahan Sederhana");
+
+  // Baris 2 memakai NISN Debora dengan nama singkat; baris 3 ID Natan tetapi nama Rahel (salah salin)
+  const csv = "id_siswa,nama_siswa,nilai\nSIS-E1,Abner Kogoya,70\n9000002,Debora T.,90\nSIS-E3,Rahel Yikwa,80\n";
+  await page.locator('input[type="file"]').setInputFiles({ name: "nilai.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  const tabel = page.locator(".card").filter({ hasText: "Pratinjau" }).locator("table");
+  await expect(tabel.locator("thead")).toContainText("Nilai Lama (diganti)");
+  const debora = tabel.locator("tr").filter({ hasText: "Debora Tabuni" });
+  await expect(debora).toContainText("SIS-E2");
+  await expect(debora).toContainText("Siap");
+  await expect(debora).not.toContainText("Nama di file");
+  await expect(tabel.locator("tr").filter({ hasText: "Natan Murib" })).toContainText('Nama di file: "Rahel Yikwa"');
+  // Nilai Abner hari ini 65 (rata-rata indikator tes pertama) akan diganti
+  await expect(tabel.locator("tr").filter({ hasText: "Abner Kogoya" })).toContainText("65");
+  await expect(page.getByText("1 baris namanya perlu dicek")).toBeVisible();
+
+  const simpan = page.getByRole("button", { name: /Simpan 3 Baris/ });
+  await simpan.click();
+  await expect(page.locator(".swal2-popup")).toContainText("3 siswa sudah punya nilai pada tanggal ini");
+  await expect(page.locator(".swal2-popup")).toContainText("1 baris namanya berbeda");
+  await page.getByRole("button", { name: "Batal" }).last().click();
+
+  // Hari Minggu: diberi tahu sebelum menyimpan, tombol simpan nonaktif
+  const minggu = new Date(); minggu.setDate(minggu.getDate() + ((7 - minggu.getDay()) % 7 || 7));
+  const tgl = minggu.toLocaleDateString("sv-SE");
+  await page.locator('input[type="date"]').fill(tgl);
+  await expect(page.getByText(/adalah hari Minggu/).first()).toBeVisible();
+  await expect(simpan).toBeDisabled();
+});
+
 test("parameter Input Nilai terisi dari jadwal guru hari ini atau mapel satu-satunya (G4)", async ({ page, masuk }) => {
   await masuk("guru");
   await page.goto("/dashboard/nilai");

@@ -11,6 +11,7 @@ import { useAkses } from "@/app/lib/akses";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -190,6 +191,8 @@ function InputNilaiPage() {
   const modeRemedial = filters.tipe === "REMEDIAL";
   // Hanya lembar reguler yang dibuka per tanggal; di lembar remedial tanggal = tanggal pelaksanaan saat disimpan
   const tanggalLembar = modeRemedial ? "" : filters.tanggal;
+  // Server menolak menyimpan nilai pada hari Minggu / hari libur; diberitahukan sebelum guru mengisi lembar
+  const tanggalLibur = useAlasanBukanHariSekolah(filters.tanggal);
 
   // Indikator materi terpilih: yang aktif + yang pernah dinilai di sesi ini (walau kini nonaktif)
   const materiTerpilih = materis.find((m) => m.id_materi === filters.id_materi);
@@ -507,6 +510,7 @@ function InputNilaiPage() {
   const handleSave = async (e) => {
     e?.preventDefault();
     if (!filters.tanggal) return Swal.fire("Perhatian", "Tanggal penilaian wajib diisi.", "warning");
+    if (tanggalLibur) return Swal.fire("Bukan hari sekolah", `${tanggalLibur} Nilai tetap ada di lembar; ganti tanggal lalu simpan.`, "warning");
     if (adaTidakValid) return Swal.fire("Nilai Tidak Valid", "Periksa kembali isian bertanda merah. Nilai harus berupa angka 0 – 100.", "warning");
     const indikatorDibuang = !modeRemedial && rows.some((r) => r.id_nilai && Object.keys(r.nilai_indikator || {}).some((id) => !indikatorDipilih.includes(id)));
     if (indikatorDibuang) {
@@ -624,7 +628,8 @@ function InputNilaiPage() {
       fetchRiwayat();
       if (students.some((s) => s.id_nilai === r.id_nilai)) {
         // Pertahankan isian lain; siswa ini kembali berstatus belum dinilai
-        setStudents((prev) => prev.map((s) => (s.id_nilai === r.id_nilai ? { ...s, id_nilai: null, nilai: null, inputNilai: "", rencana: modeRemedial ? s.rencana : null } : s)));
+        setStudents((prev) => prev.map((s) => (s.id_nilai === r.id_nilai
+          ? { ...s, id_nilai: null, nilai: null, inputNilai: "", nilai_indikator: {}, inputIndikator: {}, rencana: modeRemedial ? s.rencana : null } : s)));
       }
     } catch (err) { Swal.fire("Gagal Menghapus", err.message, "error"); }
   };
@@ -744,7 +749,7 @@ function InputNilaiPage() {
       "KKM": r.KKM,
       "Nilai": r.Nilai,
       "Ketuntasan": r.Ketuntasan,
-      "Pengisi": r.Pengisi,
+      "Guru": r.Guru,
     }));
     await generateProfessionalPDF(data, `Rekap Nilai ${namaKelas} - ${labelPeriode(periodeTerpilih)}`, settings, getBase64ImageFromUrl);
   };
@@ -827,8 +832,9 @@ function InputNilaiPage() {
               <label className="form-label fw-semibold small mb-1">
                 <i className="bi bi-calendar-event text-primary me-1"></i>{modeRemedial ? "Tanggal Pelaksanaan Remedial" : "Tanggal Penilaian"}
               </label>
-              <input type="date" className="form-control" value={filters.tanggal} required
+              <input type="date" className={`form-control ${tanggalLibur ? "is-invalid" : ""}`} value={filters.tanggal} required
                 onChange={(e) => ubahFilter({ tanggal: e.target.value })} />
+              {tanggalLibur && <div className="invalid-feedback">{tanggalLibur}</div>}
             </div>
           </div>
           {!modeRemedial && tanggalTersedia.length > 0 && (
