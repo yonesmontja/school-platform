@@ -21,6 +21,8 @@ class PortalTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Selasa tetap, supaya "besok" dan "lusa" selalu hari sekolah dalam pekan yang sama (bukan Minggu)
+        $this->travelTo(\Carbon\Carbon::parse('2030-01-08 09:00', config('app.zona_sekolah')));
         $this->buatSekolah();
         MasterIndikator::create(['id_indikator' => 'IND-1', 'id_materi' => 'MTR-T', 'deskripsi' => 'Membandingkan pecahan', 'urutan' => 1]);
     }
