@@ -45,9 +45,13 @@ const emptyForm = () => ({
   tanggal: todayLocal(),
   id_kelas: "", id_siswa: "", id_guru: "",
   konteks: "KBM", id_materi: "", id_jenis: "",
-  narasi_kejadian: "", mode_dampak: "PISAH",
+  narasi_kejadian: "", mode_dampak: "PISAH", sensitif: false,
   lampiran_base64: null,
 });
+
+// Jurnal sensitif yang tidak boleh dibaca akun ini datang tanpa narasi (disaring server)
+const TEKS_TERTUTUP = "Catatan sensitif: hanya dapat dibaca guru penulis, wali kelas, dan pimpinan sekolah.";
+const narasiDari = (j) => (j.tersembunyi ? `(${TEKS_TERTUTUP})` : j.narasi_kejadian || "");
 
 const EMPTY_AI = { val_S: 0, val_T: 0, val_N: 0, val_K: 0, val_M: 0, ai_mode: null, ai_raw_response: null };
 
@@ -109,7 +113,9 @@ export default function JurnalAnekdotalPage() {
   const [settings, setSettings] = useState(null);
   const [userName, setUserName] = useState("");
   // Guru mencatat atas namanya sendiri dan hanya mengubah/menghapus jurnal miliknya
-  const { isGuru, idGuru, milikSendiri } = useAkses();
+  const { isGuru, idGuru, isAdmin, isKepsek, kelasBinaan, milikSendiri } = useAkses();
+  // Penanda sensitif: admin, kepala sekolah, guru penulis, atau wali kelas siswa (aturan yang sama di server)
+  const bolehTandai = (j) => isAdmin || isKepsek || (isGuru && !!idGuru && (j.id_guru === idGuru || kelasBinaan.includes(j.id_kelas)));
 
   // --- LINIMASA & TABEL ---
   const [filterKelasFeed, setFilterKelasFeed] = useState("");
@@ -421,6 +427,18 @@ export default function JurnalAnekdotalPage() {
 
   // Panel WhatsApp terbuka → jurnalnya disimpan agar panel muncul lagi bila halaman dimuat ulang saat kembali
   const KUNCI_PULIH = "jurnal_pulih";
+  // Jurnal sensitif diteruskan ke WhatsApp hanya setelah dikonfirmasi
+  const bagikanWA = async (j) => {
+    if (j.sensitif) {
+      const ok = await Swal.fire({
+        title: "Jurnal ini sensitif", text: "Isinya akan keluar dari aplikasi bila diteruskan ke WhatsApp. Tetap lanjutkan?",
+        icon: "warning", showCancelButton: true, confirmButtonText: "Tetap teruskan", cancelButtonText: "Batal",
+      });
+      if (!ok.isConfirmed) return;
+    }
+    tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" });
+  };
+
   const tampilkanPanelWA = (j, { judul, ortu = true, grup = true, dipulihkan = false }) => {
     simpanPulih(KUNCI_PULIH, { j, judul, ortu, grup });
     const paket = susunPesanWA(j);
@@ -562,6 +580,7 @@ export default function JurnalAnekdotalPage() {
       id_jenis: j.id_jenis || "",
       narasi_kejadian: j.narasi_kejadian || "",
       mode_dampak: j.mode_dampak || "PISAH",
+      sensitif: !!j.sensitif,
       lampiran_base64: null,
     });
     // Skor lama dipakai selama narasi dan mesin AI tidak diubah
@@ -576,6 +595,26 @@ export default function JurnalAnekdotalPage() {
     setFilePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const ubahSensitif = async (j) => {
+    const jadi = !j.sensitif;
+    const konfirmasi = await Swal.fire({
+      title: jadi ? "Tandai jurnal sebagai sensitif?" : "Buka tanda sensitif?",
+      html: jadi
+        ? "Narasi dan lampiran hanya dapat dibaca <b>guru penulis, wali kelas, dan pimpinan sekolah</b>. Narasi tidak ikut rapor, portal orang tua, maupun bahan AI catatan wali. Skor STNKM tetap dihitung."
+        : "Narasi jurnal ini akan dapat dibaca kembali oleh semua pengguna yang memiliki akses jurnal.",
+      icon: jadi ? "warning" : "question", showCancelButton: true,
+      confirmButtonText: jadi ? "Ya, tandai sensitif" : "Ya, buka", cancelButtonText: "Batal",
+    });
+    if (!konfirmasi.isConfirmed) return;
+    try {
+      await safeFetch(`${API_URL}/jurnal/${encodeURIComponent(j.id_jurnal)}/sensitif`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", ...authHeader() }, body: JSON.stringify({ sensitif: jadi }),
+      });
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: jadi ? "Ditandai sensitif" : "Tanda sensitif dibuka", showConfirmButton: false, timer: 2000 });
+      fetchFeed();
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
   };
 
   const handleDelete = async (j) => {
@@ -602,7 +641,7 @@ export default function JurnalAnekdotalPage() {
     "Siswa": j.siswa?.nama_siswa || j.id_siswa,
     "Kelas": j.kelas?.nama_kelas || "-",
     "Konteks": j.materi?.nama_materi || j.jenis?.kategori_penilaian || "-",
-    "Narasi": j.narasi_kejadian,
+    "Narasi": narasiDari(j),
     "Dampak": j.mode_dampak === "BONUS" ? "Intervensi" : "Catatan",
     "Mode AI": j.ai_mode || "-",
     "Pencatat": j.guru?.nama_guru || "-",
@@ -660,7 +699,7 @@ export default function JurnalAnekdotalPage() {
       "Tanggal": formatTanggal(j.tanggal),
       "Siswa": j.siswa?.nama_siswa || j.id_siswa,
       "Kelas": j.kelas?.nama_kelas || "-",
-      "Catatan Kejadian": j.narasi_kejadian,
+      "Catatan Kejadian": narasiDari(j),
       "Dampak": j.mode_dampak === "BONUS" ? "Intervensi" : "Catatan",
       "Skor STNKM": STNKM_META.map((m) => `${m.short}:${getNilaiSign(j[m.key])}`).join(" "),
     }));
@@ -677,8 +716,9 @@ export default function JurnalAnekdotalPage() {
 
   const actionButtons = (j) => (
     <MenuAksi label={`Aksi jurnal ${j.siswa?.nama_siswa || ""}`.trim()} items={[
-      aksiUbah(() => handleEdit(j), milikSendiri(j.id_guru)),
-      { label: "Bagikan ke WhatsApp", ikon: "bi-whatsapp", onClick: () => tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" }) },
+      aksiUbah(() => handleEdit(j), milikSendiri(j.id_guru) && !j.tersembunyi),
+      { label: "Bagikan ke WhatsApp", ikon: "bi-whatsapp", onClick: () => bagikanWA(j), tampil: !j.tersembunyi },
+      { label: j.sensitif ? "Buka tanda sensitif" : "Tandai sensitif", ikon: j.sensitif ? "bi-unlock" : "bi-lock", onClick: () => ubahSensitif(j), tampil: bolehTandai(j) },
       aksiHapus(() => handleDelete(j), milikSendiri(j.id_guru)),
     ]} />
   );
@@ -798,6 +838,18 @@ export default function JurnalAnekdotalPage() {
                       <small className="text-warning-emphasis"><i className="bi bi-arrow-repeat me-1"></i>Akan dianalisis ulang saat posting</small>
                     )}
                   </div>
+                </div>
+
+                {/* SENSITIF */}
+                <div className="form-check form-switch mb-3">
+                  <input className="form-check-input" type="checkbox" id="jurnalSensitif" checked={!!formData.sensitif}
+                    onChange={(e) => handleInputChange("sensitif", e.target.checked)} />
+                  <label className="form-check-label small fw-semibold" htmlFor="jurnalSensitif">
+                    <i className="bi bi-lock me-1"></i>Tandai sebagai catatan sensitif
+                  </label>
+                  <small className="d-block text-muted">
+                    Narasi & lampiran hanya terbaca guru penulis, wali kelas, dan pimpinan sekolah; tidak ikut rapor, portal orang tua, maupun bahan AI catatan wali. Skor STNKM tetap dihitung.
+                  </small>
                 </div>
 
                 {/* LAMPIRAN */}
@@ -1008,6 +1060,7 @@ export default function JurnalAnekdotalPage() {
                             ? <span className="badge text-bg-danger ms-2"><i className="bi bi-lightning-charge-fill me-1"></i>Intervensi</span>
                             : <span className="badge text-bg-secondary ms-2"><i className="bi bi-book me-1"></i>Catatan</span>}
                           {j.ai_mode && j.ai_mode !== "HEURISTIK" && <span className="badge text-bg-info ms-1"><i className="bi bi-robot me-1"></i>{j.ai_mode}</span>}
+                          {j.sensitif && <span className="badge text-bg-warning ms-1" title={TEKS_TERTUTUP}><i className="bi bi-lock-fill me-1"></i>Sensitif</span>}
                         </h6>
                         <small className="text-muted">
                           {j.kelas?.nama_kelas || "-"} • {formatTanggal(j.tanggal)}
@@ -1018,7 +1071,9 @@ export default function JurnalAnekdotalPage() {
                       {actionButtons(j)}
                     </div>
 
-                    <p className="mt-2 mb-2" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{j.narasi_kejadian}</p>
+                    {j.tersembunyi
+                      ? <p className="mt-2 mb-2 fst-italic text-muted"><i className="bi bi-lock me-1"></i>{TEKS_TERTUTUP}</p>
+                      : <p className="mt-2 mb-2" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{j.narasi_kejadian}</p>}
 
                     {j.lampiran_url && isImage(j.lampiran_url) && (
                       <a href={`${API_ORIGIN}${j.lampiran_url}`} target="_blank" rel="noreferrer" className="d-inline-block mb-2">
@@ -1040,10 +1095,11 @@ export default function JurnalAnekdotalPage() {
                         <span className="small fw-bold text-muted me-1"><i className="bi bi-cpu me-1"></i>NLP:</span>
                         <StnkmBadges j={j} />
                       </div>
-                      <button type="button" className="btn btn-sm btn-success rounded-pill px-3 fw-bold"
-                        onClick={() => tampilkanPanelWA(j, { judul: "Bagikan Jurnal ke WhatsApp" })}>
-                        <i className="bi bi-whatsapp me-1"></i>Teruskan WA
-                      </button>
+                      {!j.tersembunyi && (
+                        <button type="button" className="btn btn-sm btn-success rounded-pill px-3 fw-bold" onClick={() => bagikanWA(j)}>
+                          <i className="bi bi-whatsapp me-1"></i>Teruskan WA
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1077,8 +1133,9 @@ export default function JurnalAnekdotalPage() {
                             {j.siswa?.nama_siswa || j.id_siswa}
                             <div className="small text-muted fw-normal">{j.kelas?.nama_kelas}</div>
                           </td>
-                          <td style={{ minWidth: 220 }} title={j.narasi_kejadian}>
-                            {j.narasi_kejadian.length > 120 ? `${j.narasi_kejadian.slice(0, 120)}…` : j.narasi_kejadian}
+                          <td style={{ minWidth: 220 }} title={narasiDari(j)} className={j.tersembunyi ? "fst-italic text-muted" : ""}>
+                            {j.sensitif && <i className="bi bi-lock-fill text-warning me-1" title="Sensitif"></i>}
+                            {narasiDari(j).length > 120 ? `${narasiDari(j).slice(0, 120)}…` : narasiDari(j)}
                           </td>
                           <td style={{ minWidth: 170 }}><StnkmBadges j={j} /></td>
                           <td className="text-center">

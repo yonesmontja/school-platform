@@ -51,7 +51,8 @@ class DashboardController extends Controller
         // Jurnal belum punya kolom periode; diambil per kelas seperti GAS
         $jurnal = TransJurnal::when($idKelas, fn($q) => $q->where('id_kelas', $idKelas))
             ->orderBy('tanggal')
-            ->get(['id_siswa', 'id_kelas', 'tanggal', 'mode_dampak', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']);
+            ->get(['id_siswa', 'id_kelas', 'id_guru', 'tanggal', 'mode_dampak', 'sensitif', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']);
+        TransJurnal::samarkan($jurnal, $request->user());
 
         // Nilai per indikator (reguler & remedial) untuk analisis indikator yang perlu perhatian;
         // frontend memakai nilai remedial terbaru, sama seperti deskripsi capaian rapor

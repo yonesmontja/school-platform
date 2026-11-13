@@ -212,7 +212,7 @@ class P5Controller extends Controller
         $siswa = Student::find($request->id_siswa);
         $proyek = MasterProyek::find($request->id_proyek);
         $this->cekKelas($request, $proyek->id_kelas);
-        $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)->orderBy('tanggal')->get(['narasi_kejadian'])->toArray();
+        $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)->where('sensitif', false)->orderBy('tanggal')->get(['narasi_kejadian'])->toArray();
 
         $hasil = $ai->catatanP5($siswa->nama_siswa, $proyek->judul_proyek, $proyek->deskripsi_proyek, $request->draf, $jurnal, $request->ai_mode ?? 'GEMINI');
 

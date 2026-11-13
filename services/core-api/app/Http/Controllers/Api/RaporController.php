@@ -77,7 +77,9 @@ class RaporController extends Controller
             // Jurnal belum punya kolom periode; seluruh jurnal siswa kelas ini dipakai, sama seperti GAS
             'jurnal' => TransJurnal::whereIn('id_siswa', $idSiswa)
                 ->orderBy('tanggal')
-                ->get(['id_jurnal', 'id_siswa', 'tanggal', 'mode_dampak', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']),
+                ->get(['id_jurnal', 'id_siswa', 'tanggal', 'mode_dampak', 'sensitif', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M'])
+                // Narasi sensitif tidak pernah ikut dokumen rapor/portal (dibawa pulang ke orang tua); skornya tetap dihitung
+                ->each(function ($j) { if ($j->sensitif) $j->narasi_kejadian = null; }),
             'presensi' => TransPresensi::where('id_kelas', $idKelas)
                 ->where('id_periode', $idPeriode)
                 ->whereIn('id_siswa', $idSiswa)
@@ -131,7 +133,8 @@ class RaporController extends Controller
         $this->cekWaliSiswa($request, $request->id_siswa);
 
         $siswa = Student::find($request->id_siswa);
-        $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)
+        // Jurnal sensitif tidak dijadikan bahan catatan wali (teksnya masuk rapor)
+        $jurnal = TransJurnal::where('id_siswa', $siswa->id_siswa)->where('sensitif', false)
             ->orderBy('tanggal')
             ->get(['tanggal', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M'])
             ->map(fn($j) => [...$j->toArray(), 'tanggal' => $j->tanggal?->format('Y-m-d')])

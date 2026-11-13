@@ -46,9 +46,8 @@ class JurnalController extends Controller
             $query->where('id_kelas', $request->id_kelas);
         }
 
-        return response()->json([
-            'data' => $query->orderByDesc('tanggal')->orderByDesc('created_at')->get()
-        ]);
+        $data = $query->orderByDesc('tanggal')->orderByDesc('created_at')->get();
+        return response()->json(['data' => TransJurnal::samarkan($data, $request->user())]);
     }
 
     public function analyze(Request $request)
@@ -85,6 +84,7 @@ class JurnalController extends Controller
             'id_materi' => 'nullable|exists:master_materi,id_materi',
             'narasi_kejadian' => 'required|string|min:10|max:2000',
             'mode_dampak' => 'required|in:BONUS,PISAH',
+            'sensitif' => 'nullable|boolean',
             'ai_mode' => ['nullable', Rule::in(JurnalAIService::MODES)],
             'ai_raw_response' => 'nullable|string|max:10000',
             'val_S' => 'nullable|numeric|between:-5,5',
@@ -154,6 +154,7 @@ class JurnalController extends Controller
             'id_materi' => $request->id_materi,
             'narasi_kejadian' => $request->narasi_kejadian,
             'mode_dampak' => $request->mode_dampak,
+            'sensitif' => $request->boolean('sensitif'),
             'val_S' => $request->val_S ?? 0,
             'val_T' => $request->val_T ?? 0,
             'val_N' => $request->val_N ?? 0,
@@ -283,6 +284,24 @@ class JurnalController extends Controller
 
         $jurnal->delete();
         return response()->json(['message' => 'Jurnal berhasil dihapus']);
+    }
+
+    /** Tandai/buka tanda sensitif: admin, kepala sekolah, guru penulis, atau wali kelas siswa. */
+    public function tandaiSensitif(Request $request, $id)
+    {
+        $request->validate(['sensitif' => 'required|boolean']);
+        $jurnal = TransJurnal::findOrFail($id);
+        $user = $request->user();
+        $boleh = $user->isAdmin() || $user->isKepsek() || ($user->isGuru() && $user->id_guru
+            && ($jurnal->id_guru === $user->id_guru || in_array($jurnal->id_kelas, $user->kelasBinaan(), true)));
+        abort_unless($boleh, 403, 'Hanya penulis jurnal, wali kelas, atau pimpinan sekolah yang dapat mengubah tanda sensitif.');
+        $jurnal->update(['sensitif' => $request->boolean('sensitif')]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $jurnal->sensitif ? 'Jurnal ditandai sensitif' : 'Tanda sensitif dibuka',
+            'data' => $jurnal->load(self::RELASI),
+        ]);
     }
 
     // Guru hanya boleh mengubah/menghapus jurnal yang ia tulis sendiri

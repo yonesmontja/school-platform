@@ -246,6 +246,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/store', [JurnalController::class, 'store']);
             Route::post('/import', [JurnalController::class, 'importBatch']);
             Route::put('/{id}', [JurnalController::class, 'update']);
+            Route::patch('/{id}/sensitif', [JurnalController::class, 'tandaiSensitif']);
             Route::delete('/{id}', [JurnalController::class, 'destroy']);
         });
 
