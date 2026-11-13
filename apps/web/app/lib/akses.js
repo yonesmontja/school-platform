@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { API_URL } from "@/app/lib/config";
 export { API_URL };
 
-// Peran: admin, kepsek, guru (staf) · siswa, ortu (portal). Backend tetap memeriksa ulang setiap aksi;
+// Peran: admin, kepsek, guru (staf) · siswa, ortu (portal) · wakakur, wakasis, yayasan (peninjau, lihat saja). Backend tetap memeriksa ulang setiap aksi;
 // pembatasan di sini hanya agar menu & tombol yang tidak berlaku tidak ditampilkan.
 export const AKSES_EVENT = "akses-berubah";
 
@@ -14,11 +14,20 @@ export const ROLE_LABEL = {
   guru: "Guru",
   siswa: "Siswa",
   ortu: "Orang Tua / Wali",
+  wakakur: "Wakasek Kurikulum",
+  wakasis: "Wakasek Kesiswaan",
+  yayasan: "Yayasan",
 };
-export const ROLE_WARNA = { admin: "danger", kepsek: "warning", guru: "primary", siswa: "success", ortu: "info" };
+export const ROLE_WARNA = { admin: "danger", kepsek: "warning", guru: "primary", siswa: "success", ortu: "info", wakakur: "dark", wakasis: "dark", yayasan: "secondary" };
 
 const STAF = ["admin", "kepsek", "guru"];
 const PORTAL = ["siswa", "ortu"];
+// Peninjau: melihat semua menu milik admin & kepala sekolah, tanpa bisa mengubah (server menolak perubahan)
+export const PENINJAU = ["wakakur", "wakasis", "yayasan"];
+
+/** Peran boleh membuka sesuatu yang dibatasi ke daftar peran; peninjau ikut hak baca admin/kepala sekolah. */
+export const peranBoleh = (daftar, role) =>
+  daftar.includes(role) || (PENINJAU.includes(role) && (daftar.includes("admin") || daftar.includes("kepsek")));
 
 // Halaman yang dibatasi perannya (dicocokkan dengan awalan path); halaman staf lain terbuka untuk semua staf
 const ATURAN_HALAMAN = [
@@ -46,7 +55,7 @@ export const halamanAwal = (user) =>
 export function bolehBuka(role, pathname) {
   if (!role) return false;
   const aturan = ATURAN_HALAMAN.find((a) => pathname === a.awalan || pathname.startsWith(`${a.awalan}/`));
-  return aturan ? aturan.peran.includes(role) : STAF.includes(role);
+  return aturan ? peranBoleh(aturan.peran, role) : STAF.includes(role) || PENINJAU.includes(role);
 }
 
 export function bacaUser() {
@@ -74,12 +83,14 @@ export function aksesDari(user) {
   const isAdmin = role === "admin";
   const isKepsek = role === "kepsek";
   const isGuru = role === "guru";
-  const isPengelola = isAdmin || isKepsek;
+  const isPeninjau = PENINJAU.includes(role);
+  // Peninjau melihat seluruh data seperti pengelola; tombol ubah boleh tampil, tetapi server menolak perubahannya
+  const isPengelola = isAdmin || isKepsek || isPeninjau;
   const kelasBinaan = user?.kelas_binaan || [];
   const mapelDiampu = user?.mapel_diampu || [];
   return {
-    user, role, isAdmin, isKepsek, isGuru, isPengelola,
-    isStaf: STAF.includes(role),
+    user, role, isAdmin, isKepsek, isGuru, isPengelola, isPeninjau,
+    isStaf: STAF.includes(role) || isPeninjau,
     isPortal: PORTAL.includes(role),
     idGuru: user?.id_guru || null,
     kelasBinaan, mapelDiampu,

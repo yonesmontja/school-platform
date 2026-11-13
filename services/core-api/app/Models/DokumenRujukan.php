@@ -15,6 +15,8 @@ class DokumenRujukan extends Model
     public const JENIS = ['CP', 'KURIKULUM', 'REGULASI', 'PANDUAN', 'LAINNYA'];
     public const STATUS = ['DIAJUKAN', 'AKTIF', 'DITOLAK', 'NONAKTIF'];
     public const EKSTENSI = ['pdf', 'docx', 'txt', 'md'];
+    /** Ukuran berkas maksimal (KB); php.ini & proxy Next.js disetel di atasnya untuk teks hasil baca browser. */
+    public const MAKS_KB = 51200;
 
     protected $table = 'dokumen_rujukan';
     protected $primaryKey = 'id_dokumen';

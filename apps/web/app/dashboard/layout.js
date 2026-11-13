@@ -9,7 +9,7 @@ import NotifikasiMenu from "@/components/NotifikasiMenu";
 import PasangAplikasi from "@/components/PasangAplikasi";
 import AntreanOffline, { PitaOffline } from "@/components/AntreanOffline";
 import Swal from "sweetalert2";
-import { API_URL, AKSES_EVENT, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal } from "@/app/lib/akses";
+import { API_URL, AKSES_EVENT, PENINJAU, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal, peranBoleh } from "@/app/lib/akses";
 import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
 import { hapusSalinanOffline, jumlahAntrean, kirimAntrean } from "@/app/lib/antrean";
 
@@ -89,7 +89,7 @@ const PORTAL_GROUPS = [
   { id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] },
 ];
 
-const bolehItem = (it, role, user) => (!it.peran || it.peran.includes(role)) && (!it.syarat || it.syarat(user));
+const bolehItem = (it, role, user) => (!it.peran || peranBoleh(it.peran, role)) && (!it.syarat || it.syarat(user));
 const menuUntuk = (role, user) => (role === "siswa" || role === "ortu")
   ? PORTAL_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length)
   : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length);
@@ -540,6 +540,13 @@ export default function DashboardLayout({ children }) {
         <div className="app-content">
           <div className="container-fluid">
             <PitaOffline />
+            {PENINJAU.includes(user?.role) && (
+              <div className="alert alert-secondary d-flex align-items-center gap-2 py-2 px-3 small mb-3" role="status">
+                <i className="bi bi-eye fs-5"></i>
+                <span><b>Mode peninjau ({ROLE_LABEL[user.role]}).</b> Anda dapat membuka semua menu dan melihat seluruh data,
+                  tetapi tidak dapat menambah, mengubah, atau menghapus data. Mengganti kata sandi akun sendiri tetap bisa.</span>
+              </div>
+            )}
             {siap ? children : (
               <div className="text-center text-muted py-5"><span className="spinner-border spinner-border-sm me-2"></span>Memeriksa akses...</div>
             )}

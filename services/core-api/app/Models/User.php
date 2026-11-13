@@ -19,7 +19,9 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLES = ['admin', 'kepsek', 'guru', 'siswa', 'ortu'];
+    public const ROLES = ['admin', 'kepsek', 'guru', 'siswa', 'ortu', 'wakakur', 'wakasis', 'yayasan'];
+    /** Peninjau (wakasek kurikulum, wakasek kesiswaan, yayasan): melihat seluruh data seperti kepala sekolah, tanpa mengubah. */
+    public const PENINJAU = ['wakakur', 'wakasis', 'yayasan'];
     public const STAF = ['admin', 'kepsek', 'guru'];
     public const PORTAL = ['siswa', 'ortu'];
 
@@ -53,9 +55,11 @@ class User extends Authenticatable
     public function isGuru(): bool { return $this->role === 'guru'; }
     public function isStaf(): bool { return in_array($this->role, self::STAF, true); }
     public function isPortal(): bool { return in_array($this->role, self::PORTAL, true); }
+    public function isPeninjau(): bool { return in_array($this->role, self::PENINJAU, true); }
 
-    // Admin & kepsek mengelola seluruh data akademik tanpa batasan kelas/mapel
-    public function isPengelola(): bool { return $this->isAdmin() || $this->isKepsek(); }
+    // Admin & kepsek mengelola seluruh data akademik tanpa batasan kelas/mapel. Peninjau ikut melihat seluruh data;
+    // perubahan oleh peninjau sudah ditolak middleware 'role' sebelum sampai ke controller.
+    public function isPengelola(): bool { return $this->isAdmin() || $this->isKepsek() || $this->isPeninjau(); }
 
     /** Kelas yang wali kelasnya adalah guru akun ini */
     public function kelasBinaan(): array
@@ -112,6 +116,7 @@ class User extends Authenticatable
             'kelas_binaan' => $this->kelasBinaan(),
             'mapel_diampu' => $this->mapelDiampu(),
             'siswa_terjangkau' => $this->siswaTerjangkau(),
+            'peninjau' => $this->isPeninjau(),
             // Studio Rakit Video: hanya satu pengguna yang ditunjuk admin
             'studio_video' => $this->isStaf() && SchoolSetting::query()->value('id_pembuat_video') === $this->id,
         ];

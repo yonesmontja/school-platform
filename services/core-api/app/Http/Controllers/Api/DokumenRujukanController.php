@@ -90,7 +90,7 @@ class DokumenRujukanController extends Controller
     private function aturanSumber(): array
     {
         return [
-            'berkas' => 'nullable|file|max:20480|mimes:' . implode(',', DokumenRujukan::EKSTENSI),
+            'berkas' => 'nullable|file|max:' . DokumenRujukan::MAKS_KB . '|mimes:' . implode(',', DokumenRujukan::EKSTENSI),
             'url_tautan' => 'nullable|required_without:berkas|url|max:1000',
             // Teks hasil baca di browser (pdf.js) bila server belum bisa membaca PDF
             'teks' => 'nullable|string|max:' . PustakaDokumenService::MAKS_TEKS * 2,

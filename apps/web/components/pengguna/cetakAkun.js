@@ -4,8 +4,8 @@ import { NAMA_SISTEM, esc, siapkanJendela, tulisJendela, judulHtml, kakiHtml, ko
 
 const PER_HALAMAN_RINGKAS = 4;
 
-const SAPAAN_KELOMPOK = { guru: "Bapak/Ibu Guru", kepsek: "Bapak/Ibu Kepala Sekolah", admin: "Bapak/Ibu Pengelola Aplikasi", ortu: "Bapak/Ibu Orang Tua/Wali Murid", siswa: "Ananda Siswa" };
-const LABEL_PERAN = { admin: "Admin", kepsek: "Kepala Sekolah", guru: "Guru", siswa: "Siswa", ortu: "Orang Tua/Wali" };
+const SAPAAN_KELOMPOK = { guru: "Bapak/Ibu Guru", kepsek: "Bapak/Ibu Kepala Sekolah", admin: "Bapak/Ibu Pengelola Aplikasi", wakakur: "Bapak/Ibu Wakil Kepala Sekolah Bidang Kurikulum", wakasis: "Bapak/Ibu Wakil Kepala Sekolah Bidang Kesiswaan", yayasan: "Bapak/Ibu Pengurus Yayasan", ortu: "Bapak/Ibu Orang Tua/Wali Murid", siswa: "Ananda Siswa" };
+const LABEL_PERAN = { admin: "Admin", kepsek: "Kepala Sekolah", guru: "Guru", siswa: "Siswa", ortu: "Orang Tua/Wali", wakakur: "Wakasek Kurikulum", wakasis: "Wakasek Kesiswaan", yayasan: "Yayasan" };
 
 const sapaanPribadi = (k) =>
   k.role === "siswa" ? `Ananda ${k.nama}`
@@ -13,7 +13,7 @@ const sapaanPribadi = (k) =>
       : `Bapak/Ibu ${k.nama}`;
 
 function sapaanUmum(daftar) {
-  const urut = ["guru", "kepsek", "admin", "ortu", "siswa"];
+  const urut = ["yayasan", "kepsek", "wakakur", "wakasis", "admin", "guru", "ortu", "siswa"];
   const ada = urut.filter((r) => daftar.some((k) => (k.role || "lain") === r)).map((r) => SAPAAN_KELOMPOK[r]);
   if (!ada.length) return "Bapak/Ibu Pengguna Aplikasi";
   return ada.length === 1 ? ada[0] : `${ada.slice(0, -1).join(", ")} dan ${ada[ada.length - 1]}`;

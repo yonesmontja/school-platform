@@ -24,7 +24,7 @@ class UserController extends Controller
     public function index()
     {
         return response()->json([
-            'data' => User::with(self::RELASI)->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'kepsek' THEN 2 WHEN 'guru' THEN 3 WHEN 'ortu' THEN 4 ELSE 5 END")->orderBy('name')->get(),
+            'data' => User::with(self::RELASI)->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'kepsek' THEN 2 WHEN 'wakakur' THEN 3 WHEN 'wakasis' THEN 3 WHEN 'yayasan' THEN 3 WHEN 'guru' THEN 4 WHEN 'ortu' THEN 5 ELSE 6 END")->orderBy('name')->get(),
             'referensi' => [
                 'teachers' => Teacher::orderBy('nama_guru')->get(['id_guru', 'nama_guru', 'nip_nik']),
                 'students' => Student::with('kelas:id_kelas,nama_kelas')->orderBy('nama_siswa')->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas']),

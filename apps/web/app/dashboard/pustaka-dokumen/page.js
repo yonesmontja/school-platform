@@ -43,11 +43,32 @@ async function teksPdfBrowser(file) {
   return halaman.join("\n\n");
 }
 
-async function kirimForm(path, form) {
-  const res = await fetch(`${API_URL}${path}`, { method: "POST", headers: authHeaders(false), body: form });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data.errors && Object.values(data.errors)[0]?.[0]) || data.message || `Gagal (status ${res.status}).`);
-  return data;
+const MAKS_MB = 50; // sama dengan DokumenRujukan::MAKS_KB di server
+const MAKS_TEKS = 800000; // batas teks hasil baca browser yang diterima server
+
+/**
+ * Kirim formulir berkas dengan XMLHttpRequest agar kemajuan unggah bisa ditampilkan (fetch tidak memberi progres);
+ * koneksi sekolah bisa butuh beberapa menit untuk berkas puluhan MB.
+ */
+function kirimForm(path, form, onProgres) {
+  return new Promise((selesai, gagal) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}${path}`);
+    for (const [k, v] of Object.entries(authHeaders(false))) xhr.setRequestHeader(k, v);
+    xhr.timeout = 10 * 60 * 1000;
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgres) onProgres(Math.min(99, Math.round((e.loaded / e.total) * 100))); };
+    xhr.upload.onload = () => onProgres?.(100);
+    xhr.onerror = () => gagal(new Error("Koneksi terputus saat mengunggah. Periksa internet lalu coba lagi."));
+    xhr.ontimeout = () => gagal(new Error("Unggahan terlalu lama (lebih dari 10 menit). Periksa koneksi internet lalu coba lagi."));
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText.slice(xhr.responseText.indexOf("{"))); } catch { /* bukan JSON */ }
+      if (xhr.status === 413 || /POST data is too large/.test(xhr.responseText)) return gagal(new Error(`Berkas terlalu besar untuk server. Maksimal ${MAKS_MB} MB.`));
+      if (xhr.status < 200 || xhr.status >= 300) return gagal(new Error((data.errors && Object.values(data.errors)[0]?.[0]) || data.message || `Gagal (status ${xhr.status}).`));
+      selesai(data);
+    };
+    xhr.send(form);
+  });
 }
 
 export default function PustakaDokumenPage() {
@@ -213,17 +234,21 @@ function FormDokumen({ form, mapel, izin, onTutup, onSelesai }) {
         toast("Keterangan disimpan"); return onSelesai();
       }
       if (f.sumber === "berkas" && !f.berkas) return Swal.fire("Perhatian", "Pilih berkas PDF, DOCX, atau TXT.", "warning");
+      if (f.sumber === "berkas" && f.berkas.size > MAKS_MB * 1024 * 1024) {
+        return Swal.fire("Berkas terlalu besar", `Ukuran berkas ${(f.berkas.size / 1024 / 1024).toFixed(1)} MB, maksimal ${MAKS_MB} MB. Unduh versi yang lebih kecil dari situs resmi, atau pakai tab "Tautan resmi".`, "warning");
+      }
       const fd = new FormData();
       [["judul", f.judul], ["jenis", f.jenis], ["id_mapel", f.id_mapel], ["fase", f.fase], ["keterangan", f.keterangan]].forEach(([k, v]) => v && fd.append(k, v));
       if (f.sumber === "berkas") {
         fd.append("berkas", f.berkas);
         if (/\.pdf$/i.test(f.berkas.name) && !izin.baca_pdf_server) {
           setProses("Membaca teks PDF…");
-          try { fd.append("teks", await teksPdfBrowser(f.berkas)); } catch { /* server menandai "belum terbaca" */ }
+          try { fd.append("teks", (await teksPdfBrowser(f.berkas)).slice(0, MAKS_TEKS)); } catch { /* server menandai "belum terbaca" */ }
         }
       } else fd.append("url_tautan", f.url);
       setProses(f.sumber === "tautan" ? "Membuka tautan…" : "Mengunggah…");
-      const r = await kirimForm(form.mode === "perbarui" ? `/dokumen-rujukan/${d.id_dokumen}/perbarui` : "/dokumen-rujukan", fd);
+      const progres = f.sumber === "berkas" ? (p) => setProses(p >= 100 ? "Memproses di server…" : `Mengunggah… ${p}%`) : null;
+      const r = await kirimForm(form.mode === "perbarui" ? `/dokumen-rujukan/${d.id_dokumen}/perbarui` : "/dokumen-rujukan", fd, progres);
       Swal.fire({ icon: r.data?.status_teks === "TERBACA" ? "success" : "warning", title: "Tersimpan", text: r.message });
       onSelesai();
     } catch (err) { Swal.fire("Gagal", err.message, "error"); }
@@ -247,7 +272,7 @@ function FormDokumen({ form, mapel, izin, onTutup, onSelesai }) {
                   </ul>
                   {f.sumber === "berkas" ? (
                     <div className="mb-3">
-                      <label className="form-label small mb-1" htmlFor="dokBerkas">Berkas (PDF, DOCX, TXT; maks. 20 MB)</label>
+                      <label className="form-label small mb-1" htmlFor="dokBerkas">Berkas (PDF, DOCX, TXT; maks. {MAKS_MB} MB)</label>
                       <input id="dokBerkas" type="file" className="form-control" accept=".pdf,.docx,.txt,.md" onChange={(e) => { const b = e.target.files?.[0] || null; ubah({ berkas: b, judul: f.judul || (b ? b.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") : "") }); }} />
                       <div className="form-text">PDF hasil pindai (foto) belum bisa dibaca; pakai PDF berteks dari situs resmi.</div>
                     </div>

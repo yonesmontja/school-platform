@@ -73,7 +73,7 @@ class PemakaianController extends Controller
         ])->values();
 
         // ===== Aktivitas harian (pengguna aktif per peran) =====
-        $harian = $log()->whereNotNull('user_id')->whereIn('peran', ['admin', 'kepsek', 'guru', 'siswa', 'ortu'])
+        $harian = $log()->whereNotNull('user_id')->whereIn('peran', User::ROLES)
             ->selectRaw('DATE(waktu) as tanggal, peran, COUNT(DISTINCT user_id) as pengguna')->groupBy('tanggal', 'peran')->orderBy('tanggal')->get();
 
         // ===== Jejak kerja nyata dari tabel kerja =====

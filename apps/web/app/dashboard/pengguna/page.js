@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
-import { API_URL, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from "@/app/lib/akses";
+import { API_URL, PENINJAU, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from "@/app/lib/akses";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { cetakSuratAkun } from "@/components/pengguna/cetakAkun";
 
-const ROLES = ["admin", "kepsek", "guru", "siswa", "ortu"];
+const ROLES = ["admin", "kepsek", "wakakur", "wakasis", "yayasan", "guru", "siswa", "ortu"];
+// Kartu ringkasan: tiga peran peninjau digabung dalam satu kartu "Peninjau"
+const KARTU = ["admin", "kepsek", "peninjau", "guru", "siswa", "ortu"];
+const LABEL_KARTU = { ...ROLE_LABEL, peninjau: "Peninjau (lihat saja)" };
+const WARNA_KARTU = { ...ROLE_WARNA, peninjau: "dark" };
+const cocokPeran = (role, filter) => !filter || role === filter || (filter === "peninjau" && PENINJAU.includes(role));
 const FORM_KOSONG = { name: "", role: "guru", email: "", username: "", password: "", id_guru: "", id_siswa: "", id_ortu: "", id_wali: "", aktif: true, wajib_ganti_password: true };
 
 const pesanGalat = (data, fallback) => (data?.errors && Object.values(data.errors)[0]?.[0]) || data?.message || fallback;
@@ -51,10 +56,10 @@ export default function ManajemenPenggunaPage() {
   }, []);
   useEffect(() => { muat(); }, [muat]);
 
-  const jumlah = useMemo(() => Object.fromEntries(ROLES.map((r) => [r, data.filter((u) => u.role === r).length])), [data]);
+  const jumlah = useMemo(() => Object.fromEntries(KARTU.map((r) => [r, data.filter((u) => cocokPeran(u.role, r)).length])), [data]);
   const tampil = useMemo(() => {
     const q = cari.trim().toLowerCase();
-    return data.filter((u) => (!filterRole || u.role === filterRole)
+    return data.filter((u) => cocokPeran(u.role, filterRole)
       && (!q || [u.name, u.username, u.email, tautanAkun(u)].some((v) => (v || "").toLowerCase().includes(q))));
   }, [data, cari, filterRole]);
 
@@ -154,12 +159,12 @@ export default function ManajemenPenggunaPage() {
 
       {/* RINGKASAN PER PERAN (klik untuk menyaring) */}
       <div className="row g-3 mb-4">
-        {ROLES.map((r) => (
+        {KARTU.map((r) => (
           <div className="col-6 col-md" key={r}>
             <button type="button" onClick={() => setFilterRole((f) => (f === r ? "" : r))}
-              className={`card border-0 shadow-sm w-100 text-start p-3 ${filterRole === r ? `border-start border-4 border-${ROLE_WARNA[r]}` : ""}`}>
-              <div className="small text-muted fw-semibold">{ROLE_LABEL[r]}</div>
-              <div className={`fs-3 fw-bold text-${ROLE_WARNA[r]}`}>{jumlah[r] || 0}</div>
+              className={`card border-0 shadow-sm w-100 text-start p-3 ${filterRole === r ? `border-start border-4 border-${WARNA_KARTU[r]}` : ""}`}>
+              <div className="small text-muted fw-semibold">{LABEL_KARTU[r]}</div>
+              <div className={`fs-3 fw-bold text-${WARNA_KARTU[r]}`}>{jumlah[r] || 0}</div>
             </button>
           </div>
         ))}
@@ -269,8 +274,9 @@ function FormAkun({ form, setF, refData, menyimpan, onSimpan, onTutup }) {
             <div className="col-md-6">
               <label className="form-label small fw-semibold">Peran *</label>
               <select className="form-select" value={form.role} onChange={(e) => setF("role", e.target.value)}>
-                {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}{PENINJAU.includes(r) ? " (lihat saja)" : ""}</option>)}
               </select>
+              {PENINJAU.includes(form.role) && <div className="form-text">Peninjau dapat membuka semua menu dan melihat seluruh data, tetapi tidak dapat mengubah data apa pun.</div>}
             </div>
 
             {bisaGuru && (

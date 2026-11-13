@@ -179,6 +179,34 @@ class AksesPeranTest extends TestCase
         $this->assertSame(1, User::where('id_guru', 'GR-A')->where('aktif', true)->count());
     }
 
+    public function test_peninjau_melihat_semua_menu_tanpa_bisa_mengubah(): void
+    {
+        foreach (User::PENINJAU as $peran) {
+            $u = User::factory()->create(['role' => $peran, 'username' => "uji.$peran", 'aktif' => true]);
+            $this->sebagai($u);
+
+            // Membaca rute milik admin & kepala sekolah serta data seluruh kelas
+            $this->getJson('/api/users')->assertOk();
+            $this->getJson('/api/pemakaian')->assertOk();
+            $this->getJson('/api/me')->assertOk()->assertJsonPath('data.peninjau', true);
+            $this->getJson('/api/log-aktivitas')->assertOk();
+            // Portal siswa/ortu bukan untuk peninjau
+            $this->getJson('/api/portal/anak')->assertForbidden();
+
+            // Setiap perubahan ditolak, termasuk rute admin dan rute guru
+            $this->postJson('/api/hari-libur', ['tanggal' => '2030-01-07', 'nama' => 'Uji'])->assertForbidden()
+                ->assertJsonPath('message', 'Akun peninjau hanya dapat melihat data. Perubahan tidak disimpan.');
+            $this->putJson("/api/users/{$u->id}", ['name' => 'X', 'role' => 'admin', 'username' => 'x', 'aktif' => true])->assertForbidden();
+            $this->postJson('/api/nilai/batch', [])->assertForbidden();
+            $this->postJson('/api/users/generate', ['jenis' => 'guru'])->assertForbidden();
+            $this->assertSame($peran, $u->fresh()->role);
+
+            // Urusan akun sendiri tetap boleh
+            $this->assertNotSame(403, $this->postJson('/api/notifikasi/baca', ['kunci' => ['x']])->status());
+            $this->assertNotSame(403, $this->postJson('/api/akun/password', ['password_lama' => 'salah', 'password' => 'SandiBaru2026', 'password_confirmation' => 'SandiBaru2026'])->status());
+        }
+    }
+
     public function test_kata_sandi_baru_dari_admin_dikembalikan_sekali_untuk_surat_akun(): void
     {
         $guru = $this->sekolah->guruA;

@@ -41,10 +41,12 @@ const nextConfig = {
     ];
   },
   experimental: {
-    // Bawaan 30 detik; pembuatan narasi AI (jurnal, rapor) bisa lebih lama
-    proxyTimeout: 180_000,
-    // Bawaan 10 MB; lampiran jadwal (maks. 10 MB) dikirim sebagai base64 sehingga ±13,4 MB
-    proxyClientMaxBodySize: "25mb",
+    // Bawaan 30 detik; pembuatan narasi AI (jurnal, rapor) bisa lebih lama, dan unggahan dokumen
+    // puluhan MB lewat internet sekolah bisa butuh beberapa menit (batas yang sama di halaman Pustaka Dokumen)
+    proxyTimeout: 600_000,
+    // Bawaan 10 MB; lampiran jadwal (maks. 10 MB) dikirim sebagai base64 (±13,4 MB), dan dokumen Pustaka
+    // (maks. 50 MB) bersama teks hasil baca browser. Lebih dari batas ini Next.js memotong kiriman diam-diam.
+    proxyClientMaxBodySize: "64mb",
   },
 };
 
