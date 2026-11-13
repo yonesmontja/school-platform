@@ -28,10 +28,21 @@ export const BAWAH_ISI = 14;
 export function kopPdf(doc, sek, { judul, sub } = {}) {
   const pw = doc.internal.pageSize.getWidth();
   const m = 14;
-  // Lambang inisial
-  doc.setFillColor(...AKSEN).circle(m + 9, 15, 8.5, "F");
-  doc.setDrawColor(255, 255, 255).setLineWidth(0.6).circle(m + 9, 15, 7.4, "S");
-  doc.setFont("times", "bold").setFontSize(11).setTextColor(255, 255, 255).text(inisial(sek?.nama_sekolah), m + 9, 16.6, { align: "center" });
+  // Logo resmi sekolah (maks. 19 × 19 mm, proporsional); bila belum diunggah: lambang inisial
+  let adaLogo = false;
+  if (sek?.logoDataUrl) {
+    try {
+      const r = sek.logoRasio || 1;
+      const w = r >= 1 ? 19 : 19 * r, h = r >= 1 ? 19 / r : 19;
+      doc.addImage(sek.logoDataUrl, /^data:image\/jpe?g/i.test(sek.logoDataUrl) ? "JPEG" : "PNG", m + 9 - w / 2, 15 - h / 2, w, h, "logo-sekolah");
+      adaLogo = true;
+    } catch { /* gambar rusak: pakai lambang inisial */ }
+  }
+  if (!adaLogo) {
+    doc.setFillColor(...AKSEN).circle(m + 9, 15, 8.5, "F");
+    doc.setDrawColor(255, 255, 255).setLineWidth(0.6).circle(m + 9, 15, 7.4, "S");
+    doc.setFont("times", "bold").setFontSize(11).setTextColor(255, 255, 255).text(inisial(sek?.nama_sekolah), m + 9, 16.6, { align: "center" });
+  }
   // Nama & alamat
   doc.setTextColor(...AKSEN).setFont("times", "bold").setFontSize(16);
   doc.text(teksPdf(String(sek?.nama_sekolah || "Nama Sekolah").toUpperCase()), pw / 2, 13, { align: "center" });

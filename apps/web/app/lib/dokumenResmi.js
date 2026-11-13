@@ -21,7 +21,23 @@ async function keDataUrl(url) {
   } catch { return null; }
 }
 
-/** Pengaturan sekolah (nama, alamat, kepala sekolah) beserta gambar tanda tangan kepala sekolah. */
+/** Rasio lebar/tinggi gambar (untuk menaruh logo tanpa gepeng di PDF). */
+const rasioGambar = (src) => new Promise((ok) => {
+  if (!src || typeof Image === "undefined") return ok(1);
+  const img = new Image();
+  img.onload = () => ok(img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1);
+  img.onerror = () => ok(1);
+  img.src = src;
+});
+
+/** Logo resmi sekolah sebagai data URL (null bila belum diunggah). */
+export async function muatLogo(s) {
+  if (s && "logo_sekolah_url" in s && !s.logo_sekolah_url) return null;
+  const versi = s?.logo_sekolah_url ? String(s.logo_sekolah_url).split("/").pop() : Date.now();
+  return keDataUrl(`${API_URL}/logo-sekolah?v=${encodeURIComponent(versi)}`);
+}
+
+/** Pengaturan sekolah (nama, alamat, kepala sekolah) beserta gambar tanda tangan kepala sekolah dan logo sekolah. */
 export async function muatSekolah(sekolah) {
   let s = sekolah;
   // Data sekolah ringkas (mis. hanya nama) dilengkapi dari pengaturan agar kop memuat alamat & kepala sekolah
@@ -33,7 +49,12 @@ export async function muatSekolah(sekolah) {
     } catch { s = s || {}; }
   }
   const berkas = s?.ttd_kepsek_url ? String(s.ttd_kepsek_url).split("/").pop() : null;
-  return { ...s, ttdDataUrl: s?.ttdDataUrl ?? (berkas ? await keDataUrl(`${API_URL}/signature/${berkas}`) : null) };
+  const [ttdDataUrl, logoDataUrl] = await Promise.all([
+    s?.ttdDataUrl !== undefined ? s.ttdDataUrl : berkas ? keDataUrl(`${API_URL}/signature/${berkas}`) : null,
+    s?.logoDataUrl !== undefined ? s.logoDataUrl : muatLogo(s),
+  ]);
+  const logoRasio = s?.logoRasio ?? (logoDataUrl ? await rasioGambar(logoDataUrl) : 1);
+  return { ...s, ttdDataUrl, logoDataUrl, logoRasio };
 }
 
 export const tanggalPanjang = (d = new Date()) => new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
@@ -53,11 +74,14 @@ export const GAYA_RESMI = `
   .kop-resmi::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; border-bottom: 1px solid var(--aksen); }
   .kop-lambang { width: 58px; height: 58px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
     background: var(--aksen); color: #fff; font: 700 17pt Georgia, "Times New Roman", serif; letter-spacing: 1px; box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px var(--aksen); }
+  .kop-logo { width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .kop-logo img { max-width: 64px; max-height: 64px; object-fit: contain; }
   .kop-isi { flex: 1; text-align: center; }
   .kop-nama { font: 700 17pt Georgia, "Times New Roman", serif; letter-spacing: 1.5px; text-transform: uppercase; color: var(--aksen); margin: 0; }
   .kop-alamat { font-size: 9.5pt; color: var(--abu); margin-top: 2px; }
   .kop-sistem { font-size: 8.5pt; color: var(--abu); letter-spacing: .4px; margin-top: 1px; }
   .kop-pengimbang { width: 58px; flex: none; }
+  .kop-logo + .kop-isi + .kop-pengimbang { width: 64px; }
   .judul-dok { text-align: center; margin: 14px 0 12px; }
   .judul-dok h1 { font: 700 13pt Georgia, "Times New Roman", serif; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
   .judul-dok div { font-size: 9.5pt; color: var(--abu); margin-top: 2px; }
@@ -75,11 +99,15 @@ export const GAYA_RESMI = `
   table.bingkai > thead > tr > td, table.bingkai > tbody > tr > td, table.bingkai > tfoot > tr > td { border: none; padding: 0; }
 `;
 
-/** Kop sekolah: lambang inisial, nama, alamat/NPSN, garis ganda. */
+const barisAlamat = (sek) => [[sek?.alamat_sekolah, sek?.kota].filter(Boolean).join(", "), sek?.npsn ? `NPSN ${sek.npsn}` : ""].filter(Boolean).join("  ·  ");
+
+/** Kop sekolah: logo resmi (atau lambang inisial bila belum ada logo), nama, alamat/NPSN, garis ganda. */
 export function kopHtml(sek) {
-  const alamat = [sek?.alamat_sekolah, sek?.kota].filter(Boolean).join(", ");
-  const baris2 = [alamat, sek?.npsn ? `NPSN ${sek.npsn}` : ""].filter(Boolean).join("  ·  ");
-  return `<div class="kop-resmi"><div class="kop-lambang">${esc(inisial(sek?.nama_sekolah))}</div>
+  const baris2 = barisAlamat(sek);
+  const lambang = sek?.logoDataUrl
+    ? `<div class="kop-logo"><img src="${sek.logoDataUrl}" alt="Logo ${esc(sek?.nama_sekolah || "sekolah")}"></div>`
+    : `<div class="kop-lambang">${esc(inisial(sek?.nama_sekolah))}</div>`;
+  return `<div class="kop-resmi">${lambang}
     <div class="kop-isi"><p class="kop-nama">${esc(sek?.nama_sekolah || "Nama Sekolah")}</p>
       ${baris2 ? `<div class="kop-alamat">${esc(baris2)}</div>` : ""}<div class="kop-sistem">${esc(NAMA_SISTEM)}</div></div>
     <div class="kop-pengimbang"></div></div>`;
@@ -91,8 +119,17 @@ export const judulHtml = (judul, sub) => `<div class="judul-dok"><h1>${esc(judul
  * Blok tanda tangan: "Mengetahui, Kepala Sekolah" (kiri) dan pihak kedua opsional (kanan),
  * dengan kota & tanggal di atas pihak kanan (atau di atas kepala sekolah bila tidak ada pihak kanan).
  */
-export function ttdHtml(sek, { tanggal = new Date(), kanan = null } = {}) {
+export function ttdHtml(sek, { tanggal = new Date(), kanan = null, tabel = false } = {}) {
   const tempat = `${esc(sek?.kota || "")}${sek?.kota ? ", " : ""}${esc(tanggalPanjang(tanggal))}`;
+  if (tabel) {
+    // Untuk Word (tanpa flexbox): dua kolom tabel tanpa garis
+    const kol = (atas, gambar, nama, nip) => `<td style="width:50%;border:none;text-align:center;vertical-align:top;font-size:10.5pt">${atas}
+      <p style="margin:0;height:64px">${gambar ? `<img src="${gambar}" width="150" height="60" alt="">` : "&nbsp;"}</p>
+      <p style="margin:0;font-weight:bold;text-decoration:underline">${esc(nama || "..............................")}</p>${nip ? `<p style="margin:0">NIP. ${esc(nip)}</p>` : ""}</td>`;
+    const kepsek = kol(`${kanan ? "" : `${tempat}<br>`}Mengetahui,<br>Kepala Sekolah`, sek?.ttdDataUrl, sek?.nama_kepsek, sek?.nip_kepsek);
+    const pihak = kanan ? kol(`${tempat}<br>${esc(kanan.jabatan || "")}`, null, kanan.nama, kanan.nip) : `<td style="width:50%;border:none"></td>`;
+    return `<table style="width:100%;border-collapse:collapse;border:none;margin-top:18px"><tr>${kanan ? kepsek + pihak : pihak + kepsek}</tr></table>`;
+  }
   const kepsek = `<div>${kanan ? "" : `${tempat}<br>`}Mengetahui,<br>Kepala Sekolah
       <div class="ruang">${sek?.ttdDataUrl ? `<img src="${sek.ttdDataUrl}" alt="">` : ""}</div>
       <div class="nama">${esc(sek?.nama_kepsek || "..............................")}</div>${sek?.nip_kepsek ? `<div>NIP. ${esc(sek.nip_kepsek)}</div>` : ""}</div>`;
@@ -144,3 +181,59 @@ export function tulisJendela(w, judul, gaya, badan) {
 
 /** Buka dan isi jendela cetak sekaligus (bila data sudah tersedia tanpa menunggu). */
 export const bukaJendelaCetak = (judul, gaya, badan) => tulisJendela(siapkanJendela(), judul, gaya, badan);
+
+/**
+ * Kop untuk dokumen Word: Word tidak memahami flexbox, jadi kop disusun dengan tabel.
+ * Gambar memakai alamat berkas di dalam paket MHTML (lihat unduhWordResmi).
+ */
+export function kopWordHtml(sek) {
+  const baris2 = barisAlamat(sek);
+  const lambang = sek?.logoDataUrl
+    ? `<img src="${BERKAS_WORD}logo" width="${Math.round(Math.min(70, 70 * (sek.logoRasio || 1)))}" height="${Math.round(Math.min(70, 70 / (sek.logoRasio || 1)))}" alt="Logo">`
+    : `<span style="font:bold 16pt Georgia;color:#1e3a8a">${esc(inisial(sek?.nama_sekolah))}</span>`;
+  return `<table style="width:100%;border-collapse:collapse;border:none;margin:0"><tr>
+    <td style="width:80px;border:none;text-align:center;vertical-align:middle">${lambang}</td>
+    <td style="border:none;text-align:center;vertical-align:middle">
+      <p style="margin:0;font:bold 17pt Georgia,'Times New Roman',serif;letter-spacing:1.5px;text-transform:uppercase;color:#1e3a8a">${esc(sek?.nama_sekolah || "Nama Sekolah")}</p>
+      ${baris2 ? `<p style="margin:2px 0 0;font-size:9.5pt;color:#5b6475">${esc(baris2)}</p>` : ""}
+      <p style="margin:1px 0 0;font-size:8.5pt;color:#5b6475">${esc(NAMA_SISTEM)}</p></td>
+    <td style="width:80px;border:none"></td></tr></table>
+    <div style="border-top:3px solid #1e3a8a;border-bottom:1px solid #1e3a8a;height:2px;margin:4px 0 14px"></div>`;
+}
+
+const BERKAS_WORD = "file:///C:/dokumen_files/";
+
+/**
+ * Unduh dokumen Word (.doc berformat MHTML) dengan logo & tanda tangan tertanam, sehingga gambar tetap
+ * tampil walau dibuka tanpa internet. Di badan HTML, logo = `${BERKAS_WORD}logo`, tanda tangan = data URL sek.ttdDataUrl.
+ */
+export function unduhWordResmi(namaBerkas, judul, gaya, badan, sek) {
+  const gambar = [];
+  const tambah = (nama, dataUrl) => {
+    const m = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(dataUrl || "");
+    if (m) gambar.push({ nama, tipe: m[1], isi: m[2] });
+    return !!m;
+  };
+  if (sek?.logoDataUrl) tambah("logo", sek.logoDataUrl);
+  let html = badan;
+  if (sek?.ttdDataUrl && tambah("ttd", sek.ttdDataUrl)) html = html.split(sek.ttdDataUrl).join(`${BERKAS_WORD}ttd`);
+  const dok = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="id"><head><meta charset="utf-8"><title>${esc(judul)}</title><style>${GAYA_RESMI}${gaya}</style></head><body>${html}</body></html>`;
+  const batas = `----=_Bagian_${Date.now().toString(36)}`;
+  const base64Utf8 = (t) => { const b = new TextEncoder().encode(t); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+  const NL = "\r\n";
+  const potong = (t) => (t.match(/.{1,76}/g) || []).join(NL);
+  const kepala = (tipe, lokasi) => [`Content-Type: ${tipe}`, "Content-Transfer-Encoding: base64", `Content-Location: ${lokasi}`].join(NL);
+  const bagian = [
+    `--${batas}${NL}${kepala('text/html; charset="utf-8"', `${BERKAS_WORD.replace("dokumen_files/", "")}dokumen.htm`)}${NL}${NL}${potong(base64Utf8(dok))}`,
+    ...gambar.map((g) => `--${batas}${NL}${kepala(g.tipe, `${BERKAS_WORD}${g.nama}`)}${NL}${NL}${potong(g.isi)}`),
+  ];
+  const mhtml = ["MIME-Version: 1.0", `Content-Type: multipart/related; boundary="${batas}"; type="text/html"`, "", bagian.join(NL), `--${batas}--`, ""].join(NL);
+  const url = URL.createObjectURL(new Blob([mhtml], { type: "application/msword" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = namaBerkas;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

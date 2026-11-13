@@ -46,12 +46,20 @@ class SchoolSettingController extends Controller
             'kktp_sangat_baik' => 'sometimes|integer|between:3,100|gt:kktp_baik',
             'skala_kokurikuler' => 'sometimes|in:3,4',
             'batas_nilai_remedial' => 'sometimes|in:KKM,ASLI',
+            // Logo dikirim sebagai data URL PNG/JPEG (sudah diperkecil di peramban), maks. ~2 MB
+            'logo_sekolah_base64' => 'nullable|string|max:2800000',
         ], [
             'kktp_baik.gt' => 'Batas Baik harus lebih tinggi dari batas Cukup.',
             'kktp_sangat_baik.gt' => 'Batas Sangat Baik harus lebih tinggi dari batas Baik.',
         ]);
 
-        $data = $request->except(['ttd_kepsek_base64']);
+        // logo_sekolah_url tidak boleh diisi bebas dari luar: hanya lewat unggahan atau dikosongkan (hapus logo)
+        $data = $request->except(['ttd_kepsek_base64', 'logo_sekolah_base64', 'logo_sekolah_url']);
+        $logoBaru = $request->filled('logo_sekolah_base64') ? $this->simpanLogo($request->logo_sekolah_base64) : null;
+        if ($logoBaru || ($request->has('logo_sekolah_url') && !$request->filled('logo_sekolah_url'))) {
+            $this->hapusBerkasLogo($setting->logo_sekolah_url);
+            $data['logo_sekolah_url'] = $logoBaru;
+        }
         foreach (SchoolSetting::API_KEY_FIELDS as $field) {
             unset($data["has_{$field}"], $data["hapus_{$field}"]);
 
@@ -86,5 +94,37 @@ class SchoolSettingController extends Controller
 
         $setting->update($data);
         return response()->json(['message' => 'Pengaturan berhasil disimpan', 'data' => $setting]);
+    }
+
+    /** Simpan logo (PNG/JPEG) ke storage publik; tolak berkas yang bukan gambar sungguhan. */
+    private function simpanLogo(string $dataUrl): string
+    {
+        $tolak = fn(string $pesan) => throw \Illuminate\Validation\ValidationException::withMessages(['logo_sekolah_base64' => $pesan]);
+        if (!preg_match('#^data:image/(png|jpeg);base64,#', $dataUrl)) $tolak('Logo harus berupa gambar PNG atau JPG.');
+        $biner = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1), true);
+        if ($biner === false || strlen($biner) > 2 * 1024 * 1024) $tolak('Logo maksimal 2 MB.');
+        $info = @getimagesizefromstring($biner);
+        if (!$info || !in_array($info[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) $tolak('Berkas logo bukan gambar PNG/JPG yang valid.');
+        if ($info[0] < 32 || $info[1] < 32 || $info[0] > 4000 || $info[1] > 4000) $tolak('Ukuran logo harus antara 32 dan 4000 piksel.');
+        $nama = 'logo_sekolah_' . time() . '_' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)) . ($info[2] === IMAGETYPE_PNG ? '.png' : '.jpg');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('logo/' . $nama, $biner);
+        return '/storage/logo/' . $nama;
+    }
+
+    private function hapusBerkasLogo(?string $url): void
+    {
+        if ($url && str_starts_with($url, '/storage/logo/')) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete('logo/' . basename($url));
+        }
+    }
+
+    /** Logo resmi sekolah untuk kop dokumen & halaman masuk (publik, tanpa login; 404 bila belum diunggah). */
+    public function logo()
+    {
+        $url = SchoolSetting::first()?->logo_sekolah_url;
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        $relatif = $url ? 'logo/' . basename($url) : null;
+        if (!$relatif || !$disk->exists($relatif)) abort(404, 'Logo sekolah belum diunggah.');
+        return response()->file($disk->path($relatif), ['Cache-Control' => 'public, max-age=300']);
     }
 }

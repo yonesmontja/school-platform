@@ -73,6 +73,8 @@ export default function PengaturanSekolahPage() {
   });
   const [ttdPreview, setTtdPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const logoInputRef = useRef(null);
   // API key tidak pernah dikirim dari server; input ini hanya untuk key baru
   const [apiKeyInputs, setApiKeyInputs] = useState(emptyPerProvider(''));
   const [showApiKeys, setShowApiKeys] = useState(emptyPerProvider(false));
@@ -99,6 +101,7 @@ export default function PengaturanSekolahPage() {
           headers: { Authorization: `Bearer ${getToken()}`, Accept: 'application/json' },
         });
         setFormData(data);
+        if (data.logo_sekolah_url) setLogoPreview(`${API_URL}/logo-sekolah?v=${encodeURIComponent(data.logo_sekolah_url.split('/').pop())}`);
         if (data.ttd_kepsek_url) {
           // Jika URL dari backend adalah path lokal (misal /storage/...), kita bisa langsung tampilkan
           // Pastikan API_URL dasar disesuaikan (path relatif /storage/... diberi asal API)
@@ -140,6 +143,39 @@ export default function PengaturanSekolahPage() {
     reader.readAsDataURL(file);
   };
 
+  // Logo resmi: diperkecil di peramban (sisi terpanjang maks. 600 px) dan disimpan sebagai PNG agar tajam di kop
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      e.target.value = '';
+      return Swal.fire('Format Tidak Didukung', 'Gunakan gambar PNG, JPG, atau WEBP.', 'warning');
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      e.target.value = '';
+      return Swal.fire('File Terlalu Besar', 'Maksimal ukuran file logo adalah 5MB.', 'warning');
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const skala = Math.min(1, 600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const kanvas = document.createElement('canvas');
+      kanvas.width = Math.max(1, Math.round(img.naturalWidth * skala));
+      kanvas.height = Math.max(1, Math.round(img.naturalHeight * skala));
+      kanvas.getContext('2d').drawImage(img, 0, 0, kanvas.width, kanvas.height);
+      URL.revokeObjectURL(url);
+      if (kanvas.width < 32 || kanvas.height < 32) {
+        if (logoInputRef.current) logoInputRef.current.value = '';
+        return Swal.fire('Logo Terlalu Kecil', 'Gunakan logo minimal 32 × 32 piksel (disarankan 300 piksel atau lebih).', 'warning');
+      }
+      const dataUrl = kanvas.toDataURL('image/png');
+      setLogoPreview(dataUrl);
+      setFormData((f) => ({ ...f, logo_sekolah_base64: dataUrl }));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); Swal.fire('Gagal', 'Berkas logo tidak bisa dibaca sebagai gambar.', 'error'); };
+    img.src = url;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -174,6 +210,9 @@ export default function PengaturanSekolahPage() {
           ai_model_name: result.data.ai_model_name,
           openkey_base_url: result.data.openkey_base_url,
           openkey_model_name: result.data.openkey_model_name,
+          // Logo sudah tersimpan di server: jangan unggah ulang pada penyimpanan berikutnya
+          logo_sekolah_url: result.data.logo_sekolah_url || '',
+          logo_sekolah_base64: null,
         }));
       }
       setApiKeyInputs(emptyPerProvider(''));
@@ -218,6 +257,36 @@ export default function PengaturanSekolahPage() {
             <div className="col-md-6">
               <label className="form-label fw-bold small text-muted">Kota/Kabupaten *</label>
               <input type="text" className="form-control" name="kota" required value={formData.kota || ''} onChange={handleInputChange} />
+            </div>
+
+            {/* LOGO RESMI SEKOLAH */}
+            <div className="col-md-12">
+              <label className="form-label fw-bold small text-muted" htmlFor="logoSekolah">Logo Resmi Sekolah</label>
+              <div className="d-flex flex-column flex-md-row gap-4 align-items-start border p-3 rounded bg-light">
+                <div className="border bg-white rounded d-flex justify-content-center align-items-center" style={{ width: '120px', height: '120px', overflow: 'hidden' }}>
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo sekolah" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span className="text-muted small text-center px-2">Belum ada logo</span>
+                  )}
+                </div>
+                <div className="flex-grow-1">
+                  <p className="small text-muted mb-2">
+                    Dipakai di kop semua dokumen resmi: modul ajar (cetak, PDF &amp; Word), ATP, Prota &amp; Promes, paket soal, rapor, dan laporan lain.
+                    Gunakan PNG berlatar transparan atau JPG, minimal 300 piksel. Bila kosong, kop memakai lambang inisial sekolah.
+                  </p>
+                  <input id="logoSekolah" type="file" className="form-control form-control-sm" accept="image/png, image/jpeg, image/webp" onChange={handleLogoChange} ref={logoInputRef} />
+                  {logoPreview && (
+                    <button type="button" className="btn btn-sm btn-outline-danger mt-2" onClick={() => {
+                      setLogoPreview(null);
+                      setFormData((f) => ({ ...f, logo_sekolah_base64: null, logo_sekolah_url: '' }));
+                      if (logoInputRef.current) logoInputRef.current.value = '';
+                    }}>
+                      Hapus Logo
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <hr className="my-4" />

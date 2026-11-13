@@ -27,6 +27,7 @@ class SchoolSetting extends Model
         'nip_kepsek',
         'npsn',
         'ttd_kepsek_url',
+        'logo_sekolah_url',
         'api_key_gemini',
         'ai_model_name',
         'api_key_qwen',

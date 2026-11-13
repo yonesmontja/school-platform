@@ -93,6 +93,9 @@ Route::get('/health', function () {
     }
 });
 
+// Logo resmi sekolah (publik: dipakai juga di halaman masuk)
+Route::get('/logo-sekolah', [SchoolSettingController::class, 'logo']);
+
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {
     $path = storage_path('app/public/signatures/' . basename($filename));

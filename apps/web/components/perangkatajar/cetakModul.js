@@ -1,6 +1,6 @@
 // Cetak modul ajar RPM (jendela cetak / simpan PDF) dan unduh sebagai dokumen Word (.doc dari HTML).
 import { BAGIAN_RPM, LANGKAH_RPM } from "./rpm";
-import { GAYA_RESMI, esc, gayaHalamanMengalir, judulHtml, kopHtml, muatSekolah, siapkanJendela, ttdHtml, tulisJendela } from "@/app/lib/dokumenResmi";
+import { esc, gayaHalamanMengalir, judulHtml, kopHtml, kopWordHtml, muatSekolah, siapkanJendela, ttdHtml, tulisJendela, unduhWordResmi } from "@/app/lib/dokumenResmi";
 const teks = (v) => esc(v).replace(/\n/g, "<br>");
 
 const GAYA = `
@@ -12,7 +12,8 @@ const GAYA = `
   .baru { page-break-before: always; }
 `;
 
-function isiHtml(m, sekolah) {
+function isiHtml(m, sekolah, word = false) {
+  const kop = word ? kopWordHtml : kopHtml;
   const isi = m.isi || {};
   const meta = `<table class="meta"><tr><td>Mata pelajaran: <b>${esc(m.mapel?.nama_mapel)}</b></td><td>Kelas/Fase: <b>${esc(m.kelas?.nama_kelas || "-")}${m.fase ? ` / ${m.fase}` : ""}</b></td></tr>
     <tr><td>Materi: <b>${esc(m.materi?.nama_materi || "")}</b></td><td>Alokasi waktu: <b>${m.jumlah_pertemuan} pertemuan${m.jp_per_pertemuan ? ` × ${m.jp_per_pertemuan} JP` : ""}</b></td></tr>
@@ -22,14 +23,14 @@ function isiHtml(m, sekolah) {
   const tp = (m.tp_detail || []).map((t) => `<li>${esc(t.deskripsi)}</li>`).join("");
   const pengalaman = (isi.pertemuan || []).map((p) => `<table><tr><th colspan="2">Pertemuan ${p.ke}${p.jp ? ` (${p.jp} JP)` : ""}</th></tr>
     ${LANGKAH_RPM.map((l) => `<tr><td class="l">${esc(l.label)}</td><td>${teks(p[l.k])}</td></tr>`).join("")}</table>`).join("");
-  return `${kopHtml(sekolah)}${judulHtml("Perencanaan Pembelajaran Mendalam", m.judul)}${meta}
+  return `${kop(sekolah)}${judulHtml("Perencanaan Pembelajaran Mendalam", m.judul)}${meta}
     ${tp ? `<h3>Tujuan pembelajaran yang dicakup</h3><ol>${tp}</ol>` : ""}
     ${bagian(BAGIAN_RPM[0])}${bagian(BAGIAN_RPM[1])}
     <h3>C. Pengalaman Belajar</h3>${pengalaman}
     ${bagian(BAGIAN_RPM[2])}${m.paket ? `<p>Paket soal asesmen akhir: <b>${esc(m.paket.judul)}</b></p>` : ""}
     ${isi.diferensiasi ? `<h3>Diferensiasi</h3><p>${teks(isi.diferensiasi)}</p>` : ""}
-    ${ttdHtml(sekolah, { tanggal: m.disetujui_pada || new Date(), kanan: { jabatan: "Guru", nama: m.pembuat?.name } })}
-    ${isi.lkpd ? `<div class="baru"></div>${kopHtml(sekolah)}${judulHtml("Lembar Kerja Peserta Didik", m.judul)}<p>Nama: ..................................... Kelas: ........</p><p>${teks(isi.lkpd)}</p>` : ""}`;
+    ${ttdHtml(sekolah, { tanggal: m.disetujui_pada || new Date(), kanan: { jabatan: "Guru", nama: m.pembuat?.name }, tabel: word })}
+    ${isi.lkpd ? `<div class="baru"></div>${kop(sekolah)}${judulHtml("Lembar Kerja Peserta Didik", m.judul)}<p>Nama: ..................................... Kelas: ........</p><p>${teks(isi.lkpd)}</p>` : ""}`;
 }
 
 export async function cetakModul(m, sekolah) {
@@ -39,16 +40,9 @@ export async function cetakModul(m, sekolah) {
   return tulisJendela(w, m.judul, `${gayaHalamanMengalir(sek, "Perencanaan Pembelajaran Mendalam", { margin: "16mm 16mm 18mm" })}${GAYA}`, isiHtml(m, sek));
 }
 
-/** Unduh sebagai .doc (HTML yang dibuka Word) agar guru bisa menyunting di Word. */
+/** Unduh sebagai .doc (Word) dengan logo sekolah & tanda tangan tertanam, agar guru bisa menyunting di Word. */
 export async function unduhWord(m, sekolah) {
   const sek = await muatSekolah(sekolah);
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="id"><head><meta charset="utf-8"><title>${esc(m.judul)}</title><style>${GAYA_RESMI}${GAYA}</style></head><body>${isiHtml(m, sek)}</body></html>`;
-  const url = URL.createObjectURL(new Blob(["﻿", html], { type: "application/msword" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${m.judul.replace(/[^\w\- ]+/g, "").trim() || "modul-ajar"}.doc`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const nama = `${m.judul.replace(/[^\w\- ]+/g, "").trim() || "modul-ajar"}.doc`;
+  unduhWordResmi(nama, m.judul, GAYA, isiHtml(m, sek, true), sek);
 }
