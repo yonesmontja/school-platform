@@ -30,9 +30,14 @@ school-platform/
 
 ## Fitur
 
-- **Autentikasi & Peran** — login/logout dengan token Laravel Sanctum (login dibatasi throttle), ganti password di halaman Akun Saya, akun nonaktif ditolak. Lima peran: `admin`, `kepsek`, `guru` (staf) serta `siswa`, `ortu` (portal baca). Guru dibatasi ke mapel yang diampu, kelas binaan, dan data miliknya
+- **Autentikasi & Peran** — login/logout dengan token Laravel Sanctum (login dibatasi throttle), ganti password di halaman Akun Saya, akun nonaktif ditolak. Delapan peran: `admin`, `kepsek`, `guru` (staf), `siswa`, `ortu` (portal baca), serta peran **peninjau** hanya-lihat `wakakur` (Wakasek Kurikulum), `wakasis` (Wakasek Kesiswaan), dan `yayasan` (membuka semua menu dan data seperti admin/kepsek, tetapi setiap perubahan ditolak server dengan 403; ganti kata sandi sendiri tetap bisa). Guru dibatasi ke mapel yang diampu, kelas binaan, dan data miliknya
 - **Manajemen Pengguna** — admin membuat/mengubah/menghapus akun, membuat akun massal (generate), dan reset password
 - **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak miliknya (read-only): ringkasan dengan kotak **Perlu didampingi** (tindak lanjut terjadwal, mapel di bawah KKM, TP belum dikuasai, alpa) dan grafik perkembangan nilai; **Capaian TP** per mapel → materi → indikator dengan tingkat KKTP, tanda tuntas, dan kalimat deskripsi seperti di rapor; **Tindak Lanjut** (remedial: jadwal, jam, ruang, catatan guru, nilai awal → remedial, serta tips mendampingi di rumah per bentuk tindak lanjut); **Jadwal** kelas 7 hari ke depan (sesi remedial siswa lain tidak ditampilkan); kalender kehadiran per bulan; catatan positif (narasi jurnal negatif tidak ditampilkan); dan pratinjau/cetak rapor
+- **Jadwal Terhubung Perangkat Ajar** — form sesi jadwal punya panel editor untuk menautkan ATP, modul, CP, indikator, materi, bank soal, dan video per mapel (ada keadaan kosong bila belum ada, menu cepat `/`); status sesi mengikuti jam sekolah otomatis (Menunggu → Berlangsung → Selesai, lewat perintah terjadwal `jadwal:status-otomatis` tiap menit), hanya **Batal** yang manual
+- **Prota & Promes** — halaman Prota & Promes (menu TDU - Jadwal): Gantt dinamis, matriks minggu Promes, kalender minggu efektif per semester (diatur admin/kepsek), rencana dari ATP dan realisasi dari jadwal; ekspor Excel/CSV dan PDF resmi
+- **Jurnal Sensitif** — guru bisa menandai entri jurnal sebagai sensitif (saklar di form atau menu baris): narasi dan lampiran hanya terbaca admin, kepsek, guru penulis, dan wali kelas siswa; tidak ikut rapor, portal orang tua, maupun catatan AI wali kelas/P5; skor STNKM tetap dihitung
+- **Ringkasan sebelum menilai & presensi** — kartu ringkasan penilaian terakhir (materi, indikator, cakupan, di bawah KKM, tindak lanjut belum terisi) serta penguasaan per materi/indikator di Input Nilai dan Import Excel; Presensi menampilkan presensi terakhir, hari sekolah belum terisi, kehadiran semester, dan siswa yang perlu perhatian. Input Nilai juga bisa mengisi S/T/N/K/M manual (saklar; mati = dihitung otomatis), dan Laporan STNKM punya mode harian serta ekspor Excel lengkap
+- **Dokumen Resmi & Logo Sekolah** — kop surat sekolah, tanda tangan kepala sekolah, dan nomor halaman pada setiap dokumen cetak/PDF/Word; admin mengunggah **logo resmi** di Pengaturan Sekolah (PNG/JPG/WEBP, diperkecil di peramban, divalidasi sebagai gambar sungguhan di server) yang dipakai semua kop dan halaman masuk; ekspor Word modul ajar berformat MHTML dengan logo dan tanda tangan tertanam
 - **Jadwal Pembelajaran** — kalender (FullCalendar) dengan geser-jadwal (drag), ubah status, dan master ruangan (kelola oleh admin/kepsek)
 - **Master Siswa** — CRUD siswa beserta data referensi (agama, suku, pekerjaan, wilayah, orang tua/wali, sekolah asal)
 - **Orang Tua & Wali** — data ayah/ibu atau wali (nama, pekerjaan, nomor WhatsApp, alamat) beserta anak yang terhubung; satu data bisa untuk kakak-adik. Dipakai untuk akun portal orang tua dan nomor kabar WhatsApp. Halaman ini bergaya Tabler (kartu ringkas, tab, formulir dengan pencarian anak, toast, mode gelap) lewat CSS yang dibatasi ke halaman itu ([tabler.css](apps/web/app/dashboard/master-keluarga/tabler.css)); ekspor XLSX/CSV/PDF sama seperti halaman master lain. Admin mengubah, kepsek melihat
@@ -77,7 +82,7 @@ school-platform/
 - **Aplikasi terpasang (PWA)** — EduRapor bisa dipasang ke layar utama HP/laptop (tombol **Pasang aplikasi** di topbar; iPhone lewat Bagikan → Tambah ke Layar Utama), terbuka layar penuh dengan ikon sendiri dan pintasan ke Perlu Tindakan, Input Nilai, Presensi, dan Jurnal. Service worker ([public/sw.js](apps/web/public/sw.js), hanya di build produksi) menyimpan aset aplikasi berhash, dan memakai jaringan dulu untuk halaman & data `/api` dengan salinan terakhir sebagai cadangan, sehingga tampilan selalu terbaru saat online dan halaman yang pernah dibuka tetap terbuka saat offline. Salinan data dihapus saat keluar
 - **Mengisi saat offline** — nilai, jurnal, dan presensi yang disimpan tanpa sinyal masuk antrean IndexedDB per akun ([antrean.js](apps/web/app/lib/antrean.js)), terlihat lewat pita offline dan ikon awan di topbar, lalu terkirim otomatis saat tersambung (jurnal dianalisis STNKM saat terkirim). Kiriman yang ditolak server ditandai merah agar bisa diperiksa atau dibuang. Saat aplikasi dibuka dengan sinyal, [siapOffline.js](apps/web/app/lib/siapOffline.js) menyiapkan halaman Input Nilai, Jurnal, Presensi beserta data kelas pengguna di HP (sekali sehari per login), jadi halaman itu bisa dipakai offline walau belum pernah dibuka
 - **Kembali dari WhatsApp** — bila HP menutup halaman saat WhatsApp terbuka, panel WhatsApp di Cetak Rapor, Presensi, dan Jurnal muncul lagi beserta pilihan terakhir ([pulihHalaman.js](apps/web/app/lib/pulihHalaman.js), sessionStorage per tab); hilang setelah **Selesai & Tutup**
-- **Pengaturan Sekolah** — profil sekolah, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
+- **Pengaturan Sekolah** — profil sekolah, logo resmi, tanda tangan, serta API key & model untuk provider AI serta konfigurasi WhatsApp (diisi di halaman Pengaturan, tersimpan terenkripsi)
 - **Panduan** — menu Panduan (Akun & Sistem) berisi langkah singkat per peran: mulai di sini, guru, wali kelas, admin & kepala sekolah, orang tua & siswa; bisa dicari, tiap bagian menautkan ke halamannya, dan bisa dicetak. Isinya di [isiPanduan.js](apps/web/app/dashboard/panduan/isiPanduan.js); perbarui bila alur halaman berubah
 - **Ekspor** — tabel ke PDF (jsPDF) dan Excel (SheetJS)
 
@@ -260,7 +265,7 @@ Service `db-backup` (lihat [infra/backup/backup.sh](infra/backup/backup.sh)) mem
 `backups/` di root repo (di luar container, tidak ikut git):
 
 - `backups/harian/db_<tanggal>_<jam>.dump`: isi database (format `pg_dump -Fc`), diperiksa bisa dibaca sebelum disimpan
-- `backups/harian/storage_<tanggal>_<jam>.tar.gz`: file unggahan (tanda tangan, lampiran jadwal/jurnal)
+- `backups/harian/storage_<tanggal>_<jam>.tar.gz`: file unggahan (tanda tangan, logo sekolah, lampiran jadwal/jurnal)
 - `backups/bulanan/`: salinan pertama tiap bulan
 
 Backup dibuat sekali sehari begitu lewat jam 01.00. Bila komputer mati pada jam itu, backup dibuat saat komputer
@@ -329,6 +334,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/settings` | Ambil pengaturan sekolah | semua peran | ✔ |
 | GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
 | GET | `/portal/rapor` | Rapor anak (portal) + `remedial` (rencana tindak lanjut & hasil) + `jadwal_pekan` (jadwal kelas 7 hari ke depan) | siswa, ortu | ✔ |
+| GET | `/logo-sekolah` | Logo resmi sekolah (404 bila belum diunggah) | – | – |
 | POST | `/settings` | Simpan pengaturan sekolah | admin | ✔ |
 | POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian` | Tambah/ubah/hapus data master | admin | ✔ |
 | PUT/DELETE | `/mbk/{id}` | Ubah/hapus aktivitas | admin | ✔ |
@@ -351,6 +357,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/nilai/students` | Daftar siswa beserta nilainya | staf | ✔ |
 | GET | `/nilai` | Daftar nilai | staf | ✔ |
 | GET | `/nilai/remedial` | Daftar siswa remedial | staf | ✔ |
+| GET | `/nilai/ringkasan` | Ringkasan penilaian terakhir & penguasaan per materi/indikator | staf | ✔ |
 | POST | `/nilai/batch` | Simpan nilai secara batch | staf | ✔ |
 | DELETE | `/nilai/{id}` | Hapus nilai | staf | ✔ |
 | POST | `/remedial` | Tambah rencana tindak lanjut remedial | staf | ✔ |
@@ -390,6 +397,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | PUT | `/dokumen-rujukan/pengaturan` | Izinkan semua guru mengunggah dokumen | admin | ✔ |
 | POST | `/dokumen-rujukan/cari` | Uji bagian dokumen yang dibaca AI untuk suatu topik | staf | ✔ |
 | GET | `/perangkat-ajar/referensi` | Pilihan formulir perangkat ajar (mapel diampu, kelas + fase, periode, materi & TP, profil lulusan) | staf | ✔ |
+| GET | `/program-ajar/referensi`, `/program-ajar/promes`, `/program-ajar/prota` | Prota & Promes: pilihan formulir, matriks minggu, rencana tahunan | staf | ✔ |
+| PUT | `/program-ajar/kalender/{id}` | Simpan minggu efektif/tidak efektif semester | admin, kepsek | ✔ |
 | GET/POST/PUT/DELETE | `/perangkat-ajar/cp`, `/perangkat-ajar/cp/{id}` | Capaian Pembelajaran per mapel, fase, elemen | staf | ✔ |
 | POST | `/perangkat-ajar/cp/pecah`, `/perangkat-ajar/cp/banyak` | AI memecah teks CP per elemen (pratinjau) / simpan banyak elemen | staf | ✔ |
 | GET/POST/PUT/DELETE | `/perangkat-ajar/atp`, `/perangkat-ajar/atp/{id}` | ATP beserta barisnya (TP lama atau usulan) | staf | ✔ |
@@ -407,6 +416,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/pemakaian` | Dasbor pemakaian: adopsi fitur, per guru, jejak kerja, hambatan, portal (`hari` 7–90) | admin, kepsek | ✔ |
 | GET | `/dokumentasi` | Dokumentasi seluruh endpoint API (dibaca dari router) | admin | ✔ |
 | GET | `/dokumentasi/openapi.json` | Spesifikasi OpenAPI 3.0 untuk Postman/Insomnia/Swagger | admin | ✔ |
+| GET | `/jadwal/perangkat` | Perangkat ajar yang bisa ditautkan ke sesi (ATP, modul, CP, indikator, materi, bank soal, video) | staf | ✔ |
 | GET | `/jadwal/rencana-hari` | Rencana sesi bermodul pada satu tanggal (opsional per kelas; guru: sesinya sendiri) | staf | ✔ |
 | GET | `/jadwal/{id}/rencana` | Tujuan & langkah pertemuan modul untuk satu sesi | staf | ✔ |
 | GET | `/perangkat-ajar/modul/{id}/paket` | Paket soal mapel/kelas untuk ditautkan sebagai asesmen akhir | staf | ✔ |
@@ -435,6 +445,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/jurnal/store` | Simpan jurnal | staf | ✔ |
 | POST | `/jurnal/import` | Impor jurnal massal (Excel) | staf | ✔ |
 | PUT/DELETE | `/jurnal/{id}` | Ubah/hapus jurnal (guru: milik sendiri) | staf | ✔ |
+| PATCH | `/jurnal/{id}/sensitif` | Tandai/lepas tanda jurnal sensitif | staf | ✔ |
 | GET | `/presensi` | Daftar presensi | staf | ✔ |
 | POST | `/presensi/batch` | Simpan presensi secara batch | staf | ✔ |
 | DELETE | `/presensi/tanggal` | Hapus presensi per tanggal | staf | ✔ |
@@ -482,6 +493,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/dokumentasi-api` | Dokumentasi API: daftar endpoint, akses per peran, contoh curl, unduh OpenAPI (admin) |
 | `/dashboard/studio-video` | Studio Rakit Video: rakit video motion graphic per adegan (satu pembuat video yang ditunjuk admin) |
 | `/dashboard/pustaka-dokumen` | Pustaka Dokumen: dokumen & tautan resmi yang dibaca AI (persetujuan kepala sekolah untuk unggahan guru) |
+| `/dashboard/program-ajar` | Prota & Promes: Gantt, matriks minggu Promes, kalender minggu efektif, ekspor Excel/CSV/PDF |
 | `/dashboard/perangkat-ajar` | Perangkat Ajar: ATP, modul ajar RPM, dan Capaian Pembelajaran (persetujuan kepala sekolah) |
 | `/dashboard/ujian`        | Tes Online siswa: daftar tes dan halaman mengerjakan (`/dashboard/ujian/{id}`) |
 | `/dashboard/bank-soal`    | Bank Soal: daftar & persetujuan soal, kisi-kisi, paket soal (cetak, koreksi, kirim nilai, analisis butir), impor paket soal |
