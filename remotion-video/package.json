@@ -11,6 +11,7 @@
   "dependencies": {
     "@huggingface/transformers": "4.2.0",
     "@remotion/cli": "^4.0.541",
+    "@remotion/google-fonts": "4.0.541",
     "@remotion/media": "4.0.541",
     "@remotion/video-matting": "4.0.541",
     "react": "^19.3.1",

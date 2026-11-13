@@ -201,13 +201,15 @@ export function kopWordHtml(sek) {
     <div style="border-top:3px solid #1e3a8a;border-bottom:1px solid #1e3a8a;height:2px;margin:4px 0 14px"></div>`;
 }
 
-const BERKAS_WORD = "file:///C:/dokumen_files/";
+/** Alamat berkas gambar di dalam paket MHTML Word: `${BERKAS_WORD}nama`. */
+export const BERKAS_WORD = "file:///C:/dokumen_files/";
 
 /**
  * Unduh dokumen Word (.doc berformat MHTML) dengan logo & tanda tangan tertanam, sehingga gambar tetap
- * tampil walau dibuka tanpa internet. Di badan HTML, logo = `${BERKAS_WORD}logo`, tanda tangan = data URL sek.ttdDataUrl.
+ * tampil walau dibuka tanpa internet. Di badan HTML, logo = `${BERKAS_WORD}logo`, tanda tangan = data URL sek.ttdDataUrl,
+ * gambar tambahan (gambarLain: [{nama, dataUrl}]) = `${BERKAS_WORD}<nama>`.
  */
-export function unduhWordResmi(namaBerkas, judul, gaya, badan, sek) {
+export function unduhWordResmi(namaBerkas, judul, gaya, badan, sek, gambarLain = []) {
   const gambar = [];
   const tambah = (nama, dataUrl) => {
     const m = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(dataUrl || "");
@@ -215,6 +217,7 @@ export function unduhWordResmi(namaBerkas, judul, gaya, badan, sek) {
     return !!m;
   };
   if (sek?.logoDataUrl) tambah("logo", sek.logoDataUrl);
+  gambarLain.forEach((g) => tambah(g.nama, g.dataUrl));
   let html = badan;
   if (sek?.ttdDataUrl && tambah("ttd", sek.ttdDataUrl)) html = html.split(sek.ttdDataUrl).join(`${BERKAS_WORD}ttd`);
   const dok = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" lang="id"><head><meta charset="utf-8"><title>${esc(judul)}</title><style>${GAYA_RESMI}${gaya}</style></head><body>${html}</body></html>`;

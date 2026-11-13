@@ -107,6 +107,12 @@ class JadwalController extends Controller
                     'nama_materi' => $namaMateri[$q->id_materi] ?? null])->values(),
             'video' => VideoBelajar::where(fn($q) => $q->where('id_mapel', $mapel)->orWhereNull('id_mapel'))->tap($cocokKelas)->tap($terlihat)
                 ->orderByDesc('updated_at')->limit(200)->get(['id_video', 'judul', 'durasi_detik', 'poster_url', 'status', 'id_mapel']),
+            // Peta tema (spider web PBPM) kelas ini; lintas mapel, jadi tidak disaring per mapel
+            'tema' => \App\Models\PetaTema::query()->tap($cocokKelas)->tap($terlihat)->orderByDesc('updated_at')->limit(100)
+                ->get(['id_peta', 'judul', 'status', 'jaring', 'jumlah_minggu', 'tanggal_mulai'])
+                ->map(fn($t) => ['id_peta' => $t->id_peta, 'judul' => $t->judul, 'status' => $t->status, 'kategori' => $t->jaring['kategori'] ?? null,
+                    'jumlah_minggu' => $t->jumlah_minggu, 'tanggal_mulai' => $t->tanggal_mulai?->toDateString(),
+                    'punya_mapel' => collect($t->jaring['mapel'] ?? [])->contains('id_mapel', $mapel)])->values(),
         ]);
     }
 

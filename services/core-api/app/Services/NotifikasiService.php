@@ -401,6 +401,17 @@ class NotifikasiService
             }
         }
         if ($this->user->isKepsek()) {
+            $tema = \App\Models\PetaTema::where('status', 'DIAJUKAN')->get(['id_peta', 'updated_at']);
+            if ($tema->isNotEmpty()) {
+                $hasil[] = $this->buat('tema-persetujuan', $tema->pluck('id_peta')->sort()->values()->all(), [
+                    'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-bezier2',
+                    'judul' => "{$tema->count()} peta tema menunggu persetujuan",
+                    'pesan' => 'Periksa spider web dan peta mingguan yang diajukan guru, lalu setujui atau kembalikan dengan catatan.',
+                    'jumlah' => $tema->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=tema&status=DIAJUKAN', 'waktu' => $waktu($tema),
+                ]);
+            }
+        }
+        if ($this->user->isKepsek()) {
             $video = \App\Models\VideoBelajar::where('status', 'DIAJUKAN')->get(['id_video', 'updated_at']);
             if ($video->isNotEmpty()) {
                 $hasil[] = $this->buat('video-persetujuan', $video->pluck('id_video')->sort()->values()->all(), [
@@ -454,6 +465,15 @@ class NotifikasiService
                 'judul' => "{$modulRevisi->count()} modul ajar perlu direvisi",
                 'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $modulRevisi->first()->catatan_revisi, 120) . '"',
                 'jumlah' => $modulRevisi->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=modul&status=REVISI', 'waktu' => $waktu($modulRevisi),
+            ]);
+        }
+        $temaRevisi = \App\Models\PetaTema::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_peta', 'catatan_revisi', 'updated_at']);
+        if ($temaRevisi->isNotEmpty()) {
+            $hasil[] = $this->buat('tema-revisi', $temaRevisi->pluck('id_peta')->sort()->values()->all(), [
+                'tingkat' => 'warning', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-pencil-square',
+                'judul' => "{$temaRevisi->count()} peta tema perlu direvisi",
+                'pesan' => 'Catatan kepala sekolah: "' . \Illuminate\Support\Str::limit((string) $temaRevisi->first()->catatan_revisi, 120) . '"',
+                'jumlah' => $temaRevisi->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=tema&status=REVISI', 'waktu' => $waktu($temaRevisi),
             ]);
         }
         $revisi = Atp::where('status', 'REVISI')->where('dibuat_oleh', $this->user->id)->get(['id_atp', 'catatan_revisi', 'updated_at']);

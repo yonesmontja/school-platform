@@ -74,6 +74,7 @@ export default function PerangkatEditor({ f, ubah, refData }) {
     ...(f.perangkat || []).filter((p) => p.jenis === "INDIKATOR"),
     ...(f.id_materi ? [{ jenis: "MATERI", id: f.id_materi, label: namaMateri || "Materi" }] : []),
     ...(f.perangkat || []).filter((p) => p.jenis === "SOAL"),
+    ...(f.perangkat || []).filter((p) => p.jenis === "TEMA"),
     ...videoIds.map((id) => ({ jenis: "VIDEO", id, label: f.videoInfo?.[id] || "Video belajar" })),
   ];
   const lepas = (k) => {
@@ -115,6 +116,7 @@ export default function PerangkatEditor({ f, ubah, refData }) {
     if (panel === "MODUL") return data.modul.filter((m) => cocok(m.judul, q));
     if (panel === "SOAL") return data.soal.filter((s) => cocok(`${s.pertanyaan} ${s.nama_materi}`, q));
     if (panel === "VIDEO") return data.video.filter((v) => cocok(v.judul, q));
+    if (panel === "TEMA") return (data.tema || []).filter((t) => cocok(`${t.judul} ${t.kategori || ""}`, q));
     return null;
   }, [data, panel, q]);
   const kosong = isiPanel && (Array.isArray(isiPanel) ? isiPanel.length === 0 : false);
@@ -247,6 +249,13 @@ export default function PerangkatEditor({ f, ubah, refData }) {
                   <Cek aktif={terpilih("SOAL", s.id_soal)} />
                   <span className="min-w-0"><span className="d-block pa-clamp">{s.pertanyaan}</span>
                     <small className="text-body-secondary">{[s.bentuk?.replaceAll("_", " ").toLowerCase(), s.level_kognitif, s.tingkat_kesulitan?.toLowerCase(), s.nama_materi].filter(Boolean).join(" · ")}</small><Draf status={s.status} /></span>
+                </button>
+              ))
+              : panel === "TEMA" ? isiPanel?.map((t) => (
+                <button key={t.id_peta} type="button" className={`pa-item${terpilih("TEMA", t.id_peta) ? " on" : ""}`} onClick={() => toggle("TEMA", t.id_peta, t.judul)}>
+                  <Cek aktif={terpilih("TEMA", t.id_peta)} />
+                  <span className="min-w-0"><span className="d-block">{t.kategori ? <b className="text-uppercase small me-1">{t.kategori}</b> : null}{t.judul}<Draf status={t.status} /></span>
+                    <small className="text-body-secondary">{[`${t.jumlah_minggu} minggu`, t.tanggal_mulai ? `mulai ${t.tanggal_mulai}` : null, t.punya_mapel ? "mapel ini termasuk cabangnya" : null].filter(Boolean).join(" · ")}</small></span>
                 </button>
               ))
               : panel === "VIDEO" ? isiPanel?.map((v) => (

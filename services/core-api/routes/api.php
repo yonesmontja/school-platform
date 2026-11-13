@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
 use App\Http\Controllers\Api\ModulAjarController;
+use App\Http\Controllers\Api\PetaTemaController;
 use App\Http\Controllers\Api\DokumenRujukanController;
 use App\Http\Controllers\Api\DokumentasiApiController;
 use App\Http\Controllers\Api\PemakaianController;
@@ -423,6 +424,19 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/modul/{id}/tarik', [ModulAjarController::class, 'tarik']);
             Route::post('/modul/{id}/setujui', [ModulAjarController::class, 'setujui']);
             Route::post('/modul/{id}/revisi', [ModulAjarController::class, 'revisi']);
+            // Peta Tema / spider web kurikulum PBPM (lintas mapel; persetujuan kepala sekolah dicek di controller)
+            Route::get('/tema/referensi', [PetaTemaController::class, 'referensi']);
+            Route::get('/tema', [PetaTemaController::class, 'index']);
+            Route::post('/tema', [PetaTemaController::class, 'simpan']);
+            Route::get('/tema/{id}', [PetaTemaController::class, 'show']);
+            Route::put('/tema/{id}', [PetaTemaController::class, 'simpan']);
+            Route::delete('/tema/{id}', [PetaTemaController::class, 'destroy']);
+            Route::post('/tema/{id}/ai', [PetaTemaController::class, 'susunAI']);
+            Route::get('/tema/{id}/pola-jadwal', [PetaTemaController::class, 'polaJadwal']);
+            Route::post('/tema/{id}/ajukan', [PetaTemaController::class, 'ajukan']);
+            Route::post('/tema/{id}/tarik', [PetaTemaController::class, 'tarik']);
+            Route::post('/tema/{id}/setujui', [PetaTemaController::class, 'setujui']);
+            Route::post('/tema/{id}/revisi', [PetaTemaController::class, 'revisi']);
         });
 
         Route::get('/dashboard', [DashboardController::class, 'index']);

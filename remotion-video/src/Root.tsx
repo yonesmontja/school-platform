@@ -6,6 +6,8 @@ import { Composition } from "remotion";
 import { PecahanKue, type PecahanKueProps } from "./PecahanKue";
 import { FPS as FPS_KLIP, TOTAL_FRAME as TOTAL_KLIP, TimelineKlip } from "./TimelineKlip";
 import { SiklusAir, TOTAL as TOTAL_SIKLUS } from "./SiklusAir";
+import { FPS as FPS_LAUT, SinemaLaut, hitungDurasi as durasiLaut } from "./sinema-laut/SinemaLaut";
+import { episodeNelayan } from "./sinema-laut/episodeNelayan";
 import { FPS, LEBAR, TINGGI, TEMPLAT, hitungDurasi } from "../../apps/web/components/video/templat/index.js";
 
 const awal: PecahanKueProps = { bagian: 4, diambil: 1, warna: "#f59e0b" };
@@ -24,6 +26,10 @@ export const RemotionRoot: React.FC = () => {
       ))}
       {/* Timeline klip EduRapor dari Downloads (file di public/klip, tidak ikut git), tegak 9:16. */}
       <Composition id="TimelineKlip" component={TimelineKlip} durationInFrames={TOTAL_KLIP} fps={FPS_KLIP} width={1080} height={1920} />
+      {/* Seri Sinema Laut Nusantara (template + data per episode di src/sinema-laut). Durasi mengikuti daftar klip. */}
+      <Composition id="SinemaLaut-Nelayan" component={SinemaLaut} fps={FPS_LAUT} width={1080} height={1920}
+        durationInFrames={durasiLaut(episodeNelayan)} defaultProps={episodeNelayan}
+        calculateMetadata={({ props }) => ({ durationInFrames: durasiLaut(props) })} />
     </>
   );
 };

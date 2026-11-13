@@ -19,7 +19,7 @@ class TransJadwal extends Model
     ];
 
     /** Jenis perangkat ajar yang ditautkan lewat kolom JSON `perangkat` (modul, materi, video punya tautan sendiri). */
-    public const JENIS_PERANGKAT = ['CP', 'ATP', 'INDIKATOR', 'SOAL'];
+    public const JENIS_PERANGKAT = ['CP', 'ATP', 'INDIKATOR', 'SOAL', 'TEMA'];
 
     // Waktu lokal sekolah tanpa zona; dikirim sebagai "YYYY-MM-DDTHH:mm" agar tidak bergeser di browser
     protected $casts = [
