@@ -6,6 +6,7 @@ use App\Models\Classes;
 use App\Models\Student;
 use App\Models\TransJurnal;
 use App\Rules\BukanHariMinggu;
+use App\Services\JurnalAIService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,8 @@ use Illuminate\Support\Str;
 /**
  * Impor sekali jalan jurnal anekdotal dari laporan aplikasi lama.
  * Masukan: JSON (stdin) berisi baris {tanggal, nama, narasi, S, T, N, K, M}. Tanpa --simpan hanya laporan uji.
- * Skor STNKM diambil apa adanya (seperti impor Excel jurnal), guru = wali kelas bila tidak diberikan.
+ * Skor STNKM diambil apa adanya (seperti impor Excel jurnal); baris tanpa skor dinilai heuristik lokal.
+ * Guru = wali kelas bila tidak diberikan.
  *
  *   docker exec -i school_core_api php artisan jurnal:impor-rekap --kelas=KLS-01 < jurnal.json
  */
@@ -52,6 +54,8 @@ class ImporRekapJurnal extends Command
             }
             $s = $siswa[$alias[$norm($r['nama'])] ?? $norm($r['nama'])] ?? null;
             if (!$s) { $masalah['Siswa tidak ditemukan: ' . $r['nama']][] = $tgl; continue; }
+            // Catatan tanpa skor (mis. jurnal kejadian tulisan tangan): skor dihitung penilai heuristik lokal
+            if (!isset($r['S'])) $r += array_intersect_key(app(JurnalAIService::class)->analyze($r['narasi'], 'HEURISTIK'), array_flip(['S', 'T', 'N', 'K', 'M']));
             foreach (['S', 'T', 'N', 'K', 'M'] as $d) {
                 if (abs((float) $r[$d]) > 5) $masalah["Skor $d di luar -5..5: {$s->nama_siswa} $tgl"][] = $r[$d];
             }

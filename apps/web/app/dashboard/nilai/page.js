@@ -56,6 +56,7 @@ const formatAngka = (v) => (Number.isInteger(v) ? v : Number(v).toFixed(1));
 const kkmMapel = (mapel) => Number(mapel?.kkm ?? DEFAULT_KKM);
 
 // "" = kosong (tidak dinilai), null = tidak valid, angka = valid
+const DIMENSI_STNKM = ["S", "T", "N", "K", "M"];
 const parseNilai = (raw) => {
   const str = String(raw ?? "").trim();
   if (str === "") return "";
@@ -157,6 +158,10 @@ function InputNilaiPage() {
   const riwayatRef = useRef(null);
   const { isAdmin, isGuru } = useAkses();
   const lembarRef = useRef(null);
+  // STNKM manual: guru mengisi poin S, T, N, K, M sendiri; bila mati, poin dihitung otomatis dari nilai × bobot
+  const [stnkmManual, setStnkmManual] = useState(false);
+  useEffect(() => { try { setStnkmManual(localStorage.getItem("stnkmManual") === "1"); } catch { /* storage diblokir */ } }, []);
+  const ubahStnkmManual = (v) => { setStnkmManual(v); try { localStorage.setItem("stnkmManual", v ? "1" : "0"); } catch { /* abaikan */ } };
   const filterCardRef = useRef(null);
 
   // --- RIWAYAT ---
@@ -219,7 +224,7 @@ function InputNilaiPage() {
   const nomorIndikator = (id) => (daftarIndikator.findIndex((i) => i.id_indikator === id) + 1) || (kolomIndikator.findIndex((i) => i.id_indikator === id) + 1);
 
   // Baris lembar mode lain (sebelum data mode baru selesai dimuat) tidak ditampilkan
-  const rows = useMemo(() => students.filter((s) => s.tipe === filters.tipe).map((s) => {
+  const rowsDasar = useMemo(() => students.filter((s) => s.tipe === filters.tipe).map((s) => {
     const awalIndikator = s.nilai_indikator || {};
     if (s.tipe === "REMEDIAL" && s.asalIndikator?.length) {
       // Indikator yang diulang menggantikan nilai asalnya; nilai remedial = rata-rata seluruh indikator setelah perbaikan
@@ -249,6 +254,16 @@ function InputNilaiPage() {
     // Beralih dari nilai per indikator ke nilai langsung juga dihitung perubahan (data indikator akan dibuang)
     return { ...s, parsed: nilai, berubah: nilai !== awal || (typeof nilai === "number" && Object.keys(awalIndikator).length > 0) };
   }), [students, filters.tipe, pakaiIndikator, indikatorDipilih, kkm]);
+
+  // Mode STNKM manual (lembar reguler): siswa yang bernilai wajib diisi kelima poin 0–100
+  const pakaiStnkmManual = stnkmManual && !modeRemedial;
+  const rows = useMemo(() => !pakaiStnkmManual ? rowsDasar : rowsDasar.map((r) => {
+    const poin = Object.fromEntries(DIMENSI_STNKM.map((d) => [d, parseNilai(r.inputPoin?.[d])]));
+    const kosong = typeof r.parsed === "number" && DIMENSI_STNKM.some((d) => poin[d] === "");
+    const salahPoin = Object.fromEntries(DIMENSI_STNKM.filter((d) => poin[d] === null || (kosong && poin[d] === "")).map((d) => [d, true]));
+    const poinBerubah = typeof r.parsed === "number" && (r.metode_stnkm !== "MANUAL" || DIMENSI_STNKM.some((d) => poin[d] !== (r.poin?.[d] ?? "")));
+    return { ...r, poinManual: poin, salahPoin, parsed: Object.keys(salahPoin).length ? null : r.parsed, berubah: r.berubah || poinBerubah };
+  }), [rowsDasar, pakaiStnkmManual]);
 
   const jumlahBerubah = rows.filter((r) => r.berubah).length;
   const adaTidakValid = rows.some((r) => r.parsed === null);
@@ -354,7 +369,10 @@ function InputNilaiPage() {
         if (usang()) return;
         setStudents((data.students || []).map((s) => ({
           ...s, tipe: "NORMAL", key: s.id_siswa, inputNilai: s.nilai ?? "", inputIndikator: { ...(s.nilai_indikator || {}) },
+          inputPoin: s.poin ? { ...s.poin } : {},
         })));
+        // Lembar yang poinnya diisi manual dibuka dalam mode manual agar poin aslinya tidak tertimpa hitungan otomatis
+        if ((data.students || []).some((s) => s.metode_stnkm === "MANUAL")) setStnkmManual(true);
         setTanggalTersedia(data.tanggal_tersedia || []);
         // Penilaian tersimpan membuka kembali indikator yang dipakainya; penilaian baru mulai tanpa indikator
         setIndikatorSesi(data.indikator_sesi || []);
@@ -438,6 +456,9 @@ function InputNilaiPage() {
   const handleInput = (key, val) => {
     setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputNilai: val } : s)));
   };
+  const handleInputPoin = (key, d, val) => {
+    setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputPoin: { ...s.inputPoin, [d]: val } } : s)));
+  };
   const handleInputIndikator = (key, id, val) => {
     setStudents((prev) => prev.map((s) => (s.key === key ? { ...s, inputIndikator: { ...s.inputIndikator, [id]: val } } : s)));
   };
@@ -513,7 +534,7 @@ function InputNilaiPage() {
     e?.preventDefault();
     if (!filters.tanggal) return Swal.fire("Perhatian", "Tanggal penilaian wajib diisi.", "warning");
     if (tanggalLibur) return Swal.fire("Bukan hari sekolah", `${tanggalLibur} Nilai tetap ada di lembar; ganti tanggal lalu simpan.`, "warning");
-    if (adaTidakValid) return Swal.fire("Nilai Tidak Valid", "Periksa kembali isian bertanda merah. Nilai harus berupa angka 0 – 100.", "warning");
+    if (adaTidakValid) return Swal.fire("Nilai Tidak Valid", `Periksa kembali isian bertanda merah. Nilai harus berupa angka 0 – 100${pakaiStnkmManual ? "; dengan STNKM manual, kelima poin S, T, N, K, M wajib diisi untuk siswa yang dinilai" : ""}.`, "warning");
     const indikatorDibuang = !modeRemedial && rows.some((r) => r.id_nilai && Object.keys(r.nilai_indikator || {}).some((id) => !indikatorDipilih.includes(id)));
     if (indikatorDibuang) {
       const res = await Swal.fire({
@@ -531,6 +552,7 @@ function InputNilaiPage() {
         id_siswa: r.id_siswa, nilai: r.parsed,
         ...(modeRemedial && { id_rencana: r.key }),
         ...(r.petaIndikator && Object.keys(r.petaIndikator).length > 0 && { nilai_indikator: r.petaIndikator }),
+        ...(pakaiStnkmManual && Object.fromEntries(DIMENSI_STNKM.map((d) => [`poin_${d}`, r.poinManual[d]]))),
       }));
     if (records.length === 0) {
       return Swal.fire("Kosong", modeRemedial ? "Belum ada nilai remedial yang diisi atau diubah." : pakaiIndikator ? "Isi minimal satu nilai indikator." : "Isi minimal satu nilai siswa.", "warning");
@@ -549,6 +571,7 @@ function InputNilaiPage() {
     const body = {
       id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
       id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal, tipe_nilai: filters.tipe, records,
+      metode_stnkm: pakaiStnkmManual ? "MANUAL" : "OTOMATIS",
     };
     // Tanpa sinyal: simpan di HP, dikirim otomatis saat tersambung (app/lib/antrean.js)
     const simpanOffline = async () => {
@@ -686,6 +709,9 @@ function InputNilaiPage() {
       "KKM": kkmR,
       "Nilai": formatAngka(v),
       "Ketuntasan": v >= kkmR ? "TUNTAS" : "BELUM TUNTAS",
+      // Poin STNKM per dimensi; metode Manual = diisi guru, Otomatis = nilai × bobot
+      ...Object.fromEntries(DIMENSI_STNKM.map((d) => [`Poin ${d}`, formatAngka(Number(r[`poin_${d}`] ?? 0))])),
+      "Metode STNKM": r.metode_stnkm === "MANUAL" ? "Manual" : "Otomatis",
       "Tipe": r.tipe_nilai === "REMEDIAL" ? "Remedial" : "Reguler",
       "Tindak Lanjut": r.rencana ? `${r.rencana.opsi_tindakan} (${STATUS_RENCANA[r.rencana.status]?.label || r.rencana.status})` : "-",
       "Guru": namaGuru(r),
@@ -1030,6 +1056,16 @@ function InputNilaiPage() {
                     </button>
                   )}
                 </div>
+                <div className="form-check form-switch mt-2 mb-0">
+                  <input className="form-check-input" type="checkbox" id="stnkmManual" checked={stnkmManual} onChange={(e) => ubahStnkmManual(e.target.checked)} />
+                  <label className="form-check-label small fw-semibold" htmlFor="stnkmManual">
+                    Isi poin STNKM (S, T, N, K, M) secara manual
+                  </label>
+                  <small className="d-block text-muted">
+                    {stnkmManual ? "Isi kelima poin (0–100) untuk setiap siswa yang dinilai; poin disimpan apa adanya."
+                      : "Mati: poin STNKM dihitung otomatis dari nilai × bobot jenis penilaian × bobot materi."}
+                  </small>
+                </div>
                 {pakaiIndikator && (
                   <small className="d-block text-muted mt-1">Nilai siswa = rata-rata indikator yang diisi. Kosongkan indikator yang tidak dinilai untuk siswa tertentu.</small>
                 )}
@@ -1064,6 +1100,9 @@ function InputNilaiPage() {
                         <th className="text-center" style={{ width: pakaiIndikator ? 110 : 160 }}>
                           {modeRemedial ? "Nilai Remedial" : pakaiIndikator ? "Rata-rata" : "Nilai"} <span className="fw-normal text-muted">(0 – 100)</span>
                         </th>
+                        {pakaiStnkmManual && DIMENSI_STNKM.map((d) => (
+                          <th key={d} className="text-center text-success" style={{ width: 72 }} title={`Poin ${d} (0–100), diisi manual`}>{d}</th>
+                        ))}
                         <th className="text-center" style={{ minWidth: 190 }}>Predikat & Status</th>
                         {!modeRemedial && <th className="text-center" style={{ minWidth: 170 }}>Tindak Lanjut</th>}
                       </tr>
@@ -1126,6 +1165,16 @@ function InputNilaiPage() {
                                 aria-label={`Nilai ${r.nama_siswa}`} />
                             )}
                           </td>
+                          {pakaiStnkmManual && DIMENSI_STNKM.map((d) => (
+                            <td key={d} className="px-1">
+                              <input type="number" step="any" min="0" max="100" inputMode="decimal"
+                                className={`form-control form-control-sm text-center px-1 ${r.salahPoin?.[d] ? "is-invalid" : ""}`}
+                                value={r.inputPoin?.[d] ?? ""} placeholder="–"
+                                onChange={(e) => handleInputPoin(r.key, d, e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                                aria-label={`Poin ${d} ${r.nama_siswa}`} />
+                            </td>
+                          ))}
                           <td className="text-center"><StatusBadge nilai={r.parsed} kkm={kkm} tingkat={KATEGORI} /></td>
                           {!modeRemedial && (
                             <td className="text-center">

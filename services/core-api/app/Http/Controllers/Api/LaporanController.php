@@ -29,10 +29,10 @@ class LaporanController extends Controller
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
-        $nilai = RemedialService::batasiNilai(TransNilai::efektif()->where('id_kelas', $request->id_kelas)
+        $nilai = RemedialService::batasiNilai(TransNilai::efektif()->with(['materi:id_materi,nama_materi', 'jenis:id_jenis,kategori_penilaian'])->where('id_kelas', $request->id_kelas)
             ->where('id_periode', $request->id_periode)
             ->orderBy('tanggal')
-            ->get(['id_siswa', 'id_mapel', 'tanggal', 'tipe_nilai', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']));
+            ->get(['id_siswa', 'id_mapel', 'id_materi', 'id_jenis', 'metode_stnkm', 'tanggal', 'tipe_nilai', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']));
 
         // Jurnal belum punya kolom periode, jadi diambil seluruh jurnal siswa kelas ini (sama seperti GAS);
         // frontend membatasinya dengan rentang minggu sejak tanggal mulai semester

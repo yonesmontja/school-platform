@@ -154,6 +154,8 @@ const InfoBox = ({ icon, color, label, value, sub }) => (
   </div>
 );
 
+const LABEL_MODE = { HARIAN: "Harian", MINGGUAN: "Mingguan", BULANAN: "Bulanan" };
+
 export default function LaporanStnkmPage() {
   // --- REFERENSI ---
   const [classes, setClasses] = useState([]);
@@ -256,6 +258,7 @@ export default function LaporanStnkmPage() {
       const poin = Object.fromEntries(DIMENSI.map((d) => [d.key, num(r[`poin_${d.key}`])]));
       nilai.push({
         ...poin, wk, id_siswa: r.id_siswa, id_mapel: r.id_mapel, tanggal: r.tanggal, nilai: num(r.nilai),
+        materi: r.materi?.nama_materi || r.id_materi, jenis: r.jenis?.kategori_penilaian || r.id_jenis, metode: r.metode_stnkm, tipe: r.tipe_nilai,
         isStnkm: DIMENSI.some((d) => poin[d.key] !== 0),
         ...Object.fromEntries(MAPEL_KHUSUS.map((k) => [`is${k.key}`, r.id_mapel === mapelKhusus[k.key]])),
       });
@@ -286,6 +289,15 @@ export default function LaporanStnkmPage() {
   // Ember waktu: per minggu, atau per bulan (dari label bulan tiap minggu)
   const ember = useMemo(() => {
     if (!basis || !senin) return [];
+    if (modeWaktu === "HARIAN") {
+      // Satu titik per hari yang punya data (nilai atau jurnal) pada rentang terpilih
+      const tgl = [...new Set([...(terfilter?.nilai || []), ...(terfilter?.jurnal || [])].map((e) => String(e.tanggal).slice(0, 10)))].sort();
+      return tgl.map((t) => {
+        const d = new Date(`${t}T00:00:00`);
+        return { key: t, label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }), bulan: d.toLocaleDateString("id-ID", { month: "long" }),
+          title: d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }), tanggal: t, weeks: [] };
+      });
+    }
     const list = [];
     for (let wk = wkRange.dari; wk <= wkRange.sampai; wk++) {
       const bulan = labelBulanMinggu(senin, wk);
@@ -297,13 +309,15 @@ export default function LaporanStnkmPage() {
       }
     }
     return list;
-  }, [basis, senin, wkRange, modeWaktu]);
+  }, [basis, senin, wkRange, modeWaktu, terfilter]);
 
+  // Kunci ember sebuah record harian: tanggalnya (mode harian) atau minggunya
   const emberIndex = useMemo(() => {
     const map = new Map();
-    ember.forEach((e, i) => e.weeks.forEach((wk) => map.set(wk, i)));
+    ember.forEach((e, i) => (e.tanggal ? map.set(e.tanggal, i) : e.weeks.forEach((wk) => map.set(wk, i))));
     return map;
   }, [ember]);
+  const kunciEmber = (h) => (modeWaktu === "HARIAN" ? h.tanggal : h.wk);
 
   // --- RECORD RATA-RATA HARIAN PER SISWA ---
   // Semua entri satu siswa pada tanggal yang sama dirata-rata menjadi satu record harian.
@@ -336,7 +350,7 @@ export default function LaporanStnkmPage() {
   const trenPerSiswa = useMemo(() => {
     const kelompok = new Map();
     harian.forEach((h) => {
-      const i = emberIndex.get(h.wk);
+      const i = emberIndex.get(kunciEmber(h));
       if (i === undefined) return;
       if (!kelompok.has(h.id_siswa)) kelompok.set(h.id_siswa, ember.map(() => []));
       kelompok.get(h.id_siswa)[i].push(h);
@@ -344,7 +358,7 @@ export default function LaporanStnkmPage() {
     const hasil = new Map();
     kelompok.forEach((ems, id) => hasil.set(id, ems.map((rows) => ({ ...rataKunci(rows), hari: rows.length }))));
     return hasil;
-  }, [harian, ember, emberIndex]);
+  }, [harian, ember, emberIndex, modeWaktu]);
 
   const trenSiswa = (id) => trenPerSiswa.get(id) || ember.map(() => ({ ...rataKunci([]), hari: 0 }));
 
@@ -369,9 +383,9 @@ export default function LaporanStnkmPage() {
             label: (item) => ` ${item.dataset.label}${item.dataset.nama ? ` · ${item.dataset.nama}` : ""}: ${fmt(item.raw)}`,
           },
         },
-        monthBand: { labels: modeWaktu === "MINGGUAN" ? ember.map((e) => e.bulan) : [] },
+        monthBand: { labels: modeWaktu !== "BULANAN" ? ember.map((e) => e.bulan) : [] },
       },
-      scales: { y: { grid: { color: "rgba(0,0,0,.05)" } }, x: sumbuX(modeWaktu === "MINGGUAN") },
+      scales: { y: { grid: { color: "rgba(0,0,0,.05)" } }, x: sumbuX(modeWaktu !== "BULANAN") },
     },
     plugins: [monthBandPlugin, whiteBgPlugin],
   });
@@ -485,9 +499,14 @@ export default function LaporanStnkmPage() {
     const pilihSiswa = (id) => siswaTerpilih.length === 0 || siswaTerpilih.includes(id);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekapRows()), "Rekap Siswa");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ember.map((e, i) => ({
-      [modeWaktu === "MINGGUAN" ? "Minggu" : "Bulan"]: e.label, "Rentang": e.title,
+      [{ HARIAN: "Tanggal", MINGGUAN: "Minggu", BULANAN: "Bulan" }[modeWaktu]]: e.label, "Rentang": e.title,
       ...kolomRata(trenKelas[i]), "Siswa Berdata": trenKelas[i].siswa,
-    }))), "Tren Kelas");
+    }))), `Tren Kelas ${LABEL_MODE[modeWaktu]}`);
+    // Tren tiap siswa per hari/minggu/bulan (mengikuti mode waktu terpilih), lengkap S-T-N-K-M
+    const trenSiswaRows = laporan.students.filter((s) => pilihSiswa(s.id_siswa)).flatMap((s) => trenSiswa(s.id_siswa)
+      .map((t, i) => ({ t, e: ember[i] })).filter(({ t }) => t.hari > 0)
+      .map(({ t, e }) => ({ Siswa: s.nama_siswa, NISN: s.nisn || s.id_siswa, [{ HARIAN: "Tanggal", MINGGUAN: "Minggu", BULANAN: "Bulan" }[modeWaktu]]: e.label, Rentang: e.title, ...kolomRata(t), "Hari Berdata": t.hari })));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(trenSiswaRows.length ? trenSiswaRows : [{ Keterangan: "Tidak ada data" }]), `Tren Siswa ${LABEL_MODE[modeWaktu]}`);
     // Record rata-rata harian per siswa: dasar seluruh perhitungan mingguan/bulanan
     const perHari = harian.filter((h) => pilihSiswa(h.id_siswa)).map((h) => ({
       Tanggal: h.tanggal, Minggu: h.wk, Siswa: namaSiswa.get(h.id_siswa) || h.id_siswa, ...kolomRata(h),
@@ -496,11 +515,11 @@ export default function LaporanStnkmPage() {
     // Data mentah sesuai filter, untuk diolah lebih lanjut
     const namaMapel = new Map(laporan.mapels.map((m) => [m.id_mapel, m.nama_mapel]));
     const mentah = [
-      ...terfilter.nilai.filter((n) => pilihSiswa(n.id_siswa)).map((n) => ({ Sumber: "Nilai", Tanggal: n.tanggal, Minggu: n.wk, Siswa: namaSiswa.get(n.id_siswa) || n.id_siswa, Mapel: namaMapel.get(n.id_mapel) || n.id_mapel, Nilai: n.nilai, ...Object.fromEntries(DIMENSI.map((d) => [d.key, n[d.key]])) })),
-      ...terfilter.jurnal.filter((j) => pilihSiswa(j.id_siswa)).map((j) => ({ Sumber: "Jurnal", Tanggal: j.tanggal, Minggu: j.wk, Siswa: namaSiswa.get(j.id_siswa) || j.id_siswa, Mapel: "-", Nilai: "", ...Object.fromEntries(DIMENSI.map((d) => [d.key, j[d.key]])) })),
+      ...terfilter.nilai.filter((n) => pilihSiswa(n.id_siswa)).map((n) => ({ Sumber: "Nilai", Tanggal: n.tanggal, Minggu: n.wk, Siswa: namaSiswa.get(n.id_siswa) || n.id_siswa, Mapel: namaMapel.get(n.id_mapel) || n.id_mapel, Materi: n.materi || "-", Jenis: n.jenis || "-", Tipe: n.tipe === "REMEDIAL" ? "Remedial" : "Reguler", Nilai: n.nilai, ...Object.fromEntries(DIMENSI.map((d) => [d.key, n[d.key]])), "Metode STNKM": n.metode === "MANUAL" ? "Manual" : "Otomatis" })),
+      ...terfilter.jurnal.filter((j) => pilihSiswa(j.id_siswa)).map((j) => ({ Sumber: "Jurnal", Tanggal: j.tanggal, Minggu: j.wk, Siswa: namaSiswa.get(j.id_siswa) || j.id_siswa, Mapel: "-", Materi: "-", Jenis: "Jurnal", Tipe: "-", Nilai: "", ...Object.fromEntries(DIMENSI.map((d) => [d.key, j[d.key]])), "Metode STNKM": "Jurnal" })),
     ].sort((a, b) => String(a.Tanggal).localeCompare(String(b.Tanggal)));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mentah.length ? mentah : [{ Keterangan: "Tidak ada data" }]), "Data Mentah");
-    XLSX.writeFile(wb, `${namaFile}.xlsx`);
+    XLSX.writeFile(wb, `${namaFile}_${LABEL_MODE[modeWaktu]}.xlsx`);
   };
 
   const handleExportCSV = () => {
@@ -539,7 +558,7 @@ export default function LaporanStnkmPage() {
 
   // --- EKSPOR GRAFIK: tiap halaman berkop judul resmi, kelas, lalu keterangan isi grafik ---
   const halamanGrafik = (jenis) => {
-    const waktu = `${modeWaktu === "MINGGUAN" ? "Per minggu" : "Per bulan"} ${labelRentang}`;
+    const waktu = `${{ HARIAN: "Per hari", MINGGUAN: "Per minggu", BULANAN: "Per bulan" }[modeWaktu]} ${labelRentang}`;
     const mapel = mapelFilter ? laporan.mapels.find((m) => m.id_mapel === mapelFilter)?.nama_mapel : null;
     const ket = (...bagian) => [...bagian, labelPeriode, waktu, mapel].filter(Boolean).join(" · ");
     if (jenis === "Kelas") {
@@ -755,7 +774,7 @@ export default function LaporanStnkmPage() {
                 <div className="col-12 col-md-6 col-xl-3">
                   <label className="form-label fw-semibold small mb-1">Mode Waktu</label>
                   <div className="btn-group w-100" role="group">
-                    {[["MINGGUAN", "Mingguan", "bi-calendar-week"], ["BULANAN", "Bulanan", "bi-calendar-month"]].map(([v, l, ic]) => (
+                    {[["HARIAN", "Harian", "bi-calendar-day"], ["MINGGUAN", "Mingguan", "bi-calendar-week"], ["BULANAN", "Bulanan", "bi-calendar-month"]].map(([v, l, ic]) => (
                       <button key={v} type="button" className={`btn btn-sm ${modeWaktu === v ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setModeWaktu(v)}>
                         <i className={`bi ${ic} me-1`}></i>{l}
                       </button>
@@ -820,7 +839,7 @@ export default function LaporanStnkmPage() {
             <div className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto">
                 <i className="bi bi-graph-up me-2"></i>Tren Rata-rata Kelas
-                <span className="text-muted fw-normal small ms-2">{modeWaktu === "MINGGUAN" ? "per minggu" : "per bulan"} · {labelRentang}</span>
+                <span className="text-muted fw-normal small ms-2">{{ HARIAN: "per hari", MINGGUAN: "per minggu", BULANAN: "per bulan" }[modeWaktu]} · {labelRentang}</span>
               </h3>
               {tombolEksporGrafik("Kelas", "grafik rata-rata kelas")}
             </div>
@@ -831,7 +850,7 @@ export default function LaporanStnkmPage() {
                 <div className="text-center text-muted py-5"><i className="bi bi-inbox fs-1 d-block mb-2"></i>Belum ada nilai atau jurnal pada rentang ini.</div>
               )}
               <small className="text-muted d-block mt-2">
-                <i className="bi bi-info-circle me-1"></i>Semua titik adalah nilai rata-rata: entri satu siswa di hari yang sama dirata-rata menjadi satu record harian, lalu record harian dirata-rata per minggu/bulan, dan rata-rata kelas adalah rata-rata dari siswa yang punya data. S–M dari poin nilai (nilai × matriks) dan skor jurnal; garis putus-putus B.Ind dan Math adalah poin aspek Teori mapel Bahasa Indonesia dan Matematika.
+                <i className="bi bi-info-circle me-1"></i>Semua titik adalah nilai rata-rata: entri satu siswa di hari yang sama dirata-rata menjadi satu record harian, lalu record harian dirata-rata per minggu/bulan, dan rata-rata kelas adalah rata-rata dari siswa yang punya data. S–M dari poin nilai (diisi manual oleh guru, atau dihitung nilai × matriks) dan skor jurnal; garis putus-putus B.Ind dan Math adalah poin aspek Teori mapel Bahasa Indonesia dan Matematika.
               </small>
             </div>
           </div>

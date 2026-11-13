@@ -286,6 +286,9 @@ class NilaiController extends Controller
                     'tanggal' => $n?->tanggal,
                     'rencana' => $n?->rencana,
                     'nilai_indikator' => $n ? $n->nilaiIndikator->mapWithKeys(fn($i) => [$i->id_indikator => (float) $i->nilai]) : (object) [],
+                    // Poin STNKM tersimpan; metode MANUAL berarti diisi guru sendiri (bukan dihitung dari bobot)
+                    'metode_stnkm' => $n?->metode_stnkm,
+                    'poin' => $n ? ['S' => (float) $n->poin_S, 'T' => (float) $n->poin_T, 'N' => (float) $n->poin_N, 'K' => (float) $n->poin_K, 'M' => (float) $n->poin_M] : null,
                 ];
             }),
         ]);
