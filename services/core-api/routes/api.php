@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\P5Controller;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\JadwalController;
+use App\Http\Controllers\Api\ProgramAjarController;
 use App\Http\Controllers\Api\RuanganController;
 
 use App\Http\Controllers\Api\UserController;
@@ -277,6 +278,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::prefix('jadwal')->group(function () {
             Route::get('/', [JadwalController::class, 'index']);
             Route::get('/referensi', [JadwalController::class, 'referensi']);
+            Route::get('/perangkat', [JadwalController::class, 'perangkat']);
             Route::get('/rencana-hari', [JadwalController::class, 'rencanaHari']);
             Route::get('/{id}/rencana', [JadwalController::class, 'rencana']);
             Route::post('/', [JadwalController::class, 'store']);
@@ -379,6 +381,13 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/baca-ulang', [DokumenRujukanController::class, 'bacaUlang']);
             Route::post('/{id}/analisis', [DokumenRujukanController::class, 'analisis'])->middleware('throttle:20,1');
             Route::delete('/{id}', [DokumenRujukanController::class, 'destroy']);
+        });
+        // Prota & Promes (Fase 20): rencana dari ATP, realisasi dari jadwal
+        Route::prefix('program-ajar')->group(function () {
+            Route::get('/referensi', [ProgramAjarController::class, 'referensi']);
+            Route::get('/promes', [ProgramAjarController::class, 'promes']);
+            Route::get('/prota', [ProgramAjarController::class, 'prota']);
+            Route::put('/kalender/{id}', [ProgramAjarController::class, 'simpanKalender'])->middleware('role:admin,kepsek');
         });
         // Perangkat ajar (Fase 17): CP & ATP; guru untuk mapel diampu, persetujuan ATP oleh kepala sekolah (dicek di controller)
         Route::prefix('perangkat-ajar')->group(function () {

@@ -16,7 +16,7 @@ test("guru mengisi poin S/T/N/K/M manual, disimpan apa adanya, lalu muncul di ek
 
   await expect(page.getByLabel("Poin S Abner Kogoya")).toHaveCount(0);
   await page.getByLabel("Isi poin STNKM (S, T, N, K, M) secara manual").check();
-  await page.getByLabel("Nilai Abner Kogoya").first().fill("40");
+  await page.getByLabel("Nilai Abner Kogoya", { exact: true }).first().fill("40");
   const poin = { S: "21", T: "22", N: "23", K: "74", M: "75" };
   for (const [d, v] of Object.entries(poin)) await page.getByLabel(`Poin ${d} Abner Kogoya`).fill(v);
   await page.getByRole("button", { name: "Simpan Nilai Kelas" }).click();

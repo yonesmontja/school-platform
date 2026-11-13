@@ -50,6 +50,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
       { href: "/dashboard/perangkat-ajar", label: "Perangkat Ajar", icon: "bi-journal-richtext" },
+      { href: "/dashboard/program-ajar", label: "Prota & Promes", icon: "bi-bar-chart-steps" },
       { href: "/dashboard/video-belajar", label: "Video Belajar", icon: "bi-play-btn" },
       { href: "/dashboard/studio-video", label: "Studio Rakit Video", icon: "bi-easel3", syarat: (u) => !!u?.studio_video || u?.role === "admin" },
       { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },

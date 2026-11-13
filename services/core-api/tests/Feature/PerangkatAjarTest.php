@@ -203,9 +203,12 @@ class PerangkatAjarTest extends TestCase
         $this->getJson('/api/jadwal/rencana-hari?tanggal=2030-01-09')->assertJsonCount(1, 'data');
         $this->sebagai($this->sekolah->guruB)->getJson('/api/jadwal/rencana-hari?tanggal=2030-01-09')->assertJsonCount(0, 'data'); // sesi guru lain
 
-        // Sesi selesai → kemajuan modul
-        $this->sebagai($this->sekolah->guruA)->patchJson("/api/jadwal/{$sesi[0]['id_jadwal']}/status", ['status_sesi' => 'Selesai'])->assertOk();
+        // Sesi selesai → kemajuan modul (status mengikuti jam: sehari setelah sesi pertama, sebelum sesi kedua)
+        \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2030-01-08 12:00', config('app.zona_sekolah')));
+        $this->artisan('jadwal:status-otomatis')->assertSuccessful();
+        $this->assertSame(['Selesai', 'Menunggu', 'Menunggu'], \App\Models\TransJadwal::orderBy('mulai')->pluck('status_sesi')->all());
         $this->sebagai($this->sekolah->guruB)->getJson('/api/perangkat-ajar/modul')->assertJsonPath('data.0.pertemuan_selesai', 1);
         $this->getJson('/api/perangkat-ajar/modul/MOD-1')->assertJsonCount(3, 'data.jadwal');
+        \Carbon\Carbon::setTestNow();
     }
 }

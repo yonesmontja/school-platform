@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
-import { API_URL, HARI, STATUS_SESI, WARNA_JADWAL, adalahMinggu, parseLokal, pesanMinggu, tambahMenit, ymd, jamMenit } from "@/app/dashboard/jadwal/_lib/jadwal";
+import PerangkatEditor from "./PerangkatEditor";
+import { API_URL, HARI, WARNA_JADWAL, adalahMinggu, parseLokal, pesanMinggu, tambahMenit, ymd, jamMenit } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const DURASI_CEPAT = [35, 70, 90, 105];
 const LAMPIRAN_MAX = 10 * 1024 * 1024;
@@ -51,8 +52,8 @@ export async function konfirmasiBentrok(json) {
 
 const formKosong = () => ({
   jenis: "kbm", judul: "", id_guru: "", id_kelas: "", id_mapel: "", id_materi: "", id_ruangan: "", id_modul: "", pertemuan_ke: "",
-  tanggal: ymd(new Date()), jamMulai: "07:30", jamSelesai: "09:00", status_sesi: "Menunggu",
-  warna: WARNA_JADWAL[0], catatan: "", pola: "sekali", hari: [], sampai: "",
+  tanggal: ymd(new Date()), jamMulai: "07:30", jamSelesai: "09:00", status_sesi: "",
+  warna: WARNA_JADWAL[0], catatan: "", perangkat: [], video_ids: null, videoInfo: {}, pola: "sekali", hari: [], sampai: "",
   lampiranMode: "tidak", lampiran_url: "", file: null, lampiranLama: null, hapus_lampiran: false,
   waOtomatis: true, waPanel: true,
 });
@@ -79,8 +80,8 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
         id_guru: j.id_guru || "", id_kelas: j.id_kelas || "", id_mapel: j.id_mapel || "", id_materi: j.id_materi || "", id_ruangan: j.id_ruangan || "",
         id_modul: j.id_modul || "", pertemuan_ke: j.id_modul ? String((j.pertemuan_ke || 0) + (awal.mode === "duplikat" && j.pertemuan_ke ? 1 : 0) || "") : "",
         tanggal: ymd(m), jamMulai: jamMenit(m), jamSelesai: jamMenit(s),
-        status_sesi: awal.mode === "duplikat" ? "Menunggu" : j.status_sesi || "Menunggu",
-        warna: j.warna || WARNA_JADWAL[0], catatan: j.catatan || "",
+        status_sesi: awal.mode !== "duplikat" && j.status_sesi === "Batal" ? "Batal" : "",
+        warna: j.warna || WARNA_JADWAL[0], catatan: j.catatan || "", perangkat: j.perangkat || [],
         lampiranLama: j.lampiran_url ? { url: j.lampiran_url, nama: j.lampiran_nama } : null,
       });
       if (awal.mode === "duplikat" && j.lampiran_url) Object.assign(dasar, { lampiranMode: "link", lampiran_url: j.lampiran_url.startsWith("http") ? j.lampiran_url : "", lampiranLama: null });
@@ -91,6 +92,16 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
     dasar.hari = [parseLokal(`${dasar.tanggal}T00:00`).getDay()].filter((h) => h !== 0);
     if (isGuru) dasar.id_guru = idGuru || "";
     setF(dasar);
+    // Video yang sudah ditautkan ke sesi asal ikut dimuat (ubah & duplikat) agar tidak terhapus saat disimpan
+    let batal = false;
+    if (awal.jadwal?.id_jadwal) {
+      kirimAPI("GET", `/video-belajar/tautan?jenis=JADWAL&id_target=${encodeURIComponent(awal.jadwal.id_jadwal)}`).then((r) => {
+        if (batal || !r.ok) return;
+        const data = r.json.data || [];
+        setF((x) => ({ ...x, video_ids: data.map((v) => v.id_video), videoInfo: Object.fromEntries(data.map((v) => [v.id_video, v.judul])) }));
+      }).catch(() => {});
+    }
+    return () => { batal = true; };
   }, [awal, isGuru, idGuru]);
 
   const ubah = (patch) => setF((x) => ({ ...x, ...patch }));
@@ -116,7 +127,7 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
     const mapel = subjects.find((s) => s.id_mapel === id_mapel);
     const materiMasihCocok = (refData?.materi || []).some((m) => m.id_materi === f.id_materi && m.id_mapel === id_mapel);
     const modulMasihCocok = (refData?.modul || []).some((m) => m.id_modul === f.id_modul && m.id_mapel === id_mapel);
-    ubah({ id_mapel, id_guru: f.id_guru || mapel?.id_guru || "", id_materi: materiMasihCocok ? f.id_materi : "", ...(modulMasihCocok ? {} : { id_modul: "", pertemuan_ke: "" }) });
+    ubah({ id_mapel, id_guru: f.id_guru || mapel?.id_guru || "", id_materi: materiMasihCocok ? f.id_materi : "", ...(modulMasihCocok ? {} : { id_modul: "", pertemuan_ke: "" }), ...(id_mapel !== f.id_mapel ? { perangkat: [] } : {}) });
   };
 
   const pilihFile = (e) => {
@@ -164,7 +175,11 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
       pertemuan_ke: f.jenis === "kbm" && f.id_modul && f.pertemuan_ke ? Number(f.pertemuan_ke) : null,
       id_guru: f.id_guru || null, id_kelas: f.id_kelas || null, id_ruangan: f.id_ruangan || null,
       mulai: `${f.tanggal}T${f.jamMulai}`, selesai: `${f.tanggal}T${f.jamSelesai}`,
-      warna: f.warna, catatan: f.catatan || null, status_sesi: f.status_sesi,
+      warna: f.warna, catatan: f.catatan || null,
+      // Status mengikuti jam sesi (dihitung server); hanya pembatalan yang dipilih manual
+      status_sesi: f.status_sesi === "Batal" ? "Batal" : "Menunggu",
+      perangkat: f.jenis === "kbm" ? (f.perangkat || []).map(({ jenis, id, label, atp }) => ({ jenis, id, label, ...(atp ? { atp } : {}) })) : [],
+      ...(Array.isArray(f.video_ids) ? { video_ids: f.jenis === "kbm" ? f.video_ids : [] } : {}),
       ...(f.lampiranMode === "file" && f.file ? { lampiran_base64: f.file.base64, lampiran_nama: f.file.nama } : {}),
       ...(f.lampiranMode === "link" && f.lampiran_url ? { lampiran_url: f.lampiran_url, lampiran_nama: "Tautan lampiran" } : {}),
       ...(f.hapus_lampiran ? { hapus_lampiran: true } : {}),
@@ -296,9 +311,11 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
                   <input type="time" className="form-control" value={f.jamSelesai} required step="300" onChange={(e) => ubah({ jamSelesai: e.target.value })} />
                 </div>
                 <div className="col-md-2">
-                  <label className="form-label small fw-semibold mb-1">Status</label>
-                  <select className="form-select" value={f.status_sesi} onChange={(e) => ubah({ status_sesi: e.target.value })}>
-                    {STATUS_SESI.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  <label className="form-label small fw-semibold mb-1" htmlFor="jdStatus">Status</label>
+                  <select id="jdStatus" className="form-select" value={f.status_sesi} onChange={(e) => ubah({ status_sesi: e.target.value })}
+                    title="Menunggu → Berlangsung → Selesai berubah sendiri mengikuti jam sesi">
+                    <option value="">Otomatis</option>
+                    <option value="Batal">Batal</option>
                   </select>
                 </div>
               </div>
@@ -337,18 +354,19 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
                 </div>
               )}
 
-              <div className="row g-3">
-                <div className="col-md-7">
-                  <label className="form-label small fw-semibold mb-1"><i className="bi bi-box-seam me-1"></i>Persiapan alat, keselamatan & catatan guru</label>
-                  <textarea className="form-control" rows="3" maxLength={3000} placeholder="Contoh: siapkan bola, kartu gambar, lembar observasi…" value={f.catatan} onChange={(e) => ubah({ catatan: e.target.value })}></textarea>
-                </div>
-                <div className="col-md-5">
+              <label className="form-label small fw-semibold mb-1"><i className="bi bi-box-seam me-1"></i>Perangkat ajar, persiapan alat & catatan guru</label>
+              <PerangkatEditor f={f} ubah={ubah} refData={refData} />
+
+              <div className="row g-3 mt-0">
+                <div className="col-md-6">
                   <label className="form-label small fw-semibold mb-1">Warna kartu</label>
-                  <div className="d-flex flex-wrap gap-2 mb-3">
+                  <div className="d-flex flex-wrap gap-2">
                     {WARNA_JADWAL.map((c) => (
                       <button key={c} type="button" className={`jadwal-swatch${f.warna === c ? " active" : ""}`} style={{ background: c }} onClick={() => ubah({ warna: c })} aria-label={`Warna ${c}`}></button>
                     ))}
                   </div>
+                </div>
+                <div className="col-md-6">
                   <label className="form-label small fw-semibold mb-1"><i className="bi bi-paperclip me-1"></i>Lampiran modul / bahan</label>
                   {f.lampiranLama && !f.hapus_lampiran && f.lampiranMode === "tidak" ? (
                     <div className="d-flex align-items-center gap-2 small">

@@ -24,3 +24,10 @@ Artisan::command('render-api:bersihkan', function () {
     $this->info("{$n} hasil render API dibersihkan.");
 })->purpose('Hapus berkas hasil API render yang lebih dari 30 hari');
 Schedule::command('render-api:bersihkan')->dailyAt('03:00')->timezone(config('app.zona_sekolah'));
+
+// Status sesi jadwal mengikuti jam sekolah (Menunggu → Berlangsung → Selesai); Batal tidak disentuh
+Artisan::command('jadwal:status-otomatis', function () {
+    $n = \App\Models\TransJadwal::perbaruiStatusOtomatis();
+    if ($n) $this->info("{$n} status sesi diperbarui.");
+})->purpose('Selaraskan status sesi jadwal dengan waktu sekarang');
+Schedule::command('jadwal:status-otomatis')->everyMinute()->withoutOverlapping();

@@ -18,7 +18,8 @@ function VideoSesi({ jadwal, bolehUbah }) {
     </div></div>
   );
 }
-import { STATUS_SESI, parseLokal, rentangJam, tanggalPanjang, targetStnkm, urlLampiran, judulSesi } from "@/app/dashboard/jadwal/_lib/jadwal";
+import { kelompokPerangkat } from "./perangkat";
+import { STATUS_MAP, parseLokal, rentangJam, tanggalPanjang, targetStnkm, urlLampiran, judulSesi } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const WARNA_DIM = { S: "primary", T: "success", N: "info", K: "warning", M: "danger" };
 
@@ -57,12 +58,17 @@ export default function DetailSesi({ jadwal, bolehUbah = true, onClose, onEdit, 
       </div>
 
       <div className="jadwal-detail-body">
-        <div className="jadwal-status-group mb-3" role="group" aria-label="Status sesi">
-          {STATUS_SESI.map((s) => (
-            <button key={s.id} type="button" className={`jadwal-status is-${s.color}${jadwal.status_sesi === s.id ? " active" : ""}`} disabled={!bolehUbah && jadwal.status_sesi !== s.id} onClick={() => bolehUbah && jadwal.status_sesi !== s.id && onStatus(s.id)}>
-              <i className={`bi ${s.icon}`}></i>{s.label}
-            </button>
-          ))}
+        {/* Status berjalan sendiri mengikuti jam sesi; guru hanya membatalkan atau memulihkan */}
+        <div className="jadwal-status-oto mb-3">
+          <div className="d-flex align-items-center gap-2 min-w-0">
+            <span className={`jadwal-status is-${(STATUS_MAP[jadwal.status_sesi] || STATUS_MAP.Menunggu).color} active m-0`}>
+              <i className={`bi ${(STATUS_MAP[jadwal.status_sesi] || STATUS_MAP.Menunggu).icon}`}></i>{jadwal.status_sesi}
+            </span>
+            <small className="text-body-secondary">{jadwal.status_sesi === "Batal" ? "Dibatalkan guru" : "Otomatis mengikuti jam sesi"}</small>
+          </div>
+          {bolehUbah && (jadwal.status_sesi === "Batal"
+            ? <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => onStatus("Menunggu")}><i className="bi bi-arrow-counterclockwise me-1"></i>Pulihkan</button>
+            : <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onStatus("Batal")}><i className="bi bi-x-circle me-1"></i>Batalkan</button>)}
         </div>
         {!bolehUbah && <div className="small text-body-secondary mb-3"><i className="bi bi-lock me-1"></i>Jadwal guru lain: hanya dapat dilihat.</div>}
 
@@ -74,6 +80,27 @@ export default function DetailSesi({ jadwal, bolehUbah = true, onClose, onEdit, 
           <Baris icon="bi-journal-richtext">
             <div className="small fw-semibold text-body-secondary">Rencana dari modul ajar</div>
             <RencanaSesi idJadwal={jadwal.id_jadwal} />
+          </Baris>
+        )}
+        {kelompokPerangkat(jadwal.perangkat).length > 0 && (
+          <Baris icon="bi-diagram-3">
+            <div className="small fw-semibold text-body-secondary mb-1">Perangkat ajar tertaut</div>
+            {kelompokPerangkat(jadwal.perangkat).map((g) => (
+              <div key={g.id} className="pa-detail-chips mb-1">
+                {g.item.map((p) => (
+                  <span key={p.id} className="pa-chip" style={{ "--pa": g.warna }} title={p.label}>
+                    <i className={`bi ${g.ikon}`}></i><span className="pa-chip-jenis">{g.singkat || g.label}</span><span className="pa-chip-label">{p.label}</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </Baris>
+        )}
+        {jadwal.id_mapel && (
+          <Baris icon="bi-bar-chart-steps">
+            <Link href={`/dashboard/program-ajar?mapel=${encodeURIComponent(jadwal.id_mapel)}${jadwal.id_kelas ? `&kelas=${encodeURIComponent(jadwal.id_kelas)}` : ""}`} className="small">
+              Lihat posisi sesi ini di Prota &amp; Promes
+            </Link>
           </Baris>
         )}
         <VideoSesi jadwal={jadwal} bolehUbah={bolehUbah} />

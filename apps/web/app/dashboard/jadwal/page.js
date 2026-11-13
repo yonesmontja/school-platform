@@ -245,7 +245,8 @@ export default function JadwalPage() {
   const ubahStatus = async (status) => {
     const res = await kirimAPI("PATCH", `/jadwal/${detail.id_jadwal}/status`, { status_sesi: status });
     if (!res.ok) return Swal.fire("Gagal", pesanGalat(res.json), "error");
-    setRows((rs) => rs.map((r) => (r.id_jadwal === detail.id_jadwal ? { ...r, status_sesi: status } : r)));
+    const baru = res.json.status_sesi || status;
+    setRows((rs) => rs.map((r) => (r.id_jadwal === detail.id_jadwal ? { ...r, status_sesi: baru } : r)));
     toast(res.json.message);
   };
 

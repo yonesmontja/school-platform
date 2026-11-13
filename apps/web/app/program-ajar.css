@@ -1,0 +1,79 @@
+/* =========================================================================
+   PROTA & PROMES (Fase 20): kartu ringkasan bergaya Tabler, Gantt rencana vs realisasi, matriks Promes.
+   Semua warna lewat variabel Bootstrap/Tabler agar ikut mode gelap.
+   ========================================================================= */
+.program-ajar .card-title { font-size: .95rem; font-weight: 600; }
+.pa-stat .card-body { padding: .9rem 1rem; }
+.pa-stat-ikon { display: inline-grid; place-items: center; flex: 0 0 auto; width: 2.5rem; height: 2.5rem; border-radius: 8px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); font-size: 1.2rem; }
+.pa-stat-judul { color: var(--bs-secondary-color); font-size: .72rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.pa-stat-nilai { font-size: 1.35rem; font-weight: 700; line-height: 1.25; }
+
+/* ---------- Gantt ---------- */
+.gantt { --gantt-kiri: 340px; --gantt-row: 46px; }
+.gantt-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.gantt-grid { position: relative; min-width: 100%; }
+.gantt-head, .gantt-row, .gantt-seksi, .gantt-detail { display: flex; }
+.gantt-kiri { position: sticky; left: 0; z-index: 3; display: flex; align-items: center; gap: .55rem; flex: 0 0 var(--gantt-kiri); width: var(--gantt-kiri); padding: 0 .75rem; border-right: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
+.gantt-kiri-head { align-items: flex-end; padding-bottom: .4rem; color: var(--bs-secondary-color); font-size: .72rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.gantt-head { position: sticky; top: 0; z-index: 4; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
+.gantt-timeline { position: relative; flex: 0 0 auto; }
+.gantt-grup, .gantt-kolom { display: flex; }
+.gantt-grup > div { overflow: hidden; padding: .35rem .4rem .15rem; border-left: 1px solid var(--bs-border-color-translucent); font-size: .74rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-kolom > div { flex: 0 0 var(--gw); width: var(--gw); padding: .15rem 0 .35rem; border-left: 1px solid var(--bs-border-color-translucent); color: var(--bs-secondary-color); font-size: .68rem; font-variant-numeric: tabular-nums; text-align: center; }
+.gantt-kolom > div.is-off { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg) 0 4px, transparent 4px 8px); }
+.gantt-kolom > div.is-kini { background: rgba(var(--bs-danger-rgb), .12); color: var(--bs-danger); font-weight: 700; }
+.gantt-row { min-height: var(--gantt-row); border-bottom: 1px solid var(--bs-border-color-translucent); cursor: pointer; }
+.gantt-row:hover .gantt-kiri, .gantt-row:hover .gantt-timeline, .gantt-row.is-open .gantt-kiri, .gantt-row.is-open .gantt-timeline { background-color: var(--bs-tertiary-bg); }
+.gantt-row:focus-visible { outline: 2px solid var(--app-accent); outline-offset: -2px; }
+.gantt-timeline { background-image: linear-gradient(to right, var(--bs-border-color-translucent) 1px, transparent 1px); background-size: var(--gw) 100%; }
+.gantt-head .gantt-timeline { background-image: none; }
+.gantt-no { display: inline-grid; place-items: center; flex: 0 0 auto; width: 1.6rem; height: 1.6rem; border-radius: 6px; background: var(--bs-tertiary-bg); font-size: .72rem; font-weight: 700; }
+.gantt-judul { overflow: hidden; font-size: .8rem; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-sub { overflow: hidden; color: var(--bs-secondary-color); font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-status { display: inline-block; flex: 0 0 auto; padding: .08rem .45rem; border-radius: 999px; background: color-mix(in srgb, var(--st) 15%, transparent); color: var(--st); font-size: .66rem; font-weight: 700; white-space: nowrap; }
+.gantt-off { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .12) 0 4px, transparent 4px 8px); pointer-events: none; }
+.gantt-bar { position: absolute; top: 9px; height: 18px; overflow: hidden; border: 1.5px solid var(--st); border-radius: 5px; background: color-mix(in srgb, var(--st) 12%, var(--bs-body-bg)); }
+.gantt-fill { position: absolute; inset: 0 auto 0 0; background: var(--st); opacity: .85; transition: width .5s ease; }
+.gantt-bar-teks { position: relative; display: block; padding: 0 .35rem; color: var(--bs-body-color); font-size: .64rem; font-weight: 700; line-height: 15px; mix-blend-mode: normal; white-space: nowrap; }
+.gantt-real { position: absolute; top: 30px; height: 4px; border-radius: 2px; background: #2fb344; }
+.gantt-dot { position: absolute; top: 37px; display: inline-block; width: 7px; height: 7px; margin-left: -3.5px; border: 1.5px solid var(--bs-body-bg); border-radius: 50%; background: #f59f00; box-sizing: content-box; }
+.gantt-dot.st-selesai { background: #2fb344; }
+.gantt-dot.st-berlangsung { background: #206bc4; animation: ganttDenyut 1.6s ease-in-out infinite; }
+.gantt-dot.st-menunggu { background: #f59f00; }
+.gantt-dot.st-batal { background: #d63939; opacity: .6; }
+.gantt-dot.position-static { position: static; margin: 0 .3rem 0 0; vertical-align: middle; }
+@keyframes ganttDenyut { 50% { box-shadow: 0 0 0 4px rgba(32, 107, 196, .25); } }
+.gantt-kini { position: absolute; top: 0; bottom: 0; z-index: 2; width: 2px; margin-left: -1px; background: var(--bs-danger); pointer-events: none; }
+.gantt-seksi { border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.gantt-seksi .gantt-kiri { padding: .45rem .75rem; background: var(--bs-tertiary-bg); font-size: .76rem; font-weight: 700; }
+.gantt-detail { border-bottom: 1px solid var(--bs-border-color-translucent); }
+.gantt-detail-isi { display: block; flex-basis: min(640px, 100vw); width: min(640px, 100vw); padding: .65rem .9rem .8rem 2.9rem; border-right: 0; background: var(--bs-tertiary-bg); }
+.gantt-sesi { max-height: 12rem; overflow-y: auto; margin: 0 0 .5rem; padding: 0; list-style: none; font-size: .78rem; }
+.gantt-sesi li { padding: .12rem 0; }
+.gantt-legenda { display: flex; flex-wrap: wrap; gap: .4rem 1rem; padding: .6rem .9rem; border-top: 1px solid var(--bs-border-color-translucent); color: var(--bs-secondary-color); font-size: .72rem; }
+.gantt-legenda i { display: inline-block; margin-right: .3rem; vertical-align: middle; }
+.gantt-legenda .lg-bar { width: 18px; height: 9px; border: 1.5px solid #206bc4; border-radius: 3px; background: rgba(32, 107, 196, .12); }
+.gantt-legenda .lg-fill { width: 18px; height: 9px; border-radius: 3px; background: #206bc4; }
+.gantt-legenda .lg-real { width: 18px; height: 4px; border-radius: 2px; background: #2fb344; }
+.gantt-legenda .lg-off { width: 14px; height: 10px; background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .35) 0 3px, transparent 3px 6px); }
+.gantt-legenda .lg-kini { width: 2px; height: 12px; background: var(--bs-danger); }
+@media (max-width: 767.98px) { .gantt { --gantt-kiri: 190px; } .gantt-status { display: none; } }
+
+/* ---------- Matriks Promes ---------- */
+.pa-matriks th, .pa-matriks td { font-size: .76rem; }
+.pa-matriks thead th { background: var(--bs-tertiary-bg); white-space: nowrap; }
+.pa-matriks .pa-wk { width: 30px; min-width: 30px; padding: .2rem 0; font-variant-numeric: tabular-nums; text-align: center; }
+.pa-matriks .te { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg) 0 4px, transparent 4px 8px); color: var(--bs-secondary-color); }
+.pa-matriks td.rc { background: rgba(32, 107, 196, .14); color: #1d60b0; font-weight: 700; }
+.pa-matriks td.ok { background: rgba(47, 179, 68, .2); color: #1f7a2e; font-weight: 700; }
+.pa-matriks td.tl { background: rgba(214, 57, 57, .15); color: #b42323; font-weight: 700; }
+[data-bs-theme="dark"] .pa-matriks td.rc { color: #8fc0ff; }
+[data-bs-theme="dark"] .pa-matriks td.ok { color: #8ee09b; }
+[data-bs-theme="dark"] .pa-matriks td.tl { color: #ff9b9b; }
+.pa-clamp2 { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* ---------- Kalender minggu efektif ---------- */
+.pa-minggu-list { max-height: 34rem; overflow-y: auto; }
+.pa-minggu-list .is-off { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg) 0 6px, transparent 6px 12px); }
+.pa-minggu-no { min-width: 2.6rem; }
+@media (min-width: 992px) { .w-lg-auto { width: auto !important; } }

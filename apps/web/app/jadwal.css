@@ -248,3 +248,48 @@
 /* Hari libur nasional/sekolah: latar merah muda tipis dengan nama libur (event latar FullCalendar) */
 .fc .gc-libur { background: rgba(var(--bs-danger-rgb), .10); opacity: 1; }
 .fc .gc-libur .fc-event-title { color: var(--bs-danger-text-emphasis); font-size: .7rem; font-style: normal; font-weight: 600; margin: 2px 4px; white-space: normal; }
+
+/* ===== Editor perangkat ajar di formulir jadwal (Fase 20) ===== */
+.pa-editor { border: 1px solid var(--bs-border-color); border-radius: .75rem; background: var(--bs-body-bg); overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.pa-editor:focus-within { border-color: var(--app-accent); box-shadow: 0 0 0 .2rem rgba(var(--app-accent-rgb), .12); }
+.pa-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 5px; border-bottom: 1px solid var(--bs-border-color-translucent); background: var(--bs-tertiary-bg); }
+.pa-tool { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .55rem; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--bs-secondary-color); font-size: .76rem; font-weight: 600; line-height: 1.4; }
+.pa-tool i { color: var(--pa); font-size: .9rem; }
+.pa-tool:hover:not(:disabled), .pa-tool.active { border-color: var(--bs-border-color); background: var(--bs-body-bg); color: var(--bs-body-color); }
+.pa-tool.active { box-shadow: inset 0 -2px 0 var(--pa); }
+.pa-tool:disabled { opacity: .45; cursor: not-allowed; }
+.pa-count { min-width: 1.1rem; padding: 0 .3rem; border-radius: 999px; background: var(--pa); color: #fff; font-size: .65rem; text-align: center; }
+.pa-cards { display: flex; flex-wrap: wrap; gap: .35rem; padding: .55rem .6rem 0; }
+.pa-chip { display: inline-flex; align-items: center; gap: .3rem; max-width: 100%; padding: .15rem .2rem .15rem .5rem; border: 1px solid color-mix(in srgb, var(--pa) 35%, transparent); border-left: 3px solid var(--pa); border-radius: 6px; background: color-mix(in srgb, var(--pa) 8%, var(--bs-body-bg)); font-size: .76rem; }
+.pa-chip > i { color: var(--pa); }
+.pa-chip-jenis { color: var(--pa); font-weight: 700; white-space: nowrap; }
+.pa-chip-label { overflow: hidden; max-width: 22rem; text-overflow: ellipsis; white-space: nowrap; }
+.pa-chip button { display: inline-flex; padding: 0 .15rem; border: 0; border-radius: 4px; background: transparent; color: var(--bs-secondary-color); }
+.pa-chip button:hover { background: rgba(var(--bs-danger-rgb), .12); color: var(--bs-danger); }
+.pa-text { display: block; width: 100%; min-height: 6rem; padding: .6rem .75rem; border: 0; outline: 0; resize: vertical; background: transparent; color: var(--bs-body-color); font-size: .875rem; }
+.pa-hint { padding: 0 .75rem .55rem; color: var(--bs-secondary-color); font-size: .74rem; }
+.pa-slash { position: absolute; left: .75rem; top: 2rem; z-index: 6; display: grid; min-width: 15rem; padding: .4rem; border: 1px solid var(--bs-border-color); border-radius: 8px; background: var(--bs-body-bg); }
+.pa-slash button { display: flex; align-items: center; gap: .5rem; padding: .3rem .5rem; border: 0; border-radius: 6px; background: transparent; color: var(--bs-body-color); font-size: .82rem; text-align: left; }
+.pa-slash button:hover, .pa-slash button:focus { background: var(--bs-tertiary-bg); }
+.pa-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1065; display: flex; flex-direction: column; width: min(440px, 100vw); border-left: 3px solid var(--pa); background: var(--bs-body-bg); box-shadow: -16px 0 40px -12px rgba(15, 23, 42, .35); animation: paMasuk .22s ease-out both; }
+@keyframes paMasuk { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pa-panel-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .9rem 1rem .7rem; }
+.pa-panel-ikon { display: inline-grid; place-items: center; flex: 0 0 auto; width: 2.1rem; height: 2.1rem; border-radius: 8px; background: color-mix(in srgb, var(--pa) 14%, transparent); color: var(--pa); font-size: 1.05rem; }
+.pa-panel-body { flex: 1; overflow-y: auto; padding: .25rem .6rem .75rem; }
+.pa-panel-foot { display: flex; align-items: center; justify-content: space-between; padding: .6rem 1rem; border-top: 1px solid var(--bs-border-color-translucent); }
+.pa-grup { position: sticky; top: 0; z-index: 1; padding: .35rem .4rem; background: var(--bs-body-bg); color: var(--bs-secondary-color); font-size: .72rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
+.pa-item { display: flex; align-items: flex-start; gap: .55rem; width: 100%; padding: .5rem .45rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--bs-body-color); font-size: .82rem; text-align: left; }
+.pa-item:hover { background: var(--bs-tertiary-bg); }
+.pa-item.on { border-color: color-mix(in srgb, var(--pa) 40%, transparent); background: color-mix(in srgb, var(--pa) 7%, transparent); }
+.pa-cek { display: inline-grid; place-items: center; flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: .1rem; border: 1.5px solid var(--bs-border-color); border-radius: 4px; color: #fff; font-size: .75rem; }
+.pa-cek.radio { border-radius: 50%; }
+.pa-cek.on { border-color: var(--pa); background: var(--pa); }
+.pa-clamp { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.pa-poster { display: inline-grid; place-items: center; flex: 0 0 auto; width: 4.2rem; height: 2.4rem; border-radius: 6px; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); object-fit: cover; }
+.pa-kosong { display: grid; justify-items: center; gap: .25rem; padding: 2.5rem 1rem; color: var(--bs-secondary-color); font-size: .85rem; text-align: center; }
+.pa-kosong > i { color: var(--pa); font-size: 2rem; opacity: .55; }
+/* Detail sesi: perangkat tertaut & status otomatis */
+.pa-detail-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.pa-detail-chips .pa-chip { padding-right: .5rem; }
+.pa-detail-chips .pa-chip-label { max-width: 15rem; }
+.jadwal-status-oto { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .65rem; border: 1px solid var(--bs-border-color-translucent); border-radius: .6rem; background: var(--bs-tertiary-bg); }

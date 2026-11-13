@@ -26,6 +26,8 @@ class PeriodeController extends Controller
             'tahun_ajaran' => 'required|string|max:20',
             'semester' => 'required|in:Ganjil,Genap',
             'status_aktif' => 'required|in:AKTIF,TUTUP',
+            'tanggal_mulai' => 'nullable|date_format:Y-m-d',
+            'tanggal_selesai' => 'nullable|date_format:Y-m-d|after:tanggal_mulai',
         ]);
 
         if ($validator->fails()) {
@@ -44,6 +46,8 @@ class PeriodeController extends Controller
                 'tahun_ajaran' => $request->tahun_ajaran,
                 'semester' => $request->semester,
                 'status_aktif' => $request->status_aktif,
+                'tanggal_mulai' => $request->tanggal_mulai ?: null,
+                'tanggal_selesai' => $request->tanggal_selesai ?: null,
             ]);
 
             DB::commit();
@@ -62,6 +66,8 @@ class PeriodeController extends Controller
             'tahun_ajaran' => 'required|string|max:20',
             'semester' => 'required|in:Ganjil,Genap',
             'status_aktif' => 'required|in:AKTIF,TUTUP',
+            'tanggal_mulai' => 'nullable|date_format:Y-m-d',
+            'tanggal_selesai' => 'nullable|date_format:Y-m-d|after:tanggal_mulai',
         ]);
 
         if ($validator->fails()) {
@@ -81,6 +87,8 @@ class PeriodeController extends Controller
                 'tahun_ajaran' => $request->tahun_ajaran,
                 'semester' => $request->semester,
                 'status_aktif' => $request->status_aktif,
+                'tanggal_mulai' => $request->tanggal_mulai ?: null,
+                'tanggal_selesai' => $request->tanggal_selesai ?: null,
             ]);
 
             DB::commit();

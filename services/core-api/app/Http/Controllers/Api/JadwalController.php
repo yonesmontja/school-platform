@@ -16,6 +16,12 @@ use App\Models\TransJadwal;
 use App\Services\LampiranJadwalService;
 use Carbon\Carbon;
 use App\Models\ModulAjar;
+use App\Models\Atp;
+use App\Models\BankSoal;
+use App\Models\CapaianPembelajaran;
+use App\Models\MasterIndikator;
+use App\Models\VideoBelajar;
+use App\Models\VideoTautan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -60,11 +66,57 @@ class JadwalController extends Controller
     }
 
     /**
+     * Isi panel perangkat ajar di editor jadwal untuk satu mapel (dan kelas): CP fase kelas, ATP beserta TP-nya,
+     * indikator, materi, modul ajar, butir bank soal, dan video. Daftar kosong bila memang belum disusun.
+     */
+    public function perangkat(Request $request)
+    {
+        $request->validate(['id_mapel' => 'required|exists:subjects,id_mapel', 'id_kelas' => 'nullable|exists:classes,id_kelas']);
+        $user = $request->user();
+        $mapel = $request->id_mapel;
+        $kelas = $request->id_kelas;
+        $fase = $kelas ? CapaianPembelajaran::faseKelas(Classes::whereKey($kelas)->value('nama_kelas')) : null;
+        $cocokKelas = fn($q) => $q->when($kelas, fn($w) => $w->where(fn($x) => $x->where('id_kelas', $kelas)->orWhereNull('id_kelas')));
+        $terlihat = fn($q) => $q->when(!$user->isPengelola(), fn($w) => $w->where(fn($x) => $x->where('status', 'DISETUJUI')->orWhere('dibuat_oleh', $user->id)));
+
+        $materi = MasterMateri::where('id_mapel', $mapel)->tap($cocokKelas)->orderBy('nama_materi')->get(['id_materi', 'nama_materi', 'id_kelas']);
+        $namaMateri = $materi->pluck('nama_materi', 'id_materi');
+
+        return response()->json([
+            'cp' => CapaianPembelajaran::where('id_mapel', $mapel)->when($fase, fn($q) => $q->where('fase', $fase))
+                ->orderBy('fase')->orderBy('urutan')->get(['id_cp', 'fase', 'elemen', 'teks']),
+            'atp' => Atp::with(['baris.materi:id_materi,nama_materi', 'baris.indikator:id_indikator,deskripsi', 'periode:id_periode,tahun_ajaran,semester'])
+                ->where('id_mapel', $mapel)->tap($cocokKelas)->tap($terlihat)->orderByDesc('updated_at')->get()
+                ->map(fn($a) => $a->only(['id_atp', 'judul', 'status']) + [
+                    'periode' => $a->periode ? "{$a->periode->tahun_ajaran} {$a->periode->semester}" : null,
+                    'baris' => $a->baris->map(fn($b) => [
+                        'id' => (string) $b->id, 'urutan' => $b->urutan, 'minggu' => $b->minggu, 'alokasi_jp' => $b->alokasi_jp,
+                        'materi' => $b->materi?->nama_materi ?? $b->materi_usulan, 'tp' => $b->indikator?->deskripsi ?? $b->tp_usulan,
+                    ])->values(),
+                ])->values(),
+            'indikator' => MasterIndikator::whereIn('id_materi', $materi->pluck('id_materi'))->where('aktif', true)
+                ->orderBy('id_materi')->orderBy('urutan')->get(['id_indikator', 'id_materi', 'deskripsi'])
+                ->map(fn($i) => $i->toArray() + ['nama_materi' => $namaMateri[$i->id_materi] ?? null])->values(),
+            'materi' => $materi,
+            'modul' => ModulAjar::where('id_mapel', $mapel)->tap($cocokKelas)->tap($terlihat)->orderBy('judul')
+                ->get(['id_modul', 'judul', 'id_materi', 'jumlah_pertemuan', 'status']),
+            'soal' => BankSoal::where('id_mapel', $mapel)->tap($cocokKelas)->tap($terlihat)->orderByDesc('updated_at')->limit(300)
+                ->get(['id_soal', 'pertanyaan', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'id_materi', 'status'])
+                ->map(fn($q) => ['id_soal' => $q->id_soal, 'pertanyaan' => Str::limit(trim(strip_tags($q->pertanyaan)), 160), 'bentuk' => $q->bentuk,
+                    'level_kognitif' => $q->level_kognitif, 'tingkat_kesulitan' => $q->tingkat_kesulitan, 'status' => $q->status,
+                    'nama_materi' => $namaMateri[$q->id_materi] ?? null])->values(),
+            'video' => VideoBelajar::where(fn($q) => $q->where('id_mapel', $mapel)->orWhereNull('id_mapel'))->tap($cocokKelas)->tap($terlihat)
+                ->orderByDesc('updated_at')->limit(200)->get(['id_video', 'judul', 'durasi_detik', 'poster_url', 'status', 'id_mapel']),
+        ]);
+    }
+
+    /**
      * Sesi yang beririsan dengan rentang tampilan kalender.
      */
     public function index(Request $request)
     {
         $request->validate(['start' => 'required|date', 'end' => 'required|date|after:start']);
+        TransJadwal::perbaruiStatusOtomatis();
 
         $data = TransJadwal::with(self::RELASI)
             ->where('mulai', '<', Carbon::parse($request->end))
@@ -91,6 +143,13 @@ class JadwalController extends Controller
             'status_sesi' => ['nullable', Rule::in(self::STATUS)],
             'id_modul' => 'nullable|exists:modul_ajar,id_modul',
             'pertemuan_ke' => 'nullable|integer|min:1|max:12',
+            'perangkat' => 'nullable|array|max:80',
+            'perangkat.*.jenis' => ['required', Rule::in(TransJadwal::JENIS_PERANGKAT)],
+            'perangkat.*.id' => 'required|string|max:50',
+            'perangkat.*.label' => 'nullable|string|max:300',
+            'perangkat.*.atp' => 'nullable|string|max:50',
+            'video_ids' => 'nullable|array|max:30',
+            'video_ids.*' => 'string|exists:video_belajar,id_video',
             ...LampiranJadwalService::RULES,
             'hapus_lampiran' => 'nullable|boolean',
             'abaikan_bentrok' => 'nullable|boolean',
@@ -128,7 +187,32 @@ class JadwalController extends Controller
             'warna' => $request->warna ?: '#3f51b5',
             'catatan' => $request->catatan,
             'id_modul' => $request->id_modul ?: null,
+            'perangkat' => $this->rapikanPerangkat($request->input('perangkat')),
         ];
+    }
+
+    /** Buang duplikat dan kolom asing; label disimpan sebagai cuplikan agar kartu tetap terbaca walau sumbernya diubah. */
+    private function rapikanPerangkat($daftar): ?array
+    {
+        $hasil = collect($daftar ?? [])->map(fn($p) => array_filter([
+            'jenis' => $p['jenis'], 'id' => (string) $p['id'],
+            'label' => isset($p['label']) ? Str::limit(trim($p['label']), 280) : null,
+            'atp' => $p['atp'] ?? null,
+        ], fn($v) => $v !== null))->unique(fn($p) => $p['jenis'] . '|' . $p['id'])->values()->all();
+        return $hasil ?: null;
+    }
+
+    /** Samakan tautan video sesi-sesi ini dengan pilihan di editor (hanya bila editor mengirim daftar video). */
+    private function sinkronVideo(Request $request, array $ids): void
+    {
+        if (!$request->has('video_ids')) return;
+        $video = collect($request->input('video_ids') ?? [])->unique()->values();
+        foreach ($ids as $id) {
+            VideoTautan::where('jenis', 'JADWAL')->where('id_target', $id)->whereNotIn('id_video', $video->all() ?: ['-'])->delete();
+            foreach ($video as $i => $v) {
+                VideoTautan::firstOrCreate(['id_video' => $v, 'jenis' => 'JADWAL', 'id_target' => $id, 'pertemuan_ke' => null], ['urutan' => $i + 1]);
+            }
+        }
     }
 
     /** Nomor pertemuan modul untuk sesi ke-$i dalam rangkaian (naik satu per sesi, berhenti di jumlah pertemuan modul). */
@@ -199,10 +283,11 @@ class JadwalController extends Controller
                     'id_periode' => $idPeriode,
                     'lampiran_url' => $lampiranUrl,
                     'lampiran_nama' => $lampiranNama,
-                    'status_sesi' => $request->status_sesi ?: 'Menunggu',
+                    'status_sesi' => $request->status_sesi === 'Batal' ? 'Batal' : TransJadwal::statusMenurutWaktu($s['mulai'], $s['selesai']),
                 ]);
                 $ids[] = $id;
             }
+            $this->sinkronVideo($request, $ids);
             return $ids;
         });
 
@@ -255,11 +340,14 @@ class JadwalController extends Controller
                 if ($lampiranBaru) [$data['lampiran_url'], $data['lampiran_nama']] = $lampiranBaru;
                 elseif ($request->boolean('hapus_lampiran')) [$data['lampiran_url'], $data['lampiran_nama']] = [null, null];
                 // Status & nomor pertemuan bersifat per sesi: hanya sesi yang sedang diedit yang berubah
-                if ($s['id_jadwal'] === $jadwal->id_jadwal && $request->filled('status_sesi')) $data['status_sesi'] = $request->status_sesi;
+                if ($s['id_jadwal'] === $jadwal->id_jadwal && $request->filled('status_sesi')) {
+                    $data['status_sesi'] = $request->status_sesi === 'Batal' ? 'Batal' : TransJadwal::statusMenurutWaktu($s['mulai'], $s['selesai']);
+                }
                 if ($s['id_jadwal'] === $jadwal->id_jadwal) $data['pertemuan_ke'] = $request->id_modul ? ($request->integer('pertemuan_ke') ?: null) : null;
                 elseif (!$request->id_modul) $data['pertemuan_ke'] = null;
                 TransJadwal::whereKey($s['id_jadwal'])->update($data);
             }
+            $this->sinkronVideo($request, array_column($slot, 'id_jadwal'));
         });
 
         if ($lampiranBaru || $request->boolean('hapus_lampiran')) LampiranJadwalService::bersihkan($lampiranLama);
@@ -313,9 +401,11 @@ class JadwalController extends Controller
         $request->validate(['status_sesi' => ['required', Rule::in(self::STATUS)]]);
         $jadwal = TransJadwal::findOrFail($id);
         $this->cekPemilik($request, $jadwal);
-        $jadwal->update(['status_sesi' => $request->status_sesi]);
+        // Hanya pembatalan yang manual; status lain selalu mengikuti jam sesi
+        $status = $request->status_sesi === 'Batal' ? 'Batal' : TransJadwal::statusMenurutWaktu($jadwal->mulai, $jadwal->selesai);
+        $jadwal->update(['status_sesi' => $status]);
 
-        return response()->json(['success' => true, 'message' => "Status sesi: {$request->status_sesi}."]);
+        return response()->json(['success' => true, 'message' => "Status sesi: {$status}.", 'status_sesi' => $status]);
     }
 
     /**
