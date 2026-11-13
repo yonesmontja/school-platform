@@ -102,6 +102,134 @@ class NilaiController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    /**
+     * Ringkasan untuk guru sebelum menilai/mengimpor (kelas + mapel + periode): penilaian terakhir beserta
+     * materi & indikatornya, progres capaian per materi dan per indikator, serta siswa yang perlu perhatian.
+     * Capaian memakai nilai efektif seperti rapor: nilai yang sudah diremedial digantikan nilai remedialnya,
+     * dan asesmen diagnostik tidak dihitung.
+     */
+    public function ringkasan(Request $request)
+    {
+        $request->validate([
+            'id_kelas' => 'required|exists:classes,id_kelas',
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_periode' => 'required|exists:master_periode,id_periode',
+        ]);
+        $this->cekMapel($request, $request->id_mapel);
+        $meta = $request->only(['id_kelas', 'id_mapel', 'id_periode']);
+        $kkm = (float) (Subject::find($request->id_mapel)?->kkm ?? 75);
+        $siswa = Student::where('id_kelas', $request->id_kelas)->orderBy('nama_siswa')->get(['id_siswa', 'nama_siswa']);
+        $jumlahSiswa = $siswa->count();
+        $diagnostik = TransNilai::jenisDiagnostik();
+
+        $semua = TransNilai::with([
+                'jenis:id_jenis,kategori_penilaian,jenis_asesmen',
+                'materi:id_materi,nama_materi,id_kategori', 'materi.kategori:id_kategori,nama_kategori',
+                'nilaiIndikator.indikator:id_indikator,deskripsi,urutan,id_materi',
+                'rencana:id_rencana,id_nilai_asal',
+            ])
+            ->where($meta)->whereIn('id_siswa', $siswa->pluck('id_siswa'))
+            ->orderBy('tanggal')->get();
+        $normal = $semua->where('tipe_nilai', 'NORMAL');
+
+        // Penilaian terakhir: satu sesi = tanggal + jenis + materi (seperti satu lembar Input Nilai)
+        $sesi = $normal->groupBy(fn($n) => substr($n->tanggal, 0, 10) . '|' . $n->id_jenis . '|' . $n->id_materi)
+            ->map(function ($g) use ($kkm, $jumlahSiswa, $diagnostik) {
+                $n = $g->first();
+                $nilai = $g->map(fn($x) => (float) $x->nilai);
+                $isDiag = in_array($n->id_jenis, $diagnostik, true);
+                return [
+                    'tanggal' => substr($n->tanggal, 0, 10),
+                    'id_jenis' => $n->id_jenis, 'jenis' => $n->jenis?->kategori_penilaian, 'diagnostik' => $isDiag,
+                    'id_materi' => $n->id_materi, 'materi' => $n->materi?->nama_materi,
+                    'indikator' => $g->flatMap(fn($x) => $x->nilaiIndikator)->pluck('indikator')->filter()->unique('id_indikator')
+                        ->sortBy('urutan')->pluck('deskripsi')->values(),
+                    'dinilai' => $g->count(), 'jumlah_siswa' => $jumlahSiswa,
+                    'rata' => round($nilai->avg(), 2),
+                    'di_bawah_kkm' => $isDiag ? 0 : $nilai->filter(fn($v) => $v < $kkm)->count(),
+                    // Siswa di bawah KKM yang belum punya rencana tindak lanjut
+                    'belum_ditindak' => $isDiag ? 0 : $g->filter(fn($x) => (float) $x->nilai < $kkm && !$x->rencana)->count(),
+                    'diubah' => $g->max('updated_at')?->toIso8601String(),
+                ];
+            })->sortByDesc(fn($x) => $x['tanggal'] . ($x['diubah'] ?? ''))->values();
+
+        // Nilai efektif (seperti rapor): tanpa diagnostik, nilai asal yang sudah diremedial digantikan nilai remedialnya
+        $rencanaKeAsal = $normal->filter(fn($n) => $n->rencana)->mapWithKeys(fn($n) => [$n->rencana->id_rencana => $n->id_nilai]);
+        $tergantikan = $semua->where('tipe_nilai', 'REMEDIAL')->map(fn($r) => $rencanaKeAsal[$r->id_rencana] ?? null)->filter()->flip();
+        $efektif = $semua->reject(fn($n) => in_array($n->id_jenis, $diagnostik, true) || isset($tergantikan[$n->id_nilai]));
+
+        $materiKonteks = MasterMateri::with(['kategori:id_kategori,nama_kategori', 'indikator' => fn($q) => $q->orderBy('urutan')->orderBy('created_at')])
+            ->where('id_mapel', $request->id_mapel)
+            ->where(fn($q) => $q->where('id_kelas', $request->id_kelas)->orWhereNull('id_kelas'))
+            ->where(fn($q) => $q->where('id_periode', $request->id_periode)->orWhereNull('id_periode'))
+            ->get();
+        $idMateri = $materiKonteks->pluck('id_materi')->merge($semua->pluck('id_materi'))->filter()->unique();
+
+        $materi = $idMateri->map(function ($id) use ($materiKonteks, $semua, $efektif, $normal, $kkm, $jumlahSiswa, $siswa, $diagnostik) {
+            $m = $materiKonteks->firstWhere('id_materi', $id) ?? $semua->firstWhere('id_materi', $id)?->materi;
+            $perSiswa = $efektif->where('id_materi', $id)->groupBy('id_siswa')->map(fn($g) => round($g->avg(fn($x) => (float) $x->nilai), 2));
+
+            // Indikator: nilai terbaru tiap siswa (nilai remedial menimpa nilai asal pada tanggal yang sama)
+            $nilaiInd = [];
+            $urut = $semua->where('id_materi', $id)->reject(fn($n) => in_array($n->id_jenis, $diagnostik, true))
+                ->sortBy(fn($n) => substr($n->tanggal, 0, 10) . ($n->tipe_nilai === 'REMEDIAL' ? '1' : '0'));
+            $daftar = collect($m?->indikator ?? [])->mapWithKeys(fn($i) => [$i->id_indikator => ['id_indikator' => $i->id_indikator, 'deskripsi' => $i->deskripsi, 'aktif' => (bool) $i->aktif]]);
+            foreach ($urut as $n) {
+                foreach ($n->nilaiIndikator as $ni) {
+                    $nilaiInd[$ni->id_indikator][$n->id_siswa] = (float) $ni->nilai;
+                    if (!$daftar->has($ni->id_indikator) && $ni->indikator) {
+                        $daftar[$ni->id_indikator] = ['id_indikator' => $ni->id_indikator, 'deskripsi' => $ni->indikator->deskripsi, 'aktif' => false];
+                    }
+                }
+            }
+            $sesiMateri = $normal->where('id_materi', $id);
+
+            return [
+                'id_materi' => $id,
+                'materi' => $m?->nama_materi,
+                'kategori' => $m?->kategori?->nama_kategori,
+                'jumlah_sesi' => $sesiMateri->map(fn($n) => substr($n->tanggal, 0, 10) . '|' . $n->id_jenis)->unique()->count(),
+                'terakhir' => $sesiMateri->isEmpty() ? null : $sesiMateri->max(fn($n) => substr($n->tanggal, 0, 10)),
+                'dinilai' => $perSiswa->count(),
+                'jumlah_siswa' => $jumlahSiswa,
+                'rata' => $perSiswa->isEmpty() ? null : round($perSiswa->avg(), 2),
+                'tuntas' => $perSiswa->filter(fn($v) => $v >= $kkm)->count(),
+                'belum_tuntas' => $siswa->filter(fn($s) => isset($perSiswa[$s->id_siswa]) && $perSiswa[$s->id_siswa] < $kkm)
+                    ->map(fn($s) => ['id_siswa' => $s->id_siswa, 'nama_siswa' => $s->nama_siswa, 'nilai' => $perSiswa[$s->id_siswa]])
+                    ->sortBy('nilai')->values(),
+                'indikator' => $daftar->values()->map(function ($i) use ($nilaiInd, $kkm) {
+                    $v = collect($nilaiInd[$i['id_indikator']] ?? []);
+                    return $i + ['dinilai' => $v->count(), 'rata' => $v->isEmpty() ? null : round($v->avg(), 2), 'tuntas' => $v->filter(fn($x) => $x >= $kkm)->count()];
+                })->values(),
+            ];
+        })->sortByDesc(fn($m) => ($m['terakhir'] ?? '0000-00-00') . '|' . $m['materi'])->values();
+
+        // Siswa dengan rata-rata efektif mapel di bawah KKM, terendah lebih dulu
+        $rataSiswa = $efektif->groupBy('id_siswa')->map(fn($g) => round($g->avg(fn($x) => (float) $x->nilai), 2));
+        $perhatian = $siswa->filter(fn($s) => isset($rataSiswa[$s->id_siswa]) && $rataSiswa[$s->id_siswa] < $kkm)
+            ->map(fn($s) => [
+                'id_siswa' => $s->id_siswa, 'nama_siswa' => $s->nama_siswa, 'rata' => $rataSiswa[$s->id_siswa],
+                'materi_belum_tuntas' => $materi->filter(fn($m) => $m['belum_tuntas']->contains('id_siswa', $s->id_siswa))->count(),
+            ])->sortBy('rata')->values();
+
+        return response()->json([
+            'kkm' => $kkm,
+            'jumlah_siswa' => $jumlahSiswa,
+            'ringkas' => [
+                'jumlah_sesi' => $sesi->count(),
+                'materi_dinilai' => $materi->where('dinilai', '>', 0)->count(),
+                'materi_total' => $materi->count(),
+                'rata' => $rataSiswa->isEmpty() ? null : round($rataSiswa->avg(), 2),
+                'siswa_tuntas' => $rataSiswa->filter(fn($v) => $v >= $kkm)->count(),
+                'siswa_dinilai' => $rataSiswa->count(),
+                'remedial_terbuka' => TransRencanaRemedial::whereHas('nilaiAsal', fn($q) => $q->where($meta))->doesntHave('nilaiRemedial')->count(),
+            ],
+            'sesi_terakhir' => $sesi->take(6)->values(),
+            'materi' => $materi,
+            'perhatian' => $perhatian->take(8)->values(),
+        ]);
+    }
+
     private function rulesMeta(): array
     {
         return [

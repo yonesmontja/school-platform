@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
@@ -8,6 +8,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, pesanGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+import RingkasanPresensi from "@/components/presensi/RingkasanPresensi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -76,6 +77,7 @@ export default function PresensiPage() {
   const [user, setUser] = useState(null);
   const [filters, setFilters] = useState({ id_kelas: "", id_periode: "", tanggal: todayYmd() });
   const [data, setData] = useState(null);
+  const lembarPresensiRef = useRef(null);
   const [gagalMuat, setGagalMuat] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -430,8 +432,16 @@ export default function PresensiPage() {
         </div></div>
       ) : (
         <>
+          {/* RINGKASAN: presensi terakhir, hari yang belum diisi, rekap kehadiran, siswa perlu perhatian */}
+          <RingkasanPresensi students={data.students} presensi={data.presensi} tanggal={filters.tanggal} namaKelas={namaKelas}
+            onPilihTanggal={(t) => {
+              if (t > todayYmd()) return;
+              setFilters((f) => ({ ...f, tanggal: t }));
+              lembarPresensiRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }} />
+
           {/* LEMBAR PRESENSI */}
-          <div className="card card-outline card-success shadow-sm mb-3">
+          <div ref={lembarPresensiRef} style={{ scrollMarginTop: "1rem" }} className="card card-outline card-success shadow-sm mb-3">
             <div className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto">
                 <i className="bi bi-ui-checks me-2"></i>{tanggalPanjang(filters.tanggal)}

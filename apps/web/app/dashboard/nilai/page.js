@@ -12,6 +12,7 @@ import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
+import RingkasanNilai from "@/components/nilai/RingkasanNilai";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -155,6 +156,7 @@ function InputNilaiPage() {
   const [sorot, setSorot] = useState(null); // { siswa: Set, nilai: Set, lembar: bool, digulir: bool }
   const riwayatRef = useRef(null);
   const { isAdmin, isGuru } = useAkses();
+  const lembarRef = useRef(null);
   const filterCardRef = useRef(null);
 
   // --- RIWAYAT ---
@@ -887,6 +889,15 @@ function InputNilaiPage() {
         )}
       </div>
 
+      {/* RINGKASAN & PROGRES: penilaian terakhir dan capaian per materi untuk kelas + mapel terpilih */}
+      <RingkasanNilai idKelas={filters.id_kelas} idMapel={filters.id_mapel} idPeriode={filters.id_periode} idMateri={filters.id_materi}
+        namaKelas={kelasTerpilih?.nama_kelas} namaMapel={mapelTerpilih?.nama_mapel} muatUlang={riwayat}
+        onBukaSesi={async (sesi) => {
+          await ubahFilter({ id_jenis: sesi.id_jenis, id_materi: sesi.id_materi, tanggal: sesi.tanggal, tipe: "NORMAL" });
+          lembarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }}
+        onPilihMateri={(id) => ubahFilter({ id_materi: id })} />
+
       {!filterLengkap ? (
         // DAFTAR PERIKSA FILTER
         <div className="card shadow-sm mb-3">
@@ -980,7 +991,7 @@ function InputNilaiPage() {
 
           {/* LEMBAR NILAI */}
           <form onSubmit={handleSave} className="card card-outline card-success shadow-sm mb-3">
-            <div className="card-header d-flex flex-wrap align-items-center gap-2">
+            <div ref={lembarRef} style={{ scrollMarginTop: "1rem" }} className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto">
                 <i className={`bi ${modeRemedial ? "bi-life-preserver text-danger" : "bi-people"} me-2`}></i>{modeRemedial ? "Lembar Nilai Remedial" : "Lembar Nilai"}
                 <span className="text-muted fw-normal small ms-2">{mapelTerpilih?.nama_mapel} · {namaKelas}{!modeRemedial && ` · ${formatTanggal(filters.tanggal)}`}</span>

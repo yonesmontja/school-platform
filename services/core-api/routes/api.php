@@ -217,6 +217,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/materi', [NilaiController::class, 'getMateriByContext']);
             Route::get('/students', [NilaiController::class, 'getStudentsWithNilai']);
             Route::get('/remedial', [NilaiController::class, 'getRemedial']);
+            Route::get('/ringkasan', [NilaiController::class, 'ringkasan']);
             Route::post('/batch', [NilaiController::class, 'saveBatch']);
             Route::delete('/{id}', [NilaiController::class, 'destroy']);
         });

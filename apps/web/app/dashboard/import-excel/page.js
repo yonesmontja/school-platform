@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { API_URL } from "@/app/lib/config";
 import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
+import RingkasanNilai from "@/components/nilai/RingkasanNilai";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -109,6 +110,7 @@ export default function ImportExcelPage() {
   const [hanyaBermasalah, setHanyaBermasalah] = useState(false);
   const [previewPage, setPreviewPage] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [versiRingkasan, setVersiRingkasan] = useState(0); // naik setelah impor agar ringkasan dimuat ulang
   const [rencanaRemedial, setRencanaRemedial] = useState([]);
   const fileInputRef = useRef(null);
 
@@ -544,6 +546,7 @@ export default function ImportExcelPage() {
           }),
         });
       resetFile();
+      setVersiRingkasan((v) => v + 1);
       // Tautan langsung ke lembar nilai yang baru diimpor (didukung halaman Input Nilai)
       const lembar = new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal });
       const n = Number(res.perlu_tindak_lanjut) || 0;
@@ -736,6 +739,15 @@ export default function ImportExcelPage() {
           </div>
         </div>
       </div>
+
+      {/* RINGKASAN & PROGRES sebelum mengimpor: penilaian terakhir dan capaian per materi */}
+      {isNilai && (
+        <RingkasanNilai idKelas={meta.id_kelas} idMapel={meta.id_mapel} idPeriode={meta.id_periode} idMateri={meta.id_materi}
+          namaKelas={kelasTerpilih?.nama_kelas} namaMapel={ref.subjects.find((m) => m.id_mapel === meta.id_mapel)?.nama_mapel}
+          muatUlang={versiRingkasan} labelBuka="Lihat di Input Nilai"
+          onBukaSesi={(sesi) => window.location.assign(`/dashboard/nilai?${new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: sesi.id_jenis, id_materi: sesi.id_materi, tanggal: sesi.tanggal })}`)}
+          onPilihMateri={(id) => setField("id_materi", id)} />
+      )}
 
       {/* PRATINJAU */}
       {rawRows.length > 0 && (

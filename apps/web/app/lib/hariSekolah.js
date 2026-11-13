@@ -19,6 +19,9 @@ function muatTahun(tahun) {
   return cache[tahun];
 }
 
+/** Hari libur satu tahun: Map(tanggal YYYY-MM-DD → nama libur). Kosong bila gagal dimuat. */
+export const muatHariLibur = (tahun) => muatTahun(Number(tahun));
+
 const formatPanjang = (y, m, d) => new Date(y, m - 1, d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
 /** Pesan bila tanggal (YYYY-MM-DD) adalah hari Minggu atau hari libur; null bila hari sekolah atau belum diketahui. */
