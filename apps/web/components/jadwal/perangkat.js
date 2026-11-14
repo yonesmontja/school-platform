@@ -13,5 +13,6 @@ export const JENIS_PERANGKAT = [
 export const JENIS_MAP = Object.fromEntries(JENIS_PERANGKAT.map((j) => [j.id, j]));
 
 /** Kelompokkan perangkat tersimpan per jenis, urut sesuai toolbar. */
-export const kelompokPerangkat = (daftar = []) =>
-  JENIS_PERANGKAT.map((j) => ({ ...j, item: daftar.filter((p) => p.jenis === j.id) })).filter((g) => g.item.length);
+// Sesi tanpa perangkat tersimpan sebagai null (bukan []), jadi jangan andalkan nilai bawaan parameter
+export const kelompokPerangkat = (daftar) =>
+  JENIS_PERANGKAT.map((j) => ({ ...j, item: (Array.isArray(daftar) ? daftar : []).filter((p) => p.jenis === j.id) })).filter((g) => g.item.length);

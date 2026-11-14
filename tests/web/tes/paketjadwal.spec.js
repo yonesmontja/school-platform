@@ -1,6 +1,6 @@
 // Paket jadwal dari Promes (sesi semester disusun dari ATP & minggu efektif, ditinjau lalu diaktifkan)
 // dan isian guru otomatis mengikuti pengampu mapel di form jadwal.
-const { test, expect, pilih, selectBerlabel, API } = require("../bantu");
+const { test, expect, pilih, selectBerlabel, hariIni, API } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });
 
@@ -64,4 +64,19 @@ test("admin memilih mapel: guru otomatis terisi pengampu mapel, tetap bisa digan
   await expect(form).toContainText("Bukan pengampu mapel");
   await form.getByRole("button", { name: "Kembalikan" }).click();
   await expect(guru).toHaveValue(pengampu);
+});
+
+test("detail sesi tanpa perangkat ajar terbuka tanpa error", async ({ page, masuk }) => {
+  const sesi = await masuk("guru");
+  const res = await fetch(`${API}/api/jadwal`, {
+    method: "POST", headers: { Authorization: `Bearer ${sesi.access_token}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ id_mapel: "MPL-EMTK", id_kelas: "KLS-E4A", pola: "sekali", mulai: `${hariIni()}T17:00`, selesai: `${hariIni()}T17:35`, abaikan_bentrok: true }),
+  });
+  expect(res.status).toBe(201);
+  await page.goto("/dashboard/jadwal");
+  await page.locator(".jadwal-today", { hasText: "17:00" }).first().click({ timeout: 60_000 });
+  const detail = page.getByRole("complementary", { name: "Detail sesi" });
+  await expect(detail).toBeVisible();
+  await expect(detail).not.toContainText("Perangkat ajar tertaut");
+  await expect(page.getByText("Halaman ini mengalami gangguan")).toHaveCount(0);
 });
