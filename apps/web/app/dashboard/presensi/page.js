@@ -9,6 +9,9 @@ import { API_URL } from "@/app/lib/config";
 import { galatJaringan, swalGagalMuat, pesanGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import RingkasanPresensi from "@/components/presensi/RingkasanPresensi";
+import PembinaanPresensi from "@/components/presensi/PembinaanPresensi";
+import { TombolLipat, useLipat } from "@/components/presensi/lipat";
+import { muatHariLibur } from "@/app/lib/hariSekolah";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -20,6 +23,7 @@ const STATUS = [
 ];
 const STATUS_MAP = Object.fromEntries(STATUS.map((s) => [s.value, s]));
 const ROWS_PER_PAGE = 10;
+const HARI_SEKOLAH = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
 
 const todayYmd = () => {
   const d = new Date();
@@ -71,7 +75,20 @@ const Modal = ({ show, title, icon, headerClass = "bg-success text-white", onClo
 export default function PresensiPage() {
   const [classes, setClasses] = useState([]);
   // Presensi diisi semua guru; menghapus satu tanggal hanya wali kelas & pengelola
-  const { bolehKelolaKelas } = useAkses();
+  const { bolehKelolaKelas, isGuru, mapelDiampu } = useAkses();
+  const [subjects, setSubjects] = useState([]);
+  // Kartu yang bisa dilipat (diingat per peramban)
+  const [lembarTerlipat, lipatLembar] = useLipat("lembarPresensiTerlipat");
+  const [riwayatTerlipat, lipatRiwayat] = useLipat("riwayatPresensiTerlipat");
+  const pembinaanRef = useRef(null);
+  const [dibina, setDibina] = useState(new Set());
+  // Hari libur (Map tanggal -> nama) untuk tahun tanggal terpilih
+  const [libur, setLibur] = useState(new Map());
+  // Mode lembar: HARIAN (acuan rapor) atau MAPEL (guru mapel; mengisi harian bila belum ada)
+  const [modeInput, setModeInput] = useState("HARIAN");
+  const [idMapel, setIdMapel] = useState("");
+  const [dataMapel, setDataMapel] = useState(null);
+  const [idJadwal, setIdJadwal] = useState("");
   const [periodes, setPeriodes] = useState([]);
   const [settings, setSettings] = useState(null);
   const [user, setUser] = useState(null);
@@ -83,6 +100,7 @@ export default function PresensiPage() {
 
   // Lembar input: status per siswa untuk tanggal terpilih
   const [lembar, setLembar] = useState({});
+  const [ketLembar, setKetLembar] = useState({}); // keterangan per siswa (mis. "demam"), tercatat ke jurnal
   const [waOrtu, setWaOrtu] = useState(true);
   const [waGrup, setWaGrup] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,11 +143,16 @@ export default function PresensiPage() {
       try {
         const [resF, resS] = await Promise.all([safeFetch(`${API_URL}/nilai/filters`), safeFetch(`${API_URL}/settings`)]);
         setClasses(resF.classes || []);
+        setSubjects(resF.subjects || []);
         setPeriodes(resF.periodes || []);
         setSettings(resS || null);
         const aktif = (resF.periodes || []).find((p) => p.status_aktif === "AKTIF");
         // Periode yang dipulihkan (lihat KUNCI_PULIH) tidak ditimpa periode aktif
         if (aktif) setFilters((f) => (f.id_periode ? f : { ...f, id_periode: aktif.id_periode }));
+        // Dari Perlu Tindakan: ?kelas=...&pembinaan=1 membuka kelas itu dan menggulir ke kartu pembinaan
+        const q = new URLSearchParams(window.location.search);
+        if (q.get("kelas")) setFilters((f) => ({ ...f, id_kelas: q.get("kelas") }));
+        if (q.get("pembinaan")) setTimeout(() => document.getElementById("pembinaan-presensi")?.scrollIntoView({ behavior: "smooth", block: "start" }), 1500);
       } catch (err) { swalGagalMuat(err); }
     })();
   }, []);
@@ -162,12 +185,44 @@ export default function PresensiPage() {
   );
   const sudahTercatat = presensiTanggal.length > 0;
 
+  useEffect(() => {
+    const th = Number(String(filters.tanggal).slice(0, 4));
+    if (th) muatHariLibur(th).then(setLibur);
+  }, [filters.tanggal.slice(0, 4)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sabtu, Minggu, dan hari libur: kartu presensi tampil tetapi tidak bisa diisi
+  const alasanTutup = useMemo(() => {
+    const [y, m, d] = String(filters.tanggal).split("-").map(Number);
+    const hari = new Date(y, m - 1, d).getDay();
+    if (hari === 0) return "Hari Minggu: libur, tidak ada presensi.";
+    if (hari === 6) return "Hari Sabtu: sekolah 5 hari (Senin–Jumat), tidak ada presensi.";
+    if (libur.has(filters.tanggal)) return `Hari libur nasional/umum (${libur.get(filters.tanggal)}): tidak ada presensi.`;
+    return null;
+  }, [filters.tanggal, libur]);
+
+  // Mapel yang boleh dipresensi per mapel: guru = mapel diampu; admin/kepsek = semua
+  const mapelPilihan = useMemo(() => (isGuru ? subjects.filter((s) => (mapelDiampu || []).includes(s.id_mapel)) : subjects), [subjects, isGuru, mapelDiampu]);
+  useEffect(() => { if (modeInput === "MAPEL" && !idMapel && mapelPilihan.length === 1) setIdMapel(mapelPilihan[0].id_mapel); }, [modeInput, mapelPilihan, idMapel]);
+
+  // Lembar presensi per mapel pada tanggal terpilih
+  useEffect(() => {
+    if (modeInput !== "MAPEL" || !idMapel || !filters.id_kelas) { setDataMapel(null); return; }
+    let batal = false;
+    safeFetch(`${API_URL}/presensi/mapel?${new URLSearchParams({ id_kelas: filters.id_kelas, id_mapel: idMapel, tanggal: filters.tanggal })}`)
+      .then((r) => { if (!batal) { setDataMapel(r); setIdJadwal(r.sesi?.[0]?.id_jadwal || ""); } })
+      .catch((err) => { if (!batal) { setDataMapel(null); Swal.fire("Gagal memuat presensi mapel", err.message, "error"); } });
+    return () => { batal = true; };
+  }, [modeInput, idMapel, filters.id_kelas, filters.tanggal]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Lembar diisi ulang dari data tersimpan setiap kali kelas/tanggal berganti (default: Hadir)
   useEffect(() => {
-    if (!data) { setLembar({}); return; }
-    const tersimpan = Object.fromEntries(presensiTanggal.map((p) => [p.id_siswa, p.status_kehadiran]));
-    setLembar(Object.fromEntries(data.students.map((s) => [s.id_siswa, tersimpan[s.id_siswa] || "HADIR"])));
-  }, [data, presensiTanggal]);
+    if (!data) { setLembar({}); setKetLembar({}); return; }
+    // Per mapel: presensi mapel tersimpan -> presensi harian tanggal itu -> Hadir
+    const sumber = modeInput === "MAPEL" ? [...(dataMapel?.harian || []), ...(dataMapel?.presensi_mapel || [])] : presensiTanggal;
+    const tersimpan = Object.fromEntries(sumber.map((p) => [p.id_siswa, p]));
+    setLembar(Object.fromEntries(data.students.map((s) => [s.id_siswa, tersimpan[s.id_siswa]?.status_kehadiran || "HADIR"])));
+    setKetLembar(Object.fromEntries(data.students.map((s) => [s.id_siswa, tersimpan[s.id_siswa]?.keterangan || ""])));
+  }, [data, presensiTanggal, modeInput, dataMapel]);
 
   const hitungLembar = useMemo(() => {
     const c = Object.fromEntries(STATUS.map((s) => [s.value, 0]));
@@ -177,8 +232,10 @@ export default function PresensiPage() {
 
   const berubah = useMemo(() => {
     const tersimpan = Object.fromEntries(presensiTanggal.map((p) => [p.id_siswa, p.status_kehadiran]));
-    return Object.entries(lembar).some(([id, st]) => (tersimpan[id] || (sudahTercatat ? null : "HADIR")) !== st) || !sudahTercatat;
-  }, [lembar, presensiTanggal, sudahTercatat]);
+    const ketTersimpan = Object.fromEntries(presensiTanggal.map((p) => [p.id_siswa, p.keterangan || ""]));
+    return Object.entries(lembar).some(([id, st]) => (tersimpan[id] || (sudahTercatat ? null : "HADIR")) !== st) || !sudahTercatat
+      || Object.entries(ketLembar).some(([id, k]) => (ketTersimpan[id] || "") !== (k || "").trim());
+  }, [lembar, ketLembar, presensiTanggal, sudahTercatat]);
 
   const namaKelas = classes.find((k) => k.id_kelas === filters.id_kelas)?.nama_kelas || "-";
   const namaSekolah = settings?.nama_sekolah || "Sekolah";
@@ -198,10 +255,27 @@ export default function PresensiPage() {
       + `Apabila ada hal yang perlu dikonfirmasikan terkait kehadiran ananda, silakan menghubungi kami kembali.\n\nSalam kasih,\n*${pencatat}*`;
   };
 
+  // --- SIMPAN PER MAPEL (guru mapel) ---
+  const simpanMapel = async () => {
+    if (!idMapel) return Swal.fire("Perhatian", "Pilih mata pelajaran.", "warning");
+    setSaving(true);
+    try {
+      const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR", keterangan: (ketLembar[s.id_siswa] || "").trim() }));
+      const res = await sendJSON(`${API_URL}/presensi/mapel`, "POST", { ...filters, id_mapel: idMapel, id_jadwal: idJadwal || null, records });
+      await muatData(filters.id_kelas, filters.id_periode);
+      const r = await safeFetch(`${API_URL}/presensi/mapel?${new URLSearchParams({ id_kelas: filters.id_kelas, id_mapel: idMapel, tanggal: filters.tanggal })}`);
+      setDataMapel(r);
+      Swal.fire({ icon: "success", title: "Presensi mapel tersimpan", text: res.message, timer: 3500, showConfirmButton: false });
+    } catch (err) { Swal.fire("Gagal Menyimpan", err.message, "error"); }
+    finally { setSaving(false); }
+  };
+
   // --- SIMPAN ---
   const handleSimpan = async () => {
     if (!data?.students.length) return;
-    const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR" }));
+    if (alasanTutup) return Swal.fire("Tidak ada presensi", alasanTutup, "info");
+    if (modeInput === "MAPEL") return simpanMapel();
+    const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR", keterangan: (ketLembar[s.id_siswa] || "").trim() }));
     // Tanpa sinyal: presensi disimpan di HP dan dikirim otomatis saat tersambung (app/lib/antrean.js)
     const simpanOffline = async () => {
       await tambahAntrean({
@@ -277,13 +351,24 @@ export default function PresensiPage() {
     return { id_siswa: s.id_siswa, nisn: s.nisn, nama_siswa: s.nama_siswa, ...c, total: milik.length, persen: milik.length ? (c.HADIR / milik.length) * 100 : null };
   }), [data, riwayat]);
 
+  // Rekap per hari sekolah (Senin–Jumat): berapa hari tercatat, komposisi kehadiran, dan siswa yang paling sering alpa di hari itu
+  const rekapHari = useMemo(() => HARI_SEKOLAH.map((hari, i) => {
+    const milik = riwayat.filter((p) => { const [y, m, d] = p.tanggal.split("-").map(Number); return new Date(y, m - 1, d).getDay() === i + 1; });
+    const c = Object.fromEntries(STATUS.map((st) => [st.value, milik.filter((p) => p.status_kehadiran === st.value).length]));
+    const alpa = {};
+    milik.filter((p) => p.status_kehadiran === "ALPA").forEach((p) => { alpa[p.nama_siswa] = (alpa[p.nama_siswa] || 0) + 1; });
+    const sering = Object.entries(alpa).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n, k]) => `${n} (${k})`).join(", ");
+    return { urut: i, nama_siswa: hari, hari, jumlah_tanggal: new Set(milik.map((p) => p.tanggal)).size, ...c, total: milik.length, persen: milik.length ? (c.HADIR / milik.length) * 100 : null, sering_alpa: sering };
+  }), [riwayat]);
+
   const tampil = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const sumber = modeRiwayat === "TANGGAL" ? riwayat : rekapSiswa;
+    const sumber = modeRiwayat === "TANGGAL" ? riwayat : modeRiwayat === "HARI" ? rekapHari : rekapSiswa;
     const list = sumber.filter((r) => {
       if (modeRiwayat === "TANGGAL" && filterStatus && r.status_kehadiran !== filterStatus) return false;
       if (!q) return true;
-      return r.nama_siswa.toLowerCase().includes(q) || (modeRiwayat === "TANGGAL" && (r.tanggal.includes(q) || STATUS_MAP[r.status_kehadiran].label.toLowerCase().includes(q)));
+      if (modeRiwayat === "HARI") return r.hari.toLowerCase().includes(q) || r.sering_alpa.toLowerCase().includes(q);
+      return r.nama_siswa.toLowerCase().includes(q) || (modeRiwayat === "TANGGAL" && (r.tanggal.includes(q) || STATUS_MAP[r.status_kehadiran].label.toLowerCase().includes(q) || (r.keterangan || "").toLowerCase().includes(q)));
     });
     return [...list].sort((a, b) => {
       let va = a[sortCol], vb = b[sortCol];
@@ -293,13 +378,13 @@ export default function PresensiPage() {
       if (va > vb) return sortAsc ? 1 : -1;
       return a.nama_siswa.localeCompare(b.nama_siswa);
     });
-  }, [riwayat, rekapSiswa, modeRiwayat, searchQuery, filterStatus, sortCol, sortAsc]);
+  }, [riwayat, rekapSiswa, rekapHari, modeRiwayat, searchQuery, filterStatus, sortCol, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(tampil.length / ROWS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const pageRows = tampil.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
 
-  const gantiMode = (m) => { setModeRiwayat(m); setSortCol(m === "TANGGAL" ? "tanggal" : "nama_siswa"); setSortAsc(m !== "TANGGAL"); setPage(1); };
+  const gantiMode = (m) => { setModeRiwayat(m); setSortCol(m === "TANGGAL" ? "tanggal" : m === "HARI" ? "urut" : "nama_siswa"); setSortAsc(m !== "TANGGAL"); setPage(1); };
   const handleSort = (col) => {
     if (sortCol === col) setSortAsc(!sortAsc);
     else { setSortCol(col); setSortAsc(col === "nama_siswa"); }
@@ -322,7 +407,12 @@ export default function PresensiPage() {
     return p ? `${p.tahun_ajaran} (${p.semester})` : "";
   })();
   const namaFile = `Presensi_${namaKelas.replace(/\s+/g, "_")}_${todayYmd()}`;
-  const barisTanggal = () => tampil.map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label }));
+  const barisTanggal = () => tampil.map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label, Keterangan: r.keterangan || "" }));
+  const barisHari = (list = modeRiwayat === "HARI" ? tampil : rekapHari) => list.map((r) => ({
+    Hari: r.hari, "Hari Tercatat": r.jumlah_tanggal, Hadir: r.HADIR, Sakit: r.SAKIT, Izin: r.IZIN, Alpa: r.ALPA,
+    "% Hadir": r.persen === null ? "-" : Number(r.persen.toFixed(1)), "Sering Alpa": r.sering_alpa || "-",
+  }));
+  const barisAktif = () => (modeRiwayat === "TANGGAL" ? barisTanggal() : modeRiwayat === "HARI" ? barisHari() : barisRekap());
   const barisRekap = (list = modeRiwayat === "SISWA" ? tampil : rekapSiswa) => list.map((r, i) => ({
     No: i + 1, NISN: r.nisn || r.id_siswa, "Nama Siswa": r.nama_siswa,
     Hadir: r.HADIR, Sakit: r.SAKIT, Izin: r.IZIN, Alpa: r.ALPA, "Total Hari": r.total, "% Hadir": r.persen === null ? "-" : Number(r.persen.toFixed(1)),
@@ -339,14 +429,15 @@ export default function PresensiPage() {
     if (!XLSX) return Swal.fire("Perlu sinyal", "Ekspor Excel perlu sinyal internet saat pertama kali dipakai di perangkat ini.", "info");
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(barisRekap(rekapSiswa)), "Rekap Siswa");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(barisHari(rekapHari)), "Rekap Per Hari");
     const semua = [...riwayat].sort((a, b) => b.tanggal.localeCompare(a.tanggal) || a.nama_siswa.localeCompare(b.nama_siswa))
-      .map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label }));
+      .map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label, Keterangan: r.keterangan || "" }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(semua.length ? semua : [{ Keterangan: "Tidak ada data" }]), "Riwayat Harian");
     XLSX.writeFile(wb, `${namaFile}.xlsx`);
   };
   const handleCSV = () => {
     if (!adaData()) return;
-    const rows = modeRiwayat === "TANGGAL" ? barisTanggal() : barisRekap();
+    const rows = barisAktif();
     const headers = Object.keys(rows[0]);
     const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const csv = [headers.map(esc).join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join("\r\n");
@@ -368,8 +459,8 @@ export default function PresensiPage() {
   };
   const handlePDF = async () => {
     if (!adaData()) return;
-    const judul = modeRiwayat === "TANGGAL" ? "Laporan Historis Presensi" : "Rekap Kehadiran Siswa";
-    await generateProfessionalPDF(modeRiwayat === "TANGGAL" ? barisTanggal() : barisRekap(), `${judul} ${namaKelas} - ${labelPeriode}`, settings, getBase64ImageFromUrl);
+    const judul = modeRiwayat === "TANGGAL" ? "Laporan Historis Presensi" : modeRiwayat === "HARI" ? "Rekap Kehadiran Per Hari Sekolah" : "Rekap Kehadiran Siswa";
+    await generateProfessionalPDF(barisAktif(), `${judul} ${namaKelas} - ${labelPeriode}`, settings, getBase64ImageFromUrl);
   };
 
   const waApiAktif = !!settings?.status_wa_api && !!settings?.has_wa_api_token;
@@ -438,23 +529,71 @@ export default function PresensiPage() {
               if (t > todayYmd()) return;
               setFilters((f) => ({ ...f, tanggal: t }));
               lembarPresensiRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            dibina={dibina}
+            onBina={(siswa) => {
+              pembinaanRef.current?.rencanakan(siswa);
+              document.getElementById("pembinaan-presensi")?.scrollIntoView({ behavior: "smooth", block: "start" });
             }} />
+
+          {/* PEMBINAAN: siswa yang kehadirannya perlu perhatian */}
+          <PembinaanPresensi ref={pembinaanRef} idKelas={filters.id_kelas} idPeriode={filters.id_periode} namaKelas={namaKelas} students={data.students} onAktif={setDibina} />
 
           {/* LEMBAR PRESENSI */}
           <div ref={lembarPresensiRef} style={{ scrollMarginTop: "1rem" }} className="card card-outline card-success shadow-sm mb-3">
             <div className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto">
                 <i className="bi bi-ui-checks me-2"></i>{tanggalPanjang(filters.tanggal)}
-                {sudahTercatat
-                  ? <span className="badge text-bg-success ms-2 fw-normal">Sudah tercatat</span>
-                  : <span className="badge text-bg-secondary ms-2 fw-normal">Belum tercatat</span>}
+                {alasanTutup ? <span className="badge text-bg-secondary ms-2 fw-normal">Bukan hari sekolah</span>
+                  : modeInput === "MAPEL" ? (dataMapel?.presensi_mapel?.length
+                    ? <span className="badge text-bg-success ms-2 fw-normal">Presensi mapel tercatat</span>
+                    : <span className="badge text-bg-secondary ms-2 fw-normal">Presensi mapel belum tercatat</span>)
+                  : sudahTercatat
+                    ? <span className="badge text-bg-success ms-2 fw-normal">Sudah tercatat</span>
+                    : <span className="badge text-bg-secondary ms-2 fw-normal">Belum tercatat</span>}
               </h3>
-              <div className="d-flex flex-wrap gap-1">
-                {STATUS.map((s) => <span key={s.value} className={`badge text-bg-${s.color}`}>{s.label}: {hitungLembar[s.value]}</span>)}
-              </div>
+              {!alasanTutup && !lembarTerlipat && (
+                <div className="d-flex flex-wrap gap-1">
+                  {STATUS.map((s) => <span key={s.value} className={`badge text-bg-${s.color}`}>{s.label}: {hitungLembar[s.value]}</span>)}
+                </div>
+              )}
+              <TombolLipat terlipat={lembarTerlipat} onClick={lipatLembar} label="lembar presensi" />
             </div>
+            {!lembarTerlipat && (
             <div className="card-body p-0">
-              {data.students.length === 0 ? (
+              {/* Mode: presensi harian (acuan rapor) atau per mapel (guru mapel) */}
+              <div className="d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom">
+                <div className="btn-group btn-group-sm" role="group" aria-label="Jenis presensi">
+                  <button type="button" className={`btn ${modeInput === "HARIAN" ? "btn-success" : "btn-outline-success"}`} onClick={() => setModeInput("HARIAN")}><i className="bi bi-calendar-day me-1"></i>Harian</button>
+                  <button type="button" className={`btn ${modeInput === "MAPEL" ? "btn-success" : "btn-outline-success"}`} onClick={() => setModeInput("MAPEL")} disabled={!mapelPilihan.length}><i className="bi bi-book me-1"></i>Per mapel</button>
+                </div>
+                {modeInput === "MAPEL" && (
+                  <>
+                    <select className="form-select form-select-sm w-auto" aria-label="Mata pelajaran presensi" value={idMapel} onChange={(e) => setIdMapel(e.target.value)}>
+                      <option value="">— Pilih mapel —</option>
+                      {mapelPilihan.map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                    </select>
+                    {dataMapel?.sesi?.length > 0 && (
+                      <select className="form-select form-select-sm w-auto" aria-label="Sesi jadwal" value={idJadwal} onChange={(e) => setIdJadwal(e.target.value)}>
+                        {dataMapel.sesi.map((x) => <option key={x.id_jadwal} value={x.id_jadwal}>Sesi {x.jam}</option>)}
+                        <option value="">Tanpa sesi jadwal</option>
+                      </select>
+                    )}
+                  </>
+                )}
+                <small className="text-muted ms-md-auto">
+                  {modeInput === "HARIAN" ? "Acuan rapor. Diisi wali kelas, admin, atau kepala sekolah (siapa pun yang lebih dulu)."
+                    : "Guru mapel mencatat kehadiran di jam pelajarannya. Siswa yang belum punya presensi harian ikut tercatat di presensi harian."}
+                </small>
+              </div>
+              {alasanTutup ? (
+                <div className="alert alert-secondary m-3 d-flex align-items-center gap-2" role="status">
+                  <i className="bi bi-calendar-x fs-4"></i>
+                  <div><div className="fw-semibold">{alasanTutup}</div><div className="small">Pilih tanggal hari sekolah (Senin–Jumat, bukan hari libur) untuk mengisi presensi.</div></div>
+                </div>
+              ) : modeInput === "MAPEL" && !idMapel ? (
+                <div className="text-center text-muted py-4">Pilih mata pelajaran untuk mengisi presensi per mapel.</div>
+              ) : data.students.length === 0 ? (
                 <div className="text-center text-muted py-5">Tidak ada siswa terdaftar di kelas ini.</div>
               ) : (
                 <>
@@ -463,7 +602,7 @@ export default function PresensiPage() {
                     <button type="button" className="btn btn-sm btn-outline-success" onClick={() => setLembar(Object.fromEntries(data.students.map((s) => [s.id_siswa, "HADIR"])))}>
                       <i className="bi bi-check2-all me-1"></i>Tandai Semua Hadir
                     </button>
-                    {sudahTercatat && bolehKelolaKelas(filters.id_kelas) && (
+                    {modeInput === "HARIAN" && sudahTercatat && bolehKelolaKelas(filters.id_kelas) && (
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={handleHapusTanggal}><i className="bi bi-trash me-1"></i>Hapus Tanggal Ini</button>
                     )}
                   </div>
@@ -490,6 +629,11 @@ export default function PresensiPage() {
                                   </Fragment>
                                 ))}
                               </div>
+                              {(lembar[s.id_siswa] !== "HADIR" || ketLembar[s.id_siswa]) && (
+                                <input type="text" className="form-control form-control-sm mt-1 mx-auto" style={{ maxWidth: 320 }} maxLength={300}
+                                  aria-label={`Keterangan ${s.nama_siswa}`} placeholder={lembar[s.id_siswa] === "SAKIT" ? "Keterangan, mis. demam / belum tahu sakitnya" : "Keterangan (opsional)"}
+                                  value={ketLembar[s.id_siswa] || ""} onChange={(e) => setKetLembar((k) => ({ ...k, [s.id_siswa]: e.target.value }))} />
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -499,9 +643,11 @@ export default function PresensiPage() {
                 </>
               )}
             </div>
-            {data.students.length > 0 && (
+            )}
+            {!lembarTerlipat && !alasanTutup && data.students.length > 0 && (modeInput === "HARIAN" || idMapel) && (
               <div className="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div className="d-flex flex-wrap gap-3">
+                  {modeInput === "MAPEL" ? <small className="text-muted">Keterangan yang diisi tercatat otomatis di Jurnal sebagai catatan terpisah (STNKM kosong).</small> : <>
                   <div className="form-check form-switch m-0">
                     <input className="form-check-input" type="checkbox" id="wa_ortu" checked={waOrtu} onChange={(e) => setWaOrtu(e.target.checked)} />
                     <label className="form-check-label small fw-semibold text-success" htmlFor="wa_ortu"><i className="bi bi-whatsapp me-1"></i>WA Ortu (Sakit/Izin/Alpa)</label>
@@ -511,10 +657,12 @@ export default function PresensiPage() {
                     <label className="form-check-label small fw-semibold text-primary" htmlFor="wa_grup"><i className="bi bi-people me-1"></i>Rekap Grup Guru / Kepsek</label>
                   </div>
                   <small className="text-muted">{waApiAktif ? "Pesan dikirim otomatis via Fonnte." : "Setelah simpan, tombol WA manual akan muncul."}</small>
+                  </>}
                 </div>
                 <button type="button" className="btn btn-success fw-semibold px-4" onClick={handleSimpan} disabled={saving}>
                   {saving ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-save me-2"></i>}
-                  {sudahTercatat ? (berubah ? "Perbarui Presensi" : "Simpan Ulang") : "Simpan Presensi"}
+                  {modeInput === "MAPEL" ? (dataMapel?.presensi_mapel?.length ? "Perbarui Presensi Mapel" : "Simpan Presensi Mapel")
+                    : sudahTercatat ? (berubah ? "Perbarui Presensi" : "Simpan Ulang") : "Simpan Presensi"}
                 </button>
               </div>
             )}
@@ -525,7 +673,7 @@ export default function PresensiPage() {
             <div className="card-header d-flex flex-wrap align-items-center gap-2">
               <h3 className="card-title fw-semibold mb-0 me-auto"><i className="bi bi-clock-history me-2"></i>Riwayat Presensi · {labelPeriode}</h3>
               <div className="btn-group btn-group-sm">
-                {[["TANGGAL", "Per Tanggal", "bi-list-ul"], ["SISWA", "Rekap Siswa", "bi-person-lines-fill"]].map(([v, l, ic]) => (
+                {[["TANGGAL", "Per Tanggal", "bi-list-ul"], ["SISWA", "Rekap Siswa", "bi-person-lines-fill"], ["HARI", "Rekap Per Hari", "bi-calendar-week"]].map(([v, l, ic]) => (
                   <button key={v} type="button" className={`btn ${modeRiwayat === v ? "btn-secondary" : "btn-outline-secondary"}`} onClick={() => gantiMode(v)}>
                     <i className={`bi ${ic} me-1`}></i>{l}
                   </button>
@@ -536,13 +684,15 @@ export default function PresensiPage() {
                 <button type="button" className="btn btn-outline-secondary" onClick={handleCSV}><i className="bi bi-filetype-csv me-1"></i>CSV</button>
                 <button type="button" className="btn btn-outline-danger" onClick={handlePDF}><i className="bi bi-file-earmark-pdf me-1"></i>PDF</button>
               </div>
+              <TombolLipat terlipat={riwayatTerlipat} onClick={lipatRiwayat} label="riwayat presensi" />
             </div>
+            {!riwayatTerlipat && (<>
             <div className="card-body">
               <div className="row g-2 mb-3">
                 <div className="col-12 col-md-6">
                   <div className="input-group input-group-sm">
                     <span className="input-group-text bg-body"><i className="bi bi-search"></i></span>
-                    <input type="search" className="form-control" placeholder={modeRiwayat === "TANGGAL" ? "Cari nama, status, atau tanggal..." : "Cari nama siswa..."}
+                    <input type="search" className="form-control" placeholder={modeRiwayat === "TANGGAL" ? "Cari nama, status, keterangan, atau tanggal..." : modeRiwayat === "HARI" ? "Cari hari atau nama siswa..." : "Cari nama siswa..."}
                       value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
                   </div>
                 </div>
@@ -564,7 +714,16 @@ export default function PresensiPage() {
                         {sortHeader("tanggal", "Tanggal", "")}
                         {sortHeader("nama_siswa", "Nama Siswa", "")}
                         {sortHeader("status_kehadiran", "Status")}
+                        <th>Keterangan</th>
                         <th className="text-center">Aksi</th>
+                      </tr>
+                    ) : modeRiwayat === "HARI" ? (
+                      <tr>
+                        {sortHeader("urut", "Hari", "")}
+                        {sortHeader("jumlah_tanggal", "Hari Tercatat")}
+                        {STATUS.map((s) => sortHeader(s.value, s.label))}
+                        {sortHeader("persen", "% Hadir")}
+                        <th>Sering alpa di hari ini</th>
                       </tr>
                     ) : (
                       <tr>
@@ -589,6 +748,7 @@ export default function PresensiPage() {
                           <td className="text-nowrap">{r.tanggal}</td>
                           <td className="fw-semibold">{r.nama_siswa}</td>
                           <td className="text-center"><span className={`badge text-bg-${st.color}`}>{st.label}</span></td>
+                          <td className="text-muted">{r.keterangan || ""}{r.sumber === "MAPEL" && <span className="badge text-bg-light border ms-1 fw-normal" title="Diisi pertama kali lewat presensi per mapel">mapel</span>}</td>
                           <td className="text-center text-nowrap">
                             <MenuAksi label={`Aksi presensi ${r.nama_siswa} ${r.tanggal}`} items={[
                               { label: "Ubah presensi tanggal ini", ikon: "bi-pencil-square", onClick: () => editTanggal(r.tanggal) },
@@ -597,7 +757,15 @@ export default function PresensiPage() {
                           </td>
                         </tr>
                       );
-                    }) : pageRows.map((r, i) => (
+                    }) : modeRiwayat === "HARI" ? pageRows.map((r) => (
+                      <tr key={r.hari}>
+                        <td className="fw-semibold">{r.hari}</td>
+                        <td className="text-center">{r.jumlah_tanggal}</td>
+                        {STATUS.map((s) => <td key={s.value} className={`text-center ${r[s.value] && s.value !== "HADIR" ? `text-${s.color} fw-semibold` : ""}`}>{r[s.value]}</td>)}
+                        <td className="text-center fw-semibold">{r.persen === null ? "–" : `${r.persen.toFixed(1)}%`}</td>
+                        <td className="text-muted">{r.sering_alpa || "–"}</td>
+                      </tr>
+                    )) : pageRows.map((r, i) => (
                       <tr key={r.id_siswa}>
                         <td className="text-center text-muted">{(currentPage - 1) * ROWS_PER_PAGE + i + 1}</td>
                         <td><div className="fw-semibold">{r.nama_siswa}</div><small className="text-muted">{r.nisn || r.id_siswa}</small></td>
@@ -617,6 +785,7 @@ export default function PresensiPage() {
                 <button type="button" className="btn btn-sm btn-outline-secondary" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><i className="bi bi-chevron-right"></i></button>
               </div>
             )}
+            </>)}
           </div>
         </>
       )}

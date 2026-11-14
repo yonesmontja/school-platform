@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\LaporanController;
 use App\Http\Controllers\Api\RaporController;
 use App\Http\Controllers\Api\WhatsAppController;
 use App\Http\Controllers\Api\PresensiController;
+use App\Http\Controllers\Api\PembinaanPresensiController;
 use App\Http\Controllers\Api\P5Controller;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\JadwalController;
@@ -264,6 +265,16 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/', [PresensiController::class, 'index']);
             Route::post('/batch', [PresensiController::class, 'saveBatch']);
             Route::delete('/tanggal', [PresensiController::class, 'hapusTanggal']);
+            // Presensi per mapel oleh guru mapel (rapor tetap memakai presensi harian)
+            Route::get('/mapel', [PresensiController::class, 'mapel']);
+            Route::post('/mapel', [PresensiController::class, 'simpanMapel']);
+            // Pembinaan siswa yang kehadirannya perlu perhatian
+            Route::get('/pembinaan', [PembinaanPresensiController::class, 'index']);
+            Route::post('/pembinaan', [PembinaanPresensiController::class, 'store']);
+            Route::put('/pembinaan/{id}', [PembinaanPresensiController::class, 'update']);
+            Route::patch('/pembinaan/{id}/status', [PembinaanPresensiController::class, 'status']);
+            Route::post('/pembinaan/{id}/jurnal', [PembinaanPresensiController::class, 'tautJurnal']);
+            Route::delete('/pembinaan/{id}', [PembinaanPresensiController::class, 'destroy']);
         });
 
         // P5 & rapor: guru hanya kelas binaan (wali kelas)

@@ -12,7 +12,7 @@ class TransPresensi extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id_presensi', 'tanggal', 'id_siswa', 'id_kelas', 'id_periode', 'status_kehadiran'];
+    protected $fillable = ['id_presensi', 'tanggal', 'id_siswa', 'id_kelas', 'id_periode', 'status_kehadiran', 'keterangan', 'id_jurnal', 'sumber', 'dicatat_oleh'];
 
     protected $casts = ['tanggal' => 'date:Y-m-d'];
 

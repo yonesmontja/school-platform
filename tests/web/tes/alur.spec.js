@@ -1,6 +1,6 @@
 // Alur kerja utama dari ujung ke ujung, berurutan karena saling memakai data:
 // guru menilai → presensi → jurnal → admin mencetak rapor → orang tua melihat portal.
-const { test, expect, api, pilih, selectBerlabel, hariIni, API } = require("../bantu");
+const { test, expect, api, pilih, selectBerlabel, hariIni, hariSekolahTerakhir, AKHIR_PEKAN, API } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });
 
@@ -94,6 +94,7 @@ test("wali kelas mengisi presensi dan panel WhatsApp muncul", async ({ page, mas
   await masuk("guru");
   await page.goto("/dashboard/presensi");
   await pilih(selectBerlabel(page, "Kelas"), "4A");
+  await page.locator('input[type="date"]').first().fill(hariSekolahTerakhir());
   await page.locator('label[for="SAKIT_SIS-E2"]').click();
   await page.getByRole("button", { name: "Simpan Presensi" }).click();
   await expect(page.getByText("Debora Tabuni").last()).toBeVisible();
@@ -199,6 +200,8 @@ test("orang tua melihat nilai dan kehadiran anak di portal", async ({ page, masu
 });
 
 test("portal orang tua: Perlu didampingi, Buka dari Perlu Tindakan, filter, dan PDF (O2–O4)", async ({ page, masuk }) => {
+  // Notifikasi remedial memakai tanggal server sebenarnya; remedial tidak bisa dijadwalkan hari Minggu
+  test.skip(AKHIR_PEKAN, "Hanya berjalan pada hari sekolah (Senin–Jumat)");
   // Guru menjadwalkan Tes Ulang untuk nilai Abner yang di bawah KKM (dari tes nilai di atas)
   const guru = await masuk("guru");
   const riwayat = await api(guru, "/nilai?id_kelas=KLS-E4A&id_periode=PER-E2E");
@@ -239,6 +242,8 @@ test("portal orang tua: Perlu didampingi, Buka dari Perlu Tindakan, filter, dan 
 });
 
 test("guru: Buka di Perlu Tindakan membuka lembar remedial siswanya, lalu bukti diunggah (G6)", async ({ page, masuk }) => {
+  // Notifikasi remedial memakai tanggal server sebenarnya; remedial tidak bisa dijadwalkan hari Minggu
+  test.skip(AKHIR_PEKAN, "Hanya berjalan pada hari sekolah (Senin–Jumat)");
   const guru = await masuk("guru");
   await page.goto("/dashboard/notifikasi");
   await page.locator(".notif-kartu", { hasText: "Hari ini: remedial" }).getByRole("link", { name: /Buka/ }).click();

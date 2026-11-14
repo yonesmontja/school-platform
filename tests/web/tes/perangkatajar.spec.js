@@ -117,7 +117,7 @@ test("sesi jadwal menautkan pertemuan modul; rencananya tampil di formulir jurna
   await pilih(form.getByLabel("Modul ajar"), "Membandingkan dua pecahan");
   await expect(form.getByLabel("Pertemuan ke")).toHaveValue("1");
   // Sesi hari ini (tombol Buat memakai tanggal awal minggu yang tampil di kalender)
-  const hariIni = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
+  const hariIni = require("../bantu").hariIni(); // akhir pekan: Jumat terakhir (jam peramban ikut dibekukan)
   await form.locator('xpath=//label[contains(normalize-space(.), "Tanggal")]/following::input[1]').fill(hariIni);
   await form.locator('xpath=//label[normalize-space(.)="Mulai"]/following::input[1]').fill("13:00");
   await form.locator('xpath=//label[normalize-space(.)="Selesai"]/following::input[1]').fill("14:00");

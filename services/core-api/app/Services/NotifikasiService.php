@@ -61,6 +61,7 @@ class NotifikasiService
             if ($u->isAdmin()) $item = $item->merge($this->loginGagal());
             $item = $item->merge($this->bankSoal());
             $item = $item->merge($this->atp());
+            $item = $item->merge($this->pembinaanPresensi());
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -238,6 +239,33 @@ class NotifikasiService
             }
         }
         return $hasil;
+    }
+
+    /**
+     * Pembinaan presensi yang sudah tiba tanggal tindak lanjutnya dan belum selesai/batal: untuk pembuatnya dan wali kelas
+     * siswa; admin & kepala sekolah melihat semuanya. Status Otomatis yang sudah pulih tidak ditampilkan.
+     */
+    private function pembinaanPresensi(): array
+    {
+        $u = $this->user;
+        $rencana = \App\Models\TransPembinaanPresensi::with(['siswa:id_siswa,nama_siswa', 'kelas:id_kelas,nama_kelas'])
+            ->whereIn('status', ['OTOMATIS', 'BERLANGSUNG'])
+            ->where('tanggal_tindak_lanjut', '<=', $this->hariIni)
+            ->when(!($u->isAdmin() || $u->isKepsek()), fn($q) => $q->where(fn($w) => $w->where('dibuat_oleh', $u->id)->orWhereIn('id_kelas', $u->kelasBinaan() ?: ['-'])))
+            ->orderBy('tanggal_tindak_lanjut')->get();
+        if ($rencana->isEmpty()) return [];
+        $status = \App\Models\TransPembinaanPresensi::statusEfektif($rencana, $this->hariIni);
+        $perlu = $rencana->filter(fn($r) => in_array($status[$r->id_pembinaan]['status'], ['DIRENCANAKAN', 'BERLANGSUNG'], true));
+        if ($perlu->isEmpty()) return [];
+        $kelas = $perlu->pluck('id_kelas')->unique();
+        return [$this->buat('pembinaan-presensi', $perlu->pluck('id_pembinaan')->all(), [
+            'tingkat' => 'warning', 'kategori' => 'Pembinaan', 'ikon' => 'bi-person-heart',
+            'judul' => "Tindak lanjut pembinaan kehadiran: {$perlu->count()} siswa",
+            'pesan' => self::daftarNama($perlu->map(fn($r) => $r->siswa?->nama_siswa)) . '. Catat hasilnya atau ubah statusnya sampai selesai.',
+            'jumlah' => $perlu->count(),
+            'tautan' => '/dashboard/presensi?' . http_build_query(array_filter(['kelas' => $kelas->count() === 1 ? $kelas->first() : null, 'pembinaan' => 1])),
+            'waktu' => $perlu->first()->tanggal_tindak_lanjut->toDateString() . 'T00:00:00',
+        ])];
     }
 
     private function presensiSekolah(): array

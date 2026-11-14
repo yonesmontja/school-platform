@@ -1,5 +1,5 @@
 // Input saat sinyal putus: nilai & jurnal disimpan di HP (IndexedDB), lalu terkirim otomatis saat online lagi.
-const { test, expect, api, pilih, selectBerlabel, hariIni } = require("../bantu");
+const { test, expect, api, pilih, selectBerlabel, hariIni, hariSekolahTerakhir } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });
 
@@ -65,6 +65,7 @@ test("presensi yang diisi offline terkirim saat online", async ({ page, context,
   const sesi = await masuk("guru2");
   await page.goto("/dashboard/presensi");
   await pilih(selectBerlabel(page, "Kelas"), "5A");
+  await page.locator('input[type="date"]').first().fill(hariSekolahTerakhir());
   await page.locator('label[for="ALPA_SIS-E6"]').click();
 
   await context.setOffline(true);
@@ -77,5 +78,6 @@ test("presensi yang diisi offline terkirim saat online", async ({ page, context,
   await expect(page.locator(".swal2-popup")).toContainText("1 kiriman offline berhasil dikirim");
   await page.reload();
   await pilih(selectBerlabel(page, "Kelas"), "5A");
+  await page.locator('input[type="date"]').first().fill(hariSekolahTerakhir());
   await expect(page.locator("#ALPA_SIS-E6")).toBeChecked();
 });

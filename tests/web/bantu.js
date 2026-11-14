@@ -37,6 +37,8 @@ async function api(sesi, path) {
 
 const test = base.test.extend({
   page: async ({ page }, use) => {
+    // Akhir pekan: jam peramban dibekukan di Jumat terakhir pukul 10.00 WIT (pewaktu tetap berjalan)
+    if (AKHIR_PEKAN) await page.clock.setFixedTime(new Date(`${hariSekolahTerakhir()}T10:00:00+09:00`));
     // Semua /api (dan berkas unggahan /storage) diteruskan ke API tes; halaman tetap dari WEB_URL
     await page.route((url) => url.pathname.includes("/api/") || url.pathname.startsWith("/storage/"), async (route) => {
       const asal = new URL(route.request().url());
@@ -78,6 +80,18 @@ async function pilih(select, teks) {
 const selectBerlabel = (page, teks) =>
   page.locator(`xpath=//label[contains(normalize-space(.), "${teks}")]/following::select[1]`).first();
 
-const hariIni = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
+const kalenderHariIni = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jayapura" });
+// Hari sekolah terakhir (Senin–Jumat) sampai hari ini: presensi menolak Sabtu, Minggu, dan tanggal mendatang
+const hariSekolahTerakhir = () => {
+  const [y, m, d] = kalenderHariIni().split("-").map(Number);
+  const t = new Date(y, m - 1, d);
+  while (t.getDay() === 0 || t.getDay() === 6) t.setDate(t.getDate() - 1);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+};
 
-module.exports = { test, expect: base.expect, api, unggahApi, pilih, selectBerlabel, hariIni, SANDI, AKUN, API };
+// Tes yang dijalankan di akhir pekan memakai Jumat terakhir sebagai "hari ini" (lihat fixture page),
+// karena nilai, jurnal, dan presensi menolak hari Minggu (presensi juga Sabtu). Di hari kerja sama dengan kalender.
+const hariIni = () => hariSekolahTerakhir();
+const AKHIR_PEKAN = kalenderHariIni() !== hariSekolahTerakhir();
+
+module.exports = { test, expect: base.expect, api, unggahApi, pilih, selectBerlabel, hariIni, hariSekolahTerakhir, AKHIR_PEKAN, SANDI, AKUN, API };

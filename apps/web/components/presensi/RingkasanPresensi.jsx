@@ -20,8 +20,11 @@ const panjang = (s) => keTanggal(s).toLocaleDateString("id-ID", { weekday: "long
 const selisihHari = (s) => Math.round((new Date(new Date().toDateString()) - keTanggal(s)) / 86400000);
 const relatif = (s) => { const h = selisihHari(s); return h === 0 ? "hari ini" : h === 1 ? "kemarin" : `${h} hari lalu`; };
 
-/** props: students [{id_siswa, nama_siswa}], presensi [{tanggal, id_siswa, status_kehadiran}], tanggal (terpilih), onPilihTanggal(ymd), namaKelas */
-export default function RingkasanPresensi({ students, presensi, tanggal, onPilihTanggal, namaKelas }) {
+/**
+ * props: students [{id_siswa, nama_siswa}], presensi [{tanggal, id_siswa, status_kehadiran}], tanggal (terpilih), onPilihTanggal(ymd), namaKelas,
+ * onBina(siswa) membuka rencana pembinaan, dibina: Set id_siswa yang sedang punya rencana pembinaan aktif
+ */
+export default function RingkasanPresensi({ students, presensi, tanggal, onPilihTanggal, namaKelas, onBina, dibina = new Set() }) {
   const [terlipat, setTerlipat] = useState(false);
   const [libur, setLibur] = useState(new Map());
   useEffect(() => { try { setTerlipat(localStorage.getItem(KUNCI_LIPAT) === "1"); } catch { /* storage diblokir */ } }, []);
@@ -53,7 +56,7 @@ export default function RingkasanPresensi({ students, presensi, tanggal, onPilih
       .filter((s) => s.persen < BATAS_HADIR || s.ALPA >= 3)
       .sort((a, b) => a.persen - b.persen || b.ALPA - a.ALPA);
 
-    // Hari sekolah (Senin–Sabtu, bukan libur) dalam 3 minggu terakhir yang belum diisi, sejak presensi pertama semester ini
+    // Hari sekolah (Senin–Jumat, bukan libur) dalam 3 minggu terakhir yang belum diisi, sejak presensi pertama semester ini
     const pertama = tanggalTercatat[tanggalTercatat.length - 1];
     const belum = [];
     if (pertama) {
@@ -61,7 +64,7 @@ export default function RingkasanPresensi({ students, presensi, tanggal, onPilih
       for (let i = 0; i < 21; i++, d.setDate(d.getDate() - 1)) {
         const t = ymd(d);
         if (t < pertama) break;
-        if (d.getDay() !== 0 && !libur.has(t) && !perTanggal.has(t)) belum.push(t);
+        if (d.getDay() !== 0 && d.getDay() !== 6 && !libur.has(t) && !perTanggal.has(t)) belum.push(t);
       }
     }
     // Hari dengan sebagian siswa saja yang tercatat
@@ -151,6 +154,9 @@ export default function RingkasanPresensi({ students, presensi, tanggal, onPilih
                         <div className="progress flex-grow-1" style={{ height: 6 }}><div className={`progress-bar bg-${s.persen >= BATAS_HADIR ? "warning" : "danger"}`} style={{ width: `${s.persen}%` }}></div></div>
                         <span className="text-nowrap">{s.persen}%</span>
                         <span className="text-nowrap text-muted">A {s.ALPA} · S {s.SAKIT} · I {s.IZIN}</span>
+                        {onBina && (dibina.has(s.id_siswa)
+                          ? <button type="button" className="btn btn-sm btn-outline-success py-0 px-2 text-nowrap" onClick={() => onBina(s)} title="Sudah ada rencana pembinaan aktif" aria-label={`Lihat pembinaan ${s.nama_siswa}`}><i className="bi bi-person-check me-1"></i>Dibina</button>
+                          : <button type="button" className="btn btn-sm btn-outline-danger py-0 px-2 text-nowrap" onClick={() => onBina(s)} aria-label={`Rencanakan pembinaan ${s.nama_siswa}`}><i className="bi bi-person-heart me-1"></i>Bina</button>)}
                       </div>
                     ))}
                   </div>
