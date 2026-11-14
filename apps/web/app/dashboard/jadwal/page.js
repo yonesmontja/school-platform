@@ -10,6 +10,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import idLocale from "@fullcalendar/core/locales/id";
 import MiniKalender from "@/components/jadwal/MiniKalender";
 import DetailSesi from "@/components/jadwal/DetailSesi";
+import PaketJadwal from "@/components/jadwal/PaketJadwal";
 import FormJadwal, { kirimAPI, konfirmasiBentrok, pesanGalat, tanyaModeBerantai } from "@/components/jadwal/FormJadwal";
 import {
   PALET_GURU, PREFS_DEFAULT, STATUS_MAP, STATUS_SESI, TAMPILAN,
@@ -28,6 +29,7 @@ export default function JadwalPage() {
   const api = () => calRef.current?.getApi();
 
   const [refData, setRefData] = useState(null);
+  const [paket, setPaket] = useState(false);
   const [rows, setRows] = useState([]);
   const [memuat, setMemuat] = useState(false);
   const [rentang, setRentang] = useState(null);
@@ -371,6 +373,9 @@ export default function JadwalPage() {
         <button type="button" className="jadwal-create" onClick={() => { setPanelKiriHp(false); bukaBaru(); }}>
           <i className="bi bi-plus-lg"></i><span>Buat</span>
         </button>
+        <button type="button" className="btn btn-sm btn-outline-primary w-100 mb-2" onClick={() => { setPanelKiriHp(false); setPaket(true); }} title="Susun sesi semester otomatis dari ATP & Prota/Promes">
+          <i className="bi bi-box-seam me-1"></i>Paket dari Promes
+        </button>
         <MiniKalender tanggalAktif={tanggalAktif} rentangAktif={rentang} tanggalBerisi={tanggalBerisi} onPilih={(d) => { api()?.gotoDate(d); setTanggalAktif(d); setPanelKiriHp(false); }} />
 
         <div className="jadwal-search d-lg-none my-2">
@@ -490,6 +495,7 @@ export default function JadwalPage() {
       )}
 
       <FormJadwal awal={formAwal} refData={refData} onClose={() => setFormAwal(null)} onSaved={setelahSimpan} />
+      {paket && <PaketJadwal onClose={() => setPaket(false)} onSelesai={(r) => { setPaket(false); toast(r.message); segarkan(); }} />}
 
       {/* PANEL WHATSAPP */}
       {waPanel && (

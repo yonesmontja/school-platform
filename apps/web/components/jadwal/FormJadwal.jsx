@@ -127,7 +127,8 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
     const mapel = subjects.find((s) => s.id_mapel === id_mapel);
     const materiMasihCocok = (refData?.materi || []).some((m) => m.id_materi === f.id_materi && m.id_mapel === id_mapel);
     const modulMasihCocok = (refData?.modul || []).some((m) => m.id_modul === f.id_modul && m.id_mapel === id_mapel);
-    ubah({ id_mapel, id_guru: f.id_guru || mapel?.id_guru || "", id_materi: materiMasihCocok ? f.id_materi : "", ...(modulMasihCocok ? {} : { id_modul: "", pertemuan_ke: "" }), ...(id_mapel !== f.id_mapel ? { perangkat: [] } : {}) });
+    // Guru mengikuti pengampu mapel yang dipilih; akun guru tetap atas namanya sendiri; admin masih bisa menggantinya
+    ubah({ id_mapel, id_guru: isGuru ? f.id_guru : (mapel?.id_guru || f.id_guru || ""), id_materi: materiMasihCocok ? f.id_materi : "", ...(modulMasihCocok ? {} : { id_modul: "", pertemuan_ke: "" }), ...(id_mapel !== f.id_mapel ? { perangkat: [] } : {}) });
   };
 
   const pilihFile = (e) => {
@@ -279,6 +280,13 @@ export default function FormJadwal({ awal, refData, onClose, onSaved }) {
                     <option value="">— Pilih Guru —</option>
                     {(refData?.teachers || []).map((t) => <option key={t.id_guru} value={t.id_guru}>{t.nama_guru}</option>)}
                   </select>
+                  {!isGuru && f.jenis === "kbm" && f.id_mapel && (() => {
+                    const pengampu = subjects.find((s) => s.id_mapel === f.id_mapel)?.id_guru;
+                    if (!pengampu) return null;
+                    return pengampu === f.id_guru
+                      ? <div className="form-text"><i className="bi bi-magic me-1"></i>Otomatis: guru pengampu mapel</div>
+                      : <div className="form-text text-warning-emphasis">Bukan pengampu mapel ({namaGuru(pengampu)}). <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => ubah({ id_guru: pengampu })}>Kembalikan</button></div>;
+                  })()}
                 </div>
                 <div className="col-md-4">
                   <label className="form-label small fw-semibold mb-1"><i className="bi bi-mortarboard me-1"></i>Kelas</label>

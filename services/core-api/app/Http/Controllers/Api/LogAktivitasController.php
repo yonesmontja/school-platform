@@ -129,4 +129,23 @@ class LogAktivitasController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    /** Error JavaScript yang menjatuhkan halaman: dicatat ke log aplikasi (bukan audit trail) agar bisa didiagnosis. */
+    public function errorKlien(Request $request)
+    {
+        $data = $request->validate([
+            'pesan' => 'required|string|max:1000',
+            'nama' => 'nullable|string|max:100',
+            'stack' => 'nullable|string|max:4000',
+            'rute' => 'nullable|string|max:255',
+            'digest' => 'nullable|string|max:100',
+        ]);
+        \Illuminate\Support\Facades\Log::warning('Error klien web', $data + [
+            'user_id' => $request->user()?->id,
+            'role' => $request->user()?->role,
+            'agen' => substr((string) $request->userAgent(), 0, 200),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
 }

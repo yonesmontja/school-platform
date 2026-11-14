@@ -7,6 +7,7 @@ import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 import { minta } from "@/components/banksoal/api";
 import Gantt from "@/components/programajar/Gantt";
+import PaketJadwal from "@/components/jadwal/PaketJadwal";
 import { STATUS_TP, ganttPromes, ganttProta, matriksPromes, ringkasProta } from "@/components/programajar/program";
 import { csvPromes, csvProta, excelPromes, excelProta, pdfPromes, pdfProta } from "@/components/programajar/ekspor";
 
@@ -183,6 +184,7 @@ function ProgramAjar() {
   const [memuat, setMemuat] = useState(false);
   const [galat, setGalat] = useState(null);
   const [muatUlang, setMuatUlang] = useState(0);
+  const [paket, setPaket] = useState(false);
   const [tampil, setTampil] = useState("gantt"); // gantt | matriks
 
   useEffect(() => {
@@ -244,6 +246,12 @@ function ProgramAjar() {
           <p className="text-body-secondary small mb-0">Rencana dari ATP, realisasi dari jadwal. Status sesi berubah sendiri mengikuti jam, dan langsung tercermin di sini.</p>
         </div>
         {tab !== "kalender" && (
+          <div className="d-flex flex-wrap gap-2">
+          {(akses.isAdmin || akses.isKepsek || (akses.isGuru && akses.bolehNilaiMapel(mapel))) && (
+            <button type="button" className="btn btn-outline-primary" onClick={() => setPaket(true)} disabled={!mapel} title="Susun sesi jadwal semester dari ATP & minggu efektif">
+              <i className="bi bi-box-seam me-1"></i>Susun jadwal otomatis
+            </button>
+          )}
           <div className="dropdown">
             <button type="button" className="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" disabled={!isi}><i className="bi bi-download me-1"></i>Ekspor</button>
             <ul className="dropdown-menu dropdown-menu-end">
@@ -252,7 +260,12 @@ function ProgramAjar() {
               <li><button type="button" className="dropdown-item" onClick={() => ekspor("csv")}><i className="bi bi-filetype-csv text-primary me-2"></i>CSV</button></li>
             </ul>
           </div>
+          </div>
         )}
+      {paket && (
+        <PaketJadwal awal={{ id_mapel: mapel, id_kelas: kelas, id_periode: tab === "promes" ? idPeriode : undefined }} onClose={() => setPaket(false)}
+          onSelesai={(r) => { setPaket(false); Swal.fire({ toast: true, position: "top-end", icon: "success", title: r.message, showConfirmButton: false, timer: 2500 }); setMuatUlang((n) => n + 1); }} />
+      )}
       </div>
 
       <div className="card mb-3">

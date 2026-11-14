@@ -145,7 +145,7 @@ class ProgramAjarService
     }
 
     /** Rentang minggu efektif tiap baris: dari kolom "Minggu" ATP (mis. "5-7"), atau dibagi berurutan menurut JP per minggu. */
-    private function rencana(Atp $atp, array $minggu): array
+    public function rencana(Atp $atp, array $minggu): array
     {
         $efektif = array_values(array_filter($minggu, fn($m) => $m['efektif']));
         $keKalender = fn(int $ke) => $efektif[max(0, min(count($efektif) - 1, $ke - 1))]['indeks'] ?? 0;

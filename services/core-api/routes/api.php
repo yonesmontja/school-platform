@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\PresensiController;
 use App\Http\Controllers\Api\P5Controller;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\JadwalController;
+use App\Http\Controllers\Api\JadwalPaketController;
 use App\Http\Controllers\Api\ProgramAjarController;
 use App\Http\Controllers\Api\RuanganController;
 
@@ -121,6 +122,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::get('/settings', [SchoolSettingController::class, 'show']);
     // Tindakan di browser (cetak, ekspor, chat WA, buka halaman) untuk audit trail
     Route::post('/log-aktivitas/event', [LogAktivitasController::class, 'event'])->middleware('throttle:120,1');
+    // Error JavaScript yang menjatuhkan halaman (error boundary web) → storage/logs untuk diagnosis
+    Route::post('/log-aktivitas/error-klien', [LogAktivitasController::class, 'errorKlien'])->middleware('throttle:20,1');
     // Pusat notifikasi "Perlu Tindakan" (isi disesuaikan peran di NotifikasiService)
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     // Kalender hari libur selain Minggu: semua akun membaca; admin & kepala sekolah mengelola
@@ -284,6 +287,10 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/referensi', [JadwalController::class, 'referensi']);
             Route::get('/perangkat', [JadwalController::class, 'perangkat']);
             Route::get('/rencana-hari', [JadwalController::class, 'rencanaHari']);
+            // Paket jadwal dari Promes: pola jam mingguan + ATP -> seluruh sesi semester, ditinjau lalu diaktifkan
+            Route::get('/paket/referensi', [JadwalPaketController::class, 'referensi']);
+            Route::post('/paket/pratinjau', [JadwalPaketController::class, 'pratinjau']);
+            Route::post('/paket/aktifkan', [JadwalPaketController::class, 'aktifkan']);
             Route::get('/{id}/rencana', [JadwalController::class, 'rencana']);
             Route::post('/', [JadwalController::class, 'store']);
             Route::put('/{id}', [JadwalController::class, 'update']);
