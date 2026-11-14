@@ -34,7 +34,7 @@ export default function PanduanPage() {
       <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
         <div className="me-auto">
           <h3 className="fw-bold mb-0"><i className="bi bi-question-circle text-primary me-2"></i>Panduan</h3>
-          <div className="small text-body-secondary">Langkah singkat untuk pekerjaan sehari-hari di EduRapor, sesuai peran Anda.</div>
+          <div className="small text-body-secondary">Langkah singkat untuk pekerjaan sehari-hari di SAPrapor, sesuai peran Anda.</div>
         </div>
         <button type="button" className="btn btn-sm btn-outline-secondary d-print-none" onClick={() => setTerbuka(semuaTerbuka ? new Set() : new Set(tampil.map((b) => b.id)))}>
           <i className={`bi ${semuaTerbuka ? "bi-arrows-collapse" : "bi-arrows-expand"} me-1`}></i>{semuaTerbuka ? "Tutup semua" : "Buka semua"}

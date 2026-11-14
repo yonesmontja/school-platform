@@ -131,7 +131,7 @@ class AuthController extends Controller
         $nomor = SchoolSetting::first()?->no_wa_admin;
         if (!$nomor || !Cache::add('peringatan-login:' . Str::lower($identitas), true, now()->addHour())) return;
 
-        $pesan = "⚠️ *Peringatan keamanan EduRapor*\n\n"
+        $pesan = "⚠️ *Peringatan keamanan SAPrapor*\n\n"
             . "Akun *{$identitas}* gagal login {$gagal} kali dalam " . self::JENDELA_PERINGATAN . " menit terakhir"
             . ($ip ? " (IP terakhir {$ip})" : '') . ".\n\n"
             . "Jika bukan pemilik akun, periksa menu Log Aktivitas dan pertimbangkan mengganti kata sandi akun tersebut.";

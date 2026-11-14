@@ -56,6 +56,25 @@ test("admin mengunggah logo; kop modul ajar (cetak & Word) memakai logo resmi", 
   await jendela.close();
 });
 
+test("admin memakai logo sekolah sebagai ikon aplikasi; sidebar & favicon ikut berganti", async ({ page, masuk }) => {
+  expect((await fetch(`${API}/api/ikon-aplikasi/icon-192.png`, { redirect: "manual" })).status).toBe(302);
+  await masuk("admin");
+  await page.goto("/dashboard/pengaturan");
+  const saklar = page.getByLabel("Pakai logo sekolah sebagai ikon aplikasi");
+  await expect(saklar).toBeEnabled({ timeout: 60_000 });
+  await saklar.check();
+  await page.getByRole("button", { name: "Simpan Pengaturan" }).click();
+  await expect(page.locator(".swal2-toast")).toContainText("Pengaturan Disimpan", { timeout: 30_000 });
+  const ikon = await fetch(`${API}/api/ikon-aplikasi/icon-512.png`, { redirect: "manual" });
+  expect(ikon.status).toBe(200);
+  expect(ikon.headers.get("content-type")).toContain("image/png");
+  // Merek sidebar memakai ikon aplikasi dan nama SAPrapor
+  await expect(page.locator(".sidebar-brand")).toContainText("SAPrapor");
+  await expect(page.locator(".sidebar-brand img.brand-ikon")).toHaveAttribute("src", "/api/ikon-aplikasi/icon-192.png");
+  await page.reload();
+  await expect(saklar).toBeChecked({ timeout: 60_000 });
+});
+
 test("admin menghapus logo; kop kembali ke lambang inisial", async ({ page, masuk }) => {
   await masuk("admin");
   await page.goto("/dashboard/pengaturan");
@@ -63,4 +82,6 @@ test("admin menghapus logo; kop kembali ke lambang inisial", async ({ page, masu
   await page.getByRole("button", { name: "Simpan Pengaturan" }).click();
   await expect(page.locator(".swal2-toast")).toContainText("Pengaturan Disimpan", { timeout: 30_000 });
   expect((await fetch(`${API}/api/logo-sekolah`)).status).toBe(404);
+  // Ikon aplikasi kembali ke ikon bawaan
+  expect((await fetch(`${API}/api/ikon-aplikasi/icon-192.png`, { redirect: "manual" })).status).toBe(302);
 });

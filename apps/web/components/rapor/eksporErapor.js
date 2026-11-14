@@ -143,7 +143,7 @@ export function eksporErapor({ data, modeKalkulasi, bobot }) {
     ["6. Lembar Kehadiran, Kokurikuler, dan Catatan Wali untuk menu wali kelas di e-Rapor."],
     [],
     ["Keterangan"],
-    ["• Nilai akhir = nilai rapor EduRapor dengan mode kalkulasi yang sedang dipilih; nilai remedial mengikuti kebijakan sekolah."],
+    ["• Nilai akhir = nilai rapor SAPrapor dengan mode kalkulasi yang sedang dipilih; nilai remedial mengikuti kebijakan sekolah."],
     ["• TP ditentukan dari indikator penilaian; mapel tanpa indikator memakai materi yang dinilai. Daftar lengkap ada di lembar Referensi TP."],
     ["• Berkas ini bukan format impor resmi e-Rapor; susunan kolomnya dibuat agar mudah disalin ke format nilai versi mana pun."],
     [],

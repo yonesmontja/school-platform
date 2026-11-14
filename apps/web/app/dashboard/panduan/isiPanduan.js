@@ -28,19 +28,19 @@ export const BAGIAN = [
     ],
   },
   {
-    id: "pasang", kelompok: "mulai", judul: "Pasang EduRapor di HP", icon: "bi-phone",
+    id: "pasang", kelompok: "mulai", judul: "Pasang SAPrapor di HP", icon: "bi-phone",
     langkah: [
-      "Buka EduRapor di Chrome (Android) dan masuk.",
+      "Buka SAPrapor di Chrome (Android) dan masuk.",
       "Tekan tombol Pasang aplikasi di bagian atas layar, lalu pilih Pasang.",
       "Di iPhone: buka di Safari, tekan Bagikan, lalu Tambah ke Layar Utama.",
-      "Ikon EduRapor muncul di layar utama dan terbuka layar penuh seperti aplikasi biasa.",
+      "Ikon SAPrapor muncul di layar utama dan terbuka layar penuh seperti aplikasi biasa.",
     ],
     tips: ["Halaman yang pernah dibuka tetap bisa dibuka saat sinyal putus. Lihat bagian Mengisi saat sinyal putus."],
   },
   {
     id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off",
     langkah: [
-      "Saat aplikasi dibuka dengan sinyal, EduRapor otomatis menyiapkan halaman Input Nilai, Jurnal, dan Presensi beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
+      "Saat aplikasi dibuka dengan sinyal, SAPrapor otomatis menyiapkan halaman Input Nilai, Jurnal, dan Presensi beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
       "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, atau presensi seperti biasa lalu tekan Simpan.",
       "Muncul pesan Disimpan di HP, dan ikon awan dengan angka di bagian atas menunjukkan jumlah kiriman yang menunggu.",
       "Begitu tersambung lagi, kiriman terkirim otomatis dan muncul pesan berhasil dikirim. Tekan ikon awan untuk melihat daftarnya atau Kirim sekarang.",
@@ -78,7 +78,7 @@ export const BAGIAN = [
     href: "/dashboard/nilai",
     gambar: "/panduan/nilai.jpg",
     langkah: [
-      "Buka TDU - Jadwal → Input Nilai.",
+      "Buka Kegiatan Harian → Input Nilai.",
       "Pilih Kelas, Mata Pelajaran, Periode Akademik, Jenis Penilaian, dan Topik/Materi. Biarkan tipe penilaian Reguler. Bila Anda punya jadwal mengajar hari ini, kelas, mapel, dan materinya sudah terisi otomatis.",
       "Isi Tanggal Penilaian. Memilih tanggal yang sudah pernah dinilai membuka nilai lama untuk diedit.",
       "Centang indikator (IKTP) yang dinilai pada sesi ini. Indikator baru bisa ditambah langsung di sini.",
@@ -113,12 +113,12 @@ export const BAGIAN = [
     id: "perangkat-ajar", kelompok: "guru", judul: "Perangkat ajar: CP, ATP, dan modul ajar", icon: "bi-journal-richtext",
     href: "/dashboard/perangkat-ajar",
     langkah: [
-      "Buka TDU - Jadwal → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan. Bila CP nasional untuk mapel/fase itu belum ada (mis. Bahasa Inggris Fase A atau mulok), pilih CP resmi belum ada: AI susun draf; hasilnya ditandai CP sekolah.",
+      "Buka Perencanaan Ajar → Perangkat Ajar, tab Capaian Pembelajaran. Pilih mapel, lalu tekan Tempel dokumen CP: salin teks CP resmi, tempel, dan tekan Pecah per elemen. Periksa elemen dan fasenya, lalu Simpan. Bila CP nasional untuk mapel/fase itu belum ada (mis. Bahasa Inggris Fase A atau mulok), pilih CP resmi belum ada: AI susun draf; hasilnya ditandai CP sekolah.",
       "Buka tab ATP, tekan ATP baru: pilih mapel, kelas, periode, JP per minggu, dan minggu efektif.",
       "Tekan Susun dengan AI. AI menurunkan TP dari CP fase kelas itu, memakai TP sekolah yang sudah ada, dan menambah alokasi untuk TP yang capaian siswanya rendah.",
       "Periksa setiap baris: elemen, materi, TP (yang ada atau TP baru bertanda +), JP, minggu, dimensi STNKM, dan profil lulusan. Geser urutan dengan panah, lalu Simpan.",
       "Tekan Ajukan. Kepala sekolah menyetujui atau mengembalikan dengan catatan (muncul di Perlu Tindakan).",
-      "Setelah disetujui, TP dan materi baru otomatis masuk ke Referensi Penilaian, sehingga langsung bisa dipakai di Input Nilai, kisi-kisi, dan Bank Soal. Tekan Cetak untuk PDF bertanda tangan.",
+      "Setelah disetujui, TP dan materi baru otomatis masuk ke Materi (Perencanaan Ajar), sehingga langsung bisa dipakai di Input Nilai, kisi-kisi, dan Bank Soal. Tekan Cetak untuk PDF bertanda tangan.",
     ],
     tips: [
       "Fase dihitung dari nama kelas: kelas 1–2 fase A, 3–4 fase B, 5–6 fase C.",
@@ -137,7 +137,7 @@ export const BAGIAN = [
     id: "studio-video", kelompok: "guru", judul: "Studio Rakit Video (motion graphic)", icon: "bi-easel3",
     href: "/dashboard/studio-video",
     langkah: [
-      "Admin membuka TDU - Jadwal → Studio Rakit Video dan menunjuk satu pembuat video motion graphic. Hanya akun itu yang bisa merakit.",
+      "Admin membuka Media Belajar → Studio Rakit Video dan menunjuk satu pembuat video motion graphic. Hanya akun itu yang bisa merakit.",
       "Pembuat video membuka Studio. Naskah contoh langsung tampil; pilih rasio (9:16 untuk Reels/TikTok/Status WA, 16:9 untuk proyektor/YouTube, 1:1 untuk feed, 4:3).",
       "Cara cepat: tekan Papan cerita AI, pilih tujuan, tulis satu-dua kalimat video yang diinginkan (mis. promosi PPDB dengan kegiatan literasi dan olahraga), pilih jumlah adegan dan penyedia AI. AI menyusun adegan, teks, emoji, dan narasi dengan tata letak yang rapi; sunting sesukanya. Pilih juga gaya visualnya (Ceria, Elegan, Formal, Modern); tata letak yang tersedia: pembuka, emoji besar, daftar, fakta (angka menghitung naik), kutipan, perbandingan, linimasa, dan ajakan.",
       "Gaya visual: tombol Gaya visual mengatur sekaligus font judul & isi (Nunito, Poppins, Playfair Display), hiasan latar bergerak, gerak kamera, transisi, animasi teks kata demi kata, dan kartu kaca di semua adegan; centang Ganti warna latar untuk memakai palet gaya itu. Hasilnya bisa dibatalkan dengan Ctrl+Z.",
@@ -169,7 +169,7 @@ export const BAGIAN = [
     id: "pustaka-dokumen", kelompok: "guru", judul: "Pustaka dokumen resmi untuk AI", icon: "bi-folder2-open",
     href: "/dashboard/pustaka-dokumen",
     langkah: [
-      "Buka Referensi Penilaian → Pustaka Dokumen, lalu tekan Tambah dokumen.",
+      "Buka Perencanaan Ajar → Pustaka Dokumen, lalu tekan Tambah dokumen.",
       "Pilih Unggah berkas (PDF berteks, DOCX, atau TXT) atau Tautan resmi (halaman/PDF situs pemerintah). Isi judul, jenis (CP, kurikulum, regulasi, panduan), dan bila perlu mapel serta fasenya.",
       "Admin dan kepala sekolah: dokumen langsung dipakai AI. Guru: dokumen diajukan dan dipakai AI setelah kepala sekolah menyetujuinya (muncul di Perlu Tindakan).",
       "Buka dokumen untuk melihat teks yang dibaca AI, lalu tekan Analisis dengan AI untuk ringkasan isi pokoknya.",
@@ -187,7 +187,7 @@ export const BAGIAN = [
     id: "video-belajar", kelompok: "guru", judul: "Video belajar", icon: "bi-play-btn",
     href: "/dashboard/video-belajar",
     langkah: [
-      "Buat sendiri: buka TDU - Jadwal → Video Belajar → Buat video motion graphic. Pilih templat (Kartu Gambar & Suku Kata, Berhitung, Urutan & Siklus, atau Pecahan); isi contoh langsung bisa diubah.",
+      "Buat sendiri: buka Media Belajar → Video Belajar → Buat video motion graphic. Pilih templat (Kartu Gambar & Suku Kata, Berhitung, Urutan & Siklus, atau Pecahan); isi contoh langsung bisa diubah.",
       "Pilih rasio aspek: 16:9 untuk proyektor/YouTube, 9:16 untuk Reels/TikTok/Status WA, 1:1 untuk feed Instagram/Facebook, 4:3 untuk layar kelas lama. Tata letak menyesuaikan otomatis.",
       "Isi setiap adegan: gambar (emoji), kata atau angka, dan narasi yang akan dibacakan. Pratinjau di sebelah kanan berubah seketika (tanpa suara).",
       "Pilih suara narasi (Suara AI lokal gratis, atau ElevenLabs/Gemini bila API key sudah diisi admin), lalu tekan Buat video. Server membuat suara dan videonya dalam beberapa menit; halaman boleh ditutup.",
@@ -209,7 +209,7 @@ export const BAGIAN = [
     id: "bank-soal", kelompok: "guru", judul: "Bank soal, kisi-kisi, dan AI", icon: "bi-patch-question",
     href: "/dashboard/bank-soal",
     langkah: [
-      "Buka TDU - Jadwal → Bank Soal.",
+      "Buka Asesmen → Bank Soal.",
       "Kisi-kisi: tekan Kisi-kisi baru, isi judul dan mapel, lalu tambahkan baris per TP (bentuk soal, level kognitif C1–C6, tingkat kesulitan, dimensi STNKM yang ditonjolkan, dan jumlah soal).",
       "Pada kisi-kisi yang sudah disimpan, tekan Buat dengan AI di setiap baris. AI menyusun draf soal lengkap dengan kunci, pengecoh, rubrik, dan diagram bila diminta.",
       "Bisa juga menulis soal sendiri (Tulis soal) atau memindahkan paket soal lama di tab Impor Paket (tempel teks, Word, PDF, atau foto).",
@@ -273,7 +273,7 @@ export const BAGIAN = [
     id: "import", kelompok: "guru", judul: "Import nilai atau jurnal dari Excel", icon: "bi-file-earmark-arrow-up",
     href: "/dashboard/import-excel",
     langkah: [
-      "Buka TDU - Jadwal → Import Excel dan pilih Jenis Data (nilai atau jurnal).",
+      "Buka Asesmen → Import Excel dan pilih Jenis Data (nilai atau jurnal).",
       "Unduh template. Template nilai sudah berisi daftar siswa dan satu kolom per indikator aktif materi.",
       "Isi template di Excel tanpa mengubah judul kolom, lalu simpan.",
       "Unggah file. Periksa pratinjau; nyalakan Tampilkan hanya baris bermasalah untuk melihat baris yang salah.",
@@ -286,7 +286,7 @@ export const BAGIAN = [
     href: "/dashboard/jurnal",
     gambar: "/panduan/jurnal.jpg",
     langkah: [
-      "Buka TDU - Jadwal → Jurnal.",
+      "Buka Kegiatan Harian → Jurnal.",
       "Pilih jalur konteks: Pembelajaran di Kelas (terkait materi) atau Observasi Perilaku Bebas (istirahat, ekskul, di luar KBM).",
       "Pilih Kelas, Siswa, dan Tanggal, lalu tulis narasi kejadian apa adanya: apa yang dilakukan dan dikatakan siswa.",
       "Pilih mesin analisis (AI atau Heuristik). Aplikasi mengisi nilai dimensi STNKM dari narasi.",
@@ -301,7 +301,7 @@ export const BAGIAN = [
     id: "jadwal", kelompok: "guru", judul: "Jadwal mengajar", icon: "bi-calendar3-week",
     href: "/dashboard/jadwal",
     langkah: [
-      "Buka TDU - Jadwal → Jadwal. Pilih tampilan hari, minggu, atau bulan.",
+      "Buka Kegiatan Harian → Jadwal. Pilih tampilan hari, minggu, atau bulan.",
       "Tambah sesi dengan menekan slot kosong di kalender; sesi bisa diulang mingguan pada hari tertentu.",
       "Geser sesi untuk memindahkan waktunya.",
       "Setelah mengajar, buka sesinya dan tandai Selesai (atau Batal). Sesi yang belum ditandai muncul di Perlu Tindakan.",
@@ -312,7 +312,7 @@ export const BAGIAN = [
     href: "/dashboard/diagnostik",
     langkah: [
       "Nilai diagnostik diisi lewat Input Nilai seperti biasa, dengan Jenis Penilaian (aktivitas) berjenis Diagnostik.",
-      "Buka TDU - Jadwal → Asesmen Diagnostik, tab Kognitif, lalu pilih Semester, Kelas, dan sesi diagnostik.",
+      "Buka Asesmen → Asesmen Diagnostik, tab Kognitif, lalu pilih Semester, Kelas, dan sesi diagnostik.",
       "Siswa dikelompokkan otomatis: perlu pendampingan intensif, siap dengan penguatan, dan siap/mahir, lengkap dengan saran pembelajaran.",
       "Unduh Excel pengelompokan bila perlu untuk menyusun kelompok belajar.",
     ],
@@ -325,7 +325,7 @@ export const BAGIAN = [
     href: "/dashboard/presensi",
     gambar: "/panduan/presensi.jpg",
     langkah: [
-      "Buka TDU - Jadwal → Presensi, pilih Kelas dan Periode, lalu tanggal hari ini.",
+      "Buka Kegiatan Harian → Presensi, pilih Kelas dan Periode, lalu tanggal hari ini.",
       "Tekan Tandai Semua Hadir, lalu ubah siswa yang Sakit (S), Izin (I), atau Alpa (A).",
       "Simpan. Panel WhatsApp muncul untuk mengabari orang tua siswa yang tidak hadir dan mengirim rekap ke grup guru/kepala sekolah.",
     ],
@@ -345,7 +345,7 @@ export const BAGIAN = [
     id: "proyek", kelompok: "wali", judul: "Proyek kokurikuler", icon: "bi-stars",
     href: "/dashboard/p5",
     langkah: [
-      "Buka TDU - Jadwal → Proyek, pilih Periode dan Kelas.",
+      "Buka Asesmen → Proyek (P5), pilih Periode dan Kelas.",
       "Buat kegiatan: judul, bentuk kegiatan, deskripsi/fokus, dan target Dimensi Profil Lulusan.",
       "Di tab nilai, tetapkan predikat tiap siswa per dimensi (bisa diambil dari data STNKM).",
       "Di tab catatan, tulis catatan proses tiap siswa, atau buat dengan bantuan AI lalu sunting.",
@@ -375,12 +375,12 @@ export const BAGIAN = [
     id: "awal-semester", kelompok: "pengelola", judul: "Persiapan awal semester", icon: "bi-calendar-week",
     href: "/dashboard/master-periode",
     langkah: [
-      "Referensi Penilaian → Semester: tambahkan semester baru dan atur statusnya Aktif.",
-      "Referensi Penilaian → Hari Libur: cocokkan libur nasional dan cuti bersama tahun ini dengan SKB 3 Menteri, lalu tambahkan libur sekolah sendiri (mis. HUT sekolah). Tanggal libur tidak bisa dipakai untuk jadwal, presensi, nilai, dan jurnal; jadwal berulang otomatis melewatinya.",
+      "Referensi → Semester: tambahkan semester baru dan atur statusnya Aktif.",
+      "Referensi → Hari Libur: cocokkan libur nasional dan cuti bersama tahun ini dengan SKB 3 Menteri, lalu tambahkan libur sekolah sendiri (mis. HUT sekolah). Tanggal libur tidak bisa dipakai untuk jadwal, presensi, nilai, dan jurnal; jadwal berulang otomatis melewatinya.",
       "Akun & Sistem → API Render (admin): buat kunci API untuk aplikasi luar yang membuat video lewat API (mis. asisten AI Muse), pantau riwayat render, dan tambahkan tempat terverifikasi untuk adegan peta. Kunci hanya tampil sekali; simpan di tempat aman. Isi kunci Azure Speech di Pengaturan bila ingin suara Azure.",
-      "Master Data: periksa Master Kelas (wali kelas), Master Siswa (siswa baru dan kenaikan kelas), Master Guru, dan Master Mapel (KKM per mapel).",
-      "Referensi Penilaian: lengkapi High Level (Elemen CP), Aktivitas (jenis asesmen diagnostik/formatif/sumatif), serta Materi berisi Tujuan Pembelajaran dan indikatornya.",
-      "Pastikan setiap guru punya akun yang terhubung ke data Master Guru (Manajemen Pengguna).",
+      "Data Sekolah: periksa Kelas (wali kelas), Siswa (siswa baru dan kenaikan kelas), Guru, dan Mata Pelajaran (KKM per mapel).",
+      "Referensi: lengkapi High Level (Elemen CP) dan Aktivitas (jenis asesmen diagnostik/formatif/sumatif); di Perencanaan Ajar → Materi, lengkapi Tujuan Pembelajaran dan indikatornya.",
+      "Pastikan setiap guru punya akun yang terhubung ke data Guru di Data Sekolah (Manajemen Pengguna).",
     ],
     tips: ["Guru juga bisa menambah indikator dan aktivitas untuk mapel yang ia ampu; kepala sekolah hanya melihat."],
   },
@@ -400,7 +400,7 @@ export const BAGIAN = [
     id: "keluarga", kelompok: "pengelola", judul: "Data orang tua dan wali", icon: "bi-house-heart",
     href: "/dashboard/master-keluarga",
     langkah: [
-      "Buka Master Data → Orang Tua & Wali.",
+      "Buka Data Sekolah → Orang Tua & Wali.",
       "Tekan Tambah data keluarga, lalu pilih Orang tua kandung atau Wali.",
       "Isi nama ayah dan/atau ibu (atau nama wali), pekerjaan, nomor WhatsApp, dan alamat.",
       "Centang anak-anaknya di daftar siswa. Satu data bisa untuk kakak-adik; siswa yang sudah punya data lain akan dipindah.",

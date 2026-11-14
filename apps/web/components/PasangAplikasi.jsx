@@ -11,11 +11,11 @@ export default function PasangAplikasi() {
 
   const klik = async () => {
     if (bisa === "prompt") {
-      if (await pasangAplikasi()) Swal.fire({ toast: true, position: "top-end", icon: "success", title: "EduRapor terpasang di perangkat Anda", showConfirmButton: false, timer: 2500 });
+      if (await pasangAplikasi()) Swal.fire({ toast: true, position: "top-end", icon: "success", title: "SAPrapor terpasang di perangkat Anda", showConfirmButton: false, timer: 2500 });
       return;
     }
     Swal.fire({
-      title: "Pasang EduRapor di iPhone/iPad",
+      title: "Pasang SAPrapor di iPhone/iPad",
       icon: "info",
       html: `<ol class="text-start small mb-0">
         <li>Buka halaman ini di <b>Safari</b>.</li>
@@ -26,7 +26,7 @@ export default function PasangAplikasi() {
   };
 
   return (
-    <button type="button" className="btn btn-sm btn-outline-primary rounded-pill me-2 btn-pasang" onClick={klik} title="Pasang EduRapor sebagai aplikasi">
+    <button type="button" className="btn btn-sm btn-outline-primary rounded-pill me-2 btn-pasang" onClick={klik} title="Pasang SAPrapor sebagai aplikasi">
       <i className="bi bi-download"></i><span className="d-none d-lg-inline ms-1">Pasang aplikasi</span>
     </button>
   );

@@ -13,14 +13,15 @@ import Script from 'next/script';
 import { THEME_INIT_SCRIPT } from './lib/themeScript';
 
 export const metadata = {
-  title: 'EduRapor - School Platform',
+  title: 'SAPrapor - School Platform',
   description: 'Sistem Informasi Manajemen Sekolah',
-  applicationName: 'EduRapor',
+  applicationName: 'SAPrapor',
   // PWA: dipasang ke layar utama (manifest dari app/manifest.js)
-  appleWebApp: { capable: true, title: 'EduRapor', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'SAPrapor', statusBarStyle: 'default' },
+  // Ikon lewat API: logo sekolah bila diaktifkan admin (Pengaturan Sekolah), selain itu dialihkan ke /icons bawaan
   icons: {
-    icon: [{ url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' }, { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
-    apple: '/icons/apple-touch-icon.png',
+    icon: [{ url: '/api/ikon-aplikasi/favicon-32.png', sizes: '32x32', type: 'image/png' }, { url: '/api/ikon-aplikasi/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: '/api/ikon-aplikasi/apple-touch-icon.png',
   },
 };
 

@@ -28,6 +28,7 @@ class SchoolSetting extends Model
         'npsn',
         'ttd_kepsek_url',
         'logo_sekolah_url',
+        'ikon_dari_logo',
         'api_key_gemini',
         'ai_model_name',
         'api_key_qwen',
@@ -76,6 +77,7 @@ class SchoolSetting extends Model
     ];
 
     protected $casts = [
+        'ikon_dari_logo' => 'boolean',
         'api_key_gemini' => 'encrypted',
         'api_key_qwen' => 'encrypted',
         'api_key_claude' => 'encrypted',

@@ -1,4 +1,4 @@
-// Tes end-to-end web EduRapor. Halaman dibuka dari WEB_URL (bawaan jalur kerja :3001; terbitkan.sh memakai
+// Tes end-to-end web SAPrapor. Halaman dibuka dari WEB_URL (bawaan jalur kerja :3001; terbitkan.sh memakai
 // build produksi yang akan diterbitkan, di :3002), sedangkan semua panggilan /api dialihkan ke API tes
 // (core-api-e2e, database sekolah fiktif) — lihat bantu.js.
 const { defineConfig, devices } = require("@playwright/test");

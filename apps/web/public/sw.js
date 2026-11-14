@@ -1,4 +1,4 @@
-// Service worker EduRapor: aplikasi tetap bisa dibuka & dipakai mengisi nilai/jurnal saat sinyal putus.
+// Service worker SAPrapor: aplikasi tetap bisa dibuka & dipakai mengisi nilai/jurnal saat sinyal putus.
 // - Aset Next.js (/_next/static, nama berisi hash) → cache dulu; tidak pernah basi karena tiap versi beda nama.
 // - Halaman & data GET /api → jaringan dulu (selalu versi terbaru saat online), salinan terakhir saat offline.
 // - Kiriman (POST/PUT) tidak disentuh di sini; yang gagal karena offline diantrekan halaman (app/lib/antrean.js).

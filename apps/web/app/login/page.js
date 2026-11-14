@@ -37,8 +37,8 @@ export default function LoginPage() {
     <div className="halaman-masuk">
       <div className="masuk-wadah">
         <div className="masuk-merek">
-          <span className="masuk-logo"><i className="bi bi-mortarboard-fill"></i></span>
-          <span>EduRapor</span>
+          <img className="masuk-ikon" src="/api/ikon-aplikasi/icon-192.png" alt="" width="40" height="40" />
+          <span>SAPrapor</span>
         </div>
 
         <div className="card masuk-kartu">

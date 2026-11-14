@@ -20,45 +20,43 @@ const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-perso
 const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
 const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
 
-// Grup menu sidebar staf; setiap grup bisa dilipat/dibuka. Item ber-"peran" hanya tampil untuk peran tsb.
+// Grup menu sidebar staf, disusun menurut alur kerja guru; setiap grup bisa dilipat/dibuka.
+// Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
+// agar status buka/tutup yang tersimpan di browser tetap berlaku.
 const PENGELOLA = ["admin", "kepsek"];
 const MENU_GROUPS = [
   {
-    id: "master", label: "Master Data", icon: "bi-database",
+    id: "harian", label: "Kegiatan Harian", icon: "bi-calendar-day",
     items: [
-      { href: "/dashboard/master-siswa", label: "Master Siswa", icon: "bi-people-fill", peran: PENGELOLA },
-      { href: "/dashboard/master-keluarga", label: "Orang Tua & Wali", icon: "bi-house-heart", peran: PENGELOLA },
-      { href: "/dashboard/master-guru", label: "Master Guru", icon: "bi-person-video3", peran: PENGELOLA },
-      { href: "/dashboard/master-kelas", label: "Master Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
-      { href: "/dashboard/master-mapel", label: "Master Mapel", icon: "bi-book-half", peran: PENGELOLA },
+      { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
+      { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
+      { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },
+      { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
     ],
   },
   {
-    id: "referensi", label: "Referensi Penilaian", icon: "bi-sliders2",
+    id: "perencanaan", label: "Perencanaan Ajar", icon: "bi-diagram-3",
     items: [
-      { href: "/dashboard/master-periode", label: "Semester", icon: "bi-calendar-week", peran: PENGELOLA },
-      { href: "/dashboard/hari-libur", label: "Hari Libur", icon: "bi-calendar-x" },
-      { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
-      { href: "/dashboard/master-mbk", label: "Aktivitas", icon: "bi-list-check" },
+      { href: "/dashboard/perangkat-ajar", label: "Perangkat Ajar", icon: "bi-journal-richtext" },
+      { href: "/dashboard/program-ajar", label: "Prota & Promes", icon: "bi-bar-chart-steps" },
       { href: "/dashboard/master-materi", label: "Materi", icon: "bi-journal-bookmark" },
       { href: "/dashboard/pustaka-dokumen", label: "Pustaka Dokumen", icon: "bi-folder2-open" },
     ],
   },
   {
-    id: "transaksi", label: "TDU - Jadwal", icon: "bi-lightning-charge",
+    id: "asesmen", label: "Asesmen", icon: "bi-clipboard2-check",
     items: [
-      { href: "/dashboard/jadwal", label: "Jadwal", icon: "bi-calendar3-week" },
-      { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
-      { href: "/dashboard/perangkat-ajar", label: "Perangkat Ajar", icon: "bi-journal-richtext" },
-      { href: "/dashboard/program-ajar", label: "Prota & Promes", icon: "bi-bar-chart-steps" },
+      { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
+      { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
+      { href: "/dashboard/p5", label: "Proyek (P5)", icon: "bi-stars" },
+      { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
+    ],
+  },
+  {
+    id: "media", label: "Media Belajar", icon: "bi-collection-play",
+    items: [
       { href: "/dashboard/video-belajar", label: "Video Belajar", icon: "bi-play-btn" },
       { href: "/dashboard/studio-video", label: "Studio Rakit Video", icon: "bi-easel3", syarat: (u) => !!u?.studio_video || u?.role === "admin" },
-      { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
-      { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
-      { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
-      { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },
-      { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
-      { href: "/dashboard/p5", label: "Proyek", icon: "bi-stars" },
     ],
   },
   {
@@ -70,10 +68,28 @@ const MENU_GROUPS = [
     ],
   },
   {
+    id: "master", label: "Data Sekolah", icon: "bi-database",
+    items: [
+      { href: "/dashboard/master-siswa", label: "Siswa", icon: "bi-people-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-keluarga", label: "Orang Tua & Wali", icon: "bi-house-heart", peran: PENGELOLA },
+      { href: "/dashboard/master-guru", label: "Guru", icon: "bi-person-video3", peran: PENGELOLA },
+      { href: "/dashboard/master-kelas", label: "Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-mapel", label: "Mata Pelajaran", icon: "bi-book-half", peran: PENGELOLA },
+    ],
+  },
+  {
+    id: "referensi", label: "Referensi", icon: "bi-sliders2",
+    items: [
+      { href: "/dashboard/master-periode", label: "Semester", icon: "bi-calendar-week", peran: PENGELOLA },
+      { href: "/dashboard/hari-libur", label: "Hari Libur", icon: "bi-calendar-x" },
+      { href: "/dashboard/master-kategori", label: "High Level", icon: "bi-tags" },
+      { href: "/dashboard/master-mbk", label: "Aktivitas", icon: "bi-list-check" },
+    ],
+  },
+  {
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
     items: [
       AKUN_ITEM,
-      NOTIF_ITEM,
       { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
       { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
@@ -101,7 +117,7 @@ const KEY_MINI = "sidebar_mini";
 const DESKTOP_QUERY = "(min-width: 992px)";
 
 // Nama halaman untuk audit trail (Log Aktivitas)
-const SEMUA_HALAMAN = [DASHBOARD_ITEM, PORTAL_ITEM, UJIAN_ITEM, ...MENU_GROUPS.flatMap((g) => g.items)];
+const SEMUA_HALAMAN = [DASHBOARD_ITEM, PORTAL_ITEM, UJIAN_ITEM, NOTIF_ITEM, ...MENU_GROUPS.flatMap((g) => g.items)];
 const namaHalaman = (pathname) =>
   [...SEMUA_HALAMAN].sort((a, b) => b.href.length - a.href.length)
     .find((it) => pathname === it.href || pathname.startsWith(`${it.href}/`))?.label || pathname;
@@ -150,6 +166,8 @@ export default function DashboardLayout({ children }) {
   const role = user?.role;
   const isPortal = role === "siswa" || role === "ortu";
   const homeItem = isPortal ? PORTAL_ITEM : DASHBOARD_ITEM;
+  // Item teratas di luar grup: beranda, dan untuk staf juga "Perlu Tindakan"
+  const itemAtas = useMemo(() => (isPortal ? [PORTAL_ITEM] : [DASHBOARD_ITEM, NOTIF_ITEM]), [isPortal]);
   const menuGroups = useMemo(() => menuUntuk(role, user), [role, user]);
 
   // Audit trail: catat setiap halaman yang dibuka dan setiap output (unduh, cetak, chat WA, salin)
@@ -249,14 +267,14 @@ export default function DashboardLayout({ children }) {
   const hasilCari = useMemo(() => {
     const q = normalisasi(query.trim());
     if (!q) return null;
-    const cocokDash = normalisasi(homeItem.label).includes(q);
+    const atasCocok = itemAtas.filter((it) => normalisasi(it.label).includes(q));
     const grup = menuGroups.map((g) => {
       const grupCocok = normalisasi(g.label).includes(q);
       return { ...g, items: g.items.filter((it) => grupCocok || normalisasi(it.label).includes(q)) };
     }).filter((g) => g.items.length);
-    const datar = [...(cocokDash ? [homeItem] : []), ...grup.flatMap((g) => g.items)];
-    return { cocokDash, grup, datar };
-  }, [query, menuGroups, homeItem]);
+    const datar = [...atasCocok, ...grup.flatMap((g) => g.items)];
+    return { atasCocok, grup, datar };
+  }, [query, menuGroups, itemAtas]);
 
   useEffect(() => { setPilihanCari(0); }, [query]);
 
@@ -412,7 +430,7 @@ export default function DashboardLayout({ children }) {
       <aside className={`app-sidebar bg-body-secondary shadow${mini ? " is-mini" : ""}`} data-bs-theme="dark">
         <div className="sidebar-brand">
           <Link href={homeItem.href} className="brand-link">
-            <span className="brand-text fw-light">🏫 EduRapor{isPortal ? "" : " Admin"}</span>
+            <img src="/api/ikon-aplikasi/icon-192.png" alt="" className="brand-ikon" width="28" height="28" /><span className="brand-text fw-light">SAPrapor{isPortal ? "" : " Admin"}</span>
           </Link>
         </div>
         <div className="sidebar-wrapper">
@@ -451,7 +469,7 @@ export default function DashboardLayout({ children }) {
               {hasilCari ? (
                 /* --- HASIL PENCARIAN: semua grup yang cocok ditampilkan terbuka --- */
                 <>
-                  {hasilCari.cocokDash && renderItem(homeItem, 0)}
+                  {hasilCari.atasCocok.map((it, i) => renderItem(it, i))}
                   {hasilCari.grup.map((group) => (
                     <li key={group.id} className="nav-group is-open is-search">
                       <div className="nav-search-group"><i className={`bi ${group.icon} me-2`}></i><Sorot teks={group.label} kata={query.trim()} /></div>
@@ -466,7 +484,7 @@ export default function DashboardLayout({ children }) {
                 </>
               ) : (
                 <>
-                  {renderItem(homeItem, 0)}
+                  {itemAtas.map((it, i) => renderItem(it, i))}
 
                   {/* --- GRUP MENU (bisa dilipat; mode mini memakai menu melayang) --- */}
                   {menuGroups.map((group) => {

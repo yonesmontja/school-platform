@@ -204,3 +204,7 @@
 @media (prefers-reduced-motion: reduce) {
   .dash-collapse, .dash-collapse-icon, .dash-stat, .dash-metric, .dash-dim-bar > div, .dash-hero .wave { transition: none !important; animation: none !important; }
 }
+
+/* Merek sidebar: ikon aplikasi (logo sekolah bila diaktifkan admin) + nama aplikasi */
+.app-sidebar .brand-link { display: flex; align-items: center; gap: .55rem; }
+.app-sidebar .brand-ikon { width: 28px; height: 28px; border-radius: 6px; object-fit: contain; flex-shrink: 0; }

@@ -78,4 +78,45 @@ class LogoSekolahTest extends TestCase
         Sanctum::actingAs($this->sekolah->guruA);
         $this->postJson('/api/settings', ['logo_sekolah_base64' => $this->pngDataUrl()])->assertForbidden();
     }
+
+    private function ikonLengkap(): array
+    {
+        return collect(\App\Http\Controllers\Api\SchoolSettingController::IKON)->map(fn($sisi) => $this->pngDataUrl($sisi))->all();
+    }
+
+    public function test_ikon_aplikasi_dari_logo_dengan_cadangan_ikon_bawaan(): void
+    {
+        // Bawaan: dialihkan ke ikon aplikasi web
+        $this->get('/api/ikon-aplikasi/icon-192.png')->assertStatus(302)->assertHeader('Location', '/icons/icon-192.png');
+        $this->get('/api/ikon-aplikasi/lain.png')->assertNotFound();
+
+        Sanctum::actingAs($this->sekolah->admin);
+        // Tanpa logo, sakelar tidak bisa menyala
+        $this->postJson('/api/settings', ['ikon_dari_logo' => true])->assertOk();
+        $this->assertFalse(SchoolSetting::first()->ikon_dari_logo);
+
+        $this->postJson('/api/settings', ['logo_sekolah_base64' => $this->pngDataUrl()])->assertOk();
+        // Ikon dengan ukuran salah ditolak; sakelar tanpa berkas ikon ditolak
+        $salah = $this->ikonLengkap();
+        $salah['icon-192'] = $this->pngDataUrl(64);
+        $this->postJson('/api/settings', ['ikon_dari_logo' => true, 'ikon_aplikasi' => $salah])->assertUnprocessable()->assertJsonValidationErrors('ikon_aplikasi');
+        $this->postJson('/api/settings', ['ikon_dari_logo' => true])->assertUnprocessable();
+
+        $this->postJson('/api/settings', ['ikon_dari_logo' => true, 'ikon_aplikasi' => $this->ikonLengkap()])->assertOk()->assertJsonPath('data.ikon_dari_logo', true);
+        Storage::disk('public')->assertExists('ikon/icon-maskable-512.png');
+        $this->get('/api/ikon-aplikasi/icon-512.png')->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->get('/api/ikon-aplikasi/favicon-32')->assertOk();
+
+        // Sakelar dimatikan → kembali ke ikon bawaan; dinyalakan lagi tanpa membuat ulang ikon
+        $this->postJson('/api/settings', ['ikon_dari_logo' => false])->assertOk();
+        $this->get('/api/ikon-aplikasi/icon-512.png')->assertStatus(302);
+        $this->postJson('/api/settings', ['ikon_dari_logo' => true])->assertOk();
+        $this->get('/api/ikon-aplikasi/icon-512.png')->assertOk();
+
+        // Logo dihapus → ikon ikut dihapus dan sakelar mati
+        $this->postJson('/api/settings', ['logo_sekolah_url' => ''])->assertOk();
+        $this->assertFalse(SchoolSetting::first()->ikon_dari_logo);
+        Storage::disk('public')->assertMissing('ikon/icon-512.png');
+        $this->get('/api/ikon-aplikasi/icon-512.png')->assertStatus(302);
+    }
 }

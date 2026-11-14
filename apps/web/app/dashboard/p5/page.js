@@ -371,7 +371,7 @@ export default function P5Page() {
         </div>
         <ol className="breadcrumb mb-0 small">
           <li className="breadcrumb-item"><Link href="/dashboard">Dashboard</Link></li>
-          <li className="breadcrumb-item">TDU - Jadwal</li>
+          <li className="breadcrumb-item">Asesmen</li>
           <li className="breadcrumb-item active" aria-current="page">Proyek</li>
         </ol>
       </div>

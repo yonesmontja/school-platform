@@ -11,6 +11,7 @@ import idLocale from "@fullcalendar/core/locales/id";
 import MiniKalender from "@/components/jadwal/MiniKalender";
 import DetailSesi from "@/components/jadwal/DetailSesi";
 import PaketJadwal from "@/components/jadwal/PaketJadwal";
+import EksporJadwal from "@/components/jadwal/EksporJadwal";
 import FormJadwal, { kirimAPI, konfirmasiBentrok, pesanGalat, tanyaModeBerantai } from "@/components/jadwal/FormJadwal";
 import {
   PALET_GURU, PREFS_DEFAULT, STATUS_MAP, STATUS_SESI, TAMPILAN,
@@ -30,6 +31,7 @@ export default function JadwalPage() {
 
   const [refData, setRefData] = useState(null);
   const [paket, setPaket] = useState(false);
+  const [ekspor, setEkspor] = useState(false);
   const [rows, setRows] = useState([]);
   const [memuat, setMemuat] = useState(false);
   const [rentang, setRentang] = useState(null);
@@ -337,6 +339,7 @@ export default function JadwalPage() {
           <select className="form-select form-select-sm d-sm-none w-auto" value={viewAktif} onChange={(e) => gantiView(e.target.value)}>
             {TAMPILAN.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
           </select>
+          <button type="button" className="btn btn-icon-cal" onClick={() => setEkspor(true)} title="Ekspor jadwal resmi (PDF / PNG)" aria-label="Ekspor jadwal"><i className="bi bi-file-earmark-arrow-down"></i></button>
           <div className="position-relative">
             <button type="button" className="btn btn-icon-cal" onClick={() => setShowSetelan((v) => !v)} title="Setelan kalender"><i className="bi bi-gear"></i></button>
             {showSetelan && (
@@ -495,6 +498,7 @@ export default function JadwalPage() {
       )}
 
       <FormJadwal awal={formAwal} refData={refData} onClose={() => setFormAwal(null)} onSaved={setelahSimpan} />
+      {ekspor && <EksporJadwal refData={refData} tanggalAwal={tanggalAktif} rentangTampil={rentang} kelasAwal={filterKelas} onClose={() => setEkspor(false)} />}
       {paket && <PaketJadwal onClose={() => setPaket(false)} onSelesai={(r) => { setPaket(false); toast(r.message); segarkan(); }} />}
 
       {/* PANEL WHATSAPP */}

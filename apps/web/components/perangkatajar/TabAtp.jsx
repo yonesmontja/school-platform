@@ -28,7 +28,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
     return [
       { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(a.id_atp) },
       ...itemPersetujuan({ dasar: `/perangkat-ajar/atp/${a.id_atp}`, status: a.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
-        pesanAjukan: "Ajukan ATP ke kepala sekolah?", pesanSetujui: "Setujui ATP ini? TP baru akan ditambahkan ke Referensi Penilaian." }),
+        pesanAjukan: "Ajukan ATP ke kepala sekolah?", pesanSetujui: "Setujui ATP ini? TP baru akan ditambahkan ke Materi." }),
       { label: "Buat modul ajar", ikon: "bi-journal-plus", tampil: a.status === "DISETUJUI" && !akses.isKepsek && !!onBuatModul, onClick: () => onBuatModul(a.id_atp) },
       aksiHapus(() => hapusDariKartu(`/perangkat-ajar/atp/${a.id_atp}`, { judul: "Hapus ATP ini?", teks: "TP yang sudah dibuat dari ATP ini tetap ada.", selesai: muat }), bisaUbah),
     ];
@@ -272,7 +272,7 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
           {bisaUbah && ["DRAF", "REVISI"].includes(atp.status) && <button className="btn btn-sm btn-success" onClick={() => aksi("ajukan", "Ajukan ATP ke kepala sekolah?")} disabled={!!proses || !baris.length}><i className="bi bi-send me-1"></i>Ajukan</button>}
           {bisaUbah && atp.status === "DIAJUKAN" && <button className="btn btn-sm btn-outline-secondary" onClick={() => aksi("tarik")} disabled={!!proses}>Tarik</button>}
           {akses.isKepsek && atp.status === "DIAJUKAN" && <>
-            <button className="btn btn-sm btn-success" onClick={() => aksi("setujui", "Setujui ATP ini? TP baru akan ditambahkan ke Referensi Penilaian.")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Setujui</button>
+            <button className="btn btn-sm btn-success" onClick={() => aksi("setujui", "Setujui ATP ini? TP baru akan ditambahkan ke Materi.")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Setujui</button>
             <button className="btn btn-sm btn-outline-danger" onClick={kembalikan} disabled={!!proses}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
           </>}
           {atp.status === "DISETUJUI" && !akses.isKepsek && onBuatModul && <button className="btn btn-sm btn-outline-success" onClick={() => onBuatModul(atp.id_atp)}><i className="bi bi-journal-plus me-1"></i>Buat modul ajar</button>}

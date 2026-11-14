@@ -50,7 +50,7 @@ class DokumentasiApiController extends Controller
         ksort($paths);
         return response()->json([
             'openapi' => '3.0.3',
-            'info' => ['title' => 'EduRapor API', 'version' => config('app.version', '1.0'), 'description' => 'API sekolah: rapor, penilaian STNKM, jadwal, jurnal, bank soal, tes online, dan perangkat ajar.'],
+            'info' => ['title' => 'SAPrapor API', 'version' => config('app.version', '1.0'), 'description' => 'API sekolah: rapor, penilaian STNKM, jadwal, jurnal, bank soal, tes online, dan perangkat ajar.'],
             'servers' => [['url' => rtrim(config('app.url'), '/') . '/api']],
             'components' => ['securitySchemes' => ['bearerAuth' => ['type' => 'http', 'scheme' => 'bearer', 'description' => 'Token dari POST /login']]],
             'paths' => $paths,

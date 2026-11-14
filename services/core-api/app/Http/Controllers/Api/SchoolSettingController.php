@@ -48,18 +48,32 @@ class SchoolSettingController extends Controller
             'batas_nilai_remedial' => 'sometimes|in:KKM,ASLI',
             // Logo dikirim sebagai data URL PNG/JPEG (sudah diperkecil di peramban), maks. ~2 MB
             'logo_sekolah_base64' => 'nullable|string|max:2800000',
+            // Ikon aplikasi dari logo: dibuat di peramban (PNG persegi per ukuran), dikirim bersama sakelarnya
+            'ikon_dari_logo' => 'sometimes|boolean',
+            'ikon_aplikasi' => 'nullable|array',
+            'ikon_aplikasi.*' => 'string|max:1500000',
         ], [
             'kktp_baik.gt' => 'Batas Baik harus lebih tinggi dari batas Cukup.',
             'kktp_sangat_baik.gt' => 'Batas Sangat Baik harus lebih tinggi dari batas Baik.',
         ]);
 
         // logo_sekolah_url tidak boleh diisi bebas dari luar: hanya lewat unggahan atau dikosongkan (hapus logo)
-        $data = $request->except(['ttd_kepsek_base64', 'logo_sekolah_base64', 'logo_sekolah_url']);
+        $data = $request->except(['ttd_kepsek_base64', 'logo_sekolah_base64', 'logo_sekolah_url', 'ikon_aplikasi']);
         $logoBaru = $request->filled('logo_sekolah_base64') ? $this->simpanLogo($request->logo_sekolah_base64) : null;
         if ($logoBaru || ($request->has('logo_sekolah_url') && !$request->filled('logo_sekolah_url'))) {
             $this->hapusBerkasLogo($setting->logo_sekolah_url);
             $data['logo_sekolah_url'] = $logoBaru;
         }
+        // Ikon aplikasi: berkas baru disimpan; tanpa logo, sakelar otomatis mati dan ikon kembali ke bawaan
+        if ($request->filled('ikon_aplikasi')) $this->simpanIkon($request->input('ikon_aplikasi'));
+        $adaLogo = array_key_exists('logo_sekolah_url', $data) ? (bool) $data['logo_sekolah_url'] : (bool) $setting->logo_sekolah_url;
+        $ikonAktif = $request->has('ikon_dari_logo') ? $request->boolean('ikon_dari_logo') : (bool) $setting->ikon_dari_logo;
+        if ($ikonAktif && (!$adaLogo || !$this->ikonLengkap())) {
+            if (!$adaLogo) $ikonAktif = false;
+            else throw \Illuminate\Validation\ValidationException::withMessages(['ikon_aplikasi' => 'Ikon aplikasi dari logo belum dibuat. Simpan ulang setelah logo termuat.']);
+        }
+        if (!$adaLogo) $this->hapusIkon();
+        $data['ikon_dari_logo'] = $ikonAktif;
         foreach (SchoolSetting::API_KEY_FIELDS as $field) {
             unset($data["has_{$field}"], $data["hapus_{$field}"]);
 
@@ -116,6 +130,53 @@ class SchoolSettingController extends Controller
         if ($url && str_starts_with($url, '/storage/logo/')) {
             \Illuminate\Support\Facades\Storage::disk('public')->delete('logo/' . basename($url));
         }
+    }
+
+    /** Nama berkas ikon → ukuran sisi (px). Nama sama dengan ikon bawaan di apps/web/public/icons. */
+    public const IKON = ['favicon-32' => 32, 'apple-touch-icon' => 180, 'icon-192' => 192, 'icon-512' => 512, 'icon-maskable-512' => 512];
+
+    private function simpanIkon(array $ikon): void
+    {
+        $tolak = fn(string $pesan) => throw \Illuminate\Validation\ValidationException::withMessages(['ikon_aplikasi' => $pesan]);
+        $berkas = [];
+        foreach (self::IKON as $nama => $sisi) {
+            $dataUrl = $ikon[$nama] ?? null;
+            if (!is_string($dataUrl) || !str_starts_with($dataUrl, 'data:image/png;base64,')) $tolak("Ikon {$nama} harus berupa PNG.");
+            $biner = base64_decode(substr($dataUrl, 22), true);
+            $info = $biner !== false ? @getimagesizefromstring($biner) : false;
+            if (!$info || $info[2] !== IMAGETYPE_PNG || $info[0] !== $sisi || $info[1] !== $sisi) $tolak("Ikon {$nama} harus PNG {$sisi}×{$sisi} piksel.");
+            $berkas[$nama] = $biner;
+        }
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        foreach ($berkas as $nama => $biner) $disk->put("ikon/{$nama}.png", $biner);
+    }
+
+    private function ikonLengkap(): bool
+    {
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        foreach (array_keys(self::IKON) as $nama) if (!$disk->exists("ikon/{$nama}.png")) return false;
+        return true;
+    }
+
+    private function hapusIkon(): void
+    {
+        \Illuminate\Support\Facades\Storage::disk('public')->delete(array_map(fn($n) => "ikon/{$n}.png", array_keys(self::IKON)));
+    }
+
+    /**
+     * Ikon aplikasi (publik): logo sekolah bila diaktifkan admin, selain itu dialihkan ke ikon bawaan aplikasi web.
+     * Dipakai favicon, manifest PWA, apple-touch-icon, dan merek di sidebar.
+     */
+    public function ikon(string $nama)
+    {
+        $nama = preg_replace('/\.png$/', '', $nama);
+        abort_unless(isset(self::IKON[$nama]), 404);
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        if (SchoolSetting::first()?->ikon_dari_logo && $disk->exists("ikon/{$nama}.png")) {
+            return response()->file($disk->path("ikon/{$nama}.png"), ['Content-Type' => 'image/png', 'Cache-Control' => 'public, max-age=300']);
+        }
+        // Location relatif: API berada di balik proxy Next.js, jadi tujuan diselesaikan peramban di domain yang sama
+        return response('', 302, ['Location' => "/icons/{$nama}.png", 'Cache-Control' => 'public, max-age=300']);
     }
 
     /** Logo resmi sekolah untuk kop dokumen & halaman masuk (publik, tanpa login; 404 bila belum diunggah). */

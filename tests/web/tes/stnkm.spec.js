@@ -32,7 +32,7 @@ test("guru mengisi poin S/T/N/K/M manual, disimpan apa adanya, lalu muncul di ek
   // Laporan STNKM: mode Harian, ekspor Excel memuat tren per hari dan data mentah lengkap S-T-N-K-M
   await page.goto("/dashboard/laporan-stnkm");
   await pilih(selectBerlabel(page, "Kelas"), "4A");
-  await page.getByRole("button", { name: "Harian" }).click();
+  await page.getByRole("button", { name: /^\W*Harian$/ }).click(); // bukan grup sidebar "Kegiatan Harian"
   const [unduhan] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Excel" }).click()]);
   expect(unduhan.suggestedFilename()).toMatch(/_Harian\.xlsx$/);
   const wb = XLSX.readFile(await unduhan.path());

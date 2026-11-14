@@ -817,7 +817,7 @@ export default function DashboardPage() {
             </h3>
             <div className="dash-hero-sub">
               Dasbor analitik & mutu pembelajaran ·{" "}
-              {sekolah?.nama_sekolah || "EduRapor"}
+              {sekolah?.nama_sekolah || "SAPrapor"}
             </div>
           </div>
           <div className="d-flex flex-wrap gap-2">

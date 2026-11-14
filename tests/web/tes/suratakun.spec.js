@@ -73,7 +73,8 @@ test("akun peninjau (yayasan) melihat semua menu tetapi perubahan ditolak", asyn
   await page.goto("/dashboard");
   await expect(page.getByText("Mode peninjau (Yayasan).")).toBeVisible();
   // Menu milik admin & kepala sekolah ikut tampil dan bisa dibuka
-  for (const menu of ["Master Siswa", "Manajemen Pengguna", "Pemakaian Aplikasi"]) {
+  // Nama tautan diawali ikon; "Siswa" harus cocok penuh agar tidak tertukar dengan menu lain
+  for (const menu of [/^\W*Siswa$/, /Manajemen Pengguna/, /Pemakaian Aplikasi/]) {
     await expect(page.getByRole("link", { name: menu }).first()).toBeVisible();
   }
   await page.goto("/dashboard/hari-libur");

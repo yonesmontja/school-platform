@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import { buatIkonDariLogo } from "@/app/lib/ikonAplikasi";
 
 // Harus sama dengan SchoolSetting::API_KEY_FIELDS di backend
 const AI_PROVIDERS = [
@@ -75,6 +76,8 @@ export default function PengaturanSekolahPage() {
   const fileInputRef = useRef(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const logoInputRef = useRef(null);
+  // Ikon aplikasi perlu dibuat ulang dari logo (sakelar baru dinyalakan atau logo diganti)
+  const [ikonPerlu, setIkonPerlu] = useState(false);
   // API key tidak pernah dikirim dari server; input ini hanya untuk key baru
   const [apiKeyInputs, setApiKeyInputs] = useState(emptyPerProvider(''));
   const [showApiKeys, setShowApiKeys] = useState(emptyPerProvider(false));
@@ -171,6 +174,7 @@ export default function PengaturanSekolahPage() {
       const dataUrl = kanvas.toDataURL('image/png');
       setLogoPreview(dataUrl);
       setFormData((f) => ({ ...f, logo_sekolah_base64: dataUrl }));
+      setIkonPerlu(true);
     };
     img.onerror = () => { URL.revokeObjectURL(url); Swal.fire('Gagal', 'Berkas logo tidak bisa dibaca sebagai gambar.', 'error'); };
     img.src = url;
@@ -185,6 +189,9 @@ export default function PengaturanSekolahPage() {
     });
 
     try {
+      // Ikon aplikasi dibuat dari logo yang tampil di pratinjau (logo baru atau yang sudah tersimpan)
+      let ikon = null;
+      if (formData.ikon_dari_logo && logoPreview && ikonPerlu) ikon = await buatIkonDariLogo(logoPreview);
       const result = await safeFetch(`${API_URL}/settings`, {
         method: 'POST',
         headers: {
@@ -194,6 +201,8 @@ export default function PengaturanSekolahPage() {
         },
         body: JSON.stringify({
           ...formData,
+          ikon_dari_logo: !!formData.ikon_dari_logo && !!logoPreview,
+          ...(ikon ? { ikon_aplikasi: ikon } : {}),
           ...Object.fromEntries(SECRET_FIELDS.flatMap(({ field }) => [
             [field, apiKeyInputs[field].trim()],
             [`hapus_${field}`, hapusApiKeys[field]],
@@ -213,7 +222,9 @@ export default function PengaturanSekolahPage() {
           // Logo sudah tersimpan di server: jangan unggah ulang pada penyimpanan berikutnya
           logo_sekolah_url: result.data.logo_sekolah_url || '',
           logo_sekolah_base64: null,
+          ikon_dari_logo: !!result.data.ikon_dari_logo,
         }));
+        setIkonPerlu(false);
       }
       setApiKeyInputs(emptyPerProvider(''));
       setShowApiKeys(emptyPerProvider(false));
@@ -285,6 +296,16 @@ export default function PengaturanSekolahPage() {
                       Hapus Logo
                     </button>
                   )}
+                  <div className="form-check form-switch mt-3">
+                    <input className="form-check-input" type="checkbox" role="switch" id="ikonDariLogo" disabled={!logoPreview}
+                      checked={!!formData.ikon_dari_logo && !!logoPreview}
+                      onChange={(e) => { setFormData((f) => ({ ...f, ikon_dari_logo: e.target.checked })); if (e.target.checked) setIkonPerlu(true); }} />
+                    <label className="form-check-label small" htmlFor="ikonDariLogo">Pakai logo sekolah sebagai ikon aplikasi</label>
+                    <div className="form-text">
+                      Ikon di tab peramban, layar utama HP (aplikasi terpasang), dan sidebar. Bila dimatikan atau logo dihapus, kembali ke ikon bawaan.
+                      Aplikasi yang sudah terpasang di HP memperbarui ikonnya sendiri beberapa waktu kemudian, atau setelah dipasang ulang.
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

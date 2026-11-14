@@ -41,7 +41,8 @@ const test = base.test.extend({
     await page.route((url) => url.pathname.includes("/api/") || url.pathname.startsWith("/storage/"), async (route) => {
       const asal = new URL(route.request().url());
       try {
-        const response = await route.fetch({ url: API + asal.pathname + asal.search });
+        // Pengalihan (mis. ikon aplikasi bawaan → /icons di situs web) diteruskan ke peramban, tidak diikuti ke host API tes
+        const response = await route.fetch({ url: API + asal.pathname + asal.search, maxRedirects: 0 });
         await route.fulfill({ response });
       } catch (e) {
         // Permintaan yang masih berjalan saat tes selesai & halaman ditutup: abaikan

@@ -1,5 +1,5 @@
 // Perangkat ajar (Fase 17 Tahap A): guru mengisi CP, menyusun ATP (TP lama + TP baru), mengajukan;
-// kepala sekolah menyetujui dari Perlu Tindakan dan TP baru masuk ke Referensi Penilaian. Draf AI diuji di backend.
+// kepala sekolah menyetujui dari Perlu Tindakan dan TP baru masuk ke Materi. Draf AI diuji di backend.
 const { test, expect, pilih } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });

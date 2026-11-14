@@ -22,6 +22,8 @@
   background: var(--app-accent, #066fd1); color: #fff; font-size: 1.25rem;
   box-shadow: 0 6px 16px -6px rgba(var(--app-accent-rgb, 6, 111, 209), .7);
 }
+/* Ikon aplikasi: logo sekolah bila diaktifkan admin, selain itu ikon bawaan */
+.masuk-ikon { width: 2.5rem; height: 2.5rem; border-radius: 8px; object-fit: contain; }
 .halaman-masuk .masuk-kartu {
   border: 1px solid var(--tb-border, #e6e7e9);
   border-radius: 8px;

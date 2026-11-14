@@ -97,6 +97,8 @@ Route::get('/health', function () {
 
 // Logo resmi sekolah (publik: dipakai juga di halaman masuk)
 Route::get('/logo-sekolah', [SchoolSettingController::class, 'logo']);
+// Ikon aplikasi (favicon/PWA): logo sekolah bila diaktifkan admin, selain itu dialihkan ke ikon bawaan
+Route::get('/ikon-aplikasi/{nama}', [SchoolSettingController::class, 'ikon'])->where('nama', '[a-z0-9-]+(\.png)?');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {

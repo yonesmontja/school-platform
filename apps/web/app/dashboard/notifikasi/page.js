@@ -45,7 +45,7 @@ export default function NotifikasiPage() {
           <input className="form-check-input" type="checkbox" id="notifPerangkat" checked={perangkat.aktif} onChange={(e) => ubahPerangkat(e.target.checked)} />
           <label className="form-check-label" htmlFor="notifPerangkat">
             <i className="bi bi-phone-vibrate me-1"></i>Munculkan notifikasi di perangkat ini untuk hal yang mendesak/perlu perhatian
-            <span className="text-body-secondary"> (selama EduRapor terbuka atau terpasang sebagai aplikasi)</span>
+            <span className="text-body-secondary"> (selama SAPrapor terbuka atau terpasang sebagai aplikasi)</span>
           </label>
         </div>
       )}
