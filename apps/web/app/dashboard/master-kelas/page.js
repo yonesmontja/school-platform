@@ -7,6 +7,7 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { aksesDari, bacaUser } from "@/app/lib/akses";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -16,6 +17,7 @@ export default function MasterKelasPage() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [periodeAktif, setPeriodeAktif] = useState(null);
 
   const safeFetch = async (url, options = {}) => {
     const res = await fetch(url, options);
@@ -48,6 +50,7 @@ export default function MasterKelasPage() {
     ]);
     setTeachers(resTeachers.data || []);
     setSchoolSettings(resSettings || null);
+    setPeriodeAktif(resClasses.periode_aktif || null);
     return resClasses.data || [];
   }, []);
 
@@ -76,6 +79,28 @@ export default function MasterKelasPage() {
       formatter: (cell) =>
         cell.getValue() ||
         `<span class="text-muted fst-italic">Belum diatur</span>`,
+    },
+    {
+      title: "Semester Aktif",
+      field: "aktif_semester",
+      width: 170,
+      headerHozAlign: "center",
+      hozAlign: "center",
+      headerTooltip: "Rombel aktif di semester yang sedang berjalan. Nonaktif hanya menyembunyikannya dari pilihan dan peta kerja guru; data lama tetap.",
+      formatter: (cell) => {
+        const aktif = cell.getValue() !== false;
+        const bisa = aksesDari(bacaUser()).isAdmin;
+        return `<div class="d-inline-flex align-items-center gap-2" data-aktif-kelas="${cell.getRow().getData().id_kelas}">
+          <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" ${aktif ? "checked" : ""} ${bisa ? "" : "disabled"}
+            aria-label="Aktif di semester ini" style="cursor:${bisa ? "pointer" : "default"}"></div>
+          <span class="badge ${aktif ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis"} border">${aktif ? "Aktif" : "Tidak aktif"}</span>
+        </div>`;
+      },
+      cellClick: (e, cell) => {
+        if (!aksesDari(bacaUser()).isAdmin) return;
+        e.preventDefault();
+        ubahAktif(cell.getRow().getData(), cell.getValue() === false);
+      },
     },
     kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_kelas))]),
   ];
@@ -190,8 +215,36 @@ export default function MasterKelasPage() {
 
   // --- FUNGSI CRUD ---
   const openModal = (cls = null) => {
-    setFormData(cls || {});
+    // Relasi wali kelas ikut terkirim sebagai objek; form cukup menyimpan id gurunya
+    setFormData(cls ? { ...cls, wali_kelas: cls.wali_kelas?.id_guru ?? cls.wali_kelas ?? "", aktif_semester: cls.aktif_semester !== false } : { aktif_semester: true });
     setShowModal(true);
+  };
+
+  /** Aktif/nonaktifkan rombel untuk semester aktif. Nonaktif tidak menghapus apa pun. */
+  const ubahAktif = async (kelas, aktif) => {
+    const semester = periodeAktif?.nama || "semester aktif";
+    const ok = await Swal.fire({
+      title: aktif ? `Aktifkan ${kelas.nama_kelas}?` : `Nonaktifkan ${kelas.nama_kelas}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: aktif ? "Ya, aktifkan" : "Ya, nonaktifkan",
+      cancelButtonText: "Batal",
+      html: aktif
+        ? `<div class="text-start small">Rombel ini muncul lagi di pilihan kelas guru pengampu, peta kerja, dan pengingat untuk <b>${semester}</b>.</div>`
+        : `<div class="text-start small">Untuk <b>${semester}</b>, rombel ini tidak muncul di pilihan kelas guru dan tidak dihitung di peta kerja maupun pengingat presensi.<br>Data lama (siswa, nilai, jadwal, rapor) <b>tidak diubah</b>.</div>`,
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      const r = await safeFetch(`${API_URL}/classes/${kelas.id_kelas}/aktif-semester`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ aktif }),
+      });
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: r.message, showConfirmButton: false, timer: 3000 });
+      refresh();
+    } catch (err) {
+      Swal.fire("Gagal", err.message, "error");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -215,7 +268,8 @@ export default function MasterKelasPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify(formData),
+        // aktif_semester hanya dikirim bila ada semester aktif (disimpan per semester di server)
+        body: JSON.stringify(periodeAktif ? formData : { ...formData, aktif_semester: undefined }),
       });
       Swal.fire({
         toast: true,
@@ -336,6 +390,24 @@ export default function MasterKelasPage() {
                       ))}
                     </select>
                   </div>
+                  {periodeAktif && (
+                    <div className="form-check form-switch">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="kelasAktifSemester"
+                        checked={formData.aktif_semester !== false}
+                        onChange={(e) => setFormData({ ...formData, aktif_semester: e.target.checked })}
+                      />
+                      <label className="form-check-label small" htmlFor="kelasAktifSemester">
+                        Aktif di semester {periodeAktif.nama}
+                      </label>
+                      <div className="form-text">
+                        Nonaktif: rombel disembunyikan dari pilihan kelas guru, peta kerja, dan pengingat semester ini. Data lama tidak berubah.
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="modal-footer bg-white border-top">
                   <button

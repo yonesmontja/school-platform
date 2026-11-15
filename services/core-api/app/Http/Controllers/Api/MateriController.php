@@ -6,10 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\MasterIndikator;
 use App\Models\MasterKategoriPenilaian;
 use App\Models\MasterMateri;
+use App\Services\MateriAsistenService;
+use App\Services\PerangkatAjarAIService;
+use App\Services\SoalAIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class MateriController extends Controller
 {
@@ -167,6 +171,73 @@ class MateriController extends Controller
         if ($request->filled('id_mapel')) {
             abort_unless($request->user()->bolehNilaiMapel($request->id_mapel), 403, 'Anda hanya dapat mengelola materi mata pelajaran yang Anda ampu.');
         }
+    }
+
+    /** Isian form yang dipakai asisten (rujukan & AI). */
+    private function isianAsisten(Request $request): array
+    {
+        $data = $request->validate([
+            'id_materi' => 'nullable|string',
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'id_periode' => 'nullable|exists:master_periode,id_periode',
+            'id_kategori' => 'nullable|exists:master_kategori_penilaian,id_kategori',
+            'nama_materi' => 'nullable|string|max:255',
+            'deskripsi_kompetensi' => 'nullable|string|max:3000',
+            'indikator' => 'nullable|array|max:50',
+            'indikator.*.deskripsi' => 'nullable|string|max:1000',
+        ]);
+        abort_unless($request->user()->bolehNilaiMapel($data['id_mapel']), 403, 'Anda hanya dapat mengelola materi mata pelajaran yang Anda ampu.');
+        return $data;
+    }
+
+    /** Daftar centang TP dari perangkat ajar yang sudah ada (ATP, Peta Tema, modul, materi lain, CP); tanpa AI. */
+    public function rujukanTp(Request $request)
+    {
+        $layanan = new MateriAsistenService($request->user(), $this->isianAsisten($request));
+        $rujukan = $layanan->rujukanTp();
+        return response()->json([
+            'data' => $rujukan,
+            'message' => $rujukan ? null : 'Belum ada TP atau perangkat ajar untuk mapel–kelas ini. Tulis TP sendiri, atau minta saran AI.',
+        ]);
+    }
+
+    /**
+     * Bantuan AI untuk form Materi. bagian: semua (isi seluruh form) | tp (3 alternatif TP) | iktp (IKTP + bobot dari TP).
+     * Hasil hanya usulan: guru memilih/mencentang lalu menyimpan lewat form seperti biasa.
+     */
+    public function asistenAI(Request $request, PerangkatAjarAIService $ai)
+    {
+        $request->validate([
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+            'bagian' => ['required', Rule::in(['semua', 'tp', 'iktp'])],
+        ]);
+        $isian = $this->isianAsisten($request);
+        $layanan = new MateriAsistenService($request->user(), $isian);
+        $konteks = $layanan->konteks();
+
+        $hasil = $ai->susunMateri($konteks, $request->bagian, $request->ai_mode);
+        if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
+
+        $sudahAda = collect($isian['indikator'] ?? [])->pluck('deskripsi')->filter()->all();
+        $bersih = fn($t) => Str::limit(trim(preg_replace('/\s+/', ' ', (string) $t)), 1000, '');
+        $data = array_filter([
+            'nama_materi' => isset($hasil['nama_materi']) ? Str::limit($bersih($hasil['nama_materi']), 255, '') : null,
+            'tp' => isset($hasil['tp']) ? $bersih($hasil['tp']) : null,
+            'tp_saran' => collect($hasil['tp_saran'] ?? [])->map($bersih)->filter()->unique()->take(5)->values()->all(),
+            'iktp' => MateriAsistenService::normalIktp($hasil['iktp'] ?? [], $sudahAda),
+            'bobot' => isset($hasil['bobot']) ? MateriAsistenService::normalBobot($hasil['bobot']) : null,
+        ], fn($v) => $v !== null && $v !== '' && $v !== []);
+        $data['alasan'] = Str::limit(trim((string) ($hasil['alasan'] ?? '')), 600, '');
+        $data['sumber'] = array_values(array_filter([
+            !empty($konteks['alur_atp']) ? 'alur ATP' : null,
+            !empty($konteks['peta_tema']) ? 'Peta Tema' : null,
+            !empty($konteks['cp']) ? 'CP' : null,
+            !empty($konteks['materi_lain_mapel_kelas_ini']) ? 'materi lain' : null,
+            !empty($konteks['isian_guru']['tp']) ? 'TP yang Anda tulis' : null,
+        ]));
+
+        return response()->json(['success' => true, 'data' => $data, 'mode' => $request->ai_mode]);
     }
 
     public function destroy($id)

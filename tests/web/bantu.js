@@ -94,4 +94,4 @@ const hariSekolahTerakhir = () => {
 const hariIni = () => hariSekolahTerakhir();
 const AKHIR_PEKAN = kalenderHariIni() !== hariSekolahTerakhir();
 
-module.exports = { test, expect: base.expect, api, unggahApi, pilih, selectBerlabel, hariIni, hariSekolahTerakhir, AKHIR_PEKAN, SANDI, AKUN, API };
+module.exports = { test, expect: base.expect, api, masukApi, unggahApi, pilih, selectBerlabel, hariIni, hariSekolahTerakhir, AKHIR_PEKAN, SANDI, AKUN, API };

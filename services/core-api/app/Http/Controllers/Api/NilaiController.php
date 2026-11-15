@@ -33,7 +33,7 @@ class NilaiController extends Controller
         $user = $request->user();
         return response()->json([
             'periodes' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(),
-            'classes' => Classes::orderBy('nama_kelas')->get(),
+            'classes' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(),
             // Guru hanya melihat mapel yang diampunya
             'subjects' => Subject::with('guru')
                 ->when($user->isGuru(), fn($q) => $q->whereIn('id_mapel', $user->mapelDiampu()))

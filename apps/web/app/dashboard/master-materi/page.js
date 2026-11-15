@@ -8,6 +8,8 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksesDari, bacaUser, useAkses } from "@/app/lib/akses";
 import DaftarIndikator from "@/components/referensi/DaftarIndikator";
+import { BOBOT, BantuTp, PilihAI, SaranIktp, TombolBikinAI, kelengkapanMateri } from "@/components/referensi/AsistenMateri";
+import { bacaAiMode } from "@/components/banksoal/konstanta";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 
 // Admin & guru menambah dan mengubah materi (guru hanya mapel yang diampu); kepsek melihat saja; hapus khusus admin
@@ -22,6 +24,9 @@ const MATRIX_LABELS = [
   { key: "mat_K", label: "Karakter (K)", color: "warning" },
   { key: "mat_M", label: "Minat (M)", color: "danger" },
 ];
+
+// Bobot 0 sah (aspek tidak dinilai); hanya nilai kosong/rusak yang jatuh ke bawaan 100%
+const angkaBobot = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 1; };
 
 const getMatrixBadges = (data) => {
   const toPercent = (v) => Math.round((parseFloat(v) || 0) * 100);
@@ -44,6 +49,9 @@ export default function MasterMateriPage() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiMode, setAiMode] = useState("GEMINI");
+  const [alasanAI, setAlasanAI] = useState("");
+  useEffect(() => { setAiMode(bacaAiMode()); }, []);
 
   const safeFetch = async (url, options = {}) => {
     const res = await fetch(url, options);
@@ -104,8 +112,11 @@ export default function MasterMateriPage() {
       minWidth: 180,
       widthGrow: 2,
       headerHozAlign: "center",
-      formatter: (cell) =>
-        `<strong class="text-dark">${cell.getValue()}</strong>`,
+      formatter: (cell) => {
+        const { lengkap } = kelengkapanMateri(cell.getRow().getData());
+        const bintang = lengkap ? `<i class="bi bi-star-fill text-warning me-1" title="Lengkap: TP, IKTP, dan bobot STNKM sudah diisi"></i>` : "";
+        return `${bintang}<strong class="text-dark">${cell.getValue()}</strong>`;
+      },
     },
     {
       title: "Mapel",
@@ -146,6 +157,20 @@ export default function MasterMateriPage() {
       formatter: (cell) => {
         const aktif = (cell.getValue() || []).filter((i) => i.aktif).length;
         return aktif ? `<span class="badge bg-primary-subtle text-primary-emphasis border">${aktif} IKTP</span>` : `<span class="text-muted small">-</span>`;
+      },
+    },
+    {
+      title: "Kelengkapan",
+      field: "kelengkapan",
+      width: 140,
+      headerHozAlign: "center",
+      hozAlign: "center",
+      sorter: (a, b, ra, rb) => kelengkapanMateri(ra.getData()).kurang.length - kelengkapanMateri(rb.getData()).kurang.length,
+      formatter: (cell) => {
+        const { lengkap, kurang } = kelengkapanMateri(cell.getRow().getData());
+        return lengkap
+          ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-star-fill me-1"></i>Lengkap</span>`
+          : `<span class="small text-danger-emphasis" title="Belum lengkap">Belum: ${kurang.join(", ")}</span>`;
       },
     },
     {
@@ -295,16 +320,34 @@ export default function MasterMateriPage() {
           id_periode:
             periodes.find((p) => p.status_aktif === "AKTIF")?.id_periode || "",
         };
+    setAlasanAI("");
     setFormData({
       ...data,
-      mat_S: parseFloat(data.mat_S) || 1,
-      mat_T: parseFloat(data.mat_T) || 1,
-      mat_N: parseFloat(data.mat_N) || 1,
-      mat_K: parseFloat(data.mat_K) || 1,
-      mat_M: parseFloat(data.mat_M) || 1,
+      mat_S: angkaBobot(data.mat_S),
+      mat_T: angkaBobot(data.mat_T),
+      mat_N: angkaBobot(data.mat_N),
+      mat_K: angkaBobot(data.mat_K),
+      mat_M: angkaBobot(data.mat_M),
       indikator: (data.indikator || []).map(({ id_indikator, deskripsi, aktif }) => ({ id_indikator, deskripsi, aktif })),
     });
     setShowModal(true);
+  };
+
+  // Bobot dari AI (0..1 per huruf STNKM); huruf yang tidak dijawab dibiarkan
+  const bobotDariAI = (bobot) => Object.fromEntries(BOBOT.filter((b) => bobot?.[b.k] != null).map((b) => [b.key, bobot[b.k]]));
+  const tambahIktp = (teks) => (lama) => {
+    const ada = new Set(lama.map((i) => i.deskripsi.trim().toLowerCase()));
+    return [...lama, ...teks.filter((t) => !ada.has(t.trim().toLowerCase())).map((deskripsi) => ({ deskripsi, aktif: true }))];
+  };
+  const terapkanBikinAI = (d) => {
+    setFormData((f) => ({
+      ...f,
+      nama_materi: f.nama_materi?.trim() ? f.nama_materi : d.nama_materi || f.nama_materi,
+      deskripsi_kompetensi: d.tp || f.deskripsi_kompetensi,
+      indikator: tambahIktp((d.iktp || []).map((x) => x.deskripsi))(f.indikator || []),
+      ...bobotDariAI(d.bobot),
+    }));
+    setAlasanAI([d.alasan, d.sumber?.length ? `Dasar: ${d.sumber.join(", ")}.` : ""].filter(Boolean).join(" "));
   };
 
   const handleSliderChange = (key, percentValue) => {
@@ -466,7 +509,7 @@ export default function MasterMateriPage() {
                         <option value="">-- Pilih Kelas --</option>
                         {kelas.map((k) => (
                           <option key={k.id_kelas} value={k.id_kelas}>
-                            {k.nama_kelas}
+                            {k.nama_kelas}{k.aktif_semester === false ? " (nonaktif semester ini)" : ""}
                           </option>
                         ))}
                       </select>
@@ -522,6 +565,20 @@ export default function MasterMateriPage() {
                     </div>
                   </div>
 
+                  <div className="d-flex flex-wrap justify-content-end align-items-center gap-2 mb-3" id="bikin-ai">
+                    <span className="small text-muted me-auto">
+                      <i className="bi bi-stars text-success me-1"></i>AI merujuk alur ATP, Peta Tema, CP, dan materi lain mapel–kelas ini.
+                    </span>
+                    <PilihAI aiMode={aiMode} setAiMode={setAiMode} />
+                    <TombolBikinAI form={formData} aiMode={aiMode} onHasil={terapkanBikinAI} />
+                  </div>
+                  {alasanAI && (
+                    <div className="alert alert-success py-2 small d-flex gap-2 align-items-start">
+                      <i className="bi bi-lightbulb"></i><div className="flex-grow-1">{alasanAI}</div>
+                      <button type="button" className="btn-close btn-sm" aria-label="Tutup" onClick={() => setAlasanAI("")}></button>
+                    </div>
+                  )}
+
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-muted">
                       Nama Materi *
@@ -556,11 +613,27 @@ export default function MasterMateriPage() {
                       }
                       placeholder="Contoh: Peserta didik mampu membandingkan dan mengurutkan pecahan."
                     ></textarea>
+                    <BantuTp
+                      form={formData}
+                      aiMode={aiMode}
+                      onPakai={(daftar) => setFormData((f) => {
+                        const lama = (f.deskripsi_kompetensi || "").trim();
+                        const baru = daftar.filter((t) => !lama.includes(t.trim()));
+                        return { ...f, deskripsi_kompetensi: [lama, ...baru].filter(Boolean).join("\n") };
+                      })}
+                    />
                   </div>
 
                   <DaftarIndikator
                     daftar={formData.indikator || []}
                     onChange={(indikator) => setFormData((f) => ({ ...f, indikator }))}
+                    asisten={
+                      <SaranIktp
+                        form={formData}
+                        aiMode={aiMode}
+                        onTambah={(teks, bobot) => setFormData((f) => ({ ...f, indikator: tambahIktp(teks)(f.indikator || []), ...bobotDariAI(bobot) }))}
+                      />
+                    }
                   />
 
                   <div className="border-top pt-3">

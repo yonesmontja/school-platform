@@ -37,7 +37,7 @@ class PerangkatAjarController extends Controller
             ->orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel']);
         return response()->json([
             'mapel' => $mapel,
-            'kelas' => Classes::orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas'])->map(fn($k) => $k->toArray() + ['fase' => CapaianPembelajaran::faseKelas($k->nama_kelas)]),
+            'kelas' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas'])->map(fn($k) => $k->toArray() + ['fase' => CapaianPembelajaran::faseKelas($k->nama_kelas)]),
             'periode' => MasterPeriode::orderByDesc('tahun_ajaran')->orderByDesc('semester')->get(['id_periode', 'tahun_ajaran', 'semester', 'status_aktif']),
             'materi' => MasterMateri::with(['indikator' => fn($q) => $q->where('aktif', true)->orderBy('urutan')->select('id_indikator', 'id_materi', 'deskripsi', 'urutan')])
                 ->whereIn('id_mapel', $mapel->pluck('id_mapel'))->orderBy('nama_materi')

@@ -24,7 +24,7 @@ class ProgramAjarController extends Controller
         $periode = MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get();
         return response()->json([
             'subjects' => Subject::orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'id_guru']),
-            'classes' => Classes::orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
+            'classes' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
             'periode' => $periode->map(function ($p) {
                 [$a, $z, $bawaan] = $p->rentang();
                 return $p->only(['id_periode', 'tahun_ajaran', 'semester', 'status_aktif', 'minggu_tidak_efektif']) + ['tanggal_mulai' => $a->format('Y-m-d'), 'tanggal_selesai' => $z->format('Y-m-d'), 'rentang_bawaan' => $bawaan];

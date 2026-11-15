@@ -80,7 +80,7 @@ class BankSoalController extends Controller
 
         return response()->json([
             'mapel' => $mapel,
-            'kelas' => Classes::orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
+            'kelas' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
             'materi' => $materi,
             'bentuk' => BankSoal::BENTUK,
             'level' => BankSoal::LEVEL,

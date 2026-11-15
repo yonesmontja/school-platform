@@ -194,6 +194,7 @@ class NotifikasiService
         if (Carbon::parse($this->hariIni)->isSunday()) return collect(); // Minggu libur umum: tidak ada pengingat presensi
         return TransJadwal::whereDate('mulai', $this->hariIni)->where('status_sesi', '!=', 'Batal')
             ->when($kelas, fn($q) => $q->whereIn('id_kelas', $kelas))->whereNotNull('id_kelas')
+            ->when(Classes::idNonaktif(), fn($q, $nonaktif) => $q->whereNotIn('id_kelas', $nonaktif))
             ->distinct()->pluck('id_kelas');
     }
 

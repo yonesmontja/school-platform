@@ -80,7 +80,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'jumlah_guru' => Teacher::count(),
-            'classes' => Classes::orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
+            'classes' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
             'students' => $students,
             'subjects' => Subject::orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'kkm']),
             'mbk' => MasterMBK::orderBy('kategori_penilaian')->get(['id_jenis', 'kategori_penilaian']),

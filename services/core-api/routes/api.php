@@ -194,6 +194,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::delete('/keluarga/{jenis}/{id}', [KeluargaController::class, 'destroy'])->whereIn('jenis', ['ortu', 'wali']);
         Route::apiResource('/teachers', TeacherController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/classes', ClassesController::class)->only(['store', 'update', 'destroy']);
+        Route::put('/classes/{id}/aktif-semester', [ClassesController::class, 'aktifSemester']);
         Route::apiResource('/subjects', SubjectController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/periodes', PeriodeController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['store', 'update', 'destroy']);
@@ -482,6 +483,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::post('/mbk', [MBKController::class, 'store']);
         Route::post('/materi', [MateriController::class, 'store']);
         Route::put('/materi/{materi}', [MateriController::class, 'update']);
+        Route::post('/materi/rujukan-tp', [MateriController::class, 'rujukanTp']);
+        Route::post('/materi/asisten-ai', [MateriController::class, 'asistenAI'])->middleware('throttle:20,1');
         Route::post('/indikator', [IndikatorController::class, 'store']);
         Route::put('/indikator/{indikator}', [IndikatorController::class, 'update']);
     });

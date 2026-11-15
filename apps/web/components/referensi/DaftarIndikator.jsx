@@ -8,8 +8,9 @@ import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
  * Perubahan disimpan bersama materi; hanya penghapusan indikator tersimpan yang langsung ke server
  * (khusus admin, dan ditolak server bila indikator sudah dipakai menilai).
  * Item: { id_indikator?, deskripsi, aktif }
+ * asisten: elemen opsional (mis. tombol saran IKTP dari AI) yang tampil di atas daftar.
  */
-export default function DaftarIndikator({ daftar, onChange }) {
+export default function DaftarIndikator({ daftar, onChange, asisten = null }) {
   const { isAdmin } = useAkses();
   const [baru, setBaru] = useState("");
 
@@ -52,6 +53,8 @@ export default function DaftarIndikator({ daftar, onChange }) {
         Rincian kemampuan yang menandai TP tercapai. Dipilih saat menilai; satu sesi penilaian bisa memakai beberapa indikator.
         Indikator yang sudah dipakai menilai cukup dinonaktifkan.
       </p>
+
+      {asisten}
 
       {daftar.length === 0 && <div className="small text-muted fst-italic mb-2">Belum ada indikator.</div>}
 

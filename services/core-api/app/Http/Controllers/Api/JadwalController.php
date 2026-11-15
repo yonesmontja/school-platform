@@ -59,7 +59,7 @@ class JadwalController extends Controller
             'teachers' => Teacher::orderBy('nama_guru')->get(['id_guru', 'nama_guru', 'no_wa']),
             'subjects' => Subject::orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'id_guru']),
             'materi' => MasterMateri::orderBy('nama_materi')->get(['id_materi', 'nama_materi', 'id_mapel', 'id_kelas', 'mat_S', 'mat_T', 'mat_N', 'mat_K', 'mat_M']),
-            'classes' => Classes::orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
+            'classes' => Classes::untukPengguna($request->user())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']),
             'ruangan' => MasterRuangan::orderBy('nama_ruangan')->get(),
             'periode_aktif' => MasterPeriode::where('status_aktif', 'AKTIF')->first(),
             'settings' => SchoolSetting::first(),

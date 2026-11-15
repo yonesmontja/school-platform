@@ -45,7 +45,8 @@ class PanduanKerjaService
         $this->sekarang = now(config('app.zona_sekolah'));
         $this->periode = MasterPeriode::where('status_aktif', 'AKTIF')->first();
         $this->mapel = Subject::where('id_guru', $guru->id_guru)->orderBy('nama_mapel')->pluck('nama_mapel', 'id_mapel')->all();
-        $this->kelasBinaan = Classes::where('wali_kelas', $guru->id_guru)->pluck('id_kelas')->all();
+        // Rombel yang dinonaktifkan admin untuk semester aktif tidak masuk peta kerja
+        $this->kelasBinaan = Classes::where('wali_kelas', $guru->id_guru)->aktifSemester($this->periode?->id_periode)->pluck('id_kelas')->all();
         $this->unit = $this->unitAjar();
     }
 
@@ -122,7 +123,7 @@ class PanduanKerjaService
             ->merge(Atp::whereIn('id_mapel', $idMapel)->whereNotNull('id_kelas')->when($p, fn($q) => $q->where('id_periode', $p))->distinct()->get(['id_mapel', 'id_kelas'])->toArray())
             ->merge(MasterMateri::whereIn('id_mapel', $idMapel)->whereNotNull('id_kelas')->when($p, fn($q) => $q->where(fn($w) => $w->where('id_periode', $p)->orWhereNull('id_periode')))->distinct()->get(['id_mapel', 'id_kelas'])->toArray())
             ->unique(fn($x) => "{$x['id_mapel']}|{$x['id_kelas']}");
-        $kelas = Classes::whereIn('id_kelas', $pasang->pluck('id_kelas'))->pluck('nama_kelas', 'id_kelas');
+        $kelas = Classes::whereIn('id_kelas', $pasang->pluck('id_kelas'))->aktifSemester($p)->pluck('nama_kelas', 'id_kelas');
         return $pasang->filter(fn($x) => isset($kelas[$x['id_kelas']]))
             ->map(fn($x) => $x + ['mapel' => $this->mapel[$x['id_mapel']], 'kelas' => $kelas[$x['id_kelas']]])
             ->sortBy(fn($x) => "{$x['mapel']} {$x['kelas']}")->values();
