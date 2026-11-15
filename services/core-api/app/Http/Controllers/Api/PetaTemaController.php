@@ -197,8 +197,15 @@ class PetaTemaController extends Controller
     {
         $peta = $this->terjangkau($request)->findOrFail($id);
         abort_unless($peta->id_kelas, 422, 'Pilih kelas peta tema ini dulu.');
+        [$pola, $senin, $jumlah] = $this->polaMingguJadwal($peta, $request->input('tanggal'));
+        return response()->json(['data' => $pola, 'minggu_mulai' => $senin->toDateString(), 'jumlah_sesi' => $jumlah]);
+    }
+
+    /** @return array{0: \Illuminate\Support\Collection, 1: Carbon, 2: int} pola per hari, Senin acuan, jumlah sesi */
+    private function polaMingguJadwal(PetaTema $peta, ?string $tanggal): array
+    {
         $zona = config('app.zona_sekolah');
-        $acuan = $request->filled('tanggal') ? Carbon::parse($request->tanggal, $zona) : ($peta->tanggal_mulai ? Carbon::parse($peta->tanggal_mulai, $zona) : Carbon::now($zona));
+        $acuan = $tanggal ? Carbon::parse($tanggal, $zona) : ($peta->tanggal_mulai ? Carbon::parse($peta->tanggal_mulai, $zona) : Carbon::now($zona));
         $senin = $acuan->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
         $sesi = TransJadwal::with(['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'guru:id_guru,nama_guru'])->where('id_kelas', $peta->id_kelas)
             ->where('status_sesi', '!=', 'Batal')->whereBetween('mulai', [$senin, $senin->copy()->addDays(6)])->orderBy('mulai')->get();
@@ -209,7 +216,130 @@ class PetaTemaController extends Controller
                     . ($s->guru?->nama_guru ? " ({$s->guru->nama_guru})" : ''));
             return [$hari => $baris->unique()->implode("\n")];
         });
-        return response()->json(['data' => $pola, 'minggu_mulai' => $senin->toDateString(), 'jumlah_sesi' => $sesi->count()]);
+        return [$pola, $senin, $sesi->count()];
+    }
+
+    /**
+     * Rekomendasi pola mingguan (AI atau aturan lokal) untuk kelas yang jadwalnya belum disusun atau masih kosong sebagian.
+     * Hari yang sudah punya sesi di Jadwal dipertahankan (bila "pertahankan_jadwal"), AI hanya mengisi hari yang kosong.
+     * Pola kelas dari minggu-minggu lain (bila ada) dipakai sebagai acuan jam & mapel.
+     */
+    public function polaAI(Request $request, string $id, PerangkatAjarAIService $ai)
+    {
+        $peta = PetaTema::with('kelas')->findOrFail($id);
+        $this->cekPengubah($request, $peta);
+        $request->validate([
+            'ai_mode' => ['required', Rule::in([...SoalAIService::MODES, PetaTema::MODE_LOKAL])],
+            'jam_masuk' => ['nullable', 'date_format:H:i'],
+            'jam_pulang' => ['nullable', 'date_format:H:i', 'after:jam_masuk'],
+            'menit_jp' => 'nullable|integer|min:20|max:60',
+            'sabtu' => 'boolean',
+            'pertahankan_jadwal' => 'boolean',
+            'catatan' => 'nullable|string|max:1500',
+            'jaring' => 'nullable|array',
+            'minggu' => 'nullable|array',
+            'judul' => 'nullable|string|max:200',
+        ]);
+        $aturan = [
+            'jam_masuk' => $request->input('jam_masuk', '07:30'), 'jam_pulang' => $request->input('jam_pulang', '12:30'),
+            'menit_jp' => (int) $request->input('menit_jp', 35), 'sabtu' => $request->boolean('sabtu'),
+        ];
+        $jaring = PetaTema::normalJaring($request->input('jaring', $peta->jaring));
+        $minggu = PetaTema::normalMinggu($request->input('minggu', $peta->minggu), $peta->jumlah_minggu);
+
+        $tetap = collect(PetaTema::HARI)->mapWithKeys(fn($h) => [$h => '']);
+        $jumlahJadwal = 0;
+        if ($peta->id_kelas) {
+            [$polaJadwal, , $jumlahJadwal] = $this->polaMingguJadwal($peta, null);
+            if ($request->boolean('pertahankan_jadwal', true)) $tetap = $polaJadwal;
+        }
+        $hariKosong = collect(PetaTema::HARI)->filter(fn($h) => trim($tetap[$h]) === '' && ($h !== 'sabtu' || $aturan['sabtu']))->values()->all();
+        if (!$hariKosong) return response()->json(['message' => 'Semua hari sudah terisi dari Jadwal. Matikan "Pertahankan hari dari Jadwal" bila ingin pola baru.'], 422);
+
+        $konteks = array_filter([
+            'tema' => $request->input('judul') ?: $peta->judul,
+            'kategori' => $jaring['kategori'] ?: null,
+            'kelas' => $peta->kelas?->nama_kelas, 'fase' => $peta->fase,
+            'pendekatan' => $peta->pendekatan,
+            'konteks_lokal' => $peta->konteks_lokal,
+            'aturan_hari' => $aturan,
+            'hari_diisi' => $hariKosong,
+            'mapel' => collect($jaring['mapel'])->map(fn($c) => ['nama' => $c['nama'], 'kalibrasi' => $c['kalibrasi']])->values()->all(),
+            'konsep' => collect($jaring['konsep'])->pluck('label')->filter()->values()->all(),
+            'minggu_1' => $minggu[0] ?? null,
+            'hari_tetap_dari_jadwal' => collect($tetap)->filter(fn($t) => trim($t) !== '')->all(),
+            'pola_kelas_minggu_lain' => $peta->id_kelas ? $this->polaKelasBiasa($peta->id_kelas) : [],
+            'catatan_guru' => $request->catatan,
+        ], fn($v) => $v !== null && $v !== '' && $v !== []);
+        if (empty($konteks['mapel'])) return response()->json(['message' => 'Tambahkan dulu cabang mata pelajaran di spider web, lalu minta rekomendasi pola.'], 422);
+
+        $hasil = $request->ai_mode === PetaTema::MODE_LOKAL ? $this->polaLokal($konteks) : $ai->susunPolaMingguan($konteks, $request->ai_mode);
+        if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
+
+        $pola = collect(PetaTema::HARI)->mapWithKeys(function ($h) use ($tetap, $hasil, $hariKosong) {
+            if (trim($tetap[$h]) !== '') return [$h => $tetap[$h]];
+            if (!in_array($h, $hariKosong, true)) return [$h => ''];
+            $isi = $hasil['pola'][$h] ?? '';
+            return [$h => is_array($isi) ? implode("\n", array_filter(array_map(fn($x) => trim((string) $x), $isi))) : trim((string) $isi)];
+        })->all();
+        $diisi = count(array_filter($hariKosong, fn($h) => trim($pola[$h]) !== ''));
+        return response()->json([
+            'success' => true, 'data' => PetaTema::normalPola($pola), 'alasan' => mb_substr((string) ($hasil['alasan'] ?? ''), 0, 600),
+            'hari_diisi' => $diisi, 'hari_dari_jadwal' => count(PetaTema::HARI) - count(array_filter($tetap->all(), fn($t) => trim($t) === '')),
+            'jumlah_sesi_jadwal' => $jumlahJadwal, 'mode' => $request->ai_mode,
+            'message' => "Rekomendasi pola untuk {$diisi} hari siap. Periksa, ubah bila perlu, lalu Simpan.",
+        ]);
+    }
+
+    /** Pola jam & mapel yang paling sering dipakai kelas ini (8 minggu sebelum & sesudah hari ini), sebagai acuan AI. */
+    private function polaKelasBiasa(string $idKelas): array
+    {
+        $kini = Carbon::now(config('app.zona_sekolah'));
+        $sesi = TransJadwal::with('mapel:id_mapel,nama_mapel')->where('id_kelas', $idKelas)->where('status_sesi', '!=', 'Batal')
+            ->whereBetween('mulai', [$kini->copy()->subWeeks(8), $kini->copy()->addWeeks(8)])->get(['id_mapel', 'judul', 'mulai'])->toBase();
+        return $sesi->groupBy(fn($s) => PetaTema::HARI[$s->mulai->dayOfWeekIso - 1] ?? 'minggu')
+            ->only(PetaTema::HARI)
+            ->map(fn($g) => $g->countBy(fn($s) => $s->mulai->format('H:i') . ' ' . ($s->mapel?->nama_mapel ?? $s->judul ?? 'Kegiatan'))
+                ->sortDesc()->take(8)->keys()->sort()->values()->all())
+            ->all();
+    }
+
+    /**
+     * Pola lokal tanpa AI: tiap hari dibuka dengan Realita (cerita pengalaman), blok mapel bergiliran sesuai kalibrasi,
+     * Jumat ditutup dengan Makna & berbagi Produk anak.
+     */
+    private function polaLokal(array $k): array
+    {
+        $mapel = $k['mapel'];
+        $a = $k['aturan_hari'];
+        $mulai = Carbon::createFromFormat('H:i', $a['jam_masuk']);
+        $pulang = Carbon::createFromFormat('H:i', $a['jam_pulang']);
+        $jp = max(20, $a['menit_jp']);
+        $blokMapel = 2 * $jp;
+        $pola = [];
+        $giliran = 0;
+        $tema = $k['tema'] ?? 'tema';
+        foreach ($k['hari_diisi'] as $h) {
+            $jam = $mulai->copy();
+            $baris = [$jam->format('H:i') . " Pembukaan & Realita: anak bercerita pengalaman tentang {$tema}"];
+            $jam->addMinutes($jp);
+            $istirahat = false;
+            while ($jam->copy()->addMinutes($blokMapel)->lte($pulang)) {
+                if (!$istirahat && $jam->format('H:i') >= '09:30') {
+                    $baris[] = $jam->format('H:i') . ' Istirahat';
+                    $jam->addMinutes(30);
+                    $istirahat = true;
+                    continue;
+                }
+                $m = $mapel[$giliran % count($mapel)];
+                $giliran++;
+                $baris[] = $jam->format('H:i') . " {$m['nama']}" . ($m['kalibrasi'] ? ': ' . mb_substr($m['kalibrasi'], 0, 90) : '');
+                $jam->addMinutes($blokMapel);
+            }
+            if ($h === 'jumat') $baris[] = $jam->copy()->min($pulang->copy()->subMinutes($jp))->format('H:i') . ' Makna & berbagi Produk anak (tanpa peringkat)';
+            $pola[$h] = $baris;
+        }
+        return ['pola' => $pola, 'alasan' => 'Disusun dari aturan sederhana: setiap hari dibuka dengan Realita, mapel cabang spider web bergiliran per blok 2 JP, Jumat ditutup dengan Makna & berbagi produk.'];
     }
 
     public function ajukan(Request $request, string $id)

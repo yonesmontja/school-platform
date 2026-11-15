@@ -19,6 +19,7 @@ class PetaTema extends Model
     public const KOLOM_MINGGU = ['judul', 'realita', 'imajinasi', 'makna', 'produk'];
     public const MAKS_CABANG = 12;
     public const MAKS_MINGGU = 12;
+    public const MODE_LOKAL = 'LOKAL'; // rekomendasi pola mingguan tanpa AI
     public const PENDEKATAN_BAWAAN = 'Belajar dimulai dari inisiatif anak (anak memilih di tiap Rencana Sukses); alur MBK Syntax: '
         . 'Discovery - Konsep - Rencana Sukses - Implementasi - Evaluasi; penilaian STNKM skala 1-4; tidak ada perbandingan antarsiswa.';
 

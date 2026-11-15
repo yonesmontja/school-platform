@@ -280,10 +280,63 @@ function EditorTema({ id, referensi, akses, onKembali }) {
     if (kotor && !(await simpan())) return;
     try {
       const r = await minta("GET", `/perangkat-ajar/tema/${id}/pola-jadwal`);
-      if (!r.jumlah_sesi) return Swal.fire("Jadwal kosong", `Belum ada sesi di Jadwal kelas ini untuk minggu mulai ${r.minggu_mulai}.`, "info");
+      if (!r.jumlah_sesi) {
+        const t = await Swal.fire({
+          icon: "info", title: "Jadwal kosong",
+          text: `Belum ada sesi di Jadwal kelas ini untuk minggu mulai ${r.minggu_mulai}. Minta rekomendasi pola mingguan dari AI?`,
+          showCancelButton: true, confirmButtonText: "Rekomendasikan pola", cancelButtonText: "Nanti",
+        });
+        if (t.isConfirmed) rekomendasiPola();
+        return;
+      }
       ubah({ pola: r.data });
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: `${r.jumlah_sesi} sesi diambil dari Jadwal`, showConfirmButton: false, timer: 2000 });
+      const kosong = HARI.filter(([k]) => k !== "sabtu" && !String(r.data?.[k] || "").trim()).map(([, l]) => l);
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: `${r.jumlah_sesi} sesi diambil dari Jadwal`
+        + (kosong.length ? `; ${kosong.join(", ")} masih kosong (bisa diisi Rekomendasi AI)` : ""), showConfirmButton: false, timer: kosong.length ? 4500 : 2000 });
     } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
+
+  // Rekomendasi pola mingguan: untuk kelas yang jadwalnya belum disusun / kosong sebagian. Hari yang sudah ada di Jadwal dipertahankan.
+  const rekomendasiPola = async () => {
+    if (!p.jaring.mapel.length) return Swal.fire("Belum ada cabang", "Tambahkan dulu cabang mata pelajaran di spider web; pola mingguan disusun dari mapel itu.", "info");
+    if (kotor && !(await simpan())) return;
+    const terisi = HARI.some(([k]) => String(p.pola?.[k] || "").trim());
+    const pilihan = [{ value: "LOKAL", label: "Susun otomatis tanpa AI (aturan sederhana)" }, ...AI_MODES];
+    const awal = bacaAiMode();
+    const r = await Swal.fire({
+      title: "Rekomendasi pola mingguan",
+      width: 560,
+      html: `<div class="small text-start">Disusun dari cabang mapel & kalibrasi spider web, alur Realita → Imajinasi → Makna → Produk, dan pola Jadwal kelas di minggu lain bila ada.`
+        + (terisi ? ` <b>Isi pola sekarang akan diganti</b> (kecuali hari yang dipertahankan dari Jadwal).` : "") + `</div>`
+        + `<div class="row g-2 mt-2 text-start">`
+        + `<div class="col-4"><label class="form-label small mb-0" for="polaMasuk">Jam masuk</label><input id="polaMasuk" type="time" class="form-control form-control-sm" value="07:30"></div>`
+        + `<div class="col-4"><label class="form-label small mb-0" for="polaPulang">Jam pulang</label><input id="polaPulang" type="time" class="form-control form-control-sm" value="12:30"></div>`
+        + `<div class="col-4"><label class="form-label small mb-0" for="polaJp">Menit per JP</label><input id="polaJp" type="number" min="20" max="60" class="form-control form-control-sm" value="35"></div>`
+        + `</div>`
+        + `<div class="form-check text-start mt-2"><input class="form-check-input" type="checkbox" id="polaTetap" checked><label class="form-check-label small" for="polaTetap">Pertahankan hari yang sudah ada sesinya di Jadwal</label></div>`
+        + `<div class="form-check text-start"><input class="form-check-input" type="checkbox" id="polaSabtu"><label class="form-check-label small" for="polaSabtu">Isi juga hari Sabtu</label></div>`
+        + `<textarea id="polaCatatan" class="form-control mt-2" rows="2" placeholder="Catatan (opsional), mis. Jumat pagi senam, Rabu ada PAI di musala"></textarea>`
+        + `<select id="polaMode" class="form-select mt-2" aria-label="Cara menyusun">${pilihan.map((x) => `<option value="${x.value}"${x.value === awal ? " selected" : ""}>${x.label}</option>`).join("")}</select>`,
+      showCancelButton: true, confirmButtonText: "Susun pola", cancelButtonText: "Batal",
+      preConfirm: () => {
+        const v = (x) => document.getElementById(x);
+        if (v("polaMasuk").value >= v("polaPulang").value) { Swal.showValidationMessage("Jam pulang harus setelah jam masuk."); return false; }
+        return { jam_masuk: v("polaMasuk").value, jam_pulang: v("polaPulang").value, menit_jp: Number(v("polaJp").value) || 35,
+          pertahankan_jadwal: v("polaTetap").checked, sabtu: v("polaSabtu").checked, catatan: v("polaCatatan").value || null, ai_mode: v("polaMode").value };
+      },
+    });
+    if (!r.isConfirmed) return;
+    if (r.value.ai_mode !== "LOKAL") simpanAiMode(r.value.ai_mode);
+    setProses("ai");
+    Swal.fire({ title: r.value.ai_mode === "LOKAL" ? "Menyusun pola…" : "AI sedang menyusun pola mingguan…", html: r.value.ai_mode === "LOKAL" ? "" : "Biasanya 15–60 detik.", allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+    try {
+      const h = await minta("POST", `/perangkat-ajar/tema/${id}/pola-ai`, { ...r.value, judul: p.judul, jaring: p.jaring, minggu: p.minggu });
+      ubah({ pola: h.data });
+      if (r.value.ai_mode !== "LOKAL") setPakaiAi(r.value.ai_mode);
+      const dariJadwal = h.hari_dari_jadwal ? `<div class="small text-muted mt-1">${h.hari_dari_jadwal} hari dipertahankan dari Jadwal.</div>` : "";
+      Swal.fire({ icon: "success", title: "Pola mingguan siap", html: `${h.message}${h.alasan ? `<div class="small mt-2 fst-italic">${String(h.alasan).replace(/[<>&]/g, "")}</div>` : ""}${dariJadwal}` });
+    } catch (err) { Swal.fire("Belum berhasil", err.message, "warning"); }
+    finally { setProses(null); }
   };
 
   const aksi = async (jalur, konfirmasi, body) => {
@@ -516,7 +569,12 @@ function EditorTema({ id, referensi, akses, onKembali }) {
       <div className="card shadow-sm mb-3">
         <div className="card-header fw-semibold d-flex flex-wrap align-items-center gap-2">
           <span><i className="bi bi-clock me-1 text-primary"></i>Pola mingguan</span>
-          {bisa && p.id_kelas && <button className="btn btn-sm btn-outline-primary ms-auto" onClick={ambilPola} disabled={!!proses}><i className="bi bi-calendar3 me-1"></i>Ambil dari Jadwal</button>}
+          {bisa && (
+            <div className="ms-auto d-flex flex-wrap gap-2">
+              {p.id_kelas && <button className="btn btn-sm btn-outline-primary" onClick={ambilPola} disabled={!!proses}><i className="bi bi-calendar3 me-1"></i>Ambil dari Jadwal</button>}
+              <button className="btn btn-sm btn-outline-success" onClick={rekomendasiPola} disabled={!!proses} title="Untuk kelas yang jadwalnya belum disusun atau masih kosong"><i className="bi bi-stars me-1"></i>Rekomendasi AI</button>
+            </div>
+          )}
         </div>
         <div className="card-body row g-2">
           {HARI.map(([k, l]) => (

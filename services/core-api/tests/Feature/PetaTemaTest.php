@@ -130,4 +130,38 @@ class PetaTemaTest extends TestCase
         return ['jenis' => 'kbm', 'id_kelas' => $j->id_kelas, 'id_mapel' => $j->id_mapel, 'id_guru' => $j->id_guru, 'id_periode' => $j->id_periode,
             'mulai' => $j->mulai->format('Y-m-d\TH:i'), 'selesai' => $j->selesai->format('Y-m-d\TH:i')];
     }
+    public function test_rekomendasi_pola_mingguan_ai_dan_lokal_mempertahankan_hari_dari_jadwal(): void
+    {
+        $s = $this->sekolah;
+        $zona = config('app.zona_sekolah');
+        $jaring = ['mapel' => [['id_mapel' => 'MPL-A', 'nama' => 'Matematika', 'kalibrasi' => 'Hitung skor'], ['id_mapel' => 'MPL-B', 'nama' => 'IPA', 'kalibrasi' => 'Gaya pada bola']]];
+        $id = $this->sebagai($s->guruA)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola', 'id_kelas' => 'KLS-A', 'tanggal_mulai' => '2030-01-09', 'jaring' => $jaring])->json('data.id_peta');
+
+        // Tanpa cabang mapel → ditolak; guru lain tidak boleh
+        $kosong = $this->postJson('/api/perangkat-ajar/tema', ['judul' => 'Kosong', 'id_kelas' => 'KLS-A'])->json('data.id_peta');
+        $this->postJson("/api/perangkat-ajar/tema/{$kosong}/pola-ai", ['ai_mode' => 'LOKAL'])->assertStatus(422);
+        $this->sebagai($s->guruB)->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'LOKAL'])->assertForbidden();
+
+        // Jadwal kosong sama sekali → mode lokal mengisi Senin-Jumat, Sabtu tetap kosong
+        $lokal = $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'LOKAL', 'jam_masuk' => '07:30', 'jam_pulang' => '12:00'])
+            ->assertOk()->assertJsonPath('hari_diisi', 5)->assertJsonPath('jumlah_sesi_jadwal', 0)->json('data');
+        $this->assertStringStartsWith('07:30 Pembukaan & Realita', $lokal['senin']);
+        $this->assertStringContainsString('Matematika: Hitung skor', $lokal['senin']);
+        $this->assertStringContainsString('Produk anak', $lokal['jumat']);
+        $this->assertSame('', $lokal['sabtu']);
+
+        // Senin sudah ada di Jadwal → dipertahankan; AI hanya mengisi hari lain (hari yang tidak diminta diabaikan)
+        TransJadwal::create(['id_jadwal' => 'JDW-P1', 'id_periode' => 'PER-T', 'id_kelas' => 'KLS-A', 'id_guru' => 'GR-A', 'id_mapel' => 'MPL-A',
+            'mulai' => Carbon::parse('2030-01-07 07:30', $zona), 'selesai' => Carbon::parse('2030-01-07 08:40', $zona), 'status_sesi' => 'Menunggu']);
+        $this->gemini(['pola' => ['senin' => ['07:30 DIUBAH AI'], 'selasa' => ['07:30 Realita: cerita bola', '08:05 IPA: gaya'], 'rabu' => '07:30 Matematika',
+            'kamis' => [], 'jumat' => ['07:30 Makna & produk'], 'sabtu' => ['07:30 tidak diminta']], 'alasan' => 'Mapel disebar merata.']);
+        $r = $this->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'GEMINI', 'catatan' => 'Jumat olahraga'])->assertOk()
+            ->assertJsonPath('hari_dari_jadwal', 1)->assertJsonPath('hari_diisi', 3)->assertJsonPath('alasan', 'Mapel disebar merata.')->json('data');
+        $this->assertSame('07:30 Matematika (Guru A)', $r['senin']);
+        $this->assertSame("07:30 Realita: cerita bola\n08:05 IPA: gaya", $r['selasa']);
+        $this->assertSame('07:30 Matematika', $r['rabu']);
+        $this->assertSame('', $r['kamis']);
+        $this->assertSame('', $r['sabtu']);
+        Http::assertSent(fn($req) => str_contains($req->body(), 'hari_tetap_dari_jadwal') && str_contains($req->body(), 'Jumat olahraga'));
+    }
 }

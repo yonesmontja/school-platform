@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\RuanganController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\LogAktivitasController;
 use App\Http\Controllers\Api\NotifikasiController;
+use App\Http\Controllers\Api\PanduanKerjaController;
 use App\Http\Controllers\Api\DiagnostikController;
 use App\Http\Controllers\Api\PortalController;
 
@@ -129,6 +130,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::post('/log-aktivitas/error-klien', [LogAktivitasController::class, 'errorKlien'])->middleware('throttle:20,1');
     // Pusat notifikasi "Perlu Tindakan" (isi disesuaikan peran di NotifikasiService)
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    // Peta kerja guru: progres alur kerja semester (Panduan & Dashboard)
+    Route::get('/panduan/kerja', [PanduanKerjaController::class, 'index']);
     // Kalender hari libur selain Minggu: semua akun membaca; admin & kepala sekolah mengelola
     Route::get('/hari-libur', [HariLiburController::class, 'index']);
     Route::middleware('role:admin,kepsek')->group(function () {
@@ -461,6 +464,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/tema/{id}', [PetaTemaController::class, 'destroy']);
             Route::post('/tema/{id}/ai', [PetaTemaController::class, 'susunAI']);
             Route::get('/tema/{id}/pola-jadwal', [PetaTemaController::class, 'polaJadwal']);
+            Route::post('/tema/{id}/pola-ai', [PetaTemaController::class, 'polaAI']);
             Route::post('/tema/{id}/ajukan', [PetaTemaController::class, 'ajukan']);
             Route::post('/tema/{id}/tarik', [PetaTemaController::class, 'tarik']);
             Route::post('/tema/{id}/setujui', [PetaTemaController::class, 'setujui']);

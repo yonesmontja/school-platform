@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAkses, bolehBuka } from "@/app/lib/akses";
 import { KELOMPOK, bagianUntuk } from "./isiPanduan";
+import PetaKerja from "@/components/panduan/PetaKerja";
 
 const normalisasi = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 export default function PanduanPage() {
-  const { role, isGuru, kelasBinaan } = useAkses();
+  const { role, isGuru, isPengelola, kelasBinaan } = useAkses();
   const [pilihan, setPilihan] = useState(null);
   const [cari, setCari] = useState("");
   const [terbuka, setTerbuka] = useState(() => new Set());
@@ -44,6 +45,10 @@ export default function PanduanPage() {
         </button>
       </div>
 
+      {/* Peta kerja: progres nyata guru (admin/kepala sekolah memilih guru untuk dipantau) */}
+      {(isGuru || isPengelola) && <div className="d-print-none"><PetaKerja bolehPilihGuru={isPengelola} /></div>}
+
+      <h5 className="fw-bold mb-2 d-print-none"><i className="bi bi-book me-2 text-primary"></i>Cara memakai tiap menu</h5>
       <div className="input-group mb-3 d-print-none">
         <span className="input-group-text"><i className="bi bi-search"></i></span>
         <input type="search" className="form-control" placeholder="Cari panduan, mis. remedial, presensi, kata sandi" value={cari} onChange={(e) => setCari(e.target.value)} />

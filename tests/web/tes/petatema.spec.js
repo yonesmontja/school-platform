@@ -18,7 +18,6 @@ test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/
 
   const editor = page.locator(".editor-tema");
   await expect(editor).toContainText("Main Bola E2E", { timeout: 60_000 });
-  await editor.locator("#ptKategori").fill("Hobi");
 
   // Dua cabang mapel dengan kalibrasi; Matematika ditautkan ke TP
   await editor.getByRole("button", { name: "Tambah cabang mata pelajaran" }).click();
@@ -40,11 +39,26 @@ test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/
   await editor.getByLabel("Produk anak minggu 1").fill("Gambar lapangan");
 
   // Diagram ikut berubah langsung
+  // Kategori diisi setelah isian lain: bila diketik saat editor baru terbuka, bisa tertimpa data yang selesai dimuat
+  await editor.locator("#ptKategori").fill("Hobi");
+  await expect(editor.locator("#ptKategori")).toHaveValue("Hobi");
   const webMapel = editor.getByRole("figure", { name: "Spider web mata pelajaran" });
   await expect(webMapel).toContainText("Hitung skor & ukuran lapangan");
   await expect(webMapel).toContainText("HOBI");
   await expect(editor.getByRole("figure", { name: "Spider web konsep" })).toContainText("Aturan Permainan");
 
+  await editor.getByRole("button", { name: "Simpan" }).click();
+  await expect(page.locator(".swal2-toast")).toContainText("Peta tema disimpan");
+
+  // Rekomendasi pola mingguan (tanpa AI): hari kosong di Jadwal diisi dari cabang mapel, hari yang ada sesinya dipertahankan
+  await editor.getByRole("button", { name: "Rekomendasi AI" }).click();
+  await page.locator("#polaMode").selectOption("LOKAL");
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".swal2-popup")).toContainText("Pola mingguan siap", { timeout: 30_000 });
+  await page.locator(".swal2-confirm").click();
+  const pola = await Promise.all(["senin", "selasa", "rabu", "kamis", "jumat"].map((h) => editor.locator(`#ptPola-${h}`).inputValue()));
+  expect(pola.every((t) => t.trim().length > 0)).toBe(true);
+  expect(pola.join(" ")).toMatch(/Realita|Matematika|IPA/);
   await editor.getByRole("button", { name: "Simpan" }).click();
   await expect(page.locator(".swal2-toast")).toContainText("Peta tema disimpan");
 

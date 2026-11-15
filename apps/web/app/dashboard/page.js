@@ -47,6 +47,7 @@ import {
 } from "./_lib/analitik";
 import { API_URL } from "@/app/lib/config";
 import { MenuAksi } from "@/components/dashboard/menuAksi";
+import PetaKerja from "@/components/panduan/PetaKerja";
 
 const getToken = () => localStorage.getItem("token");
 const KEY_PREFS = "dashboard_prefs_v1";
@@ -852,6 +853,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* PETA KERJA GURU: langkah berikutnya & progres alur kerja semester */}
+      {user?.role === "guru" && user?.id_guru && <PetaKerja ringkas />}
 
       {/* FILTER KONTEKS */}
       <div className="dash-filter mb-3">
