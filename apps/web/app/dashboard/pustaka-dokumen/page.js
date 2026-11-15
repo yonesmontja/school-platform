@@ -8,6 +8,7 @@ import { API_URL, authHeaders, bacaUser } from "@/app/lib/akses";
 import { minta } from "@/components/banksoal/api";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
+import NotebookDokumen from "@/components/pustaka/NotebookDokumen";
 
 const JENIS = [
   { value: "CP", label: "Capaian Pembelajaran" },
@@ -85,6 +86,7 @@ function PustakaDokumen() {
   const [cari, setCari] = useState("");
   const [form, setForm] = useState(null); // {mode: baru|perbarui|ubah, dokumen?}
   const [detail, setDetail] = useState(null);
+  const [notebook, setNotebook] = useState(null);
 
   const muat = useCallback(() => {
     minta("GET", "/dokumen-rujukan").then((r) => { setData(r.data); setIzin(r.izin); }).catch((e) => Swal.fire("Gagal memuat", e.message, "error"));
@@ -132,6 +134,7 @@ function PustakaDokumen() {
   const milik = (d) => d.diunggah_oleh === saya?.id;
   const itemMenu = (d) => [
     { label: "Lihat isi & analisis", ikon: "bi-eye", onClick: () => bukaDetail(d) },
+    { label: "Notebook AI", ikon: "bi-journal-richtext", onClick: () => setNotebook(d) },
     { label: d.sumber_tipe === "TAUTAN" ? "Buka tautan" : "Unduh berkas", ikon: d.sumber_tipe === "TAUTAN" ? "bi-box-arrow-up-right" : "bi-download", onClick: () => unduh(d) },
     { label: "Setujui (dipakai AI)", ikon: "bi-check2-circle", tampil: izin.setujui && d.status === "DIAJUKAN", onClick: () => aksi(d, "setujui") },
     { label: "Kembalikan dengan catatan", ikon: "bi-arrow-return-left", tampil: izin.setujui && d.status === "DIAJUKAN", onClick: () => tolak(d) },
@@ -212,7 +215,8 @@ function PustakaDokumen() {
       <UjiPencarian mapel={mapel} />
 
       {form && <FormDokumen form={form} mapel={mapel} izin={izin} onTutup={() => setForm(null)} onSelesai={() => { setForm(null); muat(); }} />}
-      {detail && <DetailDokumen d={detail} izin={izin} milik={milik(detail)} onTutup={() => setDetail(null)} onBerubah={(x) => { setDetail(x); muat(); }} onSetujui={() => aksi(detail, "setujui")} onTolak={() => tolak(detail)} onUnduh={() => unduh(detail)} />}
+      {detail && <DetailDokumen d={detail} izin={izin} milik={milik(detail)} onTutup={() => setDetail(null)} onBerubah={(x) => { setDetail(x); muat(); }} onSetujui={() => aksi(detail, "setujui")} onTolak={() => tolak(detail)} onUnduh={() => unduh(detail)} onNotebook={() => setNotebook(detail)} />}
+      {notebook && <NotebookDokumen d={notebook} saya={saya} pengelola={!!izin.langsung_aktif} onTutup={() => setNotebook(null)} />}
     </div>
   );
 }
@@ -314,7 +318,7 @@ function FormDokumen({ form, mapel, izin, onTutup, onSelesai }) {
   );
 }
 
-function DetailDokumen({ d, izin, milik, onTutup, onBerubah, onSetujui, onTolak, onUnduh }) {
+function DetailDokumen({ d, izin, milik, onTutup, onBerubah, onSetujui, onTolak, onUnduh, onNotebook }) {
   const [mode, setMode] = useState(bacaAiMode);
   const [proses, setProses] = useState(false);
   const analisis = async () => {
@@ -341,6 +345,7 @@ function DetailDokumen({ d, izin, milik, onTutup, onBerubah, onSetujui, onTolak,
             {d.catatan_review && <><dt className="col-4">Catatan</dt><dd className="col-8 text-danger">{d.catatan_review}</dd></>}
           </dl>
           <div className="d-flex flex-wrap gap-2 mb-3">
+            {d.status_teks === "TERBACA" && <button className="btn btn-sm btn-primary" onClick={onNotebook}><i className="bi bi-journal-richtext me-1"></i>Notebook AI</button>}
             <button className="btn btn-sm btn-outline-secondary" onClick={onUnduh}><i className={`bi ${d.sumber_tipe === "TAUTAN" ? "bi-box-arrow-up-right" : "bi-download"} me-1`}></i>{d.sumber_tipe === "TAUTAN" ? "Buka tautan" : "Unduh"}</button>
             {izin.setujui && d.status === "DIAJUKAN" && <>
               <button className="btn btn-sm btn-success" onClick={onSetujui}><i className="bi bi-check2-circle me-1"></i>Setujui</button>

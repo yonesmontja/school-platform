@@ -416,6 +416,11 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/{id}/aktifkan', [DokumenRujukanController::class, 'aktifkan']);
             Route::post('/{id}/baca-ulang', [DokumenRujukanController::class, 'bacaUlang']);
             Route::post('/{id}/analisis', [DokumenRujukanController::class, 'analisis'])->middleware('throttle:20,1');
+            // Notebook AI (Fase 23): riset per dokumen & tanya-jawab dengan rujukan bagian
+            Route::get('/{id}/riset', [\App\Http\Controllers\Api\RisetDokumenController::class, 'index']);
+            Route::post('/{id}/riset', [\App\Http\Controllers\Api\RisetDokumenController::class, 'riset'])->middleware('throttle:10,1');
+            Route::post('/{id}/tanya', [\App\Http\Controllers\Api\RisetDokumenController::class, 'tanya'])->middleware('throttle:20,1');
+            Route::delete('/{id}/riset/{idRiset}', [\App\Http\Controllers\Api\RisetDokumenController::class, 'hapus'])->whereNumber('idRiset');
             Route::delete('/{id}', [DokumenRujukanController::class, 'destroy']);
         });
         // Prota & Promes (Fase 20): rencana dari ATP, realisasi dari jadwal
