@@ -25,7 +25,7 @@ use Illuminate\Validation\Rule;
 
 class NilaiController extends Controller
 {
-    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'guru:id_guru,nama_guru', 'pengisi:id,name', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi,lampiran_url,lampiran_nama', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
+    private const RELASI = ['siswa', 'mapel', 'jenis', 'materi.kategori', 'guru:id_guru,nama_guru', 'pengisi:id,name,id_guru', 'rencana.pembuat:id,name,id_guru', 'nilaiIndikator.indikator:id_indikator,deskripsi', 'rencana.nilaiRemedial:id_nilai,id_rencana,nilai,tanggal', 'rencana.jadwal:id_jadwal,mulai,selesai,id_ruangan,status_sesi,lampiran_url,lampiran_nama', 'rencanaAsal:id_rencana,opsi_tindakan,id_nilai_asal'];
     private const META = ['id_kelas', 'id_mapel', 'id_periode', 'id_jenis', 'id_materi'];
 
     public function getFilters(Request $request)

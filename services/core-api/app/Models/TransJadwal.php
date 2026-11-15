@@ -15,8 +15,18 @@ class TransJadwal extends Model
     protected $fillable = [
         'id_jadwal', 'id_group', 'id_periode', 'id_kelas', 'id_guru', 'id_mapel', 'id_materi', 'id_ruangan',
         'judul', 'mulai', 'selesai', 'warna', 'catatan', 'lampiran_url', 'lampiran_nama', 'status_sesi',
-        'id_modul', 'pertemuan_ke', 'perangkat',
+        'id_modul', 'pertemuan_ke', 'perangkat', 'dibuat_oleh',
     ];
+
+    // Akun yang menginput tercatat otomatis; bisa berbeda dari guru yang tercatat (mis. admin mengisi untuk guru)
+    protected static function booted(): void
+    {
+        static::creating(function (self $m) {
+            if (!$m->dibuat_oleh && auth()->id()) $m->dibuat_oleh = auth()->id();
+        });
+    }
+
+    public function pembuat(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(User::class, 'dibuat_oleh'); }
 
     /** Jenis perangkat ajar yang ditautkan lewat kolom JSON `perangkat` (modul, materi, video punya tautan sendiri). */
     public const JENIS_PERANGKAT = ['CP', 'ATP', 'INDIKATOR', 'SOAL', 'TEMA'];

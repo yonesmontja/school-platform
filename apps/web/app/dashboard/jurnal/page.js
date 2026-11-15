@@ -4,10 +4,15 @@ import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import Pengisi, { teksPengisi } from "@/components/dashboard/Pengisi";
+
 import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/app/lib/antrean";
 import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 import { RencanaHari } from "@/components/perangkatajar/RencanaSesi";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+
+// Guru yang tercatat + akun penginput ("diisi …" bila berbeda)
+const pengisiJurnal = (j) => ({ guru: j.guru?.nama_guru, idGuru: j.id_guru, pengisi: j.pencatat?.name, idGuruPengisi: j.pencatat?.id_guru });
 
 const getToken = () => localStorage.getItem("token");
 
@@ -644,9 +649,21 @@ export default function JurnalAnekdotalPage() {
     "Narasi": narasiDari(j),
     "Dampak": j.mode_dampak === "BONUS" ? "Intervensi" : "Catatan",
     "Mode AI": j.ai_mode || "-",
-    "Pencatat": j.guru?.nama_guru || "-",
+    "Pencatat": teksPengisi(pengisiJurnal(j)),
+    "Versi": j.versi_terakhir ? `v${j.versi_terakhir}` : "",
     "S": num(j.val_S), "T": num(j.val_T), "N": num(j.val_N), "K": num(j.val_K), "M": num(j.val_M),
   }));
+
+  const lihatRiwayat = async (j) => {
+    try {
+      const res = await fetch(`${API_URL}/jurnal/${j.id_jurnal}/riwayat`, { headers: { Accept: "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || "Gagal memuat riwayat.");
+      const e = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const isi = (d.data || []).map((v) => `<li class="mb-2"><span class="badge text-bg-light border font-monospace">v${v.versi}</span> <b>${e(v.keterangan || "Diperbarui")}</b><div class="text-muted">${e(new Date(v.waktu).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }))} · oleh ${e(v.oleh || "-")}</div><div style="white-space:pre-wrap">${e(v.isi?.catatan)}${v.isi?.respons ? `<br><i>Respons siswa:</i> ${e(v.isi.respons)}` : ""}</div></li>`).join("");
+      Swal.fire({ title: "Riwayat versi catatan", html: `<ol class="text-start small ps-3" style="max-height:60vh;overflow:auto">${isi || "<li>Belum ada riwayat.</li>"}</ol>`, width: 640, confirmButtonText: "Tutup" });
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
 
   const adaData = () => {
     if (sortedJournals.length === 0) { Swal.fire("Kosong", "Tidak ada data jurnal untuk diekspor.", "info"); return false; }
@@ -1065,7 +1082,8 @@ export default function JurnalAnekdotalPage() {
                         <small className="text-muted">
                           {j.kelas?.nama_kelas || "-"} • {formatTanggal(j.tanggal)}
                           {(j.materi?.nama_materi || j.jenis?.kategori_penilaian) && <> • {j.materi?.nama_materi || j.jenis?.kategori_penilaian}</>}
-                          {j.guru?.nama_guru && <> • Oleh: {j.guru.nama_guru}</>}
+                          {(j.guru?.nama_guru || j.pencatat?.name) && <> • <Pengisi sebaris {...pengisiJurnal(j)} /></>}
+                          {j.versi_terakhir > 0 && !j.tersembunyi && <> • <button type="button" className="btn btn-link btn-sm p-0 align-baseline font-monospace" onClick={() => lihatRiwayat(j)} title="Riwayat versi catatan"><i className="bi bi-git me-1"></i>v{j.versi_terakhir}</button></>}
                         </small>
                       </div>
                       {actionButtons(j)}

@@ -27,7 +27,7 @@ use Illuminate\Validation\Rule;
  */
 class PerangkatAjarController extends Controller
 {
-    private const RELASI_ATP = ['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name', 'penyetuju:id,name'];
+    private const RELASI_ATP = ['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru', 'penyetuju:id,name'];
 
     /** Pilihan formulir: mapel (guru: yang diampu), kelas, periode, materi + TP, profil lulusan, penyedia AI. */
     public function referensi(Request $request)
@@ -54,7 +54,7 @@ class PerangkatAjarController extends Controller
     {
         $request->validate(['id_mapel' => 'nullable|string', 'fase' => ['nullable', Rule::in(CapaianPembelajaran::FASE)]]);
         $user = $request->user();
-        $data = CapaianPembelajaran::with('mapel:id_mapel,nama_mapel')
+        $data = CapaianPembelajaran::with('mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru')
             ->when(!$user->isPengelola(), fn($q) => $q->whereIn('id_mapel', $user->mapelDiampu()))
             ->when($request->id_mapel, fn($q) => $q->where('id_mapel', $request->id_mapel))
             ->when($request->fase, fn($q) => $q->where('fase', $request->fase))

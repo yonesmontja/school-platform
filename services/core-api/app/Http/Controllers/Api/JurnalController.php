@@ -10,6 +10,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\TransJurnal;
 use App\Services\JurnalAIService;
+use App\Services\VersiCatatan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +30,7 @@ class JurnalController extends Controller
     private const LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024;
 
     // ortu/wali untuk nomor WA, materi.mapel untuk label di halaman jurnal
-    private const RELASI = ['siswa.ortu', 'siswa.wali', 'kelas', 'guru', 'jenis', 'materi.mapel'];
+    private const RELASI = ['siswa.ortu', 'siswa.wali', 'kelas', 'guru', 'jenis', 'materi.mapel', 'pencatat:id,name,id_guru'];
 
     protected JurnalAIService $aiService;
 
@@ -47,6 +48,10 @@ class JurnalController extends Controller
         }
 
         $data = $query->orderByDesc('tanggal')->orderByDesc('created_at')->get();
+        // Nomor versi terakhir bagi catatan yang punya riwayat (mis. catatan progres pembinaan)
+        $versi = \App\Models\TransVersi::where('entitas', 'jurnal')->whereIn('id_entitas', $data->pluck('id_jurnal'))->groupBy('id_entitas')
+            ->selectRaw('id_entitas, max(versi) as n')->pluck('n', 'id_entitas');
+        $data->each(fn($j) => $j->setAttribute('versi_terakhir', (int) ($versi[$j->id_jurnal] ?? 0)));
         return response()->json(['data' => TransJurnal::samarkan($data, $request->user())]);
     }
 
@@ -217,6 +222,10 @@ class JurnalController extends Controller
         }
 
         $jurnal->update($data);
+        // Catatan yang punya riwayat versi (mis. catatan progres pembinaan) tetap tercatat versinya walau diubah dari menu Jurnal
+        if (VersiCatatan::terakhir('jurnal', $jurnal->id_jurnal)) {
+            VersiCatatan::simpan('jurnal', $jurnal->id_jurnal, $jurnal->fresh()->isiVersi(), $request->input('keterangan_versi') ?: 'Diubah lewat menu Jurnal', $request->user()->id);
+        }
 
         return response()->json([
             'success' => true,
@@ -284,6 +293,14 @@ class JurnalController extends Controller
 
         $jurnal->delete();
         return response()->json(['message' => 'Jurnal berhasil dihapus']);
+    }
+
+    /** Riwayat versi satu jurnal (terbaru dulu); kosong bila jurnal itu tidak memakai versi. */
+    public function riwayat(Request $request, $id)
+    {
+        $jurnal = TransJurnal::findOrFail($id);
+        abort_unless($jurnal->bolehDibaca($request->user()), 403, 'Catatan ini ditandai sensitif.');
+        return response()->json(['data' => VersiCatatan::riwayat('jurnal', [$jurnal->id_jurnal])->get($jurnal->id_jurnal, collect())->values()]);
     }
 
     /** Tandai/buka tanda sensitif: admin, kepala sekolah, guru penulis, atau wali kelas siswa. */

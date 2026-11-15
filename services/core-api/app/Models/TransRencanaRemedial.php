@@ -38,5 +38,6 @@ class TransRencanaRemedial extends Model
     public function nilaiRemedial(): HasOne { return $this->hasOne(TransNilai::class, 'id_rencana', 'id_rencana'); }
     public function siswa(): BelongsTo { return $this->belongsTo(Student::class, 'id_siswa', 'id_siswa'); }
     public function mapel(): BelongsTo { return $this->belongsTo(Subject::class, 'id_mapel', 'id_mapel'); }
+    public function pembuat(): BelongsTo { return $this->belongsTo(User::class, 'dibuat_oleh'); }
     public function jadwal(): BelongsTo { return $this->belongsTo(TransJadwal::class, 'id_jadwal', 'id_jadwal'); }
 }

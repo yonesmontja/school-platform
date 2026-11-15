@@ -12,6 +12,7 @@ import RingkasanPresensi from "@/components/presensi/RingkasanPresensi";
 import PembinaanPresensi from "@/components/presensi/PembinaanPresensi";
 import { TombolLipat, useLipat } from "@/components/presensi/lipat";
 import { muatHariLibur } from "@/app/lib/hariSekolah";
+import Pengisi, { teksPengisi } from "@/components/dashboard/Pengisi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -407,7 +408,9 @@ export default function PresensiPage() {
     return p ? `${p.tahun_ajaran} (${p.semester})` : "";
   })();
   const namaFile = `Presensi_${namaKelas.replace(/\s+/g, "_")}_${todayYmd()}`;
-  const barisTanggal = () => tampil.map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label, Keterangan: r.keterangan || "" }));
+  // Presensi harian tercatat atas nama wali kelas; penginput lain (guru mapel, admin) tampil "diisi …"
+  const pengisiPresensi = (r) => ({ guru: data?.wali_kelas?.nama_guru, idGuru: data?.wali_kelas?.id_guru, pengisi: r.pencatat?.name, idGuruPengisi: r.pencatat?.id_guru });
+  const barisTanggal = () => tampil.map((r, i) => ({ No: i + 1, Tanggal: r.tanggal, "Nama Siswa": r.nama_siswa, Status: STATUS_MAP[r.status_kehadiran].label, Keterangan: r.keterangan || "", Pencatat: r.pencatat || data?.wali_kelas ? teksPengisi(pengisiPresensi(r)) : "-" }));
   const barisHari = (list = modeRiwayat === "HARI" ? tampil : rekapHari) => list.map((r) => ({
     Hari: r.hari, "Hari Tercatat": r.jumlah_tanggal, Hadir: r.HADIR, Sakit: r.SAKIT, Izin: r.IZIN, Alpa: r.ALPA,
     "% Hadir": r.persen === null ? "-" : Number(r.persen.toFixed(1)), "Sering Alpa": r.sering_alpa || "-",
@@ -715,6 +718,7 @@ export default function PresensiPage() {
                         {sortHeader("nama_siswa", "Nama Siswa", "")}
                         {sortHeader("status_kehadiran", "Status")}
                         <th>Keterangan</th>
+                        <th>Pencatat</th>
                         <th className="text-center">Aksi</th>
                       </tr>
                     ) : modeRiwayat === "HARI" ? (
@@ -749,6 +753,7 @@ export default function PresensiPage() {
                           <td className="fw-semibold">{r.nama_siswa}</td>
                           <td className="text-center"><span className={`badge text-bg-${st.color}`}>{st.label}</span></td>
                           <td className="text-muted">{r.keterangan || ""}{r.sumber === "MAPEL" && <span className="badge text-bg-light border ms-1 fw-normal" title="Diisi pertama kali lewat presensi per mapel">mapel</span>}</td>
+                          <td><Pengisi {...pengisiPresensi(r)} /></td>
                           <td className="text-center text-nowrap">
                             <MenuAksi label={`Aksi presensi ${r.nama_siswa} ${r.tanggal}`} items={[
                               { label: "Ubah presensi tanggal ini", ikon: "bi-pencil-square", onClick: () => editTanggal(r.tanggal) },

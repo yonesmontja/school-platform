@@ -1,0 +1,43 @@
+/* Editor catatan kaya (components/editor/EditorKaya.jsx) dan tampilan isinya (.isi-kaya) */
+.editor-kaya { border: 1px solid var(--bs-border-color); border-radius: .5rem; background: var(--bs-body-bg); }
+.editor-kaya:focus-within { border-color: #86b7fe; box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15); }
+.editor-kaya-alat { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px; border-bottom: 1px solid var(--bs-border-color);
+  background: var(--bs-tertiary-bg); border-radius: .5rem .5rem 0 0; position: relative; }
+.editor-kaya-alat .btn { padding: 2px 7px; line-height: 1.4; }
+.editor-kaya-alat .pemisah { width: 1px; align-self: stretch; background: var(--bs-border-color); margin: 2px 3px; }
+.editor-kaya-tulis { min-height: 140px; max-height: 420px; overflow-y: auto; padding: .6rem .75rem; outline: none; overflow-wrap: anywhere; font-size: .9rem; }
+.editor-kaya-tulis:empty::before { content: attr(data-placeholder); color: var(--bs-secondary-color); pointer-events: none; }
+.editor-kaya-menu { position: absolute; z-index: 30; top: 100%; min-width: 260px; max-width: 92vw; background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color); border-radius: .5rem; box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15); padding: .25rem 0; }
+.editor-kaya-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: .4rem .8rem; font-size: .85rem; color: inherit; }
+.editor-kaya-menu button:hover, .editor-kaya-menu button:focus { background: var(--bs-tertiary-bg); }
+.editor-kaya-menu small { display: block; color: var(--bs-secondary-color); }
+.editor-kaya-unggah { font-size: .8rem; padding: .25rem .75rem; border-top: 1px solid var(--bs-border-color); }
+
+.isi-kaya h3 { font-size: 1.05rem; font-weight: 700; margin: .6rem 0 .3rem; }
+.isi-kaya h4 { font-size: .95rem; font-weight: 700; margin: .5rem 0 .25rem; }
+.isi-kaya p { margin: 0 0 .45rem; }
+.isi-kaya ul, .isi-kaya ol { margin: 0 0 .45rem; padding-left: 1.4rem; }
+.isi-kaya blockquote { border-left: 3px solid var(--bs-border-color); padding-left: .6rem; color: var(--bs-secondary-color); margin: 0 0 .45rem; }
+.isi-kaya ul.cek { list-style: none; padding-left: .1rem; }
+.isi-kaya ul.cek li { position: relative; padding-left: 1.65rem; margin-bottom: .15rem; }
+.isi-kaya ul.cek li::before { content: ""; position: absolute; left: 0; top: .18em; width: 1.1em; height: 1.1em; border: 1.5px solid var(--bs-secondary-color);
+  border-radius: .25em; background: var(--bs-body-bg); font-size: .9em; line-height: 1.05em; text-align: center; color: #fff; }
+.isi-kaya ul.cek li[data-cek="1"] { color: var(--bs-secondary-color); text-decoration: line-through; }
+.isi-kaya ul.cek li[data-cek="1"]::before { content: "\2713"; background: #2fb344; border-color: #2fb344; }
+.editor-kaya-tulis ul.cek li::before { cursor: pointer; }
+.isi-kaya figure { margin: .5rem 0; }
+.isi-kaya img, .isi-kaya video { display: block; max-width: 100%; max-height: 360px; border-radius: .5rem; background: #000; }
+.isi-kaya img { background: none; }
+.isi-kaya table { border-collapse: collapse; font-size: .85em; margin: .3rem 0 .6rem; }
+.isi-kaya th, .isi-kaya td { border: 1px solid var(--bs-border-color); padding: 2px 8px; vertical-align: top; }
+.isi-kaya th { background: var(--bs-tertiary-bg); }
+.isi-kaya [data-sumber] { position: relative; }
+
+/* Riwayat versi */
+.riwayat-versi { list-style: none; padding-left: 0; margin: 0; border-left: 2px solid var(--bs-border-color); }
+.riwayat-versi > li { position: relative; padding: 0 0 .75rem 1rem; }
+.riwayat-versi > li::before { content: ""; position: absolute; left: -6px; top: .3rem; width: 10px; height: 10px; border-radius: 50%; background: var(--bs-primary); }
+.riwayat-versi > li:first-child::before { background: #2fb344; }
+.beda-tambah { background: rgba(47, 179, 68, .2); text-decoration: none; }
+.beda-hapus { background: rgba(214, 57, 57, .18); text-decoration: line-through; }

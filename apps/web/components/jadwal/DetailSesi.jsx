@@ -19,6 +19,7 @@ function VideoSesi({ jadwal, bolehUbah }) {
   );
 }
 import { kelompokPerangkat } from "./perangkat";
+import Pengisi from "@/components/dashboard/Pengisi";
 import { STATUS_MAP, parseLokal, rentangJam, tanggalPanjang, targetStnkm, urlLampiran, judulSesi } from "@/app/dashboard/jadwal/_lib/jadwal";
 
 const WARNA_DIM = { S: "primary", T: "success", N: "info", K: "warning", M: "danger" };
@@ -72,7 +73,7 @@ export default function DetailSesi({ jadwal, bolehUbah = true, onClose, onEdit, 
         </div>
         {!bolehUbah && <div className="small text-body-secondary mb-3"><i className="bi bi-lock me-1"></i>Jadwal guru lain: hanya dapat dilihat.</div>}
 
-        {jadwal.guru && <Baris icon="bi-person">{jadwal.guru.nama_guru}</Baris>}
+        {(jadwal.guru || jadwal.pembuat) && <Baris icon="bi-person"><Pengisi sebaris guru={jadwal.guru?.nama_guru} idGuru={jadwal.id_guru} pengisi={jadwal.pembuat?.name} idGuruPengisi={jadwal.pembuat?.id_guru} /></Baris>}
         {(jadwal.kelas || jadwal.ruangan) && (
           <Baris icon="bi-geo-alt">{[jadwal.kelas?.nama_kelas, jadwal.ruangan?.nama_ruangan].filter(Boolean).join(" · ")}</Baris>
         )}

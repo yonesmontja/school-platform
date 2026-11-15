@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { pengisiLain } from "@/components/dashboard/Pengisi";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
 import FullCalendar from "@fullcalendar/react";
@@ -230,7 +231,7 @@ export default function JadwalPage() {
           <span className="fw-semibold">{arg.event.title}</span>
           {r.materi?.nama_materi && <span className="text-body-secondary small">· {r.materi.nama_materi}</span>}
           {lokasi && <span className="text-body-secondary small"><i className="bi bi-geo-alt me-1"></i>{lokasi}</span>}
-          {r.guru && <span className="text-body-secondary small"><i className="bi bi-person me-1"></i>{r.guru.nama_guru}</span>}
+          {r.guru && <span className="text-body-secondary small"><i className="bi bi-person me-1"></i>{r.guru.nama_guru}{pengisiLain({ guru: r.guru.nama_guru, idGuru: r.id_guru, pengisi: r.pembuat?.name, idGuruPengisi: r.pembuat?.id_guru }) && <span title="Akun yang menginput"> · diisi {r.pembuat.name}</span>}</span>}
           <span className={`badge rounded-pill text-bg-${st.color} ms-auto`}>{st.label}</span>
         </div>
       );

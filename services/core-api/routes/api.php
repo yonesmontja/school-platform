@@ -250,6 +250,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/{id}/bukti', [RemedialController::class, 'hapusBukti']);
         });
 
+        // Foto/video yang disisipkan di editor catatan (pembinaan, catatan progres)
+        Route::post('/lampiran', [\App\Http\Controllers\Api\LampiranController::class, 'store']);
+
         // Jurnal: semua kelas; guru hanya mengubah/menghapus catatan miliknya
         Route::prefix('jurnal')->group(function () {
             Route::get('/', [JurnalController::class, 'index']);
@@ -258,6 +261,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/import', [JurnalController::class, 'importBatch']);
             Route::put('/{id}', [JurnalController::class, 'update']);
             Route::patch('/{id}/sensitif', [JurnalController::class, 'tandaiSensitif']);
+            Route::get('/{id}/riwayat', [JurnalController::class, 'riwayat']);
             Route::delete('/{id}', [JurnalController::class, 'destroy']);
         });
 
@@ -270,6 +274,10 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/mapel', [PresensiController::class, 'simpanMapel']);
             // Pembinaan siswa yang kehadirannya perlu perhatian
             Route::get('/pembinaan', [PembinaanPresensiController::class, 'index']);
+            Route::get('/pembinaan/konteks', [PembinaanPresensiController::class, 'konteks']);
+            Route::post('/pembinaan/ai', [PembinaanPresensiController::class, 'ai']);
+            Route::get('/pembinaan/{id}', [PembinaanPresensiController::class, 'detail']);
+            Route::post('/pembinaan/{id}/progres', [PembinaanPresensiController::class, 'progres']);
             Route::post('/pembinaan', [PembinaanPresensiController::class, 'store']);
             Route::put('/pembinaan/{id}', [PembinaanPresensiController::class, 'update']);
             Route::patch('/pembinaan/{id}/status', [PembinaanPresensiController::class, 'status']);

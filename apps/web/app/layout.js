@@ -9,6 +9,7 @@ import './jadwal.css';
 import './program-ajar.css';
 import './tema-tabler.css';
 import './mobile.css';
+import './editor-kaya.css';
 import Script from 'next/script';
 import { THEME_INIT_SCRIPT } from './lib/themeScript';
 

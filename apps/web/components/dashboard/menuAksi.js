@@ -59,7 +59,13 @@ export function bukaMenuAksi(anchor, items) {
     else if (e.key === "ArrowUp") { e.preventDefault(); item[(i - 1 + item.length) % item.length]?.focus(); }
     else if (e.key === "Tab") tutup();
   };
-  const geser = (e) => { if (!el.contains(e.target)) tutup(); };
+  // Tutup hanya bila guliran itu menggeser tombol pemicunya (halaman atau kontainer yang memuat tombol);
+  // guliran kontainer lain (mis. tabel/editor di bagian lain halaman) tidak menutup menu
+  const geser = (e) => {
+    if (el.contains(e.target)) return;
+    const t = e.target;
+    if (t === document || t === document.documentElement || t === document.body || (t?.contains && t.contains(anchor))) tutup();
+  };
   // Didengar di window fase capture (lebih dulu dari handler delegasi Bootstrap yang juga capture di document).
   // Tombol di dalam menu tidak diteruskan: Bootstrap akan mencari tombol data-bs-toggle untuk .dropdown-menu ini,
   // yang tidak ada, lalu melempar error.
@@ -67,13 +73,16 @@ export function bukaMenuAksi(anchor, items) {
     if (el.contains(e.target) && ["Escape", "ArrowDown", "ArrowUp", "Tab"].includes(e.key)) e.stopPropagation();
     tombol(e);
   };
-  setTimeout(() => document.addEventListener("mousedown", luar), 0);
+  // Klik di luar didengar setelah klik pembuka selesai. Bila menu sudah ditutup sebelum itu (mis. langsung tergulir),
+  // pemasangan dibatalkan; tanpa ini pendengar lama tertinggal dan menutup setiap menu baru saat itemnya ditekan.
+  const tunda = setTimeout(() => document.addEventListener("mousedown", luar), 0);
   window.addEventListener("keydown", tombolLuar, true);
   window.addEventListener("scroll", geser, true);
   window.addEventListener("resize", tutup);
   menuAktif = {
     el, anchor,
     lepas: () => {
+      clearTimeout(tunda);
       document.removeEventListener("mousedown", luar);
       window.removeEventListener("keydown", tombolLuar, true);
       window.removeEventListener("scroll", geser, true);

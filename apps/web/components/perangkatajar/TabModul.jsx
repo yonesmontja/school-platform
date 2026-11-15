@@ -8,6 +8,7 @@ import { cetakModul, unduhWord } from "./cetakModul";
 import { VideoTertaut } from "@/components/video/video";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 /** Daftar modul ajar RPM; dibuat dari ATP yang disetujui atau dari TP langsung. */
 export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulAwal }) {
@@ -56,7 +57,7 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulA
                   <div className="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
                     <div className="me-auto min-w-0">
                       <div className="fw-semibold">{m.judul}</div>
-                      <div className="small text-muted">{m.mapel?.nama_mapel}{m.kelas && ` · ${m.kelas.nama_kelas}`}{m.materi && ` · ${m.materi.nama_materi}`} · {m.jumlah_pertemuan} pertemuan · {(m.tp || []).length} TP · {m.pembuat?.name}</div>
+                      <div className="small text-muted">{m.mapel?.nama_mapel}{m.kelas && ` · ${m.kelas.nama_kelas}`}{m.materi && ` · ${m.materi.nama_materi}`} · {m.jumlah_pertemuan} pertemuan · {(m.tp || []).length} TP · <Pengisi sebaris kosong="" {...pengisiMapel(m)} /></div>
                       {m.pertemuan_selesai > 0 && (
                         <div className="progress mt-1" style={{ height: 6, maxWidth: 220 }} title={`${m.pertemuan_selesai} dari ${m.jumlah_pertemuan} pertemuan selesai menurut Jadwal`}>
                           <div className="progress-bar bg-success" style={{ width: `${Math.min(100, (m.pertemuan_selesai / m.jumlah_pertemuan) * 100)}%` }}></div>

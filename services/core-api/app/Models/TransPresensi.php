@@ -16,5 +16,6 @@ class TransPresensi extends Model
 
     protected $casts = ['tanggal' => 'date:Y-m-d'];
 
+    public function pencatat(): BelongsTo { return $this->belongsTo(User::class, 'dicatat_oleh'); }
     public function siswa(): BelongsTo { return $this->belongsTo(Student::class, 'id_siswa', 'id_siswa'); }
 }

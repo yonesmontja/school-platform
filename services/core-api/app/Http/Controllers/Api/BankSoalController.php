@@ -29,8 +29,8 @@ use Illuminate\Validation\ValidationException;
 class BankSoalController extends Controller
 {
     private const RELASI = [
-        'mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi',
-        'indikator:id_indikator,deskripsi,urutan', 'pembuat:id,name', 'penyetuju:id,name',
+        'mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi',
+        'indikator:id_indikator,deskripsi,urutan', 'pembuat:id,name,id_guru', 'penyetuju:id,name',
         'video:id_video,judul,file_url,poster_url,durasi_detik,status',
     ];
     private const MAKS_DRAF = 10;

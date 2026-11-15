@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { BENTUK, DIMENSI, KESULITAN, LEVEL, STATUS, labelBentuk } from "./konstanta";
 import ModalDrafAI from "./ModalDrafAI";
 import { minta } from "./api";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const barisBaru = () => ({ id_materi: "", id_indikator: "", bentuk: "PG", level_kognitif: "C2", tingkat_kesulitan: "SEDANG", dimensi: "T", jumlah: 2 });
 
@@ -227,7 +228,7 @@ export default function KisiKisi({ referensi, onSoalBerubah }) {
               {daftar.map((k) => (
                 <button key={k.id_kisi} type="button" className="list-group-item list-group-item-action d-flex flex-wrap align-items-center gap-2" onClick={() => buka(k.id_kisi)}>
                   <span className="fw-semibold me-auto">{k.judul}</span>
-                  <span className="small text-muted">{k.mapel?.nama_mapel}{k.kelas && ` · ${k.kelas.nama_kelas}`} · {Number(k.jumlah_soal_rencana) || 0} soal{k.pembuat && ` · ${k.pembuat.name}`}</span>
+                  <span className="small text-muted">{k.mapel?.nama_mapel}{k.kelas && ` · ${k.kelas.nama_kelas}`} · {Number(k.jumlah_soal_rencana) || 0} soal{k.pembuat && <> · <Pengisi sebaris {...pengisiMapel(k)} /></>}</span>
                   <i className="bi bi-chevron-right text-muted"></i>
                 </button>
               ))}

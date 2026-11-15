@@ -7,6 +7,7 @@ import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
 import { WARNA_CABANG, diagramPeta } from "./jaring";
 import { cetakPetaTema, unduhPngPetaTema, unduhWordPetaTema } from "./cetakPetaTema";
+import Pengisi from "@/components/dashboard/Pengisi";
 
 const HARI = [["senin", "Senin"], ["selasa", "Selasa"], ["rabu", "Rabu"], ["kamis", "Kamis"], ["jumat", "Jumat"], ["sabtu", "Sabtu"]];
 const KOLOM_MINGGU = [
@@ -73,7 +74,7 @@ export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) 
                         <div className="me-auto min-w-0">
                           {t.jaring?.kategori && <div className="small text-primary fw-semibold text-uppercase" style={{ letterSpacing: ".06em" }}>{t.jaring.kategori}</div>}
                           <div className="fw-semibold">{t.judul}</div>
-                          <div className="small text-muted">{t.kelas?.nama_kelas || "Semua kelas"} · {t.jumlah_minggu} minggu · {t.jumlah_mapel} mapel · {t.jumlah_konsep} konsep · {t.pembuat?.name}</div>
+                          <div className="small text-muted">{t.kelas?.nama_kelas || "Semua kelas"} · {t.jumlah_minggu} minggu · {t.jumlah_mapel} mapel · {t.jumlah_konsep} konsep · <Pengisi sebaris kosong="" pengisi={t.pembuat?.name} /></div>
                         </div>
                         <MenuAksi label={`Aksi untuk ${t.judul}`} items={itemTema(t)} />
                       </div>

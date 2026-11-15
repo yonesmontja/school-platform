@@ -38,6 +38,7 @@ class JadwalController extends Controller
 
     private const RELASI = [
         'guru:id_guru,nama_guru,no_wa',
+        'pembuat:id,name,id_guru',
         'mapel:id_mapel,nama_mapel',
         'materi:id_materi,nama_materi,mat_S,mat_T,mat_N,mat_K,mat_M',
         'kelas:id_kelas,nama_kelas',

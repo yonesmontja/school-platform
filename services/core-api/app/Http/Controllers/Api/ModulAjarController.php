@@ -27,8 +27,8 @@ use Illuminate\Validation\Rule;
  */
 class ModulAjarController extends Controller
 {
-    private const RELASI = ['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester',
-        'atp:id_atp,judul', 'materi:id_materi,nama_materi', 'paket:id_paket,judul,tanggal', 'pembuat:id,name', 'penyetuju:id,name'];
+    private const RELASI = ['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester',
+        'atp:id_atp,judul', 'materi:id_materi,nama_materi', 'paket:id_paket,judul,tanggal', 'pembuat:id,name,id_guru', 'penyetuju:id,name'];
 
     public function index(Request $request)
     {

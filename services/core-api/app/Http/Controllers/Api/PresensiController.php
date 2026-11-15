@@ -48,10 +48,12 @@ class PresensiController extends Controller
                 ->where('id_kelas', $request->id_kelas)
                 ->orderBy('nama_siswa')
                 ->get(['id_siswa', 'nisn', 'nama_siswa', 'no_wa', 'id_ortu', 'id_wali']),
-            'presensi' => TransPresensi::where('id_kelas', $request->id_kelas)
+            'presensi' => TransPresensi::with('pencatat:id,name,id_guru')->where('id_kelas', $request->id_kelas)
                 ->where('id_periode', $request->id_periode)
                 ->orderByDesc('tanggal')
-                ->get(['id_presensi', 'tanggal', 'id_siswa', 'status_kehadiran', 'keterangan', 'sumber']),
+                ->get(['id_presensi', 'tanggal', 'id_siswa', 'status_kehadiran', 'keterangan', 'sumber', 'dicatat_oleh']),
+            // Wali kelas = guru yang tercatat untuk presensi harian; penginput lain ditampilkan "diisi …"
+            'wali_kelas' => \App\Models\Classes::with('waliKelas:id_guru,nama_guru')->find($request->id_kelas)?->waliKelas,
         ]);
     }
 

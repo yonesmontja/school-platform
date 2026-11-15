@@ -6,6 +6,7 @@ import { minta } from "@/components/banksoal/api";
 import { cetakAtp } from "./cetakAtp";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const barisKosong = () => ({ id_cp: "", id_materi: "", materi_usulan: "", id_indikator: "", tp_usulan: "", alokasi_jp: "", minggu: "", dimensi: "", profil_lulusan: [], catatan: "" });
 const keEditor = (b) => ({ ...barisKosong(), ...Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v ?? (k === "profil_lulusan" ? [] : "")])) });
@@ -59,7 +60,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
                   <div className="card-body py-2 d-flex flex-wrap gap-2 align-items-center">
                     <div className="me-auto min-w-0">
                       <div className="fw-semibold">{a.judul}</div>
-                      <div className="small text-muted">{a.mapel?.nama_mapel}{a.kelas && ` · ${a.kelas.nama_kelas}`}{a.fase && ` · Fase ${a.fase}`}{a.periode && ` · ${periodeLabel(a.periode)}`} · {a.baris_count} TP · {a.pembuat?.name}</div>
+                      <div className="small text-muted">{a.mapel?.nama_mapel}{a.kelas && ` · ${a.kelas.nama_kelas}`}{a.fase && ` · Fase ${a.fase}`}{a.periode && ` · ${periodeLabel(a.periode)}`} · {a.baris_count} TP · <Pengisi sebaris kosong="" {...pengisiMapel(a)} /></div>
                       {a.status === "REVISI" && a.catatan_revisi && <div className="small text-danger"><i className="bi bi-chat-left-text me-1"></i>{a.catatan_revisi}</div>}
                     </div>
                     <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.icon} me-1`}></i>{st.label}</span>
@@ -262,7 +263,7 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
         <button className="btn btn-sm btn-outline-secondary" onClick={tutup} aria-label="Kembali ke daftar ATP"><i className="bi bi-arrow-left"></i></button>
         <div className="me-auto min-w-0">
           <div className="fw-bold fs-5">{atp.judul}</div>
-          <div className="small text-muted">{atp.mapel?.nama_mapel}{atp.kelas && ` · ${atp.kelas.nama_kelas}`}{atp.fase && ` · Fase ${atp.fase}`}{atp.periode && ` · ${periodeLabel(atp.periode)}`} · {atp.pembuat?.name}
+          <div className="small text-muted">{atp.mapel?.nama_mapel}{atp.kelas && ` · ${atp.kelas.nama_kelas}`}{atp.fase && ` · Fase ${atp.fase}`}{atp.periode && ` · ${periodeLabel(atp.periode)}`} · <Pengisi sebaris kosong="" {...pengisiMapel(atp)} />
             {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{atp.versi > 1 && <span className="badge text-bg-light border ms-1">v{atp.versi}</span>}</div>
           {atp.status === "REVISI" && atp.catatan_revisi && <div className="alert alert-danger py-1 px-2 small mt-1 mb-0"><b>Catatan kepala sekolah:</b> {atp.catatan_revisi}</div>}
         </div>

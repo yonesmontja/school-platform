@@ -13,6 +13,7 @@ import ImporSoal from "@/components/banksoal/ImporSoal";
 import PaketSoal from "@/components/banksoal/PaketSoal";
 import { minta } from "@/components/banksoal/api";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const TAB = [
   { id: "soal", label: "Bank Soal", icon: "bi-collection" },
@@ -238,7 +239,7 @@ function BankSoalPage() {
                               : <div className="text-truncate">{s.pertanyaan}</div>}
                             <div className="small text-muted mt-1">
                               {s.mapel?.nama_mapel}{s.kelas && ` · ${s.kelas.nama_kelas}`} · {s.indikator?.deskripsi || s.materi?.nama_materi || "TP belum dipilih"}
-                              {s.pembuat && ` · ${s.pembuat.name}`}{s.versi > 1 && ` · versi ${s.versi}`}
+                              {s.pembuat && <> · <Pengisi sebaris {...pengisiMapel(s)} /></>}{s.versi > 1 && ` · versi ${s.versi}`}
                             </div>
                             {s.status === "REVISI" && s.catatan_revisi && <div className="small text-danger-emphasis mt-1"><i className="bi bi-chat-left-quote me-1"></i>{s.catatan_revisi}</div>}
                           </div>

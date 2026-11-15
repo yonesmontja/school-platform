@@ -36,7 +36,7 @@ use Illuminate\Validation\ValidationException;
  */
 class VideoBelajarController extends Controller
 {
-    private const RELASI = ['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi', 'pembuat:id,name'];
+    private const RELASI = ['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi', 'pembuat:id,name,id_guru'];
     private const MAKS_KB = 20 * 1024;
     private const MIME_VIDEO = ['video/mp4' => 'mp4', 'video/webm' => 'webm'];
     private const MIME_POSTER = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -524,7 +524,7 @@ class VideoBelajarController extends Controller
         $kelas = Student::whereIn('id_siswa', $request->user()->siswaTerjangkau())->with('kelas:id_kelas,nama_kelas')->get()->pluck('kelas')->filter()->unique('id_kelas');
         $idKelas = $kelas->pluck('id_kelas')->all();
         $fase = $kelas->map(fn($k) => CapaianPembelajaran::faseKelas($k->nama_kelas))->filter()->unique()->values()->all();
-        $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')->where('tujuan', 'PEMBELAJARAN')
+        $data = VideoBelajar::with(['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'materi:id_materi,nama_materi'])->where('status', 'DISETUJUI')->where('tujuan', 'PEMBELAJARAN')
             ->where(fn($q) => $q->whereIn('id_kelas', $idKelas)->orWhere(fn($w) => $w->whereNull('id_kelas')->where(fn($f) => $f->whereNull('fase')->orWhereIn('fase', $fase))))
             ->orderByDesc('disetujui_pada')->get(['id_video', 'judul', 'deskripsi', 'id_mapel', 'id_materi', 'file_url', 'poster_url', 'durasi_detik', 'ukuran_kb', 'rasio', 'disetujui_pada']);
         return response()->json(['data' => $data]);
@@ -594,7 +594,7 @@ class VideoBelajarController extends Controller
     {
         $tautan = $video->tautan()->get();
         $modul = ModulAjar::whereIn('id_modul', $tautan->where('jenis', 'MODUL')->pluck('id_target'))->pluck('judul', 'id_modul');
-        $jadwal = TransJadwal::with('mapel:id_mapel,nama_mapel')->whereIn('id_jadwal', $tautan->where('jenis', 'JADWAL')->pluck('id_target'))->get()->keyBy('id_jadwal');
+        $jadwal = TransJadwal::with('mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru')->whereIn('id_jadwal', $tautan->where('jenis', 'JADWAL')->pluck('id_target'))->get()->keyBy('id_jadwal');
         $hasil = $tautan->map(fn($t) => $t->jenis === 'MODUL'
             ? ['jenis' => 'Modul ajar', 'judul' => ($modul[$t->id_target] ?? 'Modul') . ($t->pertemuan_ke ? " · pertemuan {$t->pertemuan_ke}" : '')]
             : ['jenis' => 'Jadwal', 'judul' => trim(($jadwal[$t->id_target]?->mapel?->nama_mapel ?? $jadwal[$t->id_target]?->judul ?? 'Sesi') . ' · ' . ($jadwal[$t->id_target]?->mulai?->translatedFormat('d M Y H:i') ?? ''))])->all();

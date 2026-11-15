@@ -10,6 +10,7 @@ import AnalisisPaket from "./AnalisisPaket";
 import TesOnline from "./TesOnline";
 import { cetakPaket } from "./cetakPaket";
 import { minta } from "./api";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const BAGIAN = [
   { id: "susun", label: "Susun", icon: "bi-list-ol" },
@@ -119,7 +120,7 @@ export default function PaketSoal({ referensi }) {
                     <div className="fw-semibold text-truncate">{p.judul}</div>
                     <div className="small text-muted">
                       {p.mapel?.nama_mapel} · {p.kelas?.nama_kelas || "-"}{p.tanggal && ` · ${new Date(p.tanggal + "T00:00:00").toLocaleDateString("id-ID")}`} · {p.butir_count} soal
-                      {p.pembuat && ` · ${p.pembuat.name}`}
+                      {p.pembuat && <> · <Pengisi sebaris {...pengisiMapel(p)} /></>}
                     </div>
                   </button>
                   <span className="badge text-bg-light border">{p.jawaban_lengkap_count}/{p.jawaban_count} dikoreksi</span>

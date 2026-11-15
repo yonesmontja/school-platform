@@ -31,8 +31,8 @@ use Illuminate\Validation\ValidationException;
  */
 class PaketSoalController extends Controller
 {
-    private const RELASI = ['mapel:id_mapel,nama_mapel,kkm', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester',
-        'jenis:id_jenis,kategori_penilaian,keterangan', 'kisi:id_kisi,judul', 'pembuat:id,name'];
+    private const RELASI = ['mapel:id_mapel,nama_mapel,kkm,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester',
+        'jenis:id_jenis,kategori_penilaian,keterangan', 'kisi:id_kisi,judul', 'pembuat:id,name,id_guru'];
     private const FOTO_MIME = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
     private const MAKS_BUTIR = 100;
     private const MAKS_FOTO = 4;

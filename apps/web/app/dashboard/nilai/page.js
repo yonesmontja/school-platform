@@ -13,6 +13,7 @@ import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/ap
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
 import RingkasanNilai from "@/components/nilai/RingkasanNilai";
+import Pengisi, { pengisiLain as pengisiBerbeda, teksPengisi } from "@/components/dashboard/Pengisi";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -74,7 +75,7 @@ const samaPeta = (a = {}, b = {}) => {
 };
 // Guru penilai (Master Guru); nama akun pengisi disebut bila berbeda, mis. admin yang mengisi atas nama guru
 const namaGuru = (r) => r.guru?.nama_guru || r.id_guru || "-";
-const pengisiLain = (r) => (r.pengisi?.name && r.pengisi.name !== r.guru?.nama_guru ? r.pengisi.name : null);
+const pengisiNilai = (r) => ({ guru: r.guru?.nama_guru || r.id_guru, idGuru: r.id_guru, pengisi: r.pengisi?.name, idGuruPengisi: r.pengisi?.id_guru });
 const singkat = (teks, n = 28) => (teks.length > n ? `${teks.slice(0, n - 1)}…` : teks);
 const labelPeriode = (p) => (p ? `${p.tahun_ajaran} (${p.semester})` : "-");
 
@@ -715,7 +716,8 @@ function InputNilaiPage() {
       "Tipe": r.tipe_nilai === "REMEDIAL" ? "Remedial" : "Reguler",
       "Tindak Lanjut": r.rencana ? `${r.rencana.opsi_tindakan} (${STATUS_RENCANA[r.rencana.status]?.label || r.rencana.status})` : "-",
       "Guru": namaGuru(r),
-      "Diisi Oleh": r.pengisi?.name || "-",
+      "Diisi Oleh": pengisiBerbeda(pengisiNilai(r)) || "-",
+      "Guru / Pengisi": teksPengisi(pengisiNilai(r)),
     };
   });
 
@@ -1322,12 +1324,15 @@ function InputNilaiPage() {
                                   {r.rencana.nilai_remedial && ` → ${formatAngka(Number(r.rencana.nilai_remedial.nilai))}`}
                                   {buktiRencana(r.rencana) && <i className="bi bi-paperclip ms-1" title="Ada bukti pelaksanaan" aria-label="Ada bukti pelaksanaan"></i>}
                                 </span>
+                                {/* Rencana tindak lanjut dibuat akun lain → "diisi …" (aturan sama dengan kolom Guru) */}
+                                {pengisiBerbeda({ ...pengisiNilai(r), pengisi: r.rencana.pembuat?.name, idGuruPengisi: r.rencana.pembuat?.id_guru }) && (
+                                  <small className="d-block text-muted" title="Akun yang membuat rencana tindak lanjut">rencana diisi {r.rencana.pembuat.name}</small>
+                                )}
                               </div>
                             )}
                           </td>
                           <td>
-                            <span className="badge bg-body-secondary text-body-secondary border fw-normal">{namaGuru(r)}</span>
-                            {pengisiLain(r) && <small className="d-block text-muted" title="Akun yang menginput">diisi {pengisiLain(r)}</small>}
+                            <Pengisi {...pengisiNilai(r)} />
                           </td>
                           <td className="text-center">
                             <div className="btn-group btn-group-sm">

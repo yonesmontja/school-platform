@@ -20,7 +20,7 @@ class KisiKisiController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $data = KisiKisi::with(['mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas', 'pembuat:id,name'])
+        $data = KisiKisi::with(['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'pembuat:id,name,id_guru'])
             ->withSum('baris as jumlah_soal_rencana', 'jumlah')
             ->when(!$user->isPengelola(), fn($q) => $q->where('dibuat_oleh', $user->id))
             ->when($request->filled('id_mapel'), fn($q) => $q->where('id_mapel', $request->id_mapel))
@@ -31,7 +31,7 @@ class KisiKisiController extends Controller
     public function show(Request $request, string $id)
     {
         $kisi = KisiKisi::with([
-            'mapel:id_mapel,nama_mapel', 'kelas:id_kelas,nama_kelas',
+            'mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas',
             'baris.materi:id_materi,nama_materi', 'baris.indikator:id_indikator,deskripsi',
         ])->findOrFail($id);
         $this->cekLihat($request, $kisi);

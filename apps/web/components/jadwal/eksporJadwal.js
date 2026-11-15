@@ -2,6 +2,7 @@
 // kop sekolah, tanda tangan kepala sekolah, nomor halaman) atau PNG (tata letak HTML yang sama, digambar ke kanvas).
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { teksPengisi } from "@/components/dashboard/Pengisi";
 import { GAYA_RESMI, esc, judulHtml, kopHtml, muatSekolah, ttdHtml } from "@/app/lib/dokumenResmi";
 import { ATAS_ISI, gayaTabelResmi, kopPdf, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
 
@@ -27,7 +28,7 @@ const tpSesi = (r) => (r.perangkat || []).filter((p) => p.jenis === "ATP" || p.j
 export function susunData(rows, { bentuk, dari, sampai }) {
   const sesi = rows.map((r) => ({ ...r, _m: parse(r.mulai), _s: parse(r.selesai) })).filter((r) => r._m >= dari && r._m < sampai).sort((a, b) => a._m - b._m);
   if (bentuk === "daftar") {
-    return { bentuk, sesi, baris: sesi.map((r, i) => [i + 1, tglPendek(r._m), `${jam(r._m)}–${jam(r._s)}`, namaSesi(r), r.guru?.nama_guru || "-", r.kelas?.nama_kelas || "-", r.ruangan?.nama_ruangan || "-", tpSesi(r), r.status_sesi || ""]) };
+    return { bentuk, sesi, baris: sesi.map((r, i) => [i + 1, tglPendek(r._m), `${jam(r._m)}–${jam(r._s)}`, namaSesi(r), teksPengisi({ guru: r.guru?.nama_guru, idGuru: r.id_guru, pengisi: r.guru ? r.pembuat?.name : null, idGuruPengisi: r.pembuat?.id_guru }), r.kelas?.nama_kelas || "-", r.ruangan?.nama_ruangan || "-", tpSesi(r), r.status_sesi || ""]) };
   }
   // Roster: per minggu, baris = rentang jam unik, kolom = Senin–Sabtu
   const minggu = [];

@@ -24,7 +24,7 @@ use Illuminate\Validation\Rule;
  */
 class PetaTemaController extends Controller
 {
-    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name', 'penyetuju:id,name'];
+    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru', 'penyetuju:id,name'];
 
     /** Mapel (semua) beserta TP aktif per mapel untuk kelas itu, untuk memilih cabang & TP. */
     public function referensi(Request $request)
@@ -200,7 +200,7 @@ class PetaTemaController extends Controller
         $zona = config('app.zona_sekolah');
         $acuan = $request->filled('tanggal') ? Carbon::parse($request->tanggal, $zona) : ($peta->tanggal_mulai ? Carbon::parse($peta->tanggal_mulai, $zona) : Carbon::now($zona));
         $senin = $acuan->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
-        $sesi = TransJadwal::with(['mapel:id_mapel,nama_mapel', 'guru:id_guru,nama_guru'])->where('id_kelas', $peta->id_kelas)
+        $sesi = TransJadwal::with(['mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'guru:id_guru,nama_guru'])->where('id_kelas', $peta->id_kelas)
             ->where('status_sesi', '!=', 'Batal')->whereBetween('mulai', [$senin, $senin->copy()->addDays(6)])->orderBy('mulai')->get();
         $pola = collect(PetaTema::HARI)->mapWithKeys(function ($hari, $i) use ($sesi, $senin) {
             // Kolom mulai menyimpan jam dinding sekolah (lihat ProgramAjarService), jadi tidak dikonversi zona lagi

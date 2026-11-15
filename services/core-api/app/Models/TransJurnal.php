@@ -16,8 +16,16 @@ class TransJurnal extends Model
         'id_jurnal', 'tanggal', 'id_siswa', 'id_kelas', 'id_guru',
         'id_jenis', 'id_materi', 'narasi_kejadian', 'lampiran_url',
         'mode_dampak', 'sensitif', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M',
-        'ai_mode', 'ai_raw_response'
+        'ai_mode', 'ai_raw_response', 'dicatat_oleh'
     ];
+
+    // Akun yang menulis jurnal tercatat otomatis (form, impor, presensi, pembinaan); bisa berbeda dari guru yang tercatat
+    protected static function booted(): void
+    {
+        static::creating(function (self $j) {
+            if (!$j->dicatat_oleh && auth()->id()) $j->dicatat_oleh = auth()->id();
+        });
+    }
 
     protected $casts = [
         'tanggal' => 'date:Y-m-d',
@@ -38,6 +46,7 @@ class TransJurnal extends Model
         if (!$this->sensitif) return true;
         if (!$user) return false;
         if ($user->isAdmin() || $user->isKepsek()) return true;
+        if ($this->dicatat_oleh && $this->dicatat_oleh === $user->id) return true;
         return $user->isGuru() && $user->id_guru
             && ($this->id_guru === $user->id_guru || in_array($this->id_kelas, $user->kelasBinaan(), true));
     }
@@ -57,6 +66,20 @@ class TransJurnal extends Model
 
     public function siswa(): BelongsTo { return $this->belongsTo(Student::class, 'id_siswa', 'id_siswa'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
+    public const PEMISAH_RESPONS = "
+Respons siswa: ";
+
+    /** Isi satu versi catatan (riwayat seperti git): catatan & respons siswa dipisah, tanggal, dan skor STNKM. */
+    public function isiVersi(): array
+    {
+        [$catatan, $respons] = array_pad(explode(self::PEMISAH_RESPONS, (string) $this->narasi_kejadian, 2), 2, '');
+        return [
+            'tanggal' => $this->tanggal?->toDateString(), 'catatan' => $catatan, 'respons' => $respons,
+            'skor' => ['S' => (float) $this->val_S, 'T' => (float) $this->val_T, 'N' => (float) $this->val_N, 'K' => (float) $this->val_K, 'M' => (float) $this->val_M],
+        ];
+    }
+
+    public function pencatat(): BelongsTo { return $this->belongsTo(User::class, 'dicatat_oleh'); }
     public function guru(): BelongsTo { return $this->belongsTo(Teacher::class, 'id_guru', 'id_guru'); }
     public function jenis(): BelongsTo { return $this->belongsTo(MasterMBK::class, 'id_jenis', 'id_jenis'); }
     public function materi(): BelongsTo { return $this->belongsTo(MasterMateri::class, 'id_materi', 'id_materi'); }

@@ -10,6 +10,7 @@ import { srcGambar } from "@/components/banksoal/PratinjauSoal";
 import BuatDariTemplat from "@/components/video/BuatDariTemplat";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
+import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const SUMBER = { REMOTION: "Motion graphic (dibuat Claude/Remotion)", RENDER: "Dari templat aplikasi", UNGGAH: "Unggahan guru" };
 const MAKS_MB = 20;
@@ -171,7 +172,7 @@ function DetailVideo({ id, akses, referensi, onTutup, onBerubah }) {
           <div className="modal-content border-0 shadow">
             <div className="modal-header">
               <div className="min-w-0"><h5 className="modal-title fw-bold text-truncate">{v.judul}</h5>
-                <div className="small text-muted">{v.mapel?.nama_mapel || "Umum"}{v.kelas && ` · ${v.kelas.nama_kelas}`}{v.materi && ` · ${v.materi.nama_materi}`} · {durasi(v.durasi_detik)} · {v.ukuran_kb ? `${(v.ukuran_kb / 1024).toFixed(1)} MB` : ""} · {v.pembuat?.name}
+                <div className="small text-muted">{v.mapel?.nama_mapel || "Umum"}{v.kelas && ` · ${v.kelas.nama_kelas}`}{v.materi && ` · ${v.materi.nama_materi}`} · {durasi(v.durasi_detik)} · {v.ukuran_kb ? `${(v.ukuran_kb / 1024).toFixed(1)} MB` : ""} · <Pengisi sebaris kosong="" {...pengisiMapel(v)} />
                   <span className={`badge text-bg-${warna} ms-1`}>{label}</span>
                   {v.tujuan && v.tujuan !== "PEMBELAJARAN" && <span className="badge text-bg-info ms-1">{TUJUAN_VIDEO[v.tujuan]}</span>}</div></div>
               <button type="button" className="btn-close" onClick={onTutup} aria-label="Tutup"></button>
