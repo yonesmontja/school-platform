@@ -175,6 +175,62 @@ class PerangkatAjarTest extends TestCase
         $this->sebagai($this->sekolah->guruB)->getJson("/api/perangkat-ajar/modul/{$modul['id_modul']}")->assertNotFound();
     }
 
+    public function test_draf_yang_disiapkan_admin_tampil_dan_bisa_diubah_guru_pengampu(): void
+    {
+        $this->sebagai($this->sekolah->admin);
+        $idAtp = $this->postJson('/api/perangkat-ajar/atp', ['judul' => 'ATP dari admin', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'jp_per_minggu' => 5, 'minggu_efektif' => 18])
+            ->assertCreated()->json('data.id_atp');
+        $idModul = $this->postJson('/api/perangkat-ajar/modul', ['judul' => 'Modul dari admin', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'tp' => ['IND-1']])
+            ->assertCreated()->json('data.id_modul');
+
+        // Guru pengampu MPL-A melihat draf itu dan boleh mengubahnya
+        $this->sebagai($this->sekolah->guruA);
+        $modul = collect($this->getJson('/api/perangkat-ajar/modul')->json('data'))->firstWhere('id_modul', $idModul);
+        $this->assertSame(['DRAF', true], [$modul['status'] ?? null, $modul['boleh_ubah'] ?? null]);
+        $atp = collect($this->getJson('/api/perangkat-ajar/atp')->json('data'))->firstWhere('id_atp', $idAtp);
+        $this->assertTrue($atp['boleh_ubah'] ?? false);
+        $this->putJson("/api/perangkat-ajar/modul/{$idModul}", ['judul' => 'Modul dirapikan guru'])->assertOk()
+            ->assertJsonPath('data.boleh_ubah', true)->assertJsonPath('data.judul', 'Modul dirapikan guru');
+        $this->putJson("/api/perangkat-ajar/atp/{$idAtp}", ['judul' => 'ATP dirapikan guru'])->assertOk()->assertJsonPath('data.boleh_ubah', true);
+        $this->assertNotNull(\App\Models\ModulAjar::find($idModul)->dibuat_oleh);
+        $this->assertNotSame($this->sekolah->guruA->id, \App\Models\ModulAjar::find($idModul)->dibuat_oleh); // pembuat tetap tercatat
+
+        // Guru yang bukan pengampu tidak melihat dan tidak bisa mengubah
+        $this->sebagai($this->sekolah->guruB);
+        $this->assertNotContains($idModul, array_column($this->getJson('/api/perangkat-ajar/modul')->json('data'), 'id_modul'));
+        $this->assertNotContains($idAtp, array_column($this->getJson('/api/perangkat-ajar/atp')->json('data'), 'id_atp'));
+        $this->putJson("/api/perangkat-ajar/modul/{$idModul}", ['judul' => 'x'])->assertForbidden();
+    }
+
+    public function test_guru_hanya_tiga_kali_menyunting_dokumen_yang_sudah_disetujui(): void
+    {
+        $this->sebagai($this->sekolah->guruA);
+        $id = $this->postJson('/api/perangkat-ajar/modul', ['judul' => 'Pecahan', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'tp' => ['IND-1']])->json('data.id_modul');
+        $idAtp = $this->postJson('/api/perangkat-ajar/atp', ['judul' => 'ATP', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'jp_per_minggu' => 5, 'minggu_efektif' => 18])->json('data.id_atp');
+        $setujui = fn() => [\App\Models\ModulAjar::whereKey($id)->update(['status' => 'DISETUJUI']), Atp::whereKey($idAtp)->update(['status' => 'DISETUJUI'])];
+
+        // Draf biasa tidak menghitung jatah
+        $this->putJson("/api/perangkat-ajar/modul/{$id}", ['judul' => 'Pecahan (draf)'])->assertOk()->assertJsonPath('data.suntingan_setuju', 0);
+
+        foreach ([1, 2, 3] as $versi) {
+            $setujui();
+            $this->putJson("/api/perangkat-ajar/modul/{$id}", ['judul' => "Pecahan versi {$versi}"])->assertOk()
+                ->assertJsonPath('data.suntingan_setuju', $versi)->assertJsonPath('data.status', 'DRAF');
+            $this->putJson("/api/perangkat-ajar/atp/{$idAtp}", ['judul' => "ATP versi {$versi}"])->assertOk()->assertJsonPath('data.suntingan_setuju', $versi);
+        }
+
+        // Versi 3 disetujui: guru tidak bisa menyunting lagi
+        $setujui();
+        $this->getJson("/api/perangkat-ajar/modul/{$id}")->assertOk()->assertJsonPath('data.boleh_ubah', false);
+        $this->putJson("/api/perangkat-ajar/modul/{$id}", ['judul' => 'Versi 4'])->assertForbidden();
+        $this->putJson("/api/perangkat-ajar/atp/{$idAtp}", ['judul' => 'Versi 4'])->assertForbidden();
+        $this->deleteJson("/api/perangkat-ajar/modul/{$id}")->assertForbidden();
+        $this->assertFalse(collect($this->getJson('/api/perangkat-ajar/atp')->json('data'))->firstWhere('id_atp', $idAtp)['boleh_ubah']);
+
+        // Admin tetap bisa mengubah
+        $this->sebagai($this->sekolah->admin)->putJson("/api/perangkat-ajar/modul/{$id}", ['judul' => 'Diubah admin'])->assertOk();
+    }
+
     public function test_jadwal_menautkan_pertemuan_modul_dan_rencana_tampil_di_jurnal(): void
     {
         $isi = \App\Models\ModulAjar::kosong(2);

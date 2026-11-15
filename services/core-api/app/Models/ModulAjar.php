@@ -25,10 +25,10 @@ class ModulAjar extends Model
     protected $keyType = 'string';
     protected $fillable = [
         'id_modul', 'judul', 'id_mapel', 'id_kelas', 'id_periode', 'id_atp', 'id_materi', 'id_paket', 'fase', 'tp',
-        'jumlah_pertemuan', 'jp_per_pertemuan', 'isi', 'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode',
+        'jumlah_pertemuan', 'jp_per_pertemuan', 'isi', 'status', 'catatan_revisi', 'versi', 'suntingan_setuju', 'sumber', 'ai_mode',
         'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada',
     ];
-    protected $casts = ['tp' => 'array', 'isi' => 'array', 'jumlah_pertemuan' => 'integer', 'jp_per_pertemuan' => 'integer', 'versi' => 'integer', 'disetujui_pada' => 'datetime'];
+    protected $casts = ['tp' => 'array', 'isi' => 'array', 'jumlah_pertemuan' => 'integer', 'jp_per_pertemuan' => 'integer', 'versi' => 'integer', 'suntingan_setuju' => 'integer', 'disetujui_pada' => 'datetime'];
 
     public function mapel(): BelongsTo { return $this->belongsTo(Subject::class, 'id_mapel', 'id_mapel'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
@@ -70,5 +70,14 @@ class ModulAjar extends Model
         $hasil['diferensiasi'] = $teks($isi['diferensiasi'] ?? '');
         $hasil['lkpd'] = $teks($isi['lkpd'] ?? '', 15000);
         return $hasil;
+    }
+
+    /** Guru boleh menyunting dokumen yang sudah disetujui paling banyak sekian kali (versi 1–3) */
+    public const BATAS_SUNTING_SETUJU = 3;
+
+    /** Sudah disetujui dan jatah sunting guru habis: hanya admin/kepala sekolah yang masih dapat mengubah */
+    public function terkunciUntuk($user): bool
+    {
+        return !$user->isPengelola() && $this->status === 'DISETUJUI' && (int) $this->suntingan_setuju >= self::BATAS_SUNTING_SETUJU;
     }
 }

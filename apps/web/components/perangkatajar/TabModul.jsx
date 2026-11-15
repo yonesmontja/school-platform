@@ -23,7 +23,7 @@ export default function TabModul({ referensi, akses, statusAwal, atpAwal, modulA
   useEffect(() => { muat(); }, [muat]);
 
   const itemModul = (m) => {
-    const bisaUbah = akses.isAdmin || m.dibuat_oleh === akses.user?.id;
+    const bisaUbah = akses.isAdmin || (!akses.isKepsek && !!m.boleh_ubah);
     return [
       { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(m.id_modul) },
       ...itemPersetujuan({ dasar: `/perangkat-ajar/modul/${m.id_modul}`, status: m.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
@@ -233,7 +233,7 @@ function EditorModul({ id, referensi, akses, onKembali }) {
   }, [kotor]);
 
   if (!m) return <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat modul…</div>;
-  const bisa = akses.isAdmin || m.dibuat_oleh === akses.user?.id;
+  const bisa = akses.isAdmin || (!akses.isKepsek && !!m.boleh_ubah);
   const st = STATUS[m.status];
   const ubahBagian = (kunci, k, v) => { setIsi((x) => ({ ...x, [kunci]: { ...x[kunci], [k]: v } })); setKotor(true); };
   const ubahPertemuan = (i, k, v) => { setIsi((x) => ({ ...x, pertemuan: x.pertemuan.map((p, j) => (j === i ? { ...p, [k]: v } : p)) })); setKotor(true); };
@@ -344,7 +344,7 @@ function EditorModul({ id, referensi, akses, onKembali }) {
         <div className="me-auto min-w-0">
           <div className="fw-bold fs-5">{m.judul}</div>
           <div className="small text-muted">{m.mapel?.nama_mapel}{m.kelas && ` · ${m.kelas.nama_kelas}`}{m.fase && ` · Fase ${m.fase}`}{m.materi && ` · ${m.materi.nama_materi}`} · {m.jumlah_pertemuan} pertemuan{m.jp_per_pertemuan ? ` × ${m.jp_per_pertemuan} JP` : ""}
-            {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{m.versi > 1 && <span className="badge text-bg-light border ms-1">v{m.versi}</span>}</div>
+            {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{m.suntingan_setuju > 0 && <span className="badge text-bg-light border ms-1" title={`Disunting setelah disetujui: ${m.suntingan_setuju} dari 3 kali`}>Versi {m.suntingan_setuju}</span>}{m.suntingan_setuju >= 3 && m.status === "DISETUJUI" && <span className="badge text-bg-secondary ms-1" title="Jatah sunting guru (3 kali) sudah habis"><i className="bi bi-lock-fill me-1"></i>Terkunci</span>}</div>
           {m.status === "REVISI" && m.catatan_revisi && <div className="alert alert-danger py-1 px-2 small mt-1 mb-0"><b>Catatan kepala sekolah:</b> {m.catatan_revisi}</div>}
         </div>
         <div className="d-flex flex-wrap gap-1">

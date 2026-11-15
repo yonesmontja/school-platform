@@ -41,13 +41,15 @@ class ModulAjarController extends Controller
         // Kemajuan: pertemuan yang sudah selesai dilaksanakan menurut Jadwal
         $selesai = \App\Models\TransJadwal::whereIn('id_modul', $data->pluck('id_modul'))->where('status_sesi', 'Selesai')->whereNotNull('pertemuan_ke')
             ->selectRaw('id_modul, COUNT(DISTINCT pertemuan_ke) as n')->groupBy('id_modul')->pluck('n', 'id_modul');
-        $data->each(fn($m) => $m->setAttribute('pertemuan_selesai', (int) ($selesai[$m->id_modul] ?? 0)));
+        $user = $request->user();
+        $data->each(fn($m) => $m->setAttribute('pertemuan_selesai', (int) ($selesai[$m->id_modul] ?? 0))->setAttribute('boleh_ubah', $this->bolehUbah($user, $m)));
         return response()->json(['data' => $data]);
     }
 
     public function show(Request $request, string $id)
     {
-        return response()->json(['data' => $this->muat($this->terjangkau($request)->with(self::RELASI)->findOrFail($id))]);
+        $modul = $this->terjangkau($request)->with(self::RELASI)->findOrFail($id);
+        return response()->json(['data' => $this->muat($modul)]);
     }
 
     public function simpan(Request $request, ?string $id = null)
@@ -87,6 +89,7 @@ class ModulAjarController extends Controller
             ]);
         } else {
             if (in_array($modul->status, ['DISETUJUI', 'DIAJUKAN'], true)) $header += ['status' => 'DRAF', 'versi' => $modul->versi + 1, 'disetujui_oleh' => null, 'disetujui_pada' => null];
+            if ($modul->status === 'DISETUJUI') $header['suntingan_setuju'] = $modul->suntingan_setuju + 1;
             if ($request->input('sumber') === 'AI') $header += ['sumber' => 'AI', 'ai_mode' => $request->input('ai_mode')];
             $modul->update($header + ['isi' => $isi]);
         }
@@ -232,20 +235,28 @@ class ModulAjarController extends Controller
             'isi' => ModulAjar::normalisasi($modul->isi, $modul->jumlah_pertemuan),
             'tp_detail' => $tp->sortBy(fn($t) => $urut[$t->id_indikator] ?? 99)->values(),
             'jadwal' => $sesi,
+            'boleh_ubah' => request()->user() ? $this->bolehUbah(request()->user(), $modul) : false,
         ];
     }
 
     private function terjangkau(Request $request): Builder
     {
         $user = $request->user();
+        // Guru: modul buatannya sendiri + semua modul (draf s.d. disetujui) untuk mapel yang ia ampu, termasuk yang disiapkan admin
         return ModulAjar::query()->when(!$user->isPengelola(), fn($q) => $q->where(fn($w) => $w->where('dibuat_oleh', $user->id)
-            ->orWhere(fn($x) => $x->where('status', 'DISETUJUI')->whereIn('id_mapel', $user->mapelDiampu()))));
+            ->orWhereIn('id_mapel', $user->mapelDiampu())));
+    }
+
+    /** Pembuat, pengelola, atau guru pengampu mapel modul ini */
+    private function bolehUbah($user, ModulAjar $modul): bool
+    {
+        return ($user->isPengelola() || $modul->dibuat_oleh === $user->id || $user->bolehNilaiMapel($modul->id_mapel)) && !$modul->terkunciUntuk($user);
     }
 
     private function cekPengubah(Request $request, ModulAjar $modul): void
     {
-        $user = $request->user();
-        abort_unless($user->isPengelola() || $modul->dibuat_oleh === $user->id, 403, 'Modul ini milik guru lain.');
+        abort_if($modul->terkunciUntuk($request->user()), 403, 'Modul ini sudah disetujui dan sudah disunting ' . ModulAjar::BATAS_SUNTING_SETUJU . ' kali (versi ' . ModulAjar::BATAS_SUNTING_SETUJU . '). Hubungi admin atau kepala sekolah bila masih perlu diubah.');
+        abort_unless($this->bolehUbah($request->user(), $modul), 403, 'Modul ini milik guru lain.');
     }
 
     private function cekKepsek(Request $request): void

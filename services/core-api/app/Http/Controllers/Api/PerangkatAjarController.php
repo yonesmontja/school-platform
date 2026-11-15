@@ -173,6 +173,8 @@ class PerangkatAjarController extends Controller
             ->when($request->boolean('milik'), fn($q) => $q->where('dibuat_oleh', $request->user()->id))
             ->orderByRaw("CASE status WHEN 'DIAJUKAN' THEN 0 WHEN 'REVISI' THEN 1 WHEN 'DRAF' THEN 2 ELSE 3 END")
             ->orderByDesc('updated_at')->get();
+        $user = $request->user();
+        $data->each(fn($a) => $a->setAttribute('boleh_ubah', $this->bolehUbahAtp($user, $a)));
         return response()->json(['data' => $data]);
     }
 
@@ -224,6 +226,7 @@ class PerangkatAjarController extends Controller
             } else {
                 // Mengubah ATP yang sudah disetujui/diajukan membuatnya kembali menjadi draf
                 if (in_array($atp->status, ['DISETUJUI', 'DIAJUKAN'], true)) $header += ['status' => 'DRAF', 'versi' => $atp->versi + 1, 'disetujui_oleh' => null, 'disetujui_pada' => null];
+                if ($atp->status === 'DISETUJUI') $header['suntingan_setuju'] = $atp->suntingan_setuju + 1;
                 $atp->update($header);
             }
             if (array_key_exists('baris', $data)) {
@@ -393,14 +396,21 @@ class PerangkatAjarController extends Controller
     private function muatAtp(Atp $atp): array
     {
         $atp->load(['baris.cp:id_cp,fase,elemen', 'baris.materi:id_materi,nama_materi', 'baris.indikator:id_indikator,deskripsi']);
-        return $atp->toArray() + ['total_jp' => $atp->baris->sum('alokasi_jp')];
+        return $atp->toArray() + ['total_jp' => $atp->baris->sum('alokasi_jp'), 'boleh_ubah' => request()->user() ? $this->bolehUbahAtp(request()->user(), $atp) : false];
     }
 
     private function atpTerjangkau(Request $request): Builder
     {
         $user = $request->user();
+        // Guru: ATP buatannya sendiri + semua ATP (draf s.d. disetujui) untuk mapel yang ia ampu, termasuk yang disiapkan admin
         return Atp::query()->when(!$user->isPengelola(), fn($q) => $q->where(fn($w) => $w->where('dibuat_oleh', $user->id)
-            ->orWhere(fn($x) => $x->where('status', 'DISETUJUI')->whereIn('id_mapel', $user->mapelDiampu()))));
+            ->orWhereIn('id_mapel', $user->mapelDiampu())));
+    }
+
+    /** Pembuat, pengelola, atau guru pengampu mapel ATP ini */
+    private function bolehUbahAtp($user, Atp $atp): bool
+    {
+        return ($user->isPengelola() || $atp->dibuat_oleh === $user->id || $user->bolehNilaiMapel($atp->id_mapel)) && !$atp->terkunciUntuk($user);
     }
 
     private function cekMapel(Request $request, ?string $idMapel): void
@@ -411,7 +421,8 @@ class PerangkatAjarController extends Controller
     private function cekPengubah(Request $request, Atp $atp): void
     {
         $user = $request->user();
-        abort_unless($user->isPengelola() || $atp->dibuat_oleh === $user->id, 403, 'ATP ini milik guru lain.');
+        abort_if($atp->terkunciUntuk($user), 403, 'ATP ini sudah disetujui dan sudah disunting ' . Atp::BATAS_SUNTING_SETUJU . ' kali (versi ' . Atp::BATAS_SUNTING_SETUJU . '). Hubungi admin atau kepala sekolah bila masih perlu diubah.');
+        abort_unless($this->bolehUbahAtp($user, $atp), 403, 'ATP ini milik guru lain.');
     }
 
     private function cekKepsek(Request $request): void

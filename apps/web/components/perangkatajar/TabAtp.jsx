@@ -25,7 +25,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
   useEffect(() => { muat(); }, [muat]);
 
   const itemAtp = (a) => {
-    const bisaUbah = akses.isAdmin || a.dibuat_oleh === akses.user?.id;
+    const bisaUbah = akses.isAdmin || (!akses.isKepsek && !!a.boleh_ubah);
     return [
       { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(a.id_atp) },
       ...itemPersetujuan({ dasar: `/perangkat-ajar/atp/${a.id_atp}`, status: a.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
@@ -64,7 +64,7 @@ export default function TabAtp({ referensi, akses, statusAwal, onBuatModul }) {
                       {a.status === "REVISI" && a.catatan_revisi && <div className="small text-danger"><i className="bi bi-chat-left-text me-1"></i>{a.catatan_revisi}</div>}
                     </div>
                     <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.icon} me-1`}></i>{st.label}</span>
-                    {a.versi > 1 && <span className="badge text-bg-light border">v{a.versi}</span>}
+                    {a.suntingan_setuju > 0 && <span className="badge text-bg-light border ms-1" title={`Disunting setelah disetujui: ${a.suntingan_setuju} dari 3 kali`}>Versi {a.suntingan_setuju}</span>}{a.suntingan_setuju >= 3 && a.status === "DISETUJUI" && <span className="badge text-bg-secondary ms-1" title="Jatah sunting guru (3 kali) sudah habis"><i className="bi bi-lock-fill me-1"></i>Terkunci</span>}
                     <MenuAksi label={`Aksi untuk ${a.judul}`} items={itemAtp(a)} />
                   </div>
                 </div>
@@ -182,7 +182,7 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
   if (!atp) return <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat ATP…</div>;
 
   // Kepala sekolah meninjau (baca saja) kecuali ATP buatannya sendiri
-  const bisaUbah = akses.isAdmin || atp.dibuat_oleh === akses.user?.id;
+  const bisaUbah = akses.isAdmin || (!akses.isKepsek && !!atp.boleh_ubah);
   const st = STATUS[atp.status];
   const totalJp = baris.reduce((t, b) => t + (Number(b.alokasi_jp) || 0), 0);
   const targetJp = atp.jp_per_minggu && atp.minggu_efektif ? atp.jp_per_minggu * atp.minggu_efektif : null;
@@ -264,7 +264,7 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
         <div className="me-auto min-w-0">
           <div className="fw-bold fs-5">{atp.judul}</div>
           <div className="small text-muted">{atp.mapel?.nama_mapel}{atp.kelas && ` · ${atp.kelas.nama_kelas}`}{atp.fase && ` · Fase ${atp.fase}`}{atp.periode && ` · ${periodeLabel(atp.periode)}`} · <Pengisi sebaris kosong="" {...pengisiMapel(atp)} />
-            {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{atp.versi > 1 && <span className="badge text-bg-light border ms-1">v{atp.versi}</span>}</div>
+            {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{atp.suntingan_setuju > 0 && <span className="badge text-bg-light border ms-1" title={`Disunting setelah disetujui: ${atp.suntingan_setuju} dari 3 kali`}>Versi {atp.suntingan_setuju}</span>}{atp.suntingan_setuju >= 3 && atp.status === "DISETUJUI" && <span className="badge text-bg-secondary ms-1" title="Jatah sunting guru (3 kali) sudah habis"><i className="bi bi-lock-fill me-1"></i>Terkunci</span>}</div>
           {atp.status === "REVISI" && atp.catatan_revisi && <div className="alert alert-danger py-1 px-2 small mt-1 mb-0"><b>Catatan kepala sekolah:</b> {atp.catatan_revisi}</div>}
         </div>
         <div className="d-flex flex-wrap gap-1">
