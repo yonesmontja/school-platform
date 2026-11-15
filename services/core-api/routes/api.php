@@ -334,6 +334,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/setujui', [BankSoalController::class, 'setujui']);
             Route::post('/revisi', [BankSoalController::class, 'revisi']);
             Route::post('/ai/draf', [BankSoalController::class, 'drafAI']);
+            Route::post('/ai/dari-riset', [BankSoalController::class, 'drafDariRiset'])->middleware('throttle:10,1');
             Route::post('/impor', [BankSoalController::class, 'impor']);
             Route::post('/gambar', [BankSoalController::class, 'unggahGambar']);
             Route::post('/ai/gambar', [BankSoalController::class, 'gambarAI'])->middleware('throttle:20,1');
@@ -437,6 +438,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/cp', [PerangkatAjarController::class, 'simpanCp']);
             Route::post('/cp/pecah', [PerangkatAjarController::class, 'pecahCp']);
             Route::post('/cp/susun', [PerangkatAjarController::class, 'susunCp']);
+            Route::get('/cp/dokumen/{id}/bagian', [PerangkatAjarController::class, 'bagianCpDokumen']);
+            Route::post('/cp/dari-dokumen', [PerangkatAjarController::class, 'cpDariDokumen'])->middleware('throttle:10,1');
             Route::post('/cp/banyak', [PerangkatAjarController::class, 'simpanBanyakCp']);
             Route::put('/cp/{id}', [PerangkatAjarController::class, 'simpanCp']);
             Route::delete('/cp/{id}', [PerangkatAjarController::class, 'hapusCp']);

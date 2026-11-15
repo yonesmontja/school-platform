@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BankSoal;
 use App\Models\Classes;
+use App\Models\DokumenRiset;
 use App\Models\KisiKisiBaris;
 use App\Models\MasterIndikator;
 use App\Models\MasterMateri;
@@ -12,6 +13,7 @@ use App\Models\MasterMBK;
 use App\Models\MasterPeriode;
 use App\Models\Subject;
 use App\Services\BankSoalService;
+use App\Services\RisetDokumenAIService;
 use App\Services\SoalAIService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -260,6 +262,69 @@ class BankSoalController extends Controller
             'data' => $tersimpan,
             'rujukan' => $sumber,
             'belajar' => ['contoh' => count($belajar['contoh']), 'teruji' => $belajar['teruji'], 'hindari' => count($belajar['hindari']), 'capaian' => $belajar['capaian']],
+        ]);
+    }
+
+    /**
+     * Notebook AI → bank soal (Fase 23 Tahap B): draf soal dari satu hasil riset/tanya dokumen Pustaka.
+     * Hasil riset (dan bagian dokumen yang dirujuk) menjadi bahan rujukan AI; draf tersimpan seperti draf AI biasa.
+     */
+    public function drafDariRiset(Request $request, SoalAIService $ai)
+    {
+        $request->validate([
+            'id_riset' => 'required|integer|exists:dokumen_riset,id',
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'id_materi' => 'nullable|exists:master_materi,id_materi',
+            'id_indikator' => 'nullable|exists:master_indikator,id_indikator',
+            'bentuk' => ['required', Rule::in(BankSoal::BENTUK)],
+            'level_kognitif' => ['nullable', Rule::in(BankSoal::LEVEL)],
+            'tingkat_kesulitan' => ['nullable', Rule::in(BankSoal::KESULITAN)],
+            'jumlah' => 'nullable|integer|min:1|max:' . self::MAKS_DRAF,
+            'catatan' => 'nullable|string|max:1000',
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+        ]);
+        $u = $request->user();
+        $riset = DokumenRiset::with('dokumen')->findOrFail($request->id_riset);
+        $d = $riset->dokumen;
+        abort_unless($d && ($u->isPengelola() || $d->status === 'AKTIF' || $d->diunggah_oleh === $u->id), 404);
+        abort_if($riset->jenis === 'TANYA' && !$u->isPengelola() && $riset->dibuat_oleh !== $u->id, 404);
+        $this->cekMapel($request, $request->id_mapel);
+
+        $bahan = RisetDokumenAIService::keTeks($riset);
+        abort_if($bahan === '', 422, 'Hasil Notebook ini kosong, jadi belum bisa dijadikan soal.');
+        $indikator = $request->id_indikator ? MasterIndikator::find($request->id_indikator) : null;
+        $materi = MasterMateri::find($request->id_materi ?? $indikator?->id_materi);
+        $p = [
+            'id_mapel' => $request->id_mapel, 'id_kelas' => $request->id_kelas, 'id_materi' => $materi?->id_materi, 'id_indikator' => $indikator?->id_indikator,
+            'bentuk' => $request->bentuk, 'level_kognitif' => $request->level_kognitif ?? 'C2', 'tingkat_kesulitan' => $request->tingkat_kesulitan ?? 'SEDANG',
+            'jumlah' => min(max($request->integer('jumlah', 5), 1), self::MAKS_DRAF),
+        ];
+        $konteks = [
+            'mapel' => Subject::find($p['id_mapel'])?->nama_mapel,
+            'kelas' => $p['id_kelas'] ? Classes::find($p['id_kelas'])?->nama_kelas : null,
+            'materi' => $materi?->nama_materi,
+            'deskripsi_kompetensi' => $materi?->deskripsi_kompetensi,
+            'tp' => $indikator?->deskripsi,
+            'bentuk' => $p['bentuk'], 'level_kognitif' => $p['level_kognitif'], 'tingkat_kesulitan' => $p['tingkat_kesulitan'],
+            'dimensi_utama' => null, 'jumlah' => $p['jumlah'],
+            'catatan_guru' => trim(($request->catatan ? $request->catatan . "\n" : '')
+                . "Susun soal yang isinya bersumber dari bahan dokumen \"{$d->judul}\" pada rujukan; jangan menanyakan hal yang tidak ada di bahan itu. "
+                . 'Sesuaikan bahasa dengan usia siswa kelas yang dituju.'),
+            'gambar' => $p['bentuk'] === 'LENGKAPI_GAMBAR',
+        ];
+        $belajar = StatistikSoalService::bahanBelajar($p['bentuk'], $p['id_indikator'], $p['id_materi']);
+        $ai->denganRujukan("[{$d->judul} · Notebook AI " . (DokumenRiset::LABEL[$riset->jenis] ?? $riset->jenis) . "]\n{$bahan}");
+        $mentah = $ai->drafSoal($konteks, $belajar['contoh'], $request->ai_mode, $belajar['hindari']);
+        if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
+
+        $tetap = $p + ['id_kisi_baris' => null, 'sumber' => 'AI', 'ai_mode' => $request->ai_mode, 'dimensi' => null];
+        [$tersimpan, $gagal] = $this->simpanMentah($request, array_slice($mentah, 0, $p['jumlah']), $tetap, $materi);
+        return response()->json([
+            'success' => true,
+            'message' => count($tersimpan) . " draf soal dibuat dari Notebook \"{$d->judul}\"" . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '')
+                . '. Periksa dan edit di Bank Soal sebelum mengajukan.',
+            'data' => $tersimpan,
         ]);
     }
 

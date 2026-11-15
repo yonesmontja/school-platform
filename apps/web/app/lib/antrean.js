@@ -83,6 +83,7 @@ async function kirimJson(url, method, body) {
     method,
     headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
+    kunciAi: false, // terkirim di latar: jangan kunci layar
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

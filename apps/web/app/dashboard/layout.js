@@ -8,6 +8,7 @@ import ThemeMenu from "@/components/ThemeMenu";
 import NotifikasiMenu from "@/components/NotifikasiMenu";
 import PasangAplikasi from "@/components/PasangAplikasi";
 import AntreanOffline, { PitaOffline } from "@/components/AntreanOffline";
+import KunciAi from "@/components/KunciAi";
 import Swal from "sweetalert2";
 import { API_URL, AKSES_EVENT, PENINJAU, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal, peranBoleh } from "@/app/lib/akses";
 import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
@@ -572,6 +573,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
       </main>
+      <KunciAi />
     </div>
   );
 }

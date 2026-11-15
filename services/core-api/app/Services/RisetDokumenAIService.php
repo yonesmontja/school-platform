@@ -86,6 +86,44 @@ class RisetDokumenAIService extends SoalAIService
         return collect($baris)->sortBy('urutan')->map(fn($b) => ['no' => (int) $b->urutan + 1, 'teks' => (string) $b->teks])->values()->all();
     }
 
+    /** Hasil riset/tanya Notebook sebagai teks polos, untuk dijadikan bahan AI lain (mis. draf soal). */
+    public static function keTeks(\App\Models\DokumenRiset $r, int $maks = 12000): string
+    {
+        $h = $r->hasil ?? [];
+        $baris = [];
+        switch ($r->jenis) {
+            case 'RINGKAS':
+                $baris[] = (string) ($h['ringkasan'] ?? '');
+                foreach ($h['poin'] ?? [] as $p) $baris[] = '- ' . $p;
+                break;
+            case 'RINCI':
+                foreach ($h['bagian'] ?? [] as $b) $baris[] = ($b['judul'] ?? '') . ': ' . ($b['isi'] ?? '');
+                break;
+            case 'POIN':
+                foreach ($h['poin'] ?? [] as $p) $baris[] = '- ' . ($p['teks'] ?? '');
+                break;
+            case 'ISTILAH':
+                foreach ($h['istilah'] ?? [] as $i) $baris[] = ($i['istilah'] ?? '') . ': ' . ($i['definisi'] ?? '');
+                break;
+            case 'EKSTRAK':
+                foreach ($h['data'] ?? [] as $d) $baris[] = '- ' . ($d['nilai'] ?? '') . ' — ' . ($d['keterangan'] ?? '');
+                foreach ($h['tabel'] ?? [] as $t) {
+                    $baris[] = 'Tabel ' . ($t['judul'] ?? '') . ': ' . implode(' | ', $t['kolom'] ?? []);
+                    foreach ($t['baris'] ?? [] as $b) $baris[] = implode(' | ', (array) $b);
+                }
+                break;
+            case 'FAQ':
+                foreach ($h['faq'] ?? [] as $f) $baris[] = 'T: ' . ($f['tanya'] ?? '') . "\nJ: " . ($f['jawab'] ?? '');
+                break;
+            case 'TANYA':
+                $baris[] = 'Pertanyaan: ' . $r->pertanyaan;
+                $baris[] = 'Jawaban: ' . ($h['jawaban'] ?? '');
+                foreach ($r->rujukan ?? [] as $b) $baris[] = "[B{$b['no']}] " . ($b['teks'] ?? '');
+                break;
+        }
+        return mb_substr(trim(implode("\n", array_filter($baris, fn($x) => trim((string) $x) !== ''))), 0, $maks);
+    }
+
     // ===== AI =====
 
     /** @return array|null hasil bersih sesuai jenis */

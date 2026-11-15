@@ -27,6 +27,7 @@ test("guru meneliti dokumen dengan Notebook AI dan bertanya ke dokumen", async (
         created_at: sekarang, pembuat: { name: "Guru E2E" } } } });
     }
     const jenis = req.postDataJSON().jenis;
+    if (jenis === "RINGKAS") await new Promise((ok) => setTimeout(ok, 1500)); // beri waktu melihat kunci layar AI
     return route.fulfill({ json: { success: true, message: "Hasil riset disimpan.", data: { id: 8000 + nomor, jenis, hasil: JAWABAN[jenis], ai_mode: "GEMINI",
       versi_dokumen: 1, created_at: sekarang, pembuat: { name: "Guru E2E" } } } });
   });
@@ -40,6 +41,8 @@ test("guru meneliti dokumen dengan Notebook AI dan bertanya ke dokumen", async (
   const nb = page.getByRole("dialog", { name: "Notebook AI" });
   await expect(nb).toContainText("AI membaca seluruh dokumen");
   await nb.getByRole("button", { name: /Buat ringkasan dengan AI/ }).click();
+  await expect(page.locator("[data-kunci-ai]")).toBeVisible(); // layar terkunci selama AI bekerja
+  await expect(page.locator("[data-kunci-ai]")).toBeHidden({ timeout: 10_000 });
   await expect(nb.locator("[data-riset=RINGKAS]")).toContainText("Memperkenalkan diri");
 
   await nb.getByRole("tab", { name: /Data & tabel/ }).click();
@@ -54,6 +57,36 @@ test("guru meneliti dokumen dengan Notebook AI dan bertanya ke dokumen", async (
   await expect(jawab.locator("pre")).toContainText("Elemen Berbicara");
   await nb.screenshot({ path: test.info().outputPath("notebook-ai.png") });
 
+  // Hasil Notebook dijadikan draf soal di Bank Soal
+  await page.route(/\/api\/bank-soal\/ai\/dari-riset$/, (route) => route.fulfill({ json: { success: true, message: "2 draf soal dibuat dari Notebook.", data: [] } }));
+  await nb.locator("[data-riset=EKSTRAK]").getByRole("button", { name: /Jadikan soal/ }).click();
+  const js = page.getByRole("dialog", { name: "Jadikan soal" });
+  await expect(js).toContainText("Data & tabel");
+  await js.getByRole("button", { name: /Buat draf soal/ }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("2 draf soal dibuat dari Notebook.");
+  await page.getByRole("button", { name: "Tetap di Notebook" }).click();
+  await expect(js).toBeHidden();
+
   const [unduhan] = await Promise.all([page.waitForEvent("download"), nb.getByRole("button", { name: /Unduh \(\.md\)/ }).click()]);
   expect(unduhan.suggestedFilename()).toContain("CP Notebook E2E");
+});
+
+test("guru mengisi CP dari dokumen Pustaka dengan AI", async ({ page, masuk }) => {
+  test.setTimeout(90_000);
+  const admin = await masuk("admin");
+  await unggahApi(admin, "/dokumen-rujukan", { judul: "CP Pustaka E2E", jenis: "CP" }, BERKAS);
+  await page.route(/\/api\/perangkat-ajar\/cp\/dari-dokumen$/, (route) => route.fulfill({ json: { success: true, message: "1 elemen CP diambil.",
+    data: [{ fase: "A", elemen: "Menyimak", teks: "Peserta didik merespons instruksi sederhana.", sumber: "RESMI" }],
+    sumber: { judul: "CP Pustaka E2E", bagian: null, dari: 1, sampai: 2, terpotong: false } } }));
+
+  await masuk("guru");
+  await page.goto("/dashboard/perangkat-ajar");
+  await page.getByRole("button", { name: /Capaian Pembelajaran/ }).click();
+  await page.getByRole("button", { name: /Isi CP dengan AI/ }).click();
+  const dlg = page.getByRole("dialog", { name: "Tempel dokumen CP" });
+  await expect(dlg.getByRole("tab", { name: /Dari Pustaka Dokumen/ })).toHaveAttribute("aria-selected", "true");
+  await dlg.getByLabel("Dokumen").selectOption({ label: "CP Pustaka E2E (CP)" });
+  await dlg.getByRole("button", { name: /Isi CP dengan AI/ }).click();
+  await expect(dlg).toContainText("Diambil dari CP Pustaka E2E");
+  await expect(dlg.getByLabel("Nama elemen 1")).toHaveValue("Menyimak");
 });

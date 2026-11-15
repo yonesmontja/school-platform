@@ -7,10 +7,12 @@ use App\Models\Atp;
 use App\Models\AtpBaris;
 use App\Models\CapaianPembelajaran;
 use App\Models\Classes;
+use App\Models\DokumenRujukan;
 use App\Models\MasterIndikator;
 use App\Models\MasterMateri;
 use App\Models\MasterPeriode;
 use App\Models\Subject;
+use App\Services\CpDariDokumen;
 use App\Services\PerangkatAjarAIService;
 use App\Services\PustakaDokumenService;
 use App\Services\SoalAIService;
@@ -106,6 +108,59 @@ class PerangkatAjarController extends Controller
         $data = $this->rapikanCpAi($hasil['cp'], $request->fase, 'RESMI');
         return response()->json(['success' => true, 'message' => "{$data->count()} elemen CP terbaca. Periksa sebelum menyimpan.", 'data' => $data,
             'catatan' => $data->isEmpty() ? ($hasil['catatan'] ?? 'Teks yang ditempel tidak memuat rumusan CP per elemen.') : null]);
+    }
+
+    /** Dokumen Pustaka yang boleh dilihat akun ini (aturan sama dengan Pustaka Dokumen) dan teksnya sudah terbaca. */
+    private function dokumenPustaka(Request $request, string $id): DokumenRujukan
+    {
+        $u = $request->user();
+        $d = DokumenRujukan::query()
+            ->when(!$u->isPengelola(), fn($q) => $q->where(fn($w) => $w->where('status', 'AKTIF')->orWhere('diunggah_oleh', $u->id)))
+            ->findOrFail($id);
+        abort_unless($d->status_teks === 'TERBACA', 422, 'Teks dokumen ini belum terbaca.');
+        return $d;
+    }
+
+    /** Daftar bagian CP per mapel di satu dokumen Pustaka, dengan saran bagian untuk mapel ini. */
+    public function bagianCpDokumen(Request $request, string $id)
+    {
+        $request->validate(['id_mapel' => 'required|exists:subjects,id_mapel']);
+        $this->cekMapel($request, $request->id_mapel);
+        $d = $this->dokumenPustaka($request, $id);
+        $bagian = CpDariDokumen::daftarBagian($d);
+        $saran = CpDariDokumen::cocokkan($bagian, Subject::find($request->id_mapel)->nama_mapel);
+        return response()->json(['data' => [
+            'bagian' => $bagian,
+            'saran' => $saran !== null ? $bagian[$saran]['dari'] : null,
+            'terpotong' => (int) $d->jumlah_karakter >= PustakaDokumenService::MAKS_TEKS,
+        ]]);
+    }
+
+    /** AI mengambil CP mapel ini (jenjang SD) dari bagian dokumen Pustaka (pratinjau, belum disimpan). */
+    public function cpDariDokumen(Request $request, PerangkatAjarAIService $ai)
+    {
+        $request->validate([
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_dokumen' => 'required|string',
+            'dari' => 'nullable|integer|min:0',
+            'fase' => ['nullable', Rule::in(CapaianPembelajaran::FASE)],
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+        ]);
+        $this->cekMapel($request, $request->id_mapel);
+        $d = $this->dokumenPustaka($request, $request->id_dokumen);
+        $namaMapel = Subject::find($request->id_mapel)->nama_mapel;
+        $bagian = CpDariDokumen::teksBagian($d, $request->filled('dari') ? (int) $request->dari : null, $namaMapel);
+        if (!$bagian) {
+            return response()->json(['message' => "Bagian CP {$namaMapel} tidak ditemukan di dokumen ini. Pilih bagiannya secara manual"
+                . ((int) $d->jumlah_karakter >= PustakaDokumenService::MAKS_TEKS ? ', atau unggah lampiran CP mapel ini sebagai dokumen tersendiri karena teks dokumen ini terpotong.' : '.')], 422);
+        }
+        @set_time_limit(180);
+        $hasil = $ai->cpDariDokumen($bagian['teks'], $namaMapel, $bagian['judul'], $request->fase, $request->ai_mode);
+        if ($hasil === null) return response()->json(['message' => $ai->galat()], 422);
+        $data = $this->rapikanCpAi($hasil['cp'], $request->fase, 'RESMI');
+        $sumber = ['id_dokumen' => $d->id_dokumen, 'judul' => $d->judul, 'bagian' => $bagian['judul'], 'dari' => $bagian['dari'] + 1, 'sampai' => $bagian['sampai'] + 1, 'terpotong' => $bagian['terpotong']];
+        return response()->json(['success' => true, 'message' => "{$data->count()} elemen CP diambil dari {$d->judul}. Periksa sebelum menyimpan.", 'data' => $data, 'sumber' => $sumber,
+            'catatan' => $data->isEmpty() ? ($hasil['catatan'] ?? 'Bagian dokumen ini tidak memuat CP SD untuk mapel ini.') : null]);
     }
 
     /** AI menyusun draf CP sekolah untuk mapel/fase yang belum punya CP nasional (pratinjau, belum disimpan). */

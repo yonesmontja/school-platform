@@ -60,7 +60,7 @@ export default function TabCp({ referensi }) {
           </select>
         </div>
         <div className="ms-auto d-flex gap-2">
-          <button className="btn btn-sm btn-outline-primary" onClick={() => setTempel(true)}><i className="bi bi-clipboard-plus me-1"></i>Tempel dokumen CP</button>
+          <button className="btn btn-sm btn-outline-primary" onClick={() => setTempel(true)}><i className="bi bi-stars me-1"></i>Isi CP dengan AI</button>
           <button className="btn btn-sm btn-primary" onClick={() => setUbah({ fase: fase || "A", elemen: "", teks: "" })}><i className="bi bi-plus-lg me-1"></i>Tambah elemen</button>
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function TabCp({ referensi }) {
         : !perFase.length ? (
           <div className="text-center text-muted py-5">
             <i className="bi bi-journal-bookmark fs-1 d-block mb-2"></i>
-            Belum ada CP untuk mapel ini. Tekan <b>Tempel dokumen CP</b> untuk menempel teks CP resmi (AI memecahnya per elemen), atau <b>Tambah elemen</b>.
+            Belum ada CP untuk mapel ini. Tekan <b>Isi CP dengan AI</b> untuk mengambil CP dari dokumen di Pustaka atau menempel teks CP resmi, atau <b>Tambah elemen</b>.
           </div>
         ) : perFase.map((f) => (
           <div key={f.value} className="mb-3">
@@ -129,11 +129,17 @@ export default function TabCp({ referensi }) {
 }
 
 /**
- * Dua cara: tempel teks CP resmi → AI memecah per elemen; atau (bila CP nasional belum ada, mis. Bahasa Inggris Fase A / mulok)
+ * Tiga cara: ambil dari dokumen Pustaka (mis. Kepka BSKAP) → AI mencari bagian CP mapel ini dan mengisi elemennya;
+ * tempel teks CP resmi → AI memecah per elemen; atau (bila CP nasional belum ada, mis. Bahasa Inggris Fase A / mulok)
  * AI menyusun draf CP sekolah. Hasilnya pratinjau yang bisa disunting → simpan semua.
  */
 function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
-  const [cara, setCara] = useState("tempel"); // tempel | susun
+  const [cara, setCara] = useState("pustaka"); // pustaka | tempel | susun
+  const [dokumen, setDokumen] = useState(null); // dokumen Pustaka yang teksnya terbaca
+  const [idDok, setIdDok] = useState("");
+  const [bagian, setBagian] = useState(null); // {bagian[], saran, terpotong}
+  const [dari, setDari] = useState("");
+  const [sumber, setSumber] = useState(null);
   const [teks, setTeks] = useState("");
   const [catatan, setCatatan] = useState("");
   const [fase, setFase] = useState(faseAwal);
@@ -142,13 +148,33 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
   const [kosong, setKosong] = useState(null); // penjelasan AI bila teks tidak memuat CP
   const [proses, setProses] = useState(false);
 
+  // Dokumen Pustaka: CP lebih dulu, lalu dokumen mapel ini, lalu yang lain
+  useEffect(() => {
+    minta("GET", "/dokumen-rujukan").then((r) => {
+      const urut = (d) => (d.jenis === "CP" ? 0 : 2) - (d.id_mapel === mapel?.id_mapel ? 1 : 0);
+      const ada = (r.data || []).filter((d) => d.status_teks === "TERBACA" && d.status !== "DITOLAK").sort((a, b) => urut(a) - urut(b));
+      setDokumen(ada);
+      if (ada[0]) setIdDok(ada[0].id_dokumen);
+    }).catch(() => setDokumen([]));
+  }, [mapel?.id_mapel]);
+  useEffect(() => {
+    if (!idDok || !mapel) return;
+    setBagian(null); setDari("");
+    minta("GET", `/perangkat-ajar/cp/dokumen/${idDok}/bagian?id_mapel=${mapel.id_mapel}`)
+      .then((r) => { setBagian(r.data); setDari(r.data.saran ?? ""); })
+      .catch((e) => setBagian({ bagian: [], saran: null, galat: e.message }));
+  }, [idDok, mapel]);
+
   const jalankan = async () => {
     simpanAiMode(mode);
     setProses(true); setKosong(null);
     try {
-      const r = cara === "tempel"
+      const r = cara === "pustaka"
+        ? await minta("POST", "/perangkat-ajar/cp/dari-dokumen", { id_mapel: mapel.id_mapel, id_dokumen: idDok, dari: dari === "" ? null : Number(dari), fase: fase || null, ai_mode: mode })
+        : cara === "tempel"
         ? await minta("POST", "/perangkat-ajar/cp/pecah", { id_mapel: mapel.id_mapel, fase: fase || null, teks, ai_mode: mode })
         : await minta("POST", "/perangkat-ajar/cp/susun", { id_mapel: mapel.id_mapel, fase, catatan: catatan || null, ai_mode: mode });
+      setSumber(r.sumber || null);
       if (!r.data.length) setKosong(r.catatan || "AI tidak menemukan elemen CP.");
       else setHasil(r.data);
     } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }
@@ -159,7 +185,8 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
     setCara("susun"); setKosong(null);
     if (!fase) setFase("A");
   };
-  const bisaJalan = cara === "tempel" ? teks.trim().length >= 30 : !!fase;
+  const bisaJalan = cara === "pustaka" ? !!idDok && !!bagian && (dari !== "" || bagian.saran !== null || !bagian.bagian?.length)
+    : cara === "tempel" ? teks.trim().length >= 30 : !!fase;
   const draf = hasil?.some((c) => c.sumber === "SEKOLAH");
   const simpan = async () => {
     setProses(true);
@@ -176,29 +203,56 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
       <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Tempel dokumen CP">
         <div className="modal-dialog modal-xl modal-dialog-scrollable">
           <div className="modal-content border-0 shadow">
-            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-clipboard-plus text-primary me-2"></i>{cara === "tempel" ? "Tempel dokumen CP" : "AI susun draf CP"} · {mapel?.nama_mapel}</h5>
+            <div className="modal-header"><h5 className="modal-title fw-bold"><i className="bi bi-clipboard-plus text-primary me-2"></i>{cara === "pustaka" ? "Isi CP dari Pustaka" : cara === "tempel" ? "Tempel dokumen CP" : "AI susun draf CP"} · {mapel?.nama_mapel}</h5>
               <button type="button" className="btn-close" onClick={onTutup} disabled={proses} aria-label="Tutup"></button></div>
             <div className="modal-body">
               {!hasil ? (
                 <>
                   <ul className="nav nav-pills nav-fill small mb-3" role="tablist">
+                    <li className="nav-item"><button type="button" role="tab" aria-selected={cara === "pustaka"} className={`nav-link ${cara === "pustaka" ? "active" : ""}`} onClick={() => { setCara("pustaka"); setKosong(null); }}><i className="bi bi-folder2-open me-1"></i>Dari Pustaka Dokumen</button></li>
                     <li className="nav-item"><button type="button" role="tab" aria-selected={cara === "tempel"} className={`nav-link ${cara === "tempel" ? "active" : ""}`} onClick={() => { setCara("tempel"); setKosong(null); }}><i className="bi bi-clipboard me-1"></i>Tempel CP resmi</button></li>
                     <li className="nav-item"><button type="button" role="tab" aria-selected={cara === "susun"} className={`nav-link ${cara === "susun" ? "active" : ""}`} onClick={keSusun}><i className="bi bi-stars me-1"></i>CP resmi belum ada: AI susun draf</button></li>
                   </ul>
                   {kosong && (
                     <div className="alert alert-warning d-flex flex-wrap gap-2 align-items-center" role="alert">
                       <div className="flex-grow-1"><b>Tidak ada elemen CP yang bisa diambil.</b> <span className="small">{kosong}</span></div>
-                      {cara === "tempel" && <button type="button" className="btn btn-sm btn-warning" onClick={keSusun}><i className="bi bi-stars me-1"></i>Minta AI susun draf CP sekolah</button>}
+                      {cara !== "susun" && <button type="button" className="btn btn-sm btn-warning" onClick={keSusun}><i className="bi bi-stars me-1"></i>Minta AI susun draf CP sekolah</button>}
                     </div>
                   )}
-                  <p className="small text-muted mb-2">{cara === "tempel"
+                  <p className="small text-muted mb-2">{cara === "pustaka"
+                    ? "Pilih dokumen yang sudah diunggah di Pustaka Dokumen (mis. Kepka BSKAP tentang CP). AI mencari bagian CP mata pelajaran ini dan mengisi elemen Fase A–C apa adanya; periksa hasilnya sebelum menyimpan."
+                    : cara === "tempel"
                     ? "Salin teks CP resmi (dari dokumen BSKAP atau Kemendikdasmen) lalu tempel di bawah. AI hanya memecahnya per elemen tanpa mengubah isinya; periksa hasilnya sebelum menyimpan."
                     : "Untuk mapel atau fase yang belum punya CP nasional (mis. Bahasa Inggris Fase A, muatan lokal), AI menyusun draf CP sekolah yang berjenjang menuju CP resmi fase berikutnya bila sudah ada di aplikasi. Draf ditandai \"CP sekolah\"; sesuaikan dan sahkan lewat rapat sekolah."}</p>
+                  {cara === "pustaka" && (dokumen === null ? <div className="small text-muted mb-2"><span className="spinner-border spinner-border-sm me-1"></span>Memuat dokumen…</div>
+                    : !dokumen.length ? <div className="alert alert-info small">Belum ada dokumen yang teksnya terbaca di Pustaka Dokumen. Unggah dokumen CP di menu <b>Pustaka Dokumen</b>, atau pakai <b>Tempel CP resmi</b>.</div>
+                    : (
+                    <div className="row g-2 mb-2">
+                      <div className="col-sm-7">
+                        <label className="form-label small mb-1" htmlFor="tpDok">Dokumen</label>
+                        <select id="tpDok" className="form-select form-select-sm" value={idDok} onChange={(e) => setIdDok(e.target.value)}>
+                          {dokumen.map((d) => <option key={d.id_dokumen} value={d.id_dokumen}>{d.judul}{d.jenis ? ` (${d.jenis})` : ""}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-sm-5">
+                        <label className="form-label small mb-1" htmlFor="tpBagian">Bagian CP</label>
+                        <select id="tpBagian" className="form-select form-select-sm" value={dari} onChange={(e) => setDari(e.target.value)} disabled={!bagian?.bagian?.length}>
+                          {!bagian ? <option value="">Mencari bagian…</option> : !bagian.bagian?.length ? <option value="">Cari otomatis menurut nama mapel</option> : <>
+                            {bagian.saran === null && <option value="">— pilih bagian —</option>}
+                            {bagian.bagian.map((b) => <option key={b.dari} value={b.dari}>{b.judul}{b.dari === bagian.saran ? " (disarankan)" : ""}</option>)}
+                          </>}
+                        </select>
+                      </div>
+                      {bagian && bagian.bagian?.length > 0 && bagian.saran === null && <div className="col-12"><div className="alert alert-warning small py-2 mb-0">
+                        Bagian CP <b>{mapel?.nama_mapel}</b> tidak dikenali otomatis di dokumen ini. Pilih bagiannya dari daftar{bagian.terpotong ? "; bila tidak ada, teks dokumen mungkin terpotong (batas 400.000 karakter), unggah lampiran CP mapel ini sebagai dokumen tersendiri" : ""}.</div></div>}
+                      {bagian?.galat && <div className="col-12 small text-danger">{bagian.galat}</div>}
+                    </div>))}
                   <div className="row g-2 mb-2">
                     <div className="col-sm-4">
-                      <label className="form-label small mb-1" htmlFor="tpFase">{cara === "tempel" ? "Fase yang ditempel" : "Fase yang disusun"}</label>
+                      <label className="form-label small mb-1" htmlFor="tpFase">{cara === "susun" ? "Fase yang disusun" : cara === "tempel" ? "Fase yang ditempel" : "Fase yang diambil"}</label>
                       <select id="tpFase" className="form-select form-select-sm" value={fase} onChange={(e) => setFase(e.target.value)}>
                         {cara === "tempel" && <option value="">Biarkan AI menentukan</option>}
+                        {cara === "pustaka" && <option value="">Semua fase SD (A–C)</option>}
                         {FASE.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                       </select>
                     </div>
@@ -209,13 +263,14 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
                       </select>
                     </div>
                   </div>
-                  {cara === "tempel"
+                  {cara === "pustaka" ? null : cara === "tempel"
                     ? <textarea className="form-control" rows={12} aria-label="Teks dokumen CP" value={teks} onChange={(e) => setTeks(e.target.value)} placeholder="Tempel teks CP di sini…" />
                     : <textarea className="form-control" rows={8} aria-label="Catatan untuk AI" maxLength={8000} value={catatan} onChange={(e) => setCatatan(e.target.value)}
                         placeholder="Opsional: konteks sekolah, mis. Bahasa Inggris diajarkan sebagai mulok 2 JP/minggu di kelas 1–2, fokus kosakata sehari-hari dan lagu." />}
                 </>
               ) : (
                 <div className="d-flex flex-column gap-2">
+                  {sumber && <div className="alert alert-light border small mb-1"><i className="bi bi-folder2-open me-1"></i>Diambil dari <b>{sumber.judul}</b>{sumber.bagian ? ` · bagian ${sumber.bagian}` : ""} (potongan B{sumber.dari}–B{sumber.sampai}){sumber.terpotong ? "; bagian ini sangat panjang, sebagian akhirnya tidak terbaca" : ""}. Cocokkan dengan dokumen aslinya.</div>}
                   {draf && <div className="alert alert-info small mb-1"><i className="bi bi-info-circle me-1"></i>Ini <b>draf CP sekolah</b> buatan AI, bukan CP nasional. Periksa kesesuaiannya dengan usia siswa sebelum menyimpan.</div>}
                   {hasil.map((c, i) => (
                     <div key={i} className="border rounded p-2">
@@ -237,7 +292,7 @@ function TempelCp({ mapel, faseAwal, onTutup, onSelesai }) {
               <button className="btn btn-outline-secondary" onClick={onTutup} disabled={proses}>Batal</button>
               {!hasil ? (
                 <button className="btn btn-primary" onClick={jalankan} disabled={proses || !bisaJalan}>
-                  {proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-stars me-1"></i>}{cara === "tempel" ? "Pecah per elemen" : "Susun draf CP"}
+                  {proses ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-stars me-1"></i>}{cara === "pustaka" ? "Isi CP dengan AI" : cara === "tempel" ? "Pecah per elemen" : "Susun draf CP"}
                 </button>
               ) : (
                 <button className="btn btn-primary" onClick={simpan} disabled={proses || !hasil.length}><i className="bi bi-save me-1"></i>Simpan {hasil.length} elemen</button>

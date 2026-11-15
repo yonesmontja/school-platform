@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
+import { esc, judulHtml, kopWordHtml, muatSekolah, unduhWordResmi } from "@/app/lib/dokumenResmi";
+import JadikanSoal from "./JadikanSoal";
 
 export const TAB_RISET = [
   { jenis: "RINGKAS", label: "Ringkasan", ikon: "bi-card-text", ajakan: "Ringkasan singkat isi dokumen dan poin utamanya." },
@@ -19,32 +21,73 @@ const JENIS_DATA = { ANGKA: "Angka", TANGGAL: "Tanggal", ATURAN: "Aturan", NAMA:
 const waktu = (t) => (t ? new Date(t).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 const ribu = (n) => (n || 0).toLocaleString("id-ID");
 
+/** Isi satu tab riset sebagai baris Markdown (dipakai tombol Salin dan unduhan .md). */
+export function markdownRiset(jenis, h) {
+  const baris = [];
+  const sel = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+  if (jenis === "RINGKAS") baris.push(h.ringkasan || "", "", ...(h.poin || []).map((p) => `- ${p}`));
+  if (jenis === "RINCI") (h.bagian || []).forEach((b) => baris.push(`### ${b.judul || "Bagian"}`, "", b.isi, ""));
+  if (jenis === "POIN") (h.poin || []).forEach((p) => baris.push(`- ${p.teks} (${UNTUK[p.untuk]?.[0] || "Umum"})`));
+  if (jenis === "ISTILAH") (h.istilah || []).forEach((x) => baris.push(`- **${x.istilah}**: ${x.definisi}`));
+  if (jenis === "EKSTRAK") {
+    if (h.data?.length) baris.push("| Jenis | Nilai | Keterangan |", "| --- | --- | --- |", ...h.data.map((x) => `| ${JENIS_DATA[x.jenis] || x.jenis} | ${sel(x.nilai)} | ${sel(x.keterangan)} |`), "");
+    (h.tabel || []).forEach((tb) => baris.push(`**${tb.judul || "Tabel"}**`, "", `| ${tb.kolom.map(sel).join(" | ")} |`, `| ${tb.kolom.map(() => "---").join(" | ")} |`,
+      ...tb.baris.map((r) => `| ${tb.kolom.map((_, i) => sel(r[i])).join(" | ")} |`), ""));
+  }
+  if (jenis === "FAQ") (h.faq || []).forEach((x) => baris.push(`**${x.tanya}**`, "", x.jawab, ""));
+  return baris;
+}
+const markdownTanya = (q) => [`**T:** ${q.pertanyaan}`, "", `**J:** ${q.hasil?.jawaban || ""}`, "",
+  ...(q.rujukan || []).map((r) => `> [B${r.no}] ${String(r.teks).slice(0, 300).replace(/\n/g, " ")}…`), ""];
+
 /** Hasil riset sebagai Markdown (untuk diunduh). */
 export function keMarkdown(judul, riset, tanya = []) {
   const baris = [`# ${judul}`, "", `_Notebook AI SAPrapor · ${new Date().toLocaleDateString("id-ID")}_`, ""];
-  const sel = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
   for (const t of TAB_RISET) {
     const h = riset[t.jenis]?.hasil;
-    if (!h) continue;
-    baris.push(`## ${t.label}`, "");
-    if (t.jenis === "RINGKAS") baris.push(h.ringkasan || "", "", ...(h.poin || []).map((p) => `- ${p}`));
-    if (t.jenis === "RINCI") (h.bagian || []).forEach((b) => baris.push(`### ${b.judul || "Bagian"}`, "", b.isi, ""));
-    if (t.jenis === "POIN") (h.poin || []).forEach((p) => baris.push(`- ${p.teks} (${UNTUK[p.untuk]?.[0] || "Umum"})`));
-    if (t.jenis === "ISTILAH") (h.istilah || []).forEach((x) => baris.push(`- **${x.istilah}**: ${x.definisi}`));
-    if (t.jenis === "EKSTRAK") {
-      if (h.data?.length) baris.push("| Jenis | Nilai | Keterangan |", "| --- | --- | --- |", ...h.data.map((x) => `| ${JENIS_DATA[x.jenis] || x.jenis} | ${sel(x.nilai)} | ${sel(x.keterangan)} |`), "");
-      (h.tabel || []).forEach((tb) => baris.push(`**${tb.judul || "Tabel"}**`, "", `| ${tb.kolom.map(sel).join(" | ")} |`, `| ${tb.kolom.map(() => "---").join(" | ")} |`,
-        ...tb.baris.map((r) => `| ${tb.kolom.map((_, i) => sel(r[i])).join(" | ")} |`), ""));
-    }
-    if (t.jenis === "FAQ") (h.faq || []).forEach((x) => baris.push(`**${x.tanya}**`, "", x.jawab, ""));
-    baris.push("");
+    if (h) baris.push(`## ${t.label}`, "", ...markdownRiset(t.jenis, h), "");
   }
   if (tanya.length) {
     baris.push("## Tanya dokumen", "");
-    [...tanya].reverse().forEach((q) => baris.push(`**T:** ${q.pertanyaan}`, "", `**J:** ${q.hasil?.jawaban || ""}`, "",
-      ...(q.rujukan || []).map((r) => `> [B${r.no}] ${String(r.teks).slice(0, 300).replace(/\n/g, " ")}…`), ""));
+    [...tanya].reverse().forEach((q) => baris.push(...markdownTanya(q)));
   }
   return baris.join("\n");
+}
+
+/** Hasil riset sebagai badan HTML dokumen Word. */
+function keHtmlWord(riset, tanya) {
+  const t = (v) => esc(v).replace(/\n/g, "<br>");
+  const tabel = (kolom, baris) => `<table><tr>${kolom.map((k) => `<th>${t(k)}</th>`).join("")}</tr>${baris.map((r) => `<tr>${kolom.map((_, i) => `<td>${t(r[i])}</td>`).join("")}</tr>`).join("")}</table>`;
+  const isi = [];
+  for (const tb of TAB_RISET) {
+    const h = riset[tb.jenis]?.hasil;
+    if (!h) continue;
+    isi.push(`<h3>${esc(tb.label)}</h3>`);
+    if (tb.jenis === "RINGKAS") isi.push(`<p>${t(h.ringkasan)}</p>`, h.poin?.length ? `<ul>${h.poin.map((p) => `<li>${t(p)}</li>`).join("")}</ul>` : "");
+    if (tb.jenis === "RINCI") isi.push(`<ol>${(h.bagian || []).map((b) => `<li><b>${t(b.judul)}</b><br>${t(b.isi)}</li>`).join("")}</ol>`);
+    if (tb.jenis === "POIN") isi.push(`<ul>${(h.poin || []).map((p) => `<li>${t(p.teks)} <i>(${esc(UNTUK[p.untuk]?.[0] || "Umum")})</i></li>`).join("")}</ul>`);
+    if (tb.jenis === "ISTILAH") isi.push(tabel(["Istilah", "Definisi"], (h.istilah || []).map((x) => [x.istilah, x.definisi])));
+    if (tb.jenis === "EKSTRAK") {
+      if (h.data?.length) isi.push(tabel(["Jenis", "Nilai", "Keterangan"], h.data.map((x) => [JENIS_DATA[x.jenis] || x.jenis, x.nilai, x.keterangan])));
+      (h.tabel || []).forEach((x) => isi.push(`<p><b>${t(x.judul || "Tabel")}</b></p>`, tabel(x.kolom, x.baris)));
+    }
+    if (tb.jenis === "FAQ") (h.faq || []).forEach((x) => isi.push(`<p><b>${t(x.tanya)}</b><br>${t(x.jawab)}</p>`));
+  }
+  if (tanya.length) {
+    isi.push("<h3>Tanya dokumen</h3>");
+    [...tanya].reverse().forEach((q) => isi.push(`<p><b>T:</b> ${t(q.pertanyaan)}<br><b>J:</b> ${t(q.hasil?.jawaban)}</p>`));
+  }
+  return isi.join("\n");
+}
+
+/** Salin teks ke papan klip (dengan cadangan untuk browser lama / HTTP). */
+async function salin(teks) {
+  try { await navigator.clipboard.writeText(teks); }
+  catch {
+    const ta = Object.assign(document.createElement("textarea"), { value: teks });
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Disalin", showConfirmButton: false, timer: 1200 });
 }
 
 function HasilRiset({ jenis, h }) {
@@ -74,7 +117,7 @@ function HasilRiset({ jenis, h }) {
   return null;
 }
 
-function JawabanTanya({ q, bolehHapus, onHapus }) {
+function JawabanTanya({ q, bolehHapus, onHapus, onSoal }) {
   return (
     <div className="border rounded p-2 mb-2" data-tanya>
       <div className="d-flex justify-content-between gap-2"><div className="fw-semibold"><i className="bi bi-person-circle me-1 text-body-secondary"></i>{q.pertanyaan}</div>
@@ -83,8 +126,14 @@ function JawabanTanya({ q, bolehHapus, onHapus }) {
       {q.hasil?.cukup === false && <div className="small text-warning-emphasis mt-1"><i className="bi bi-info-circle me-1"></i>Dokumen tampaknya tidak membahas ini secara lengkap.</div>}
       {!!q.rujukan?.length && <div className="mt-2 d-flex flex-column gap-1">{q.rujukan.map((r) => (
         <details key={r.no} className="small"><summary className="text-primary">Bagian B{r.no} yang dirujuk</summary>
-          <pre className="log-json border rounded p-2 bg-body-tertiary mb-0 mt-1" style={{ maxHeight: 220, whiteSpace: "pre-wrap" }}>{r.teks}</pre></details>))}</div>}
-      <div className="small text-body-secondary mt-1">{q.pembuat?.name} · {waktu(q.created_at)}</div>
+          <pre className="border rounded p-2 bg-body-tertiary mb-0 mt-1 small" style={{ whiteSpace: "pre-wrap", overflow: "visible" }}>{r.teks}</pre></details>))}</div>}
+      <div className="d-flex flex-wrap align-items-center gap-2 mt-1 small text-body-secondary">
+        <span>{q.pembuat?.name} · {waktu(q.created_at)}</span>
+        <span className="ms-auto d-flex gap-2">
+          <button className="btn btn-sm btn-link p-0 text-decoration-none" onClick={() => salin(markdownTanya(q).join("\n"))}><i className="bi bi-clipboard me-1"></i>Salin</button>
+          <button className="btn btn-sm btn-link p-0 text-decoration-none" onClick={onSoal}><i className="bi bi-patch-question me-1"></i>Jadikan soal</button>
+        </span>
+      </div>
     </div>
   );
 }
@@ -96,6 +145,7 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
   const [mode, setMode] = useState(bacaAiMode);
   const [proses, setProses] = useState("");
   const [pertanyaan, setPertanyaan] = useState("");
+  const [soal, setSoal] = useState(null); // hasil riset/tanya yang akan dijadikan soal
 
   const muat = useCallback(() => minta("GET", `/dokumen-rujukan/${d.id_dokumen}/riset`).then((r) => setPanel(r.data)).catch((e) => Swal.fire("Gagal memuat", e.message, "error")), [d.id_dokumen]);
   useEffect(() => { muat(); }, [muat]);
@@ -129,6 +179,13 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
 
+  const unduhWord = async () => {
+    const sek = await muatSekolah(null);
+    const gaya = "table{width:100%;border-collapse:collapse;margin-bottom:8px}td,th{border:1px solid #9aa5bb;padding:3px 6px;vertical-align:top;text-align:left}h3{font-size:12.5pt;margin:12px 0 4px}";
+    unduhWordResmi(`Notebook - ${d.judul}.doc`.replace(/[\\/:*?"<>|]/g, "-"), `Notebook AI: ${d.judul}`, gaya,
+      `${kopWordHtml(sek)}${judulHtml(`Notebook AI: ${d.judul}`, `Disusun dengan AI pada ${new Date().toLocaleDateString("id-ID")}; periksa kembali dengan dokumen aslinya.`)}${keHtmlWord(panel?.riset || {}, panel?.tanya || [])}`, sek);
+  };
+
   const aktif = TAB_RISET.find((t) => t.jenis === tab);
   const hasil = panel?.riset?.[tab];
   const adaHasil = panel && (Object.keys(panel.riset || {}).length > 0 || panel.tanya?.length > 0);
@@ -150,7 +207,10 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
                 <select className="form-select form-select-sm w-auto" value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Penyedia AI">{AI_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select>
                 {cakupan && <span className="small text-body-secondary">{cakupan.lengkap ? `AI membaca seluruh dokumen (${ribu(cakupan.dibaca)} karakter${cakupan.segmen > 1 ? `, ${cakupan.segmen} bagian besar` : ""}).`
                   : `Dokumen sangat panjang: riset membaca ${ribu(cakupan.dibaca)} dari ${ribu(cakupan.total)} karakter pertama. Tanya dokumen tetap mencari di seluruh isi.`}</span>}
-                <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={unduh} disabled={!adaHasil}><i className="bi bi-download me-1"></i>Unduh (.md)</button>
+                <div className="ms-auto d-flex gap-1">
+                  <button className="btn btn-sm btn-outline-secondary" onClick={unduhWord} disabled={!adaHasil}><i className="bi bi-file-earmark-word me-1"></i>Word</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={unduh} disabled={!adaHasil}><i className="bi bi-download me-1"></i>Unduh (.md)</button>
+                </div>
               </div>
               {!terbaca && <div className="alert alert-warning small">Teks dokumen belum terbaca, jadi belum bisa diteliti AI.</div>}
 
@@ -168,8 +228,12 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
                         <div className="d-flex flex-wrap align-items-center gap-2 border-top mt-3 pt-2 small text-body-secondary">
                           <span>{hasil.pembuat?.name} · {waktu(hasil.created_at)} · {hasil.ai_mode}</span>
                           {usang && <span className="badge text-bg-warning">Dibuat dari versi dokumen lama</span>}
-                          {terbaca && <button className="btn btn-sm btn-outline-primary ms-auto" onClick={() => buat(tab)} disabled={!!proses}>
+                          <span className="ms-auto d-flex flex-wrap gap-1">
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => salin(markdownRiset(tab, hasil.hasil).join("\n"))}><i className="bi bi-clipboard me-1"></i>Salin</button>
+                          <button className="btn btn-sm btn-outline-success" onClick={() => setSoal(hasil)} disabled={!!proses}><i className="bi bi-patch-question me-1"></i>Jadikan soal</button>
+                          {terbaca && <button className="btn btn-sm btn-outline-primary" onClick={() => buat(tab)} disabled={!!proses}>
                             {proses === tab ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-arrow-repeat me-1"></i>}Buat ulang</button>}
+                          </span>
                         </div>
                       </>
                     ) : (
@@ -192,8 +256,8 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
                       {proses === "TANYA" ? <><span className="spinner-border spinner-border-sm me-1"></span>Mencari jawaban…</> : <><i className="bi bi-send me-1"></i>Tanya</>}</button>
                     <div className="form-text">Jawaban hanya dari isi dokumen ini, dengan nomor bagian yang dirujuk.</div>
                   </form>
-                  <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
-                    {panel?.tanya?.map((q) => <JawabanTanya key={q.id} q={q} bolehHapus={pengelola || q.dibuat_oleh === saya?.id} onHapus={() => hapusTanya(q)} />)}
+                  <div>
+                    {panel?.tanya?.map((q) => <JawabanTanya key={q.id} q={q} bolehHapus={pengelola || q.dibuat_oleh === saya?.id} onHapus={() => hapusTanya(q)} onSoal={() => setSoal(q)} />)}
                     {panel && !panel.tanya?.length && <div className="small text-body-secondary">Belum ada pertanyaan.</div>}
                   </div>
                 </div>
@@ -203,6 +267,7 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
         </div>
       </div>
       <div className="modal-backdrop show"></div>
+      {soal && <JadikanSoal riset={soal} dokumen={d} onTutup={() => setSoal(null)} />}
     </>
   );
 }
