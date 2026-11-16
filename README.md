@@ -67,6 +67,10 @@ school-platform/
 - **Perangkat Ajar (Fase 17 Tahap A)** — menu Perangkat Ajar: **Capaian Pembelajaran** per mapel, fase (A/B/C dari nama kelas), dan elemen (ketik sendiri atau tempel dokumen CP resmi lalu dipecah AI per elemen tanpa diubah); **ATP** per mapel, kelas, dan periode disusun bersama AI dari CP, materi & TP sekolah, dan capaian siswa per TP (TP lama dipakai ulang, TP/materi baru ditandai usulan), lengkap dengan alokasi JP & minggu, dimensi STNKM, dan dimensi Profil Lulusan; diajukan ke kepala sekolah (Perlu Tindakan, catatan revisi, versi), dan saat disetujui TP/materi usulan masuk ke Referensi Penilaian; cetak ATP A4 lanskap bertanda tangan
 - **AI Asesmen (Fase 16 Tahap D)** — memakai penyedia AI yang sama dengan rapor & jurnal (dipilih guru): **gambar soal dari AI** di editor soal (ilustrasi lewat Gemini, OpenKey, atau OpenRouter dengan model gambar yang bisa diganti; diagram SVG lewat semua penyedia; pesan penolakan penyedia ditampilkan apa adanya), **penilaian uraian berbantuan AI** sesuai rubrik dari jawaban tes online, catatan guru, atau foto lembar jawaban (usulan skor + alasan + transkrip, diperiksa guru sebelum disimpan; per siswa atau sekaligus satu kelas), dan **AI belajar dari analisis butir**: p, D, dan saran tiap butir tersimpan saat analisis dibuka atau nilai dikirim, bank soal menandai soal Teruji baik/Perlu ditinjau, dan draf AI diberi contoh soal yang teruji baik, catatan soal bermasalah, serta capaian siswa pada TP itu
 - **Tes Online (Fase 16 Tahap C)** — paket soal dibuka sebagai tes di HP siswa (akun siswa → menu Tes Online): jadwal buka-tutup, waktu mengerjakan yang dihitung server sejak mulai, token kelas, acak urutan soal & pilihan per siswa (kolom kanan menjodohkan, langkah mengurutkan, dan bank kata selalu diacak), simpan otomatis dengan coba ulang saat sinyal putus, penanda ragu-ragu, kumpul otomatis saat waktu habis, dan pencatatan keluar dari halaman tes. Soal interaktif: menjodohkan (ketuk-pasangkan), mengurutkan, **membaca nyaring** (siswa merekam suara di HP, rekaman diputar guru saat koreksi dan dinilai dengan rubrik; di kertas dinilai langsung), dan bentuk baru **melengkapi gambar** (gambar bernomor + jawaban per bagian, bank kata opsional; juga untuk draf AI, cetak, dan koreksi kertas) — semuanya dinilai otomatis, uraian oleh guru. Guru memantau status, jumlah terjawab, sisa waktu, dan keluar halaman per siswa, dapat mengakhiri sesi atau mengizinkan mengulang; jawaban online masuk ke koreksi, kirim nilai, dan analisis butir yang sama dengan koreksi kertas
+- **Sesi Ujian CBT (Tahap A)** — menu Asesmen → Sesi Ujian (CBT): satu paket soal dipakai untuk beberapa kelas sekaligus dalam satu sesi (jadwal, token sesi, mode ujian), pengawas memantau peserta langsung (status, jumlah terjawab, log kejadian per siswa), dapat mengizinkan mengulang atau mengakhiri sesi seorang siswa, dan mencetak kartu peserta; hak akses dicek di controller
+- **Variasi Bank Soal** — dari soal yang sudah ada, AI membuat **varian** (`ModalVarianAI`), soal kembar/duplikat dideteksi (`/bank-soal/kembar`), dan panel **Cakupan** per TP menunjukkan TP yang belum punya soal atau kurang variasi; draf soal juga bisa dibuat dari hasil riset Notebook (`Jadikan soal`)
+- **Peta Tema → Jadwal kelas** — kepala sekolah menetapkan Peta Tema (slot, tetapkan, buka kunci) lalu pratinjau dan membuat sesi Jadwal kelas darinya, dengan pengecekan konflik (`/perangkat-ajar/tema/{id}/cek`); komponen `PolaJadwalTema`. Sesi modul ditautkan dihitung penuh per TP, dan Panduan memuat alur perencanaan serta urutan peta kerja
+- **Kunci layar saat AI bekerja & ekspor Notebook** — layar dikunci sementara selama permintaan AI berjalan (`KunciAi`); CP bisa diisi dari dokumen Pustaka (`/perangkat-ajar/cp/dari-dokumen`); hasil Notebook dapat diunduh sebagai `.docx` dan `.pdf` asli, dan Peta Kerja menjelaskan apa yang membuat langkah belum lengkap
 - **Jurnal Anekdotal** — catatan kejadian siswa yang dianalisis ke dimensi STNKM (nilai S, T, N, K, M); mode analisis: Heuristik (tanpa AI), Gemini, Qwen, Claude, DeepSeek, dan OpenKey. Jika AI gagal, otomatis fallback ke Heuristik. Dilengkapi tabel analitik, pencarian, ekspor Excel, dan edit jurnal. Guru jurnal: akun guru = dirinya sendiri; bila diisi admin/kepsek = guru yang dipilih di form, atau guru pengampu mapel materinya, atau wali kelas (jurnal observasi tanpa materi)
 - **Import Excel** — impor massal nilai dan jurnal dari file Excel (template tersedia beserta lembar referensi siswa); template nilai otomatis memuat satu kolom per indikator aktif materi (judul berkode `[IND-…]`)
 - **Presensi** — input kehadiran siswa per tanggal secara batch, dengan keterangan per siswa (mis. "sakit demam") yang tersinkron ke satu catatan Jurnal tanpa STNKM; **presensi per mapel** oleh guru mapel (rapor tetap memakai presensi harian; siswa tanpa data harian otomatis mendapat satu); Sabtu, Minggu, dan hari libur terkunci (server menolak presensi Sabtu); Riwayat punya **Rekap Per Hari** (Senin–Jumat) beserta ekspor
@@ -363,6 +367,12 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | PUT | `/classes/{id}/aktif-semester` | Tandai rombel aktif/nonaktif untuk semester aktif | admin | ✔ |
 | GET | `/panduan/kerja` | Peta kerja guru: progres alur kerja semester (admin/kepsek memilih guru) | semua peran | ✔ |
 | POST | `/perangkat-ajar/tema/{id}/pola-ai` | Rekomendasi AI untuk hari kosong pola mingguan Peta Tema | staf | ✔ |
+| POST | `/perangkat-ajar/tema/{id}/slot` | Atur slot pola jadwal Peta Tema | staf | ✔ |
+| POST | `/perangkat-ajar/tema/{id}/tetapkan`, `/buka-kunci` | Tetapkan Peta Tema oleh kepala sekolah / buka kuncinya | kepsek | ✔ |
+| GET/POST | `/perangkat-ajar/tema/{id}/jadwal` | Pratinjau / buat sesi Jadwal kelas dari Peta Tema | staf | ✔ |
+| GET | `/perangkat-ajar/tema/{id}/cek` | Cek kelengkapan & konflik Peta Tema | staf | ✔ |
+| GET | `/perangkat-ajar/cp/dokumen/{id}/bagian` | Bagian dokumen Pustaka untuk mengisi CP | staf | ✔ |
+| POST | `/perangkat-ajar/cp/dari-dokumen` | Isi CP dari dokumen Pustaka dengan AI (throttle 10/menit) | staf | ✔ |
 | GET | `/dashboard` | Data dasbor analitik | staf | ✔ |
 | GET | `/nilai/filters` | Opsi filter input nilai | staf | ✔ |
 | GET | `/nilai/materi` | Materi berdasarkan konteks filter | staf | ✔ |
@@ -381,6 +391,10 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/bank-soal/ajukan`, `/bank-soal/{id}/tarik` | Ajukan soal ke kepala sekolah / tarik pengajuan | staf | ✔ |
 | POST | `/bank-soal/setujui`, `/bank-soal/revisi` | Setujui / kembalikan dengan catatan | kepsek | ✔ |
 | POST | `/bank-soal/ai/draf` | Draf soal oleh AI untuk satu baris kisi-kisi atau satu TP (disimpan sebagai draf) | staf | ✔ |
+| GET | `/bank-soal/cakupan` | Cakupan soal per TP (jumlah, bentuk, level, varian) | staf | ✔ |
+| GET | `/bank-soal/kembar` | Deteksi soal kembar/duplikat | staf | ✔ |
+| POST | `/bank-soal/{id}/varian` | Varian soal oleh AI (throttle 20/menit) | staf | ✔ |
+| POST | `/bank-soal/ai/dari-riset` | Draf soal dari hasil riset Notebook (throttle 10/menit) | staf | ✔ |
 | POST | `/bank-soal/impor` | Pecah paket soal lama (teks/Word/PDF/foto) menjadi draf | staf | ✔ |
 | POST | `/bank-soal/gambar` | Unggah gambar soal (PNG/JPG/WEBP, maks. 2MB) | staf | ✔ |
 | GET | `/video-belajar/studio` | Pengaturan Studio Rakit Video: pembuat video, mesin render, merek sekolah | staf | ✔ |
@@ -450,6 +464,11 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | PUT | `/paket-soal/{id}/online` | Buka/tutup tes online: jadwal, durasi, acak, token, tampilkan nilai | staf | ✔ |
 | GET | `/paket-soal/{id}/pantau` | Pantau tes online per siswa | staf | ✔ |
 | POST | `/paket-soal/{id}/jawaban/{idSiswa}/akhiri` | Akhiri sesi tes online seorang siswa | staf | ✔ |
+| GET/POST | `/sesi-ujian`, `/sesi-ujian/referensi` | Daftar sesi ujian CBT / referensi (paket, kelas) · buat sesi | staf | ✔ |
+| GET/PUT/DELETE | `/sesi-ujian/{id}` | Detail, ubah, hapus sesi ujian | staf | ✔ |
+| GET | `/sesi-ujian/{id}/pantau`, `/sesi-ujian/{id}/kartu` | Pantau peserta langsung / kartu peserta | staf | ✔ |
+| GET | `/sesi-ujian/{id}/siswa/{idSiswa}/log` | Log kejadian ujian seorang siswa | staf | ✔ |
+| POST | `/sesi-ujian/{id}/siswa/{idSiswa}/izinkan`, `/akhiri` | Izinkan mengulang / akhiri sesi siswa | staf | ✔ |
 | GET | `/ujian`, `/ujian/{id}` | Tes online kelas siswa; soal (tanpa kunci) & jawaban sesi berjalan | siswa | ✔ |
 | POST | `/ujian/{id}/mulai`, `/ujian/{id}/selesai` | Mulai (dengan token) / kumpulkan | siswa | ✔ |
 | PUT | `/ujian/{id}/jawaban` | Simpan otomatis jawaban (ditolak setelah waktu habis) | siswa | ✔ |
@@ -517,6 +536,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/perangkat-ajar` | Perangkat Ajar: ATP, modul ajar RPM, dan Capaian Pembelajaran (persetujuan kepala sekolah) |
 | `/dashboard/ujian`        | Tes Online siswa: daftar tes dan halaman mengerjakan (`/dashboard/ujian/{id}`) |
 | `/dashboard/bank-soal`    | Bank Soal: daftar & persetujuan soal, kisi-kisi, paket soal (cetak, koreksi, kirim nilai, analisis butir), impor paket soal |
+| `/dashboard/sesi-ujian`   | Sesi Ujian CBT: sesi untuk beberapa kelas, token, pantau pengawas, kartu peserta |
 | `/dashboard/jurnal`       | Jurnal (anekdotal & observasi) |
 | `/dashboard/presensi`     | Presensi (harian & per mapel, pembinaan kehadiran, riwayat & rekap per hari) |
 | `/dashboard/p5`           | Proyek (kegiatan kokurikuler) |
