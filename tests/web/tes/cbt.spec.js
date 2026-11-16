@@ -91,7 +91,7 @@ test("sesi ujian lintas kelas: token, kartu peserta, mode ujian terkunci, pengaw
   await ctxPengawas.route((url) => url.pathname.includes("/api/"), async (route) => {
     const asal = new URL(route.request().url());
     try { await route.fulfill({ response: await route.fetch({ url: API + asal.pathname + asal.search, maxRedirects: 0 }) }); }
-    catch (e) { if (!/closed/.test(String(e))) throw e; }
+    catch (e) { if (!/closed|disposed/.test(String(e))) throw e; }
   });
   const pengawas = await ctxPengawas.newPage();
   await pengawas.goto("/dashboard/sesi-ujian");

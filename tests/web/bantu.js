@@ -47,8 +47,8 @@ const test = base.test.extend({
         const response = await route.fetch({ url: API + asal.pathname + asal.search, maxRedirects: 0 });
         await route.fulfill({ response });
       } catch (e) {
-        // Permintaan yang masih berjalan saat tes selesai & halaman ditutup: abaikan
-        if (!/closed/.test(String(e))) throw e;
+        // Permintaan yang masih berjalan saat halaman ditutup atau dimuat ulang (respons sudah dibuang): abaikan
+        if (!/closed|disposed/.test(String(e))) throw e;
       }
     });
     const errors = [];
