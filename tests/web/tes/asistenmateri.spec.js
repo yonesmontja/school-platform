@@ -101,3 +101,19 @@ test("admin menonaktifkan rombel untuk semester aktif; guru tidak lagi melihatny
   await page.getByRole("button", { name: "Ya, aktifkan" }).click();
   await expect(baris).not.toContainText("Tidak aktif", { timeout: 30_000 });
 });
+
+test("tombol aksi ⋮ tetap tampil dan berfungsi saat kolom tidak muat (kolom lain dilipat)", async ({ page, masuk }) => {
+  test.setTimeout(120_000);
+  await masuk("guru");
+  // Layar sempit: Tabulator melipat kolom yang tidak muat ke baris bawah, tetapi kolom Aksi tidak boleh ikut terlipat
+  await page.setViewportSize({ width: 600, height: 900 });
+  await page.goto("/dashboard/master-materi");
+  await expect(page.locator(".tabulator-responsive-collapse").first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator(".tabulator-responsive-collapse .btn-kebab")).toHaveCount(0);
+  const tombol = page.locator(".tabulator-row .tabulator-cell .btn-kebab").first();
+  await expect(tombol).toBeVisible();
+  await tombol.click();
+  await expect(page.locator(".menu-aksi")).toBeVisible();
+  await page.getByRole("menuitem", { name: "Ubah" }).click();
+  await expect(page.locator(".modal.show, [role=dialog]").first()).toBeVisible();
+});

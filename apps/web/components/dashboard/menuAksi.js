@@ -101,11 +101,18 @@ export const TOMBOL_KEBAB = `<button type="button" class="btn btn-sm btn-kebab" 
  */
 export function kolomAksi(itemsDari, opsi = {}) {
   return {
-    title: "Aksi", field: "action", width: 70, hozAlign: "center", headerHozAlign: "center", headerSort: false, ...opsi,
-    formatter: (cell) => (itemsDari(cell.getRow().getData()).some((i) => i && i.tampil !== false) ? TOMBOL_KEBAB : `<span class="text-muted small">-</span>`),
-    cellClick: (e, cell) => {
-      const b = e.target.closest(".btn-kebab");
-      if (b) bukaMenuAksi(b, itemsDari(cell.getRow().getData()));
+    // responsive 0: kolom Aksi tidak pernah dilipat ke baris bawah saat kolom tidak muat
+    title: "Aksi", field: "action", width: 70, hozAlign: "center", headerHozAlign: "center", headerSort: false, responsive: 0, ...opsi,
+    // Tombol berupa elemen dengan pendengar klik sendiri: saat layar sempit/kolom banyak, Tabulator melipat kolom Aksi ke
+    // baris bawah (responsiveLayout "collapse") dan cellClick tidak terpicu di sana, sehingga ⋮ dulu tidak merespons
+    formatter: (cell) => {
+      const data = cell.getRow().getData();
+      if (!itemsDari(data).some((i) => i && i.tampil !== false)) return `<span class="text-muted small">-</span>`;
+      const tpl = document.createElement("template");
+      tpl.innerHTML = TOMBOL_KEBAB;
+      const b = tpl.content.firstElementChild;
+      b.addEventListener("click", (e) => { e.stopPropagation(); bukaMenuAksi(b, itemsDari(cell.getRow().getData())); });
+      return b;
     },
   };
 }
