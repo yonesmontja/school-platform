@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\CanvaController;
 use App\Http\Controllers\Api\VideoBelajarController;
 use App\Http\Controllers\Api\RenderInternalController;
 use App\Http\Controllers\Api\UjianController;
+use App\Http\Controllers\Api\SesiUjianController;
 use App\Http\Controllers\Api\RemedialController;
 use App\Http\Controllers\Api\HariLiburController;
 use App\Http\Controllers\Api\RenderApiAdminController;
@@ -370,6 +371,20 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::put('/{id}/online', [PaketSoalController::class, 'aturOnline']);
             Route::get('/{id}/pantau', [PaketSoalController::class, 'pantau']);
             Route::post('/{id}/jawaban/{idSiswa}/akhiri', [PaketSoalController::class, 'akhiriSesi']);
+        });
+        // Sesi ujian CBT (Tahap A): satu paket untuk beberapa kelas, token sesi, pantau pengawas, kartu peserta (hak akses dicek di controller)
+        Route::prefix('sesi-ujian')->group(function () {
+            Route::get('/', [SesiUjianController::class, 'index']);
+            Route::get('/referensi', [SesiUjianController::class, 'referensi']);
+            Route::post('/', [SesiUjianController::class, 'store']);
+            Route::get('/{id}', [SesiUjianController::class, 'show']);
+            Route::put('/{id}', [SesiUjianController::class, 'update']);
+            Route::delete('/{id}', [SesiUjianController::class, 'destroy']);
+            Route::get('/{id}/pantau', [SesiUjianController::class, 'pantau']);
+            Route::get('/{id}/kartu', [SesiUjianController::class, 'kartu']);
+            Route::get('/{id}/siswa/{idSiswa}/log', [SesiUjianController::class, 'log']);
+            Route::post('/{id}/siswa/{idSiswa}/izinkan', [SesiUjianController::class, 'izinkan']);
+            Route::post('/{id}/siswa/{idSiswa}/akhiri', [SesiUjianController::class, 'akhiri']);
         });
         // Video Belajar (Fase 19): pustaka video, tautan ke modul ajar & jadwal, persetujuan kepala sekolah (dicek di controller)
         Route::prefix('video-belajar')->group(function () {

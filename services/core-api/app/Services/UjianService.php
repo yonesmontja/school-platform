@@ -15,11 +15,21 @@ class UjianService
     // Kelonggaran jaringan setelah waktu habis: jawaban yang terkirim dalam selang ini masih diterima
     public const TOLERANSI_DETIK = 30;
 
-    /** Batas waktu sesi: mulai + durasi, tidak melewati jadwal tutup paket. */
+    /**
+     * Batas waktu sesi: mulai + durasi, tidak melewati jadwal tutup. Siswa yang mengerjakan lewat sesi ujian CBT memakai
+     * durasi & waktu tutup sesinya; tambahan waktu dari pengawas ditambahkan ke keduanya.
+     */
     public static function batas(PaketSoal $paket, PaketSoalJawaban $j): ?Carbon
     {
-        $batas = $paket->durasi_menit && $j->mulai_pada ? $j->mulai_pada->copy()->addMinutes($paket->durasi_menit) : null;
-        if ($paket->online_selesai && (!$batas || $paket->online_selesai->lt($batas))) $batas = $paket->online_selesai->copy();
+        $sesi = $j->id_sesi ? $j->sesi : null;
+        $durasi = $sesi ? $sesi->durasi_menit : $paket->durasi_menit;
+        $tutup = $sesi ? $sesi->selesai : $paket->online_selesai;
+        $tambah = (int) $j->tambahan_menit;
+        $batas = $durasi && $j->mulai_pada ? $j->mulai_pada->copy()->addMinutes($durasi + $tambah) : null;
+        if ($tutup) {
+            $tutup = Carbon::parse($tutup)->addMinutes($tambah);
+            if (!$batas || $tutup->lt($batas)) $batas = $tutup;
+        }
         return $batas;
     }
 

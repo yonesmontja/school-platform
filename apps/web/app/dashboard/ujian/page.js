@@ -49,6 +49,7 @@ export default function DaftarUjian() {
                         {u.status === "BELUM_DIBUKA" && u.online_mulai && ` · dibuka ${waktu(u.online_mulai)}`}
                         {bisa && u.online_selesai && ` · ditutup ${waktu(u.online_selesai)}`}
                       </div>
+                      {u.sesi && <div className="small text-primary"><i className="bi bi-door-open me-1"></i>{u.sesi.nama}{u.sesi.ruang && ` · ${u.sesi.ruang}`}</div>}
                       <span className={`badge text-bg-${warna} ${warna === "light" ? "border" : ""} mt-1`}><i className={`bi ${ikon} me-1`}></i>{label}</span>
                       {u.status === "SELESAI" && u.nilai != null && <span className="badge text-bg-success ms-1">Nilai {u.nilai}</span>}
                       {u.status === "SELESAI" && u.menunggu_guru && <span className="badge text-bg-warning ms-1">Menunggu guru menilai uraian</span>}

@@ -162,8 +162,10 @@ class PaketSoalController extends Controller
         $paket = PaketSoal::findOrFail($id);
         $this->cekAkses($request, $paket);
         UjianService::tutupKedaluwarsa($paket);
-        $siswa = $paket->id_kelas ? Student::where('id_kelas', $paket->id_kelas)->orderBy('nama_siswa')->get(['id_siswa', 'nisn', 'nama_siswa']) : collect();
-        return response()->json(['siswa' => $siswa, 'jawaban' => $paket->jawaban()->get()->keyBy('id_siswa')]);
+        // Kelas paket + kelas peserta sesi ujian CBT yang memakai paket ini
+        $kelas = $this->kelasPeserta($paket);
+        $siswa = $kelas ? Student::with('kelas:id_kelas,nama_kelas')->whereIn('id_kelas', $kelas)->orderBy('id_kelas')->orderBy('nama_siswa')->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas']) : collect();
+        return response()->json(['siswa' => $siswa, 'jawaban' => $paket->jawaban()->get()->keyBy('id_siswa'), 'lintas_kelas' => count($kelas) > 1]);
     }
 
     /**
@@ -326,18 +328,22 @@ class PaketSoalController extends Controller
         $pesan = [];
         $tindakLanjut = 0;
         DB::transaction(function () use ($request, $paket, $perMateri, $nilai, &$pesan, &$tindakLanjut) {
+            // Sesi ujian bisa lintas kelas: nilai dikirim per kelas siswa
+            $kelasSiswa = Student::whereIn('id_siswa', collect($perMateri)->flatMap(fn($x) => array_keys($x))->unique())->pluck('id_kelas', 'id_siswa');
             foreach ($perMateri as $idMateri => $perSiswa) {
-                $sub = Request::create('/', 'POST', [
-                    'id_kelas' => $paket->id_kelas, 'id_mapel' => $paket->id_mapel, 'id_periode' => $paket->id_periode,
-                    'id_jenis' => $paket->id_jenis, 'id_materi' => $idMateri, 'tanggal' => $paket->tanggal->format('Y-m-d'),
-                    'records' => collect($perSiswa)->map(fn($r, $idSiswa) => ['id_siswa' => $idSiswa] + $r)->values()->all(),
-                ]);
-                $sub->setUserResolver(fn() => $request->user());
-                $res = $nilai->saveBatch($sub);
-                $isi = $res->getData(true);
-                if ($res->getStatusCode() >= 400) throw ValidationException::withMessages(['nilai' => $isi['message'] ?? 'Gagal menyimpan nilai.']);
-                $pesan[] = $isi['message'];
-                $tindakLanjut += $isi['perlu_tindak_lanjut'] ?? 0;
+                foreach (collect($perSiswa)->groupBy(fn($r, $idSiswa) => $kelasSiswa[$idSiswa] ?? $paket->id_kelas, true) as $idKelas => $grup) {
+                    $sub = Request::create('/', 'POST', [
+                        'id_kelas' => $idKelas, 'id_mapel' => $paket->id_mapel, 'id_periode' => $paket->id_periode,
+                        'id_jenis' => $paket->id_jenis, 'id_materi' => $idMateri, 'tanggal' => $paket->tanggal->format('Y-m-d'),
+                        'records' => $grup->map(fn($r, $idSiswa) => ['id_siswa' => $idSiswa] + $r)->values()->all(),
+                    ]);
+                    $sub->setUserResolver(fn() => $request->user());
+                    $res = $nilai->saveBatch($sub);
+                    $isi = $res->getData(true);
+                    if ($res->getStatusCode() >= 400) throw ValidationException::withMessages(['nilai' => $isi['message'] ?? 'Gagal menyimpan nilai.']);
+                    $pesan[] = $isi['message'];
+                    $tindakLanjut += $isi['perlu_tindak_lanjut'] ?? 0;
+                }
             }
             $paket->update(['terkirim_pada' => now()]);
         });
@@ -578,11 +584,19 @@ class PaketSoalController extends Controller
         abort_unless($user->isPengelola() || ($paket->dibuat_oleh === $user->id && $user->bolehNilaiMapel($paket->id_mapel)), 403, 'Paket soal ini milik guru lain.');
     }
 
+    /** Kelas yang mengerjakan paket: kelas paket dan kelas peserta sesi ujian CBT paket ini. */
+    private function kelasPeserta(PaketSoal $paket): array
+    {
+        $sesi = \App\Models\UjianSesi::where('id_paket', $paket->id_paket)->pluck('kelas')->flatten()->all();
+        return array_values(array_unique(array_filter([$paket->id_kelas, ...$sesi])));
+    }
+
     private function cekSiswa(PaketSoal $paket, $idSiswa): void
     {
         $idSiswa = $idSiswa->unique();
-        $anggota = Student::where('id_kelas', $paket->id_kelas)->whereIn('id_siswa', $idSiswa)->count();
-        if (!$paket->id_kelas || $anggota !== $idSiswa->count()) {
+        $kelas = $this->kelasPeserta($paket);
+        $anggota = Student::whereIn('id_kelas', $kelas ?: ['-'])->whereIn('id_siswa', $idSiswa)->count();
+        if (!$kelas || $anggota !== $idSiswa->count()) {
             throw ValidationException::withMessages(['records' => 'Ada siswa yang bukan anggota kelas paket ini.']);
         }
     }

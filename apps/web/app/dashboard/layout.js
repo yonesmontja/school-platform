@@ -48,6 +48,7 @@ const MENU_GROUPS = [
     id: "asesmen", label: "Asesmen", icon: "bi-clipboard2-check",
     items: [
       { href: "/dashboard/bank-soal", label: "Bank Soal", icon: "bi-patch-question" },
+      { href: "/dashboard/sesi-ujian", label: "Sesi Ujian (CBT)", icon: "bi-pc-display" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
       { href: "/dashboard/p5", label: "Proyek (P5)", icon: "bi-stars" },
       { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },

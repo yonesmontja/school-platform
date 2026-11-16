@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { srcGambar } from "./PratinjauSoal";
 import { bacaBerkas, minta } from "./api";
+import { idPerangkat } from "@/app/lib/perangkatUjian";
 
 const MAKS_DETIK = 180;
 // Chrome/Android merekam webm, Safari/iPhone merekam mp4
@@ -40,7 +41,7 @@ export default function PerekamSuara({ idPaket, idButir, url, onTersimpan }) {
     setTahap("mengunggah"); setGalat(null);
     try {
       const data = await bacaBerkas(blob.current);
-      const res = await minta("POST", `/ujian/${idPaket}/rekaman`, { id_butir: idButir, audio_base64: data });
+      const res = await minta("POST", `/ujian/${idPaket}/rekaman`, { id_butir: idButir, audio_base64: data, perangkat: idPerangkat() });
       blob.current = null;
       onTersimpan(res.url, res.sisa_detik);
       setTahap("siap");

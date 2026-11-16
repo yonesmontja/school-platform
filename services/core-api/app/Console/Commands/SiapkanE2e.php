@@ -119,6 +119,14 @@ class SiapkanE2e extends Command
             ]);
         }
 
+        // Soal pilihan ganda yang sudah disetujui, untuk sesi ujian CBT (cbt.spec.js)
+        BankSoal::create([
+            'id_soal' => 'SOAL-E2E-CBT', 'id_mapel' => 'MPL-EMTK', 'id_kelas' => 'KLS-E4A', 'id_materi' => 'MTR-E1', 'id_indikator' => 'IND-E2', 'bentuk' => 'PG',
+            'level_kognitif' => 'C2', 'tingkat_kesulitan' => 'MUDAH', 'pertanyaan' => 'Pecahan yang senilai dengan 1/2 adalah ...',
+            'isi' => ['pilihan' => ['2/4', '1/3', '3/4', '2/3']], 'kunci' => ['jawaban' => 0], 'skor_maks' => 1,
+            'status' => 'DISETUJUI', 'sumber' => 'MANUAL', 'dibuat_oleh' => User::where('username', 'guru.e2e')->value('id'),
+            'disetujui_oleh' => User::where('username', 'kepsek.e2e')->value('id'), 'disetujui_pada' => now(),
+        ]);
         // Soal membaca nyaring yang sudah disetujui, untuk tes rekaman suara siswa
         BankSoal::create([
             'id_soal' => 'SOAL-E2E-BACA', 'id_mapel' => 'MPL-EMTK', 'id_kelas' => 'KLS-E4A', 'id_materi' => 'MTR-E1', 'bentuk' => 'MEMBACA_NYARING',

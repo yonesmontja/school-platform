@@ -251,6 +251,25 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "sesi-ujian", kelompok: "guru", judul: "Sesi ujian CBT (gaya ANBK)", icon: "bi-pc-display",
+    href: "/dashboard/sesi-ujian",
+    langkah: [
+      "Siapkan paket soal di Bank Soal → Paket Soal, lalu buka menu Sesi Ujian (CBT) → Sesi baru.",
+      "Pilih paket, centang semua kelas peserta (boleh beberapa kelas sekaligus), atur jam buka-tutup, waktu mengerjakan, ruang, dan pengawas.",
+      "Token sesi bisa tetap atau berganti otomatis tiap beberapa menit seperti ANBK. Atur mode ujian: wajib layar penuh, satu perangkat per siswa, dan kunci setelah pelanggaran ke-N.",
+      "Cetak Kartu peserta (nama, NISN, kelas, username akun siswa, waktu, ruang, pengawas) dan bagikan sebelum ujian.",
+      "Saat ujian, buka sesinya: token aktif tampil besar untuk ditulis di papan. Siswa masuk akun siswa → Tes Online → Mulai → ketik token.",
+      "Pantau semua kelas di satu layar (diperbarui tiap 10 detik): belum masuk, mengerjakan, offline, terkunci, selesai, jumlah terjawab, sisa waktu, dan peristiwa terakhir.",
+      "Siswa terkunci (keluar halaman berkali-kali atau pindah HP): tekan Izinkan masuk. Jawabannya tetap ada; bisa sekaligus menambah waktu. Akhiri untuk mengumpulkan jawaban siswa yang HP-nya mati.",
+      "Setelah selesai, koreksi uraian dan Kirim ke Input Nilai dari paket soalnya; siswa dari semua kelas sesi ikut, nilainya masuk ke kelas masing-masing.",
+    ],
+    tips: [
+      "Bila sinyal putus, jawaban siswa tetap tersimpan di HP dan terkirim otomatis begitu sinyal kembali.",
+      "Satu paket bisa dipakai beberapa sesi (Sesi 1, Sesi 2) dengan kelas dan jam berbeda.",
+      "Tombol daftar (ikon garis) di baris siswa menampilkan log lengkap: masuk, keluar halaman/layar penuh, sinyal putus, percobaan dari perangkat lain, izin pengawas.",
+    ],
+  },
+  {
     id: "tes-online", kelompok: "guru", judul: "Tes online di HP siswa", icon: "bi-phone",
     href: "/dashboard/bank-soal",
     langkah: [
