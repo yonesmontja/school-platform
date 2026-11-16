@@ -80,6 +80,19 @@ export default function PanduanPage() {
             </button>
             {buka && (
               <div className="card-body pt-0">
+                {b.alur && (
+                  <ol className="list-unstyled d-flex flex-wrap align-items-stretch gap-1 mb-3 panduan-alur" aria-label="Diagram alur">
+                    {b.alur.map((a, j) => (
+                      <li key={a.label} className="d-flex align-items-center gap-1">
+                        <Link href={a.href} className="text-decoration-none border rounded-3 px-2 py-1 bg-body-tertiary text-body d-block" style={{ minWidth: 104 }}>
+                          <div className="small fw-semibold"><span className="badge rounded-pill text-bg-primary me-1">{j + 1}</span><i className={`bi ${a.ikon} text-primary me-1`}></i>{a.label}</div>
+                          <div className="text-body-secondary" style={{ fontSize: ".72rem" }}>{a.siapa}</div>
+                        </Link>
+                        {j < b.alur.length - 1 && <i className="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
                 <ol className="mb-2 ps-4">
                   {b.langkah.map((l, j) => <li key={j} className="mb-1">{l}</li>)}
                 </ol>

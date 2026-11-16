@@ -92,6 +92,21 @@ class ProgramAjarTest extends TestCase
             ->assertJsonPath('semester.0.periode.semester', 'Genap')->assertJsonPath('semester.0.ringkasan.tp_tuntas', 1);
     }
 
+    public function test_sesi_lewat_modul_banyak_tp_dihitung_utuh_berurutan_bukan_dibagi_rata(): void
+    {
+        Sanctum::actingAs($this->sekolah->guruA);
+        \App\Models\ModulAjar::create(['id_modul' => 'MOD-T', 'judul' => 'Pecahan', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_periode' => 'PER-T',
+            'tp' => ['IND-T1', 'IND-T2'], 'jumlah_pertemuan' => 4, 'isi' => \App\Models\ModulAjar::kosong(4), 'status' => 'DISETUJUI', 'dibuat_oleh' => $this->sekolah->guruA->id]);
+        // Tiga sesi 2 JP hanya bertaut modul: TP1 (alokasi 4) terisi dua sesi pertama, sesi ketiga ke TP2
+        foreach (['2030-01-08', '2030-01-15', '2030-01-29'] as $i => $t) $this->sesi($t, ['id_modul' => 'MOD-T', 'pertemuan_ke' => $i + 1]);
+
+        $baris = collect($this->getJson('/api/program-ajar/promes?id_mapel=MPL-A&id_kelas=KLS-A&id_periode=PER-T')->assertOk()->json('baris'))->keyBy('id');
+        $this->assertEquals(4, $baris[$this->baris1]['jp_selesai']);
+        $this->assertEquals(0, $baris[$this->baris1]['jp_terjadwal']);
+        $this->assertEquals(2, $baris[$this->baris2]['jp_terjadwal']); // dulu: 3 sesi × 1 JP ke tiap TP
+        $this->assertSame('TUNTAS', $baris[$this->baris1]['status']);
+    }
+
     public function test_status_otomatis_hanya_pembatalan_yang_manual(): void
     {
         Sanctum::actingAs($this->sekolah->guruA);

@@ -29,8 +29,24 @@ test("guru melihat langkah berikutnya di dashboard dan peta kerja lengkap di Pan
   const rincian = peta.getByRole("button", { name: /Rincian per mapel/ }).first();
   if (await rincian.count()) { await rincian.click(); await expect(peta.locator("ul.list-unstyled li").first()).toBeVisible(); }
   await peta.screenshot({ path: test.info().outputPath("peta-kerja.png") });
-  // Panduan statis tetap ada di bawahnya
+  // Urutan persiapan mengikuti alur: kalender → TP → ATP → Peta Tema → Jadwal → modul
+  await expect(peta.locator("[data-langkah=kalender]")).toBeVisible();
+  const urutan = await peta.locator("[data-langkah]").evaluateAll((el) => el.map((e) => e.getAttribute("data-langkah")));
+  const posisi = (id) => urutan.indexOf(id);
+  expect(posisi("kalender")).toBeLessThan(posisi("tp"));
+  expect(posisi("atp")).toBeLessThan(posisi("peta_tema"));
+  expect(posisi("peta_tema")).toBeLessThan(posisi("jadwal"));
+  expect(posisi("jadwal")).toBeLessThan(posisi("modul"));
+
+  // Panduan statis tetap ada di bawahnya, termasuk diagram alur perencanaan
   await expect(page.getByText("Cara memakai tiap menu")).toBeVisible();
+  await page.getByRole("button", { name: /^\W*Guru$/ }).click();
+  await page.getByRole("button", { name: /Alur perencanaan/ }).click();
+  const alur = page.getByRole("list", { name: "Diagram alur" });
+  await expect(alur.locator("li")).toHaveCount(7);
+  await expect(alur).toContainText("Peta Tema");
+  await expect(alur).toContainText("Promes & Prota");
+  await alur.screenshot({ path: test.info().outputPath("alur-perencanaan.png") });
 });
 
 test("kepala sekolah memilih guru untuk memantau peta kerjanya", async ({ page, masuk }) => {

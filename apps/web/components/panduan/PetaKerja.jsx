@@ -82,7 +82,7 @@ function Langkah({ l, no }) {
         <div className="flex-grow-1 min-w-0">
           <div className="d-flex flex-wrap align-items-center gap-2">
             <span className="fw-semibold">{no}. {l.judul}</span>
-            {!l.wajib && <span className="badge text-bg-light border fw-normal">opsional</span>}
+            {!l.wajib && <span className="badge text-bg-light border fw-normal">{l.id === "kalender" ? "diatur admin" : "opsional"}</span>}
             {angka(l) && <span className="small text-body-secondary ms-auto">{angka(l)}</span>}
           </div>
           <div className="small text-body-secondary">{l.tujuan}</div>

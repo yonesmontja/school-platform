@@ -74,6 +74,36 @@ export const BAGIAN = [
 
   // ---------- Guru ----------
   {
+    id: "alur-perencanaan", kelompok: "guru", judul: "Alur perencanaan: dari CP sampai Jadwal, Promes, dan Prota", icon: "bi-signpost-split",
+    href: "/dashboard/program-ajar",
+    // Ditampilkan sebagai diagram alur di atas langkah
+    alur: [
+      { label: "Kalender", siapa: "Admin/Kepsek", href: "/dashboard/program-ajar?tab=kalender", ikon: "bi-calendar-week" },
+      { label: "CP & TP", siapa: "Guru", href: "/dashboard/master-materi", ikon: "bi-bullseye" },
+      { label: "ATP", siapa: "Guru → Kepsek", href: "/dashboard/perangkat-ajar", ikon: "bi-diagram-3" },
+      { label: "Peta Tema", siapa: "Kepsek", href: "/dashboard/perangkat-ajar?tab=tema", ikon: "bi-bezier2" },
+      { label: "Jadwal", siapa: "Otomatis + Guru", href: "/dashboard/jadwal", ikon: "bi-calendar3-week" },
+      { label: "Modul ajar", siapa: "Guru → Kepsek", href: "/dashboard/perangkat-ajar?tab=modul", ikon: "bi-journal-richtext" },
+      { label: "Promes & Prota", siapa: "Otomatis", href: "/dashboard/program-ajar", ikon: "bi-bar-chart-steps" },
+    ],
+    langkah: [
+      "Kalender (admin/kepala sekolah, sekali per semester): buka Prota & Promes → tab Minggu Efektif. Isi tanggal mulai dan selesai semester, tandai minggu tidak efektif (ujian, libur panjang, kegiatan), dan isi Hari Libur. Tanpa ini nomor minggu efektif bergeser dan Promes cepat menandai Terlambat.",
+      "CP dan TP (guru): isi Capaian Pembelajaran di Perangkat Ajar (bisa Isi CP dengan AI dari Pustaka Dokumen), lalu buat Materi beserta TP-nya. Tetapkan kelasnya; materi \"semua kelas\" tidak terhitung di kelas mana pun.",
+      "ATP (guru, disetujui kepala sekolah): per mapel–kelas, urutkan TP dan isi alokasi JP serta minggu efektifnya (mis. 16–18). Begitu ATP ada, rencana Prota dan Promes langsung terisi sendiri; keduanya tidak pernah diketik manual.",
+      "Peta Tema (kepala sekolah): susun tema lintas mapel per kelas, tautkan TP dari ATP, isi JP per minggu dan hari tiap mapel, susun slot pola mingguan, lalu Periksa keselarasan agar JP dan minggu TP cocok dengan ATP dan Promes. Tetapkan, lalu Buat Jadwal.",
+      "Jadwal: sesi dari Peta Tema masuk sendiri ke Jadwal guru, sudah tertaut TP. Mapel atau jam yang tidak tercakup tema dibuat guru lewat Jadwal → Paket dari Promes: sistem mengambil sisa JP tiap TP dari ATP tanpa menggandakan sesi yang sudah ada.",
+      "Modul ajar (guru, disetujui kepala sekolah): buat per TP/pertemuan dari ATP yang disetujui, lalu tautkan modul dan pertemuannya ke sesi di Jadwal. Langkah pertemuan muncul saat mengisi jurnal.",
+      "Setiap minggu: status sesi berubah sendiri mengikuti jam (Menunggu → Berlangsung → Selesai). Isi presensi, jurnal, dan nilai, lalu buka Prota & Promes untuk membandingkan realisasi dengan rencana.",
+    ],
+    tips: [
+      "Prota dan Promes adalah cermin: rencananya dari ATP, realisasinya dari sesi Jadwal yang sudah Selesai. Memperbaiki Promes berarti memperbaiki ATP atau Jadwal.",
+      "Terlambat = rentang minggu rencana TP sudah lewat tetapi JP terlaksana + terjadwal belum memenuhi alokasi. Atasi dengan menambah sesi lewat Paket dari Promes, atau sesuaikan kolom minggu di ATP bila rencananya memang tidak realistis.",
+      "Sesi yang tertaut modul berisi beberapa TP dihitung utuh untuk satu TP, diisi berurutan sesuai ATP sampai alokasinya terpenuhi. Agar tepat, tautkan TP-nya langsung di sesi (panel perangkat ATP/TP).",
+      "Peta Kerja di Dashboard dan di atas halaman Panduan mengikuti urutan ini dan menunjukkan apa yang membuat tiap langkah belum lengkap.",
+      "Sesi dari Peta Tema \"terima jadi\": menggeser satu rangkaian sesi tema di Jadwal ikut mengubah pola tema dan dihitung sebagai perubahan (maks. 3 kali sebelum dikunci kepala sekolah).",
+    ],
+  },
+  {
     id: "nilai", kelompok: "guru", judul: "Input nilai per indikator", icon: "bi-pencil-square",
     href: "/dashboard/nilai",
     gambar: "/panduan/nilai.jpg",

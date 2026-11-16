@@ -54,10 +54,10 @@ class PanduanKerjaService
     {
         $tahap = [
             ['id' => 'persiapan', 'label' => 'Persiapan semester', 'ikon' => 'bi-diagram-3',
-                'keterangan' => 'Dikerjakan di awal semester, sekali untuk tiap mapel–kelas.',
+                'keterangan' => 'Dikerjakan di awal semester, sekali untuk tiap mapel–kelas. Urutannya: kalender → TP → ATP → Peta Tema → Jadwal → modul; Promes & Prota terisi sendiri dari ATP dan Jadwal.',
                 'langkah' => array_values(array_filter([
-                    $this->langkahTp(), $this->langkahAtp(), $this->langkahJadwal(), $this->langkahModul(),
-                    $this->langkahDiagnostik(), $this->langkahPetaTema(), $this->langkahKisi(),
+                    $this->langkahKalender(), $this->langkahTp(), $this->langkahAtp(), $this->langkahPetaTema(), $this->langkahJadwal(), $this->langkahModul(),
+                    $this->langkahDiagnostik(), $this->langkahKisi(),
                 ]))],
             ['id' => 'rutin', 'label' => 'Rutin mingguan', 'ikon' => 'bi-arrow-repeat',
                 'keterangan' => 'Dikerjakan terus selama semester berjalan (dihitung ' . self::HARI_RUTIN . ' hari terakhir).',
@@ -264,6 +264,25 @@ class PanduanKerjaService
     private function siswaBinaan(): Collection
     {
         return Student::whereIn('id_kelas', $this->kelasBinaan)->pluck('id_siswa');
+    }
+
+    /**
+     * Kalender semester (diatur admin/kepala sekolah): tanggal semester & minggu tidak efektif menentukan nomor minggu efektif
+     * di ATP dan Promes. Guru tidak bisa mengubahnya, jadi langkah ini informasi (tidak memengaruhi persen).
+     */
+    private function langkahKalender(): ?array
+    {
+        if (!$this->periode) return null;
+        $p = $this->periode;
+        $ada = $p->tanggal_mulai && $p->tanggal_selesai;
+        $tidakEfektif = count($p->minggu_tidak_efektif ?? []);
+        $info = $ada
+            ? "Semester {$p->tanggal_mulai->format('d/m/Y')} – {$p->tanggal_selesai->format('d/m/Y')}; {$tidakEfektif} minggu ditandai tidak efektif."
+            : 'Tanggal semester belum diisi admin/kepala sekolah, jadi Promes memakai kalender bawaan dan nomor minggu efektif bisa bergeser.';
+        return $this->langkah('kalender', 'Kalender & minggu efektif (admin/kepala sekolah)',
+            'Tanggal semester dan minggu tidak efektif menentukan minggu ke berapa tiap TP di ATP dan Promes.',
+            $ada ? 1 : 0, 1, $info, '/dashboard/program-ajar?tab=kalender', 'Lihat kalender',
+            ['status' => $ada ? 'selesai' : 'menunggu', 'wajib' => false]);
     }
 
     private function langkahDiagnostik(): ?array

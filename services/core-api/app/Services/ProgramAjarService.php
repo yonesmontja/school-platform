@@ -194,13 +194,16 @@ class ProgramAjarService
             $indikator = $perangkat->where('jenis', 'INDIKATOR')->pluck('id')->all();
             foreach ($baris as $k => $b) if (in_array($b['id'], $idBaris, true)) $target[] = $k;
             if (!$target && $indikator) foreach ($baris as $k => $b) if ($b['id_indikator'] && in_array($b['id_indikator'], $indikator, true)) $target[] = $k;
-            if (!$target && $s->modul?->tp) foreach ($baris as $k => $b) if ($b['id_indikator'] && in_array($b['id_indikator'], (array) $s->modul->tp, true)) $target[] = $k;
-            if (!$target && $s->id_materi) {
-                $calon = array_keys(array_filter($baris, fn($b) => $b['id_materi'] === $s->id_materi));
-                // Materi yang sama di beberapa TP: isi berurutan sampai alokasinya terpenuhi
-                foreach ($calon as $k) if ($baris[$k]['jp_selesai'] + $baris[$k]['jp_terjadwal'] < max(1, $baris[$k]['alokasi_jp'])) { $target = [$k]; break; }
-                if (!$target && $calon) $target = [end($calon)];
+            // Modul (atau materi) yang mencakup beberapa TP: satu sesi dihitung utuh untuk satu TP, diisi berurutan sesuai ATP
+            // sampai alokasinya terpenuhi. Dulu JP sesi dibagi rata ke semua TP modul (2 JP untuk 10 TP = 0,2 JP per TP).
+            $isiBerurutan = function (array $calon) use (&$baris): array {
+                foreach ($calon as $k) if ($baris[$k]['jp_selesai'] + $baris[$k]['jp_terjadwal'] < max(1, $baris[$k]['alokasi_jp'])) return [$k];
+                return $calon ? [end($calon)] : [];
+            };
+            if (!$target && $s->modul?->tp) {
+                $target = $isiBerurutan(array_keys(array_filter($baris, fn($b) => $b['id_indikator'] && in_array($b['id_indikator'], (array) $s->modul->tp, true))));
             }
+            if (!$target && $s->id_materi) $target = $isiBerurutan(array_keys(array_filter($baris, fn($b) => $b['id_materi'] === $s->id_materi)));
 
             $jp = $s->jp();
             $ringkas = [
