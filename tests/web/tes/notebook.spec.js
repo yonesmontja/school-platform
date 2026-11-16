@@ -69,6 +69,12 @@ test("guru meneliti dokumen dengan Notebook AI dan bertanya ke dokumen", async (
 
   const [unduhan] = await Promise.all([page.waitForEvent("download"), nb.getByRole("button", { name: /Unduh \(\.md\)/ }).click()]);
   expect(unduhan.suggestedFilename()).toContain("CP Notebook E2E");
+  // Word (.docx) dan PDF: berkas asli yang bisa dibuka Office/WPS dan penampil PDF (isi diperiksa di luar tes)
+  for (const [tombol, ext] of [[/Word \(\.docx\)/, "docx"], [/^\W*PDF$/, "pdf"]]) {
+    const [berkas] = await Promise.all([page.waitForEvent("download"), nb.getByRole("button", { name: tombol }).click()]);
+    expect(berkas.suggestedFilename()).toBe(`Notebook - CP Notebook E2E.${ext}`);
+    await berkas.saveAs(test.info().outputPath(`notebook.${ext}`));
+  }
 });
 
 test("guru mengisi CP dari dokumen Pustaka dengan AI", async ({ page, masuk }) => {

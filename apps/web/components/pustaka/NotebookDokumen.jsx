@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
-import { esc, judulHtml, kopWordHtml, muatSekolah, unduhWordResmi } from "@/app/lib/dokumenResmi";
+import { muatSekolah } from "@/app/lib/dokumenResmi";
+import { unduhDocx, unduhPdf } from "@/app/lib/eksporBlok";
 import JadikanSoal from "./JadikanSoal";
 
 export const TAB_RISET = [
@@ -54,30 +55,31 @@ export function keMarkdown(judul, riset, tanya = []) {
   return baris.join("\n");
 }
 
-/** Hasil riset sebagai badan HTML dokumen Word. */
-function keHtmlWord(riset, tanya) {
-  const t = (v) => esc(v).replace(/\n/g, "<br>");
-  const tabel = (kolom, baris) => `<table><tr>${kolom.map((k) => `<th>${t(k)}</th>`).join("")}</tr>${baris.map((r) => `<tr>${kolom.map((_, i) => `<td>${t(r[i])}</td>`).join("")}</tr>`).join("")}</table>`;
-  const isi = [];
+/** Hasil riset sebagai blok dokumen, untuk diekspor ke Word (.docx) dan PDF. */
+export function blokRiset(judul, riset, tanya = []) {
+  const blok = [{ t: "judul", teks: `Notebook AI: ${judul}`, sub: `Disusun dengan AI pada ${new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}; periksa kembali dengan dokumen aslinya.` }];
   for (const tb of TAB_RISET) {
     const h = riset[tb.jenis]?.hasil;
     if (!h) continue;
-    isi.push(`<h3>${esc(tb.label)}</h3>`);
-    if (tb.jenis === "RINGKAS") isi.push(`<p>${t(h.ringkasan)}</p>`, h.poin?.length ? `<ul>${h.poin.map((p) => `<li>${t(p)}</li>`).join("")}</ul>` : "");
-    if (tb.jenis === "RINCI") isi.push(`<ol>${(h.bagian || []).map((b) => `<li><b>${t(b.judul)}</b><br>${t(b.isi)}</li>`).join("")}</ol>`);
-    if (tb.jenis === "POIN") isi.push(`<ul>${(h.poin || []).map((p) => `<li>${t(p.teks)} <i>(${esc(UNTUK[p.untuk]?.[0] || "Umum")})</i></li>`).join("")}</ul>`);
-    if (tb.jenis === "ISTILAH") isi.push(tabel(["Istilah", "Definisi"], (h.istilah || []).map((x) => [x.istilah, x.definisi])));
+    blok.push({ t: "h", teks: tb.label });
+    if (tb.jenis === "RINGKAS") blok.push({ t: "p", teks: h.ringkasan || "" }, ...(h.poin || []).map((p) => ({ t: "li", teks: p })));
+    if (tb.jenis === "RINCI") (h.bagian || []).forEach((b, i) => blok.push({ t: "li", label: `${i + 1}.`, teks: b.judul || `Bagian ${i + 1}`, tebal: true }, { t: "p", teks: b.isi || "" }));
+    if (tb.jenis === "POIN") (h.poin || []).forEach((p) => blok.push({ t: "li", teks: `${p.teks} (${UNTUK[p.untuk]?.[0] || "Umum"})` }));
+    if (tb.jenis === "ISTILAH") blok.push({ t: "tabel", kolom: ["Istilah", "Definisi"], baris: (h.istilah || []).map((x) => [x.istilah, x.definisi]) });
     if (tb.jenis === "EKSTRAK") {
-      if (h.data?.length) isi.push(tabel(["Jenis", "Nilai", "Keterangan"], h.data.map((x) => [JENIS_DATA[x.jenis] || x.jenis, x.nilai, x.keterangan])));
-      (h.tabel || []).forEach((x) => isi.push(`<p><b>${t(x.judul || "Tabel")}</b></p>`, tabel(x.kolom, x.baris)));
+      if (h.data?.length) blok.push({ t: "tabel", kolom: ["Jenis", "Nilai", "Keterangan"], baris: h.data.map((x) => [JENIS_DATA[x.jenis] || x.jenis, x.nilai, x.keterangan]) });
+      (h.tabel || []).forEach((x) => blok.push({ t: "p", teks: x.judul || "Tabel", tebal: true }, { t: "tabel", kolom: x.kolom || [], baris: x.baris || [] }));
     }
-    if (tb.jenis === "FAQ") (h.faq || []).forEach((x) => isi.push(`<p><b>${t(x.tanya)}</b><br>${t(x.jawab)}</p>`));
+    if (tb.jenis === "FAQ") (h.faq || []).forEach((x) => blok.push({ t: "p", teks: x.tanya, tebal: true }, { t: "p", teks: x.jawab }));
   }
   if (tanya.length) {
-    isi.push("<h3>Tanya dokumen</h3>");
-    [...tanya].reverse().forEach((q) => isi.push(`<p><b>T:</b> ${t(q.pertanyaan)}<br><b>J:</b> ${t(q.hasil?.jawaban)}</p>`));
+    blok.push({ t: "h", teks: "Tanya dokumen" });
+    [...tanya].reverse().forEach((q) => {
+      blok.push({ t: "p", teks: `T: ${q.pertanyaan}`, tebal: true }, { t: "p", teks: `J: ${q.hasil?.jawaban || ""}` });
+      if (q.rujukan?.length) blok.push({ t: "p", kecil: true, teks: q.rujukan.map((r) => `[B${r.no}] ${String(r.teks).slice(0, 300).replace(/\s+/g, " ")}…`).join("\n") });
+    });
   }
-  return isi.join("\n");
+  return blok;
 }
 
 /** Salin teks ke papan klip (dengan cadangan untuk browser lama / HTTP). */
@@ -179,11 +181,12 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
     a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
 
-  const unduhWord = async () => {
-    const sek = await muatSekolah(null);
-    const gaya = "table{width:100%;border-collapse:collapse;margin-bottom:8px}td,th{border:1px solid #9aa5bb;padding:3px 6px;vertical-align:top;text-align:left}h3{font-size:12.5pt;margin:12px 0 4px}";
-    unduhWordResmi(`Notebook - ${d.judul}.doc`.replace(/[\\/:*?"<>|]/g, "-"), `Notebook AI: ${d.judul}`, gaya,
-      `${kopWordHtml(sek)}${judulHtml(`Notebook AI: ${d.judul}`, `Disusun dengan AI pada ${new Date().toLocaleDateString("id-ID")}; periksa kembali dengan dokumen aslinya.`)}${keHtmlWord(panel?.riset || {}, panel?.tanya || [])}`, sek);
+  const ekspor = async (jenis) => {
+    try {
+      const sek = await muatSekolah(null);
+      const blok = blokRiset(d.judul, panel?.riset || {}, panel?.tanya || []);
+      (jenis === "pdf" ? unduhPdf : unduhDocx)(`Notebook - ${d.judul}`, blok, sek);
+    } catch (e) { Swal.fire("Gagal mengekspor", e.message, "error"); }
   };
 
   const aktif = TAB_RISET.find((t) => t.jenis === tab);
@@ -208,7 +211,8 @@ export default function NotebookDokumen({ d, saya, pengelola, onTutup }) {
                 {cakupan && <span className="small text-body-secondary">{cakupan.lengkap ? `AI membaca seluruh dokumen (${ribu(cakupan.dibaca)} karakter${cakupan.segmen > 1 ? `, ${cakupan.segmen} bagian besar` : ""}).`
                   : `Dokumen sangat panjang: riset membaca ${ribu(cakupan.dibaca)} dari ${ribu(cakupan.total)} karakter pertama. Tanya dokumen tetap mencari di seluruh isi.`}</span>}
                 <div className="ms-auto d-flex gap-1">
-                  <button className="btn btn-sm btn-outline-secondary" onClick={unduhWord} disabled={!adaHasil}><i className="bi bi-file-earmark-word me-1"></i>Word</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => ekspor("docx")} disabled={!adaHasil}><i className="bi bi-file-earmark-word me-1"></i>Word (.docx)</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => ekspor("pdf")} disabled={!adaHasil}><i className="bi bi-file-earmark-pdf me-1"></i>PDF</button>
                   <button className="btn btn-sm btn-outline-secondary" onClick={unduh} disabled={!adaHasil}><i className="bi bi-download me-1"></i>Unduh (.md)</button>
                 </div>
               </div>

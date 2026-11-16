@@ -84,4 +84,29 @@ class PanduanKerjaTest extends TestCase
         $this->getJson('/api/panduan/kerja')->assertOk()->assertJsonPath('data', null)->assertJsonCount(2, 'daftar_guru');
         $this->getJson('/api/panduan/kerja?id_guru=GR-A')->assertOk()->assertJsonPath('data.guru.nama', 'Guru A')->assertJsonPath('data.berikutnya.id', 'modul');
     }
+    public function test_keterangan_yang_membuat_langkah_belum_lengkap(): void
+    {
+        Sanctum::actingAs($this->sekolah->guruA);
+        // Materi tanpa TP aktif; ATP dibuat untuk "semua kelas" (tanpa kelas) dan masih draf
+        Atp::create(['id_atp' => 'ATP-X', 'judul' => 'ATP Pecahan Umum', 'id_mapel' => 'MPL-A', 'id_kelas' => null, 'id_periode' => 'PER-T', 'status' => 'DRAF']);
+        $d = $this->getJson('/api/panduan/kerja')->json('data');
+
+        $tp = $this->langkah($d, 'tp');
+        $this->assertStringContainsString('belum punya TP aktif', $tp['rincian'][0]['catatan']);
+        $atp = $this->langkah($d, 'atp');
+        $this->assertSame('belum', $atp['status']);
+        $this->assertCount(1, $atp['peringatan']);
+        $this->assertStringContainsString('ATP "ATP Pecahan Umum" (Matematika) belum ditetapkan kelasnya', $atp['peringatan'][0]);
+        $this->assertStringContainsString('ada ATP tanpa kelas ("ATP Pecahan Umum")', $atp['rincian'][0]['catatan']);
+        $this->assertStringContainsString('belum ada sesi ke depan', $this->langkah($d, 'jadwal')['rincian'][0]['catatan']);
+
+        // Setelah kelas ditetapkan: peringatan hilang, keterangan menjadi "masih draf"; lalu dikembalikan dengan catatan
+        Atp::where('id_atp', 'ATP-X')->update(['id_kelas' => 'KLS-A']);
+        $atp = $this->langkah($this->getJson('/api/panduan/kerja')->json('data'), 'atp');
+        $this->assertSame([], $atp['peringatan']);
+        $this->assertSame('"ATP Pecahan Umum" masih draf, belum diajukan ke kepala sekolah', $atp['rincian'][0]['catatan']);
+        Atp::where('id_atp', 'ATP-X')->update(['status' => 'REVISI', 'catatan_revisi' => 'Alokasi JP terlalu sedikit']);
+        $atp = $this->langkah($this->getJson('/api/panduan/kerja')->json('data'), 'atp');
+        $this->assertStringContainsString('dikembalikan kepala sekolah: Alokasi JP terlalu sedikit', $atp['rincian'][0]['catatan']);
+    }
 }

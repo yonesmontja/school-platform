@@ -9,6 +9,13 @@ test("guru melihat langkah berikutnya di dashboard dan peta kerja lengkap di Pan
   await expect(kartu).toContainText("Langkah kerja saya", { timeout: 60_000 });
   await expect(kartu).toContainText(/Langkah berikutnya|Semua langkah wajib/);
   await expect(kartu.locator("a.badge").first()).toBeVisible();
+  // "Lebih lengkap": apa yang membuat langkah belum lengkap, per mapel–kelas
+  const lebih = kartu.getByRole("button", { name: /Lebih lengkap/ });
+  if (await lebih.count()) {
+    await lebih.click();
+    await expect(kartu.locator("[data-kenapa]").first()).toBeVisible();
+    await expect(kartu.getByRole("button", { name: /Sembunyikan keterangan/ })).toBeVisible();
+  }
   await kartu.screenshot({ path: test.info().outputPath("kartu-peta-kerja.png") });
 
   await expect(kartu.getByRole("link", { name: /Peta kerja lengkap/ })).toHaveAttribute("href", "/dashboard/panduan");

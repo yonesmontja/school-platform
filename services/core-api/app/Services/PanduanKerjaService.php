@@ -109,6 +109,7 @@ class PanduanKerjaService
         return [
             'id' => $id, 'judul' => $judul, 'tujuan' => $tujuan, 'status' => $status, 'selesai' => $selesai, 'total' => $total,
             'info' => $info, 'tautan' => $tautan, 'tombol' => $tombol, 'wajib' => $lain['wajib'] ?? true, 'rincian' => $lain['rincian'] ?? [],
+            'peringatan' => array_values(array_filter($lain['peringatan'] ?? [])),
         ];
     }
 
@@ -137,6 +138,30 @@ class PanduanKerjaService
         return $this->unit->map(fn($u) => ['label' => "{$u['mapel']} · {$u['kelas']}", 'ok' => (bool) $ok($u), 'catatan' => $catatan ? $catatan($u) : null])->values()->all();
     }
 
+    /** Peringatan untuk dokumen yang kelasnya belum ditetapkan ("semua kelas"): tidak terhitung untuk kelas mana pun. */
+    private function tanpaKelas(Collection $dok, string $jenis, string $kolomJudul): array
+    {
+        return $dok->map(fn($d) => "{$jenis} \"{$d->$kolomJudul}\" (" . ($this->mapel[$d->id_mapel] ?? $d->id_mapel) . ') belum ditetapkan kelasnya (masih "semua kelas"), '
+            . 'jadi belum terhitung untuk kelas mana pun. Buka lalu pilih kelasnya.')->values()->all();
+    }
+
+    /** Keterangan per mapel–kelas untuk ATP/modul: apa yang membuatnya belum lengkap. */
+    private function catatanDokumen(Collection $dok, Collection $tanpaKelasMapel, string $jenis): ?string
+    {
+        if ($dok->contains('status', 'DISETUJUI')) {
+            return $jenis === 'modul' ? $dok->count() . ' modul, ' . $dok->where('status', 'DISETUJUI')->count() . ' disetujui' : 'disetujui';
+        }
+        if ($dok->isEmpty()) {
+            return "belum ada {$jenis} untuk kelas ini" . ($tanpaKelasMapel->isNotEmpty()
+                ? '; ada ' . $jenis . ' tanpa kelas ("' . $tanpaKelasMapel->first()->judul . '"), tetapkan kelasnya agar terhitung' : '');
+        }
+        if ($r = $dok->firstWhere('status', 'REVISI')) {
+            return "\"{$r->judul}\" dikembalikan kepala sekolah" . ($r->catatan_revisi ? ': ' . \Illuminate\Support\Str::limit($r->catatan_revisi, 140) : '') . '; perbaiki lalu ajukan lagi';
+        }
+        if ($a = $dok->firstWhere('status', 'DIAJUKAN')) return "\"{$a->judul}\" menunggu persetujuan kepala sekolah";
+        return '"' . $dok->first()->judul . '" masih draf, belum diajukan ke kepala sekolah';
+    }
+
     private function tanpaUnit(string $id, string $judul, string $tujuan, string $tautan, string $tombol): ?array
     {
         if ($this->unit->isNotEmpty()) return null;
@@ -154,14 +179,25 @@ class PanduanKerjaService
         $tujuan = 'TP adalah dasar semuanya: ATP, modul, soal, dan nilai memakai TP ini.';
         if ($kosong = $this->tanpaUnit('tp', $judul, $tujuan, '/dashboard/master-materi', 'Buka Materi')) return $kosong;
         $p = $this->periode?->id_periode;
-        $ada = MasterMateri::whereIn('id_mapel', array_keys($this->mapel))
+        $materi = MasterMateri::whereIn('id_mapel', array_keys($this->mapel))
             ->when($p, fn($q) => $q->where(fn($w) => $w->where('id_periode', $p)->orWhereNull('id_periode')))
-            ->whereIn('id_materi', MasterIndikator::where('aktif', true)->select('id_materi'))
-            ->get(['id_mapel', 'id_kelas'])->map(fn($m) => "{$m->id_mapel}|{$m->id_kelas}")->unique()->flip();
+            ->withCount(['indikator as tp_aktif' => fn($q) => $q->where('aktif', true)])
+            ->get(['id_materi', 'id_mapel', 'id_kelas', 'nama_materi']);
+        $ada = $materi->where('tp_aktif', '>', 0)->map(fn($m) => "{$m->id_mapel}|{$m->id_kelas}")->unique()->flip();
+        $perUnit = $materi->groupBy(fn($m) => "{$m->id_mapel}|{$m->id_kelas}");
+        $tanpaKelas = $materi->whereNull('id_kelas');
         $n = $this->unit->filter(fn($u) => isset($ada[$this->kunci($u)]))->count();
+        $catatan = function ($u) use ($perUnit, $tanpaKelas, $ada) {
+            if (isset($ada[$this->kunci($u)])) return null;
+            $m = $perUnit[$this->kunci($u)] ?? collect();
+            if ($m->isNotEmpty()) return 'materi "' . $m->first()->nama_materi . '" belum punya TP aktif; tambahkan atau aktifkan TP-nya';
+            $tk = $tanpaKelas->where('id_mapel', $u['id_mapel']);
+            return 'belum ada materi untuk kelas ini' . ($tk->isNotEmpty() ? '; ada materi tanpa kelas ("' . $tk->first()->nama_materi . '"), tetapkan kelasnya' : '');
+        };
         return $this->langkah('tp', $judul, $tujuan, $n, $this->unit->count(),
             "{$n} dari {$this->unit->count()} mapel–kelas sudah punya materi dengan TP aktif.", '/dashboard/master-materi', 'Buka Materi',
-            ['rincian' => $this->rincianUnit(fn($u) => isset($ada[$this->kunci($u)]))]);
+            ['rincian' => $this->rincianUnit(fn($u) => isset($ada[$this->kunci($u)]), $catatan),
+             'peringatan' => $this->tanpaKelas($tanpaKelas, 'Materi', 'nama_materi')]);
     }
 
     private function langkahAtp(): array
@@ -169,15 +205,19 @@ class PanduanKerjaService
         $judul = 'Alur Tujuan Pembelajaran (ATP)';
         $tujuan = 'Urutan TP selama semester, lengkap dengan alokasi JP; disetujui kepala sekolah. Prota & Promes dibentuk dari ATP.';
         if ($kosong = $this->tanpaUnit('atp', $judul, $tujuan, '/dashboard/perangkat-ajar', 'Buka ATP')) return $kosong;
-        $atp = Atp::whereIn('id_mapel', array_keys($this->mapel))->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))
-            ->get(['id_mapel', 'id_kelas', 'status'])->groupBy(fn($a) => "{$a->id_mapel}|{$a->id_kelas}");
+        $semuaAtp = Atp::whereIn('id_mapel', array_keys($this->mapel))->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))
+            ->get(['id_atp', 'judul', 'id_mapel', 'id_kelas', 'status', 'catatan_revisi']);
+        $atp = $semuaAtp->whereNotNull('id_kelas')->groupBy(fn($a) => "{$a->id_mapel}|{$a->id_kelas}");
+        $tanpaKelas = $semuaAtp->whereNull('id_kelas');
         $status = fn($u) => ($atp[$this->kunci($u)] ?? collect())->pluck('status');
         $ok = $this->unit->filter(fn($u) => $status($u)->contains('DISETUJUI'))->count();
         $diajukan = $this->unit->filter(fn($u) => !$status($u)->contains('DISETUJUI') && $status($u)->contains('DIAJUKAN'))->count();
         $revisi = $this->unit->filter(fn($u) => !$status($u)->contains('DISETUJUI') && $status($u)->contains('REVISI'))->count();
         $total = $this->unit->count();
         $info = "{$ok} dari {$total} disetujui" . ($diajukan ? ", {$diajukan} menunggu persetujuan" : '') . ($revisi ? ", {$revisi} perlu direvisi" : '') . '.';
-        $lain = ['rincian' => $this->rincianUnit(fn($u) => $status($u)->contains('DISETUJUI'), fn($u) => $status($u)->isEmpty() ? 'belum dibuat' : strtolower($status($u)->first()))];
+        $lain = ['rincian' => $this->rincianUnit(fn($u) => $status($u)->contains('DISETUJUI'),
+                    fn($u) => $this->catatanDokumen($atp[$this->kunci($u)] ?? collect(), $tanpaKelas->where('id_mapel', $u['id_mapel']), 'ATP')),
+                 'peringatan' => $this->tanpaKelas($tanpaKelas, 'ATP', 'judul')];
         if ($ok < $total && $ok + $diajukan >= $total && !$revisi) $lain['status'] = 'menunggu';
         return $this->langkah('atp', $judul, $tujuan, $ok, $total, $info, $revisi ? '/dashboard/perangkat-ajar?status=REVISI' : '/dashboard/perangkat-ajar', $revisi ? 'Revisi ATP' : 'Buka ATP', $lain);
     }
@@ -195,7 +235,8 @@ class PanduanKerjaService
         $total = $this->unit->count();
         return $this->langkah('jadwal', $judul, $tujuan, $n, $total,
             "{$n} dari {$total} mapel–kelas punya sesi ke depan (" . $sesi->sum() . ' sesi).', '/dashboard/jadwal', 'Buka Jadwal',
-            ['rincian' => $this->rincianUnit(fn($u) => ($sesi[$this->kunci($u)] ?? 0) > 0, fn($u) => ($sesi[$this->kunci($u)] ?? 0) . ' sesi ke depan')]);
+            ['rincian' => $this->rincianUnit(fn($u) => ($sesi[$this->kunci($u)] ?? 0) > 0,
+                fn($u) => ($sesi[$this->kunci($u)] ?? 0) ? ($sesi[$this->kunci($u)] . ' sesi ke depan') : 'belum ada sesi ke depan; buat lewat "Paket dari Promes" di Jadwal')]);
     }
 
     private function langkahModul(): array
@@ -203,14 +244,18 @@ class PanduanKerjaService
         $judul = 'Modul ajar';
         $tujuan = 'Rencana pembelajaran mendalam per TP/materi dari ATP; disetujui kepala sekolah lalu ditautkan ke sesi jadwal.';
         if ($kosong = $this->tanpaUnit('modul', $judul, $tujuan, '/dashboard/perangkat-ajar?tab=modul', 'Buka Modul')) return $kosong;
-        $modul = ModulAjar::whereIn('id_mapel', array_keys($this->mapel))->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))
-            ->get(['id_mapel', 'id_kelas', 'status'])->groupBy(fn($m) => "{$m->id_mapel}|{$m->id_kelas}");
+        $semuaModul = ModulAjar::whereIn('id_mapel', array_keys($this->mapel))->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))
+            ->get(['id_modul', 'judul', 'id_mapel', 'id_kelas', 'status', 'catatan_revisi']);
+        $modul = $semuaModul->whereNotNull('id_kelas')->groupBy(fn($m) => "{$m->id_mapel}|{$m->id_kelas}");
+        $tanpaKelas = $semuaModul->whereNull('id_kelas');
         $st = fn($u) => ($modul[$this->kunci($u)] ?? collect())->pluck('status');
         $ok = $this->unit->filter(fn($u) => $st($u)->contains('DISETUJUI'))->count();
         $ada = $this->unit->filter(fn($u) => $st($u)->isNotEmpty())->count();
         $total = $this->unit->count();
-        $jumlah = $modul->flatten()->count();
-        $lain = ['rincian' => $this->rincianUnit(fn($u) => $st($u)->contains('DISETUJUI'), fn($u) => $st($u)->count() . ' modul, ' . $st($u)->filter(fn($s) => $s === 'DISETUJUI')->count() . ' disetujui')];
+        $jumlah = $semuaModul->count();
+        $lain = ['rincian' => $this->rincianUnit(fn($u) => $st($u)->contains('DISETUJUI'),
+                    fn($u) => $this->catatanDokumen($modul[$this->kunci($u)] ?? collect(), $tanpaKelas->where('id_mapel', $u['id_mapel']), 'modul')),
+                 'peringatan' => $this->tanpaKelas($tanpaKelas, 'Modul ajar', 'judul')];
         if ($ok < $total && $ada >= $total) $lain['status'] = $modul->flatten()->contains('status', 'DIAJUKAN') ? 'menunggu' : 'proses';
         return $this->langkah('modul', $judul, $tujuan, $ok, $total,
             "{$jumlah} modul; {$ok} dari {$total} mapel–kelas sudah punya modul disetujui.", '/dashboard/perangkat-ajar?tab=modul', 'Buka Modul', $lain);

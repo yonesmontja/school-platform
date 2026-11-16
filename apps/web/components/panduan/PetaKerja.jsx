@@ -40,6 +40,37 @@ function Berikutnya({ l }) {
   );
 }
 
+/** Peringatan langkah: masalah yang membuat data tidak terhitung (mis. ATP tanpa kelas). */
+function Peringatan({ l }) {
+  if (!l.peringatan?.length) return null;
+  return (
+    <ul className="list-unstyled small text-warning-emphasis bg-warning-subtle border border-warning-subtle rounded px-2 py-1 my-1">
+      {l.peringatan.map((p, i) => <li key={i}><i className="bi bi-exclamation-triangle me-1"></i>{p}</li>)}
+    </ul>
+  );
+}
+
+/** Apa saja yang membuat satu langkah belum lengkap: peringatan + mapel–kelas yang belum beres beserta alasannya. */
+function KenapaBelum({ l }) {
+  const kurang = (l.rincian || []).filter((r) => !r.ok);
+  return (
+    <li className="border rounded p-2 mb-2" data-kenapa={l.id}>
+      <div className="d-flex flex-wrap align-items-center gap-2">
+        <span className="fw-semibold">{l.judul}</span>
+        {angka(l) && <span className="small text-body-secondary">{angka(l)}</span>}
+        <Link href={l.tautan} className="btn btn-sm btn-outline-primary ms-auto py-0">{l.tombol}</Link>
+      </div>
+      <div className="small">{l.info}</div>
+      <Peringatan l={l} />
+      {kurang.length > 0 && (
+        <ul className="list-unstyled small mb-0 mt-1">
+          {kurang.map((r) => <li key={r.label}><i className="bi bi-x-lg text-danger me-1"></i><b>{r.label}</b>{r.catatan && <span className="text-body-secondary">: {r.catatan}</span>}</li>)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 function Langkah({ l, no }) {
   const [buka, setBuka] = useState(false);
   const s = STATUS_LANGKAH[l.status] || STATUS_LANGKAH.belum;
@@ -61,6 +92,7 @@ function Langkah({ l, no }) {
             </div>
           )}
           <div className="small">{l.info}</div>
+          <Peringatan l={l} />
           <div className="d-flex flex-wrap gap-2 mt-1">
             <Link href={l.tautan} className={`btn btn-sm ${l.status === "belum" || l.status === "proses" ? "btn-outline-primary" : "btn-outline-secondary"}`}>
               <i className="bi bi-box-arrow-up-right me-1"></i>{l.tombol}
@@ -86,6 +118,7 @@ function Langkah({ l, no }) {
 
 export default function PetaKerja({ ringkas = false, bolehPilihGuru = false }) {
   const [hasil, setHasil] = useState(null);
+  const [lengkap, setLengkap] = useState(false); // kartu dashboard: tampilkan apa yang membuat langkah belum lengkap
   const [galat, setGalat] = useState(null);
   const [idGuru, setIdGuru] = useState("");
   const [memuat, setMemuat] = useState(true);
@@ -137,6 +170,7 @@ export default function PetaKerja({ ringkas = false, bolehPilihGuru = false }) {
 
   if (ringkas) {
     const wajib = semua.filter((l) => l.wajib);
+    const belumBeres = wajib.filter((l) => l.status !== "selesai" || l.peringatan?.length);
     return (
       <div className="card shadow-sm mb-3 peta-kerja" id="peta-kerja-ringkas">
         <div className="card-header fw-semibold d-flex flex-wrap align-items-center gap-2">
@@ -156,6 +190,14 @@ export default function PetaKerja({ ringkas = false, bolehPilihGuru = false }) {
               );
             })}
           </div>
+          {belumBeres.length > 0 && (
+            <>
+              <button type="button" className="btn btn-sm btn-link text-decoration-none px-0 mt-2" onClick={() => setLengkap((b) => !b)} aria-expanded={lengkap}>
+                <i className={`bi ${lengkap ? "bi-chevron-up" : "bi-chevron-down"} me-1`}></i>{lengkap ? "Sembunyikan keterangan" : "Lebih lengkap: apa yang belum lengkap?"}
+              </button>
+              {lengkap && <ul className="list-unstyled mt-2 mb-0">{belumBeres.map((l) => <KenapaBelum key={l.id} l={l} />)}</ul>}
+            </>
+          )}
         </div>
       </div>
     );
