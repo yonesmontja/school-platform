@@ -11,6 +11,7 @@ use App\Models\PetaTema;
 use App\Models\Subject;
 use App\Models\TransJadwal;
 use App\Services\PerangkatAjarAIService;
+use App\Services\PetaTemaJadwalService;
 use App\Services\SoalAIService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,12 +20,15 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
- * Peta Tema / spider web kurikulum PBPM (Perangkat Ajar). Tema lintas mapel, jadi semua guru boleh memakai semua mapel;
- * guru melihat peta miliknya dan peta yang sudah disetujui; kepala sekolah menyetujui seperti ATP & modul ajar.
+ * Peta Tema / spider web kurikulum PBPM (Perangkat Ajar). Tema lintas mapel yang menggerakkan Jadwal kelas.
+ * Kepala sekolah menyusun & menetapkan (admin boleh mengisi, tetap atas nama kepala sekolah); guru/wali kelas melihat
+ * peta yang sudah ditetapkan. Pola mingguan terstruktur dijadikan sesi Jadwal lewat PetaTemaJadwalService.
  */
 class PetaTemaController extends Controller
 {
-    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru', 'penyetuju:id,name'];
+    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru,role', 'penyetuju:id,name', 'penginput:id,name,role'];
+
+    public function __construct(private PetaTemaJadwalService $jadwal) {}
 
     /** Mapel (semua) beserta TP aktif per mapel untuk kelas itu, untuk memilih cabang & TP. */
     public function referensi(Request $request)
@@ -66,7 +70,7 @@ class PetaTemaController extends Controller
     {
         $peta = $id ? PetaTema::findOrFail($id) : null;
         if ($peta) $this->cekPengubah($request, $peta);
-        abort_if(!$peta && $request->user()->isKepsek(), 403, 'Kepala sekolah memeriksa dan menyetujui peta tema; penyusunan oleh guru.');
+        abort_if(!$peta && !$this->bolehMenyusun($request), 403, 'Peta tema disusun dan ditetapkan kepala sekolah; guru dan wali kelas melihat peta yang sudah ditetapkan.');
         $data = $request->validate([
             'judul' => [$peta ? 'sometimes' : 'required', 'string', 'max:200'],
             'id_kelas' => 'nullable|exists:classes,id_kelas',
@@ -78,6 +82,8 @@ class PetaTemaController extends Controller
             'jaring' => 'nullable|array',
             'minggu' => 'nullable|array|max:' . PetaTema::MAKS_MINGGU,
             'pola' => 'nullable|array',
+            'pola_slot' => 'nullable|array',
+            'pola_slot.slot' => 'nullable|array|max:' . PetaTema::MAKS_SLOT,
         ]);
         $kelas = array_key_exists('id_kelas', $data) ? Classes::find($data['id_kelas']) : $peta?->kelas;
         $jumlah = (int) ($data['jumlah_minggu'] ?? $peta?->jumlah_minggu ?? 3);
@@ -88,7 +94,22 @@ class PetaTemaController extends Controller
             'minggu' => PetaTema::normalMinggu($data['minggu'] ?? $peta?->minggu, $jumlah),
             'pola' => PetaTema::normalPola($data['pola'] ?? $peta?->pola),
         ];
-        $header = collect($data)->except(['jaring', 'minggu', 'pola', 'jumlah_minggu'])->all();
+        $slotBerubah = false;
+        if (array_key_exists('pola_slot', $data)) {
+            $isi['pola_slot'] = PetaTema::normalSlot($data['pola_slot']);
+            $lama = $peta ? PetaTema::normalSlot($peta->pola_slot)['slot'] : [];
+            $kunci = fn($d) => collect($d)->map(fn($x) => [$x['id'], $x['hari'], $x['mulai'], $x['selesai'], $x['id_mapel'], $x['ulang']])->all();
+            $slotBerubah = $kunci($isi['pola_slot']['slot']) !== $kunci($lama);
+            // Pola terstruktur menjadi sumber teks pola mingguan
+            if ($isi['pola_slot']['slot']) $isi['pola'] = $this->jadwal->teksDariSlot($isi['pola_slot'], $isi['jaring']);
+        }
+        $adaJadwal = $peta?->jadwal_dibuat_pada !== null;
+        if (isset($data['jumlah_minggu']) && $adaJadwal && (int) $data['jumlah_minggu'] !== $peta->jumlah_minggu) $slotBerubah = true;
+        if (isset($data['tanggal_mulai']) && $adaJadwal && $data['tanggal_mulai'] !== $peta->tanggal_mulai?->format('Y-m-d')) $slotBerubah = true;
+        if ($slotBerubah && $adaJadwal && $peta->terkunci()) {
+            return response()->json(['message' => 'Pola sudah diubah ' . PetaTema::BATAS_PERUBAHAN . ' kali sejak jadwal dibuat dan terkunci. Buka kunci dulu bila memang perlu diubah lagi.'], 422);
+        }
+        $header = collect($data)->except(['jaring', 'minggu', 'pola', 'pola_slot', 'jumlah_minggu'])->all();
 
         if (!$peta) {
             // array_merge: nilai bawaan di bawah menimpa null dari formulir
@@ -96,23 +117,31 @@ class PetaTemaController extends Controller
                 'id_peta' => 'PTM-' . Str::upper(Str::random(10)),
                 'id_periode' => ($header['id_periode'] ?? null) ?: MasterPeriode::where('status_aktif', 'AKTIF')->value('id_periode'),
                 'pendekatan' => ($header['pendekatan'] ?? null) ?: PetaTema::PENDEKATAN_BAWAAN,
-                'status' => 'DRAF', 'dibuat_oleh' => $request->user()->id,
+                'status' => 'DRAF', 'dibuat_oleh' => PetaTemaJadwalService::akunKepsek($request->user())->id, 'diinput_oleh' => $request->user()->id,
                 'sumber' => $request->input('sumber') === 'AI' ? 'AI' : 'MANUAL', 'ai_mode' => $request->input('sumber') === 'AI' ? $request->input('ai_mode') : null,
             ]));
         } else {
-            if (in_array($peta->status, ['DISETUJUI', 'DIAJUKAN'], true)) $header += ['status' => 'DRAF', 'versi' => $peta->versi + 1, 'disetujui_oleh' => null, 'disetujui_pada' => null];
+            // Peta yang sudah ditetapkan tetap berlaku (kepala sekolah sendiri yang mengubah); versi naik
+            if ($peta->status === 'DISETUJUI') $header += ['versi' => $peta->versi + 1];
             if ($request->input('sumber') === 'AI') $header += ['sumber' => 'AI', 'ai_mode' => $request->input('ai_mode')];
-            $peta->update($header + $isi);
+            $header += ['diinput_oleh' => $request->user()->id];
+            $peta->fill($header + $isi);
+            if ($slotBerubah && $adaJadwal) $peta->catatPerubahan($request->user(), 'POLA', 'Pola mingguan diubah di Peta Tema');
+            $peta->save();
         }
-        return response()->json(['success' => true, 'message' => 'Peta tema disimpan.', 'data' => $this->muat($peta->fresh(self::RELASI))], $id ? 200 : 201);
+        $sinkron = $slotBerubah && $adaJadwal ? $this->jadwal->sinkron($peta->fresh()) : null;
+        return response()->json(['success' => true, 'message' => 'Peta tema disimpan.' . ($sinkron ? ' ' . $this->pesanSinkron($sinkron) : ''),
+            'sinkron' => $sinkron, 'data' => $this->muat($peta->fresh(self::RELASI))], $id ? 200 : 201);
     }
 
     public function destroy(Request $request, string $id)
     {
         $peta = PetaTema::findOrFail($id);
         $this->cekPengubah($request, $peta);
+        // Sesi tema yang belum dimulai ikut dihapus; yang sudah berjalan tetap ada sebagai riwayat
+        $hapus = TransJadwal::where('id_peta', $peta->id_peta)->where('mulai', '>', now(config('app.zona_sekolah'))->format('Y-m-d H:i:s'))->delete();
         $peta->delete();
-        return response()->json(['success' => true, 'message' => 'Peta tema dihapus.']);
+        return response()->json(['success' => true, 'message' => 'Peta tema dihapus.' . ($hapus ? " {$hapus} sesi tema yang akan datang ikut dihapus dari Jadwal." : '')]);
     }
 
     /**
@@ -342,6 +371,105 @@ class PetaTemaController extends Controller
         return ['pola' => $pola, 'alasan' => 'Disusun dari aturan sederhana: setiap hari dibuka dengan Realita, mapel cabang spider web bergiliran per blok 2 JP, Jumat ditutup dengan Makna & berbagi produk.'];
     }
 
+    /**
+     * Draf pola terstruktur (belum disimpan): dari JP per minggu tiap cabang, atau dari teks pola mingguan
+     * (hasil Rekomendasi AI). Formulir yang belum disimpan ikut dikirim.
+     */
+    public function slot(Request $request, string $id)
+    {
+        $peta = PetaTema::findOrFail($id);
+        $this->cekPengubah($request, $peta);
+        $request->validate([
+            'sumber' => ['required', Rule::in(['jp', 'teks'])],
+            'jaring' => 'nullable|array', 'pola' => 'nullable|array',
+            'jam_masuk' => ['nullable', 'date_format:H:i'], 'jam_pulang' => ['nullable', 'date_format:H:i', 'after:jam_masuk'],
+            'menit_jp' => 'nullable|integer|min:20|max:60', 'sabtu' => 'boolean',
+        ]);
+        $jaring = PetaTema::normalJaring($request->input('jaring', $peta->jaring));
+        $aturan = ['jam_masuk' => $request->input('jam_masuk', '07:30'), 'jam_pulang' => $request->input('jam_pulang', '12:30'),
+            'menit_jp' => (int) $request->input('menit_jp', 35), 'sabtu' => $request->boolean('sabtu')];
+        if ($request->sumber === 'jp') {
+            if (!collect($jaring['mapel'])->contains(fn($c) => $c['id_mapel'] && $c['jp_minggu'] > 0)) {
+                return response()->json(['message' => 'Isi dulu JP per minggu pada cabang mata pelajaran.'], 422);
+            }
+            ['pola' => $pola, 'tidak_muat' => $tidakMuat] = $this->jadwal->susunDariJp($jaring, $aturan);
+        } else {
+            $pola = $this->jadwal->slotDariTeks(PetaTema::normalPola($request->input('pola', $peta->pola)), $jaring, $aturan);
+            $tidakMuat = [];
+            if (!collect($pola['slot'])->contains(fn($x) => $x['id_mapel'])) {
+                return response()->json(['message' => 'Tidak ada baris "jam + nama mapel" di pola mingguan yang cocok dengan cabang spider web. Minta Rekomendasi AI dulu atau susun dari JP.'], 422);
+            }
+        }
+        $jp = $this->jadwal->jpPola($pola);
+        return response()->json(['success' => true, 'data' => $pola, 'jp_pola' => $jp, 'tidak_muat' => $tidakMuat,
+            'message' => count($pola['slot']) . ' slot disusun' . ($tidakMuat ? '; ' . count($tidakMuat) . ' blok tidak muat sebelum jam pulang' : '') . '. Periksa, lalu Simpan.']);
+    }
+
+    /** Tetapkan peta tema (kepala sekolah; admin atas nama kepala sekolah). */
+    public function tetapkan(Request $request, string $id)
+    {
+        $peta = PetaTema::findOrFail($id);
+        $this->cekPengubah($request, $peta);
+        abort_if($peta->status === 'DISETUJUI', 422, 'Peta tema ini sudah ditetapkan.');
+        abort_if(count($peta->jaring['mapel'] ?? []) < 2, 422, 'Lengkapi minimal dua cabang mata pelajaran sebelum menetapkan.');
+        abort_if(collect($peta->minggu ?? [])->every(fn($m) => !trim(($m['realita'] ?? '') . ($m['imajinasi'] ?? ''))), 422, 'Isi peta mingguan (realita & imajinasi) sebelum menetapkan.');
+        $peta->update(['status' => 'DISETUJUI', 'catatan_revisi' => null, 'disetujui_oleh' => PetaTemaJadwalService::akunKepsek($request->user())->id,
+            'disetujui_pada' => now(), 'diinput_oleh' => $request->user()->id]);
+        return response()->json(['success' => true, 'message' => 'Peta tema ditetapkan. Guru dan wali kelas kini dapat melihatnya; lanjutkan dengan Buat Jadwal.']);
+    }
+
+    public function jadwalPratinjau(Request $request, string $id)
+    {
+        $peta = $this->petaUntukJadwal($request, $id);
+        return response()->json($this->jadwal->pratinjau($peta));
+    }
+
+    /** Buat sesi Jadwal dari pola mingguan (sesi bentrok/sudah ada dilewati). Bisa diulang untuk melengkapi. */
+    public function buatJadwal(Request $request, string $id)
+    {
+        $peta = $this->petaUntukJadwal($request, $id);
+        $hasil = $this->jadwal->buat($peta);
+        return response()->json(['success' => true] + $hasil + [
+            'message' => "{$hasil['dibuat']} sesi dibuat di Jadwal" . ($hasil['bentrok'] ? ", {$hasil['bentrok']} dilewati karena bentrok" : '') . ($hasil['sudah_ada'] ? ", {$hasil['sudah_ada']} sudah ada" : '') . '.',
+            'data' => $this->muat($peta->fresh(self::RELASI)),
+        ], 201);
+    }
+
+    public function cek(Request $request, string $id)
+    {
+        return response()->json($this->jadwal->cek($this->terjangkau($request)->findOrFail($id)));
+    }
+
+    /** Buka kunci perubahan pola (kepala sekolah/admin): hitungan perubahan kembali 0, tercatat di riwayat. */
+    public function bukaKunci(Request $request, string $id)
+    {
+        $peta = PetaTema::findOrFail($id);
+        $this->cekPengubah($request, $peta);
+        $request->validate(['alasan' => 'required|string|max:300']);
+        $peta->catatPerubahan($request->user(), 'KUNCI', 'Kunci dibuka: ' . $request->alasan, false);
+        $peta->jumlah_perubahan = 0;
+        $peta->save();
+        return response()->json(['success' => true, 'message' => 'Kunci dibuka; pola boleh diubah lagi ' . PetaTema::BATAS_PERUBAHAN . ' kali.', 'data' => $this->muat($peta->fresh(self::RELASI))]);
+    }
+
+    private function petaUntukJadwal(Request $request, string $id): PetaTema
+    {
+        $peta = PetaTema::findOrFail($id);
+        $this->cekPengubah($request, $peta);
+        abort_unless($peta->status === 'DISETUJUI', 422, 'Tetapkan peta tema dulu sebelum membuat jadwal.');
+        abort_unless($peta->id_kelas, 422, 'Pilih kelas peta tema ini dulu.');
+        abort_unless($peta->tanggal_mulai, 422, 'Isi tanggal mulai tema dulu.');
+        abort_unless(collect(PetaTema::normalSlot($peta->pola_slot)['slot'])->contains(fn($x) => $x['id_mapel']), 422, 'Susun dan simpan dulu slot pola mingguan (jam & mapel).');
+        return $peta;
+    }
+
+    private function pesanSinkron(array $h): string
+    {
+        $bagian = array_filter([$h['diperbarui'] ? "{$h['diperbarui']} sesi digeser" : null, $h['dibuat'] ? "{$h['dibuat']} sesi baru" : null,
+            $h['dihapus'] ? "{$h['dihapus']} sesi dihapus" : null, $h['bentrok'] ? "{$h['bentrok']} bentrok dilewati" : null]);
+        return 'Jadwal disesuaikan' . ($bagian ? ': ' . implode(', ', $bagian) : ' (tidak ada sesi yang berubah)') . '.';
+    }
+
     public function ajukan(Request $request, string $id)
     {
         $peta = PetaTema::findOrFail($id);
@@ -418,6 +546,10 @@ class PetaTemaController extends Controller
             'jaring' => PetaTema::normalJaring($peta->jaring),
             'minggu' => PetaTema::normalMinggu($peta->minggu, $peta->jumlah_minggu),
             'pola' => PetaTema::normalPola($peta->pola),
+            'pola_slot' => PetaTema::normalSlot($peta->pola_slot),
+            'jp_pola' => $this->jadwal->jpPola(PetaTema::normalSlot($peta->pola_slot)),
+            'terkunci' => $peta->terkunci(), 'batas_perubahan' => PetaTema::BATAS_PERUBAHAN,
+            'jumlah_sesi_jadwal' => $peta->jadwal_dibuat_pada ? TransJadwal::where('id_peta', $peta->id_peta)->where('status_sesi', '!=', 'Batal')->count() : 0,
             'tp_detail' => $tp,
         ];
     }
@@ -428,10 +560,14 @@ class PetaTemaController extends Controller
         return PetaTema::query()->when(!$user->isPengelola(), fn($q) => $q->where(fn($w) => $w->where('dibuat_oleh', $user->id)->orWhere('status', 'DISETUJUI')));
     }
 
+    private function bolehMenyusun(Request $request): bool
+    {
+        return $request->user()->isAdmin() || $request->user()->isKepsek();
+    }
+
     private function cekPengubah(Request $request, PetaTema $peta): void
     {
-        $user = $request->user();
-        abort_unless($user->isAdmin() || $peta->dibuat_oleh === $user->id, 403, 'Peta tema ini milik guru lain.');
+        abort_unless($this->bolehMenyusun($request), 403, 'Peta tema disusun dan ditetapkan kepala sekolah; guru dan wali kelas hanya melihat.');
     }
 
     private function cekKepsek(Request $request): void

@@ -477,6 +477,12 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/tema/{id}/ai', [PetaTemaController::class, 'susunAI']);
             Route::get('/tema/{id}/pola-jadwal', [PetaTemaController::class, 'polaJadwal']);
             Route::post('/tema/{id}/pola-ai', [PetaTemaController::class, 'polaAI']);
+            Route::post('/tema/{id}/slot', [PetaTemaController::class, 'slot']);
+            Route::post('/tema/{id}/tetapkan', [PetaTemaController::class, 'tetapkan']);
+            Route::get('/tema/{id}/jadwal', [PetaTemaController::class, 'jadwalPratinjau']);
+            Route::post('/tema/{id}/jadwal', [PetaTemaController::class, 'buatJadwal']);
+            Route::get('/tema/{id}/cek', [PetaTemaController::class, 'cek']);
+            Route::post('/tema/{id}/buka-kunci', [PetaTemaController::class, 'bukaKunci']);
             Route::post('/tema/{id}/ajukan', [PetaTemaController::class, 'ajukan']);
             Route::post('/tema/{id}/tarik', [PetaTemaController::class, 'tarik']);
             Route::post('/tema/{id}/setujui', [PetaTemaController::class, 'setujui']);

@@ -22,9 +22,10 @@ export async function kirimAPI(method, url, body) {
 export const pesanGalat = (json) => (json.errors ? Object.values(json.errors)[0]?.[0] : null) || json.message || "Terjadi kesalahan pada server";
 
 // Tanya cakupan perubahan untuk jadwal berulang (seperti Google Calendar)
-export async function tanyaModeBerantai(judul, label = "Simpan") {
+export async function tanyaModeBerantai(judul, label = "Simpan", catatan = null) {
   const res = await Swal.fire({
     title: judul,
+    ...(catatan ? { text: catatan } : {}),
     input: "radio",
     inputOptions: { only_this: "Hanya sesi ini", following: "Sesi ini dan berikutnya", all: "Semua sesi dalam rangkaian" },
     inputValue: "only_this",

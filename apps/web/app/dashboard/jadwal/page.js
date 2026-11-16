@@ -186,7 +186,8 @@ export default function JadwalPage() {
     if (adalahMinggu(info.event.start)) { info.revert(); return Swal.fire("Hari Minggu", pesanMinggu(info.event.start), "info"); }
     let mode = "only_this";
     if (r.id_group) {
-      mode = await tanyaModeBerantai("Pindahkan jadwal berulang", "Pindahkan");
+      mode = await tanyaModeBerantai(r.id_peta ? "Pindahkan sesi Peta Tema" : "Pindahkan jadwal berulang", "Pindahkan",
+        r.id_peta ? "Sesi ini dari pola mingguan Peta Tema. \"Sesi ini dan berikutnya\" atau \"Semua sesi\" ikut mengubah pola tema dan dihitung sebagai satu perubahan (maks. 3 kali, dipantau kepala sekolah)." : null);
       if (!mode) return info.revert();
     }
     const body = { mode, delta_mulai: deltaMulai, delta_selesai: deltaSelesai };
@@ -196,10 +197,11 @@ export default function JadwalPage() {
       res = await kirimAPI("PATCH", `/jadwal/${r.id_jadwal}/geser`, { ...body, abaikan_bentrok: true });
     }
     if (!res.ok) { info.revert(); return Swal.fire("Gagal", pesanGalat(res.json), "error"); }
-    toast(res.json.message);
+    if (String(res.json.message).includes("Peta Tema")) Swal.fire({ icon: "info", title: "Jadwal & pola tema diperbarui", text: res.json.message });
+    else toast(res.json.message);
     segarkan();
   };
-  const menit = (dur) => (dur.days || 0) * 1440 + Math.round((dur.milliseconds || 0) / 60000);
+  const menit =(dur) => (dur.days || 0) * 1440 + Math.round((dur.milliseconds || 0) / 60000);
   const onDrop = (info) => { const d = menit(info.delta); geser(info, d, d); };
   const onResize = (info) => geser(info, menit(info.startDelta), menit(info.endDelta));
 

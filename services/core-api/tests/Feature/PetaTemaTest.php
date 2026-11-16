@@ -14,8 +14,9 @@ use Tests\Concerns\MembuatDataSekolah;
 use Tests\TestCase;
 
 /**
- * Peta Tema / spider web PBPM: guru menyusun tema lintas mapel (AI menyusun draf & kalibrasi, respons ditiru),
- * TP harus milik mapel cabangnya, pola mingguan diambil dari Jadwal, persetujuan kepala sekolah, dan tautan di editor jadwal.
+ * Peta Tema / spider web PBPM: kepala sekolah menyusun & menetapkan tema lintas mapel (AI menyusun draf & kalibrasi,
+ * respons ditiru), admin mengisi atas nama kepala sekolah, guru hanya melihat yang ditetapkan. TP harus milik mapel
+ * cabangnya, pola mingguan diambil dari Jadwal, dan tautan di editor jadwal.
  */
 class PetaTemaTest extends TestCase
 {
@@ -43,12 +44,12 @@ class PetaTemaTest extends TestCase
         Http::fake(['generativelanguage.googleapis.com/*' => $urut]);
     }
 
-    public function test_guru_menyusun_peta_tema_dengan_ai_kalibrasi_lalu_disetujui(): void
+    public function test_kepsek_menyusun_peta_tema_dengan_ai_kalibrasi_lalu_menetapkan(): void
     {
         $s = $this->sekolah;
-        // Kepala sekolah tidak menyusun; guru boleh memakai mapel yang tidak diampunya (tema lintas mapel)
-        $this->sebagai($s->kepsek)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola'])->assertForbidden();
-        $this->sebagai($s->guruA)->getJson('/api/perangkat-ajar/tema/referensi?id_kelas=KLS-A')->assertOk()
+        // Guru tidak menyusun peta tema; kepala sekolah memakai semua mapel (tema lintas mapel)
+        $this->sebagai($s->guruA)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola'])->assertForbidden();
+        $this->sebagai($s->kepsek)->getJson('/api/perangkat-ajar/tema/referensi?id_kelas=KLS-A')->assertOk()
             ->assertJsonPath('mapel.0.nama_mapel', 'IPA')->assertJsonPath('mapel.1.tp.0.id_indikator', 'IND-1');
 
         $id = $this->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola', 'id_kelas' => 'KLS-A', 'jumlah_minggu' => 2,
@@ -74,8 +75,8 @@ class PetaTemaTest extends TestCase
         $this->assertCount(2, $draf['minggu']); // tepat jumlah_minggu, minggu ke-2 kosong untuk diisi guru
         $this->assertSame('', $draf['minggu'][1]['realita']);
 
-        // Belum lengkap → belum bisa diajukan
-        $this->postJson("/api/perangkat-ajar/tema/{$id}/ajukan")->assertStatus(422);
+        // Belum lengkap → belum bisa ditetapkan
+        $this->postJson("/api/perangkat-ajar/tema/{$id}/tetapkan")->assertStatus(422);
         $this->putJson("/api/perangkat-ajar/tema/{$id}", ['jaring' => $draf['jaring'], 'minggu' => $draf['minggu'], 'sumber' => 'AI', 'ai_mode' => 'GEMINI'])
             ->assertOk()->assertJsonPath('data.sumber', 'AI')->assertJsonPath('data.tp_detail.IND-1', 'Menghitung skor permainan');
 
@@ -87,27 +88,30 @@ class PetaTemaTest extends TestCase
         $this->assertSame('Gaya pada bola yang ditendang', $kal['mapel'][1]['kalibrasi']);
         $this->assertCount(2, $kal['konsep']);
 
-        // Guru lain tidak melihat draf; setelah disetujui terlihat dan tidak bisa diubah guru lain
-        $this->sebagai($s->guruB)->getJson("/api/perangkat-ajar/tema/{$id}")->assertNotFound();
-        $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/ajukan")->assertOk();
-        $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/setujui")->assertForbidden();
-        $this->sebagai($s->kepsek)->postJson("/api/perangkat-ajar/tema/{$id}/revisi", ['catatan' => 'Tambah Bahasa Inggris'])->assertOk();
-        $this->assertSame('REVISI', PetaTema::find($id)->status);
-        $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/ajukan")->assertOk();
-        $this->sebagai($s->kepsek)->postJson("/api/perangkat-ajar/tema/{$id}/setujui")->assertOk();
-        $this->sebagai($s->guruB)->getJson("/api/perangkat-ajar/tema/{$id}")->assertOk()->assertJsonPath('data.status', 'DISETUJUI');
-        $this->sebagai($s->guruB)->putJson("/api/perangkat-ajar/tema/{$id}", ['judul' => 'Ubah'])->assertForbidden();
+        // Guru (wali kelas sekalipun) tidak melihat draf; setelah ditetapkan terlihat tetapi tidak bisa diubah/ditetapkan guru
+        $this->sebagai($s->guruA)->getJson("/api/perangkat-ajar/tema/{$id}")->assertNotFound();
+        $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/tetapkan")->assertForbidden();
+        $this->sebagai($s->kepsek)->postJson("/api/perangkat-ajar/tema/{$id}/tetapkan")->assertOk();
+        $this->sebagai($s->guruB)->getJson("/api/perangkat-ajar/tema/{$id}")->assertOk()->assertJsonPath('data.status', 'DISETUJUI')
+            ->assertJsonPath('data.penyetuju.id', $s->kepsek->id);
+        $this->sebagai($s->guruA)->putJson("/api/perangkat-ajar/tema/{$id}", ['judul' => 'Ubah'])->assertForbidden();
+        $this->sebagai($s->guruA)->deleteJson("/api/perangkat-ajar/tema/{$id}")->assertForbidden();
 
-        // Mengubah peta yang disetujui menjadikannya draf versi baru
-        $this->sebagai($s->guruA)->putJson("/api/perangkat-ajar/tema/{$id}", ['judul' => 'Main Bola Kaki'])->assertOk()
-            ->assertJsonPath('data.status', 'DRAF')->assertJsonPath('data.versi', 2);
+        // Kepala sekolah mengubah peta yang sudah ditetapkan: tetap berlaku, versi naik
+        $this->sebagai($s->kepsek)->putJson("/api/perangkat-ajar/tema/{$id}", ['judul' => 'Main Bola Kaki'])->assertOk()
+            ->assertJsonPath('data.status', 'DISETUJUI')->assertJsonPath('data.versi', 2);
+
+        // Admin mengisi atas nama kepala sekolah: penulis tetap kepala sekolah, akun admin tercatat sebagai penginput
+        $baru = $this->sebagai($s->admin)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Sagu', 'id_kelas' => 'KLS-B'])->assertCreated()
+            ->assertJsonPath('data.pembuat.id', $s->kepsek->id)->assertJsonPath('data.penginput.id', $s->admin->id)->json('data.id_peta');
+        $this->assertSame($s->admin->id, PetaTema::find($baru)->diinput_oleh);
     }
 
     public function test_pola_mingguan_dari_jadwal_dan_tautan_di_editor_jadwal(): void
     {
         $s = $this->sekolah;
         $zona = config('app.zona_sekolah');
-        $id = $this->sebagai($s->guruA)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Aku dan Sukuku', 'id_kelas' => 'KLS-A', 'tanggal_mulai' => '2030-01-09'])->json('data.id_peta');
+        $id = $this->sebagai($s->kepsek)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Aku dan Sukuku', 'id_kelas' => 'KLS-A', 'tanggal_mulai' => '2030-01-09'])->json('data.id_peta');
         foreach ([['2030-01-07 07:30', 'MPL-A'], ['2030-01-07 09:00', 'MPL-B'], ['2030-01-09 07:30', 'MPL-A']] as $i => [$mulai, $mapel]) {
             TransJadwal::create(['id_jadwal' => "JDW-T{$i}", 'id_periode' => 'PER-T', 'id_kelas' => 'KLS-A', 'id_guru' => 'GR-A', 'id_mapel' => $mapel,
                 'mulai' => Carbon::parse($mulai, $zona), 'selesai' => Carbon::parse($mulai, $zona)->addMinutes(70), 'status_sesi' => 'Menunggu']);
@@ -119,7 +123,8 @@ class PetaTemaTest extends TestCase
         $this->assertSame('', $pola['selasa']);
 
         // Editor jadwal: peta tema kelas tersedia di panel & bisa ditautkan ke sesi (jenis TEMA)
-        $this->getJson('/api/jadwal/perangkat?id_mapel=MPL-A&id_kelas=KLS-A')->assertOk()->assertJsonPath('tema.0.id_peta', $id);
+        PetaTema::whereKey($id)->update(['status' => 'DISETUJUI']);
+        $this->sebagai($s->guruA)->getJson('/api/jadwal/perangkat?id_mapel=MPL-A&id_kelas=KLS-A')->assertOk()->assertJsonPath('tema.0.id_peta', $id);
         $this->putJson('/api/jadwal/JDW-T0', ['perangkat' => [['jenis' => 'TEMA', 'id' => $id, 'label' => 'Aku dan Sukuku']]] + $this->sesi('JDW-T0'))->assertOk();
         $this->assertSame('TEMA', TransJadwal::find('JDW-T0')->perangkat[0]['jenis']);
     }
@@ -135,15 +140,15 @@ class PetaTemaTest extends TestCase
         $s = $this->sekolah;
         $zona = config('app.zona_sekolah');
         $jaring = ['mapel' => [['id_mapel' => 'MPL-A', 'nama' => 'Matematika', 'kalibrasi' => 'Hitung skor'], ['id_mapel' => 'MPL-B', 'nama' => 'IPA', 'kalibrasi' => 'Gaya pada bola']]];
-        $id = $this->sebagai($s->guruA)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola', 'id_kelas' => 'KLS-A', 'tanggal_mulai' => '2030-01-09', 'jaring' => $jaring])->json('data.id_peta');
+        $id = $this->sebagai($s->kepsek)->postJson('/api/perangkat-ajar/tema', ['judul' => 'Main Bola', 'id_kelas' => 'KLS-A', 'tanggal_mulai' => '2030-01-09', 'jaring' => $jaring])->json('data.id_peta');
 
-        // Tanpa cabang mapel → ditolak; guru lain tidak boleh
+        // Tanpa cabang mapel → ditolak; guru tidak boleh
         $kosong = $this->postJson('/api/perangkat-ajar/tema', ['judul' => 'Kosong', 'id_kelas' => 'KLS-A'])->json('data.id_peta');
         $this->postJson("/api/perangkat-ajar/tema/{$kosong}/pola-ai", ['ai_mode' => 'LOKAL'])->assertStatus(422);
         $this->sebagai($s->guruB)->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'LOKAL'])->assertForbidden();
 
         // Jadwal kosong sama sekali → mode lokal mengisi Senin-Jumat, Sabtu tetap kosong
-        $lokal = $this->sebagai($s->guruA)->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'LOKAL', 'jam_masuk' => '07:30', 'jam_pulang' => '12:00'])
+        $lokal = $this->sebagai($s->kepsek)->postJson("/api/perangkat-ajar/tema/{$id}/pola-ai", ['ai_mode' => 'LOKAL', 'jam_masuk' => '07:30', 'jam_pulang' => '12:00'])
             ->assertOk()->assertJsonPath('hari_diisi', 5)->assertJsonPath('jumlah_sesi_jadwal', 0)->json('data');
         $this->assertStringStartsWith('07:30 Pembukaan & Realita', $lokal['senin']);
         $this->assertStringContainsString('Matematika: Hitung skor', $lokal['senin']);

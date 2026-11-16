@@ -4,10 +4,11 @@ import Swal from "sweetalert2";
 import { AI_MODES, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { minta } from "@/components/banksoal/api";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
-import { hapusDariKartu, itemPersetujuan, tombolKartu } from "@/components/dashboard/aksiKartu";
+import { hapusDariKartu, tombolKartu } from "@/components/dashboard/aksiKartu";
 import { WARNA_CABANG, diagramPeta } from "./jaring";
 import { cetakPetaTema, unduhPngPetaTema, unduhWordPetaTema } from "./cetakPetaTema";
 import Pengisi from "@/components/dashboard/Pengisi";
+import PolaJadwalTema, { CekKeselarasan, FREKUENSI, HARI_SLOT, jpDariSlot, targetJp } from "./PolaJadwalTema";
 
 const HARI = [["senin", "Senin"], ["selasa", "Selasa"], ["rabu", "Rabu"], ["kamis", "Kamis"], ["jumat", "Jumat"], ["sabtu", "Sabtu"]];
 const KOLOM_MINGGU = [
@@ -18,8 +19,11 @@ const KOLOM_MINGGU = [
 ];
 const idAcak = () => Math.random().toString(36).slice(2, 10);
 const mingguKosong = (ke) => ({ ke, judul: "", realita: "", imajinasi: "", makna: "", produk: "" });
+// Peta tema tidak "disetujui" tetapi ditetapkan kepala sekolah
+const statusTema = (s) => (s === "DISETUJUI" ? { ...STATUS.DISETUJUI, label: "Ditetapkan" } : STATUS[s] || STATUS.DRAF);
+const bolehSusun = (akses) => akses.isAdmin || akses.isKepsek;
 
-/** Peta Tema / spider web kurikulum PBPM: tema lintas mapel per kelas, disusun bersama AI, disetujui kepala sekolah. */
+/** Peta Tema / spider web kurikulum PBPM: tema lintas mapel per kelas yang menggerakkan Jadwal; disusun & ditetapkan kepala sekolah, guru melihat. */
 export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) {
   const [daftar, setDaftar] = useState(null);
   const [status, setStatus] = useState(statusAwal || "");
@@ -33,13 +37,18 @@ export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) 
 
   if (buka) return <EditorTema id={buka} referensi={referensi} akses={akses} onKembali={() => { setBuka(null); muat(); }} />;
 
+  const tetapkan = async (t) => {
+    const ok = await Swal.fire({ title: "Tetapkan peta tema ini?", text: "Guru dan wali kelas akan melihatnya; lanjutkan dengan Buat Jadwal di bagian Pola mingguan.", icon: "question", showCancelButton: true, confirmButtonText: "Tetapkan", cancelButtonText: "Batal" });
+    if (!ok.isConfirmed) return;
+    try { const r = await minta("POST", `/perangkat-ajar/tema/${t.id_peta}/tetapkan`); Swal.fire({ icon: "success", title: r.message, timer: 2500, showConfirmButton: false }); muat(); }
+    catch (err) { Swal.fire("Belum bisa", err.message, "warning"); }
+  };
   const itemTema = (t) => {
-    const bisaUbah = akses.isAdmin || t.dibuat_oleh === akses.user?.id;
+    const bisaUbah = bolehSusun(akses);
     return [
       { label: "Buka", ikon: "bi-box-arrow-up-right", onClick: () => setBuka(t.id_peta) },
-      ...itemPersetujuan({ dasar: `/perangkat-ajar/tema/${t.id_peta}`, status: t.status, bisaUbah, isKepsek: akses.isKepsek, selesai: muat,
-        pesanAjukan: "Ajukan peta tema ke kepala sekolah?", pesanSetujui: "Setujui peta tema ini?" }),
-      aksiHapus(() => hapusDariKartu(`/perangkat-ajar/tema/${t.id_peta}`, { judul: "Hapus peta tema ini?", selesai: muat }), bisaUbah),
+      ...(bisaUbah && t.status !== "DISETUJUI" ? [{ label: "Tetapkan", ikon: "bi-patch-check", onClick: () => tetapkan(t) }] : []),
+      aksiHapus(() => hapusDariKartu(`/perangkat-ajar/tema/${t.id_peta}`, { judul: "Hapus peta tema ini?", teks: "Sesi tema yang belum dimulai ikut dihapus dari Jadwal.", selesai: muat }), bisaUbah),
     ];
   };
 
@@ -48,24 +57,25 @@ export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) 
       <div className="alert alert-light border small py-2 mb-3">
         <i className="bi bi-bezier2 me-1 text-primary"></i>
         <b>Peta Tema (spider web)</b> menghubungkan satu tema dari realita anak Papua ke semua mata pelajaran: jaring mata pelajaran dengan
-        kalibrasi, jaring konsep, dan peta mingguan <i>Realita → Imajinasi → Makna → Produk anak</i> (kurikulum PBPM).
+        kalibrasi, jaring konsep, dan peta mingguan <i>Realita → Imajinasi → Makna → Produk anak</i> (kurikulum PBPM). Pola mingguannya
+        menjadi <b>jadwal kelas</b>. {bolehSusun(akses) ? "Kepala sekolah menyusun dan menetapkan; admin dapat mengisi atas nama kepala sekolah." : "Peta tema disusun dan ditetapkan kepala sekolah; Anda melihat peta yang sudah ditetapkan dan menerima sesinya di Jadwal."}
       </div>
       <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
         <div className="btn-group btn-group-sm" role="group" aria-label="Saring status peta tema">
-          {[["", "Semua"], ...Object.entries(STATUS).map(([k, v]) => [k, v.label])].map(([k, label]) => (
+          {[["", "Semua"], ["DRAF", "Draf"], ["DISETUJUI", "Ditetapkan"]].map(([k, label]) => (
             <button key={k} className={`btn ${status === k ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setStatus(k)}>{label}</button>
           ))}
         </div>
-        {!akses.isKepsek && <button className="btn btn-sm btn-primary ms-auto" onClick={() => setBaru(true)}><i className="bi bi-plus-lg me-1"></i>Peta tema baru</button>}
+        {bolehSusun(akses) && <button className="btn btn-sm btn-primary ms-auto" onClick={() => setBaru(true)}><i className="bi bi-plus-lg me-1"></i>Peta tema baru</button>}
       </div>
       {!daftar ? <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
         : !daftar.length ? (
           <div className="text-center text-muted py-5"><i className="bi bi-bezier2 fs-1 d-block mb-2"></i>
-            {status ? "Tidak ada peta tema dengan status ini." : <>Belum ada peta tema. Tekan <b>Peta tema baru</b>, tulis temanya (mis. <i>Aku dan Sukuku</i>), lalu <b>Susun dengan AI</b>.</>}</div>
+            {status ? "Tidak ada peta tema dengan status ini." : bolehSusun(akses) ? <>Belum ada peta tema. Tekan <b>Peta tema baru</b>, tulis temanya (mis. <i>Aku dan Sukuku</i>), lalu <b>Susun dengan AI</b>.</> : "Belum ada peta tema yang ditetapkan kepala sekolah."}</div>
         ) : (
           <div className="row g-2">
             {daftar.map((t) => {
-              const st = STATUS[t.status];
+              const st = statusTema(t.status);
               return (
                 <div key={t.id_peta} className="col-md-6 col-xl-4">
                   <div className="card shadow-sm h-100 kartu-tema" role="button" tabIndex={0} onClick={() => setBuka(t.id_peta)} onKeyDown={tombolKartu(() => setBuka(t.id_peta))}>
@@ -74,12 +84,13 @@ export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) 
                         <div className="me-auto min-w-0">
                           {t.jaring?.kategori && <div className="small text-primary fw-semibold text-uppercase" style={{ letterSpacing: ".06em" }}>{t.jaring.kategori}</div>}
                           <div className="fw-semibold">{t.judul}</div>
-                          <div className="small text-muted">{t.kelas?.nama_kelas || "Semua kelas"} · {t.jumlah_minggu} minggu · {t.jumlah_mapel} mapel · {t.jumlah_konsep} konsep · <Pengisi sebaris kosong="" pengisi={t.pembuat?.name} /></div>
+                          <div className="small text-muted">{t.kelas?.nama_kelas || "Semua kelas"} · {t.jumlah_minggu} minggu · {t.jumlah_mapel} mapel · {t.jumlah_konsep} konsep · <Pengisi sebaris kosong="" guru={t.pembuat?.name} pengisi={t.penginput?.name} /></div>
                         </div>
                         <MenuAksi label={`Aksi untuk ${t.judul}`} items={itemTema(t)} />
                       </div>
                       <div className="d-flex flex-wrap gap-1 mt-2">
                         <span className={`badge text-bg-${st.warna}`}><i className={`bi ${st.icon} me-1`}></i>{st.label}</span>
+                        {t.jadwal_dibuat_pada && <span className="badge text-bg-primary fw-normal"><i className="bi bi-calendar-check me-1"></i>Di Jadwal</span>}
                         {t.sumber === "AI" && <span className="badge text-bg-light border fw-normal"><i className="bi bi-magic me-1"></i>AI</span>}
                         {(t.jaring?.mapel || []).slice(0, 6).map((c, i) => <span key={c.id} className="badge fw-normal" style={{ background: `${WARNA_CABANG[i % WARNA_CABANG.length]}1f`, color: WARNA_CABANG[i % WARNA_CABANG.length] }}>{c.nama}</span>)}
                       </div>
@@ -184,8 +195,8 @@ function EditorTema({ id, referensi, akses, onKembali }) {
   const diagram = useMemo(() => (p ? diagramPeta(p) : null), [p]);
   if (!p) return <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat peta tema…</div>;
 
-  const bisa = akses.isAdmin || p.dibuat_oleh === akses.user?.id;
-  const st = STATUS[p.status];
+  const bisa = bolehSusun(akses);
+  const st = statusTema(p.status);
   const ubah = (patch) => { setP((x) => ({ ...x, ...patch })); setKotor(true); };
   const ubahJaring = (patch) => ubah({ jaring: { ...p.jaring, ...patch } });
   const ubahCabang = (jenis, i, patch) => ubahJaring({ [jenis]: p.jaring[jenis].map((c, j) => (j === i ? { ...c, ...patch } : c)) });
@@ -209,18 +220,21 @@ function EditorTema({ id, referensi, akses, onKembali }) {
   const payload = () => ({
     judul: p.judul, id_kelas: p.id_kelas || null, id_periode: p.id_periode || null, tanggal_mulai: p.tanggal_mulai || null,
     jumlah_minggu: p.jumlah_minggu, pendekatan: p.pendekatan, konteks_lokal: p.konteks_lokal, jaring: p.jaring, minggu: p.minggu, pola: p.pola,
+    pola_slot: p.pola_slot,
   });
   const simpan = async () => {
     if (!p.judul?.trim()) { Swal.fire("Tema kosong", "Tulis tema peta ini dulu.", "info"); return false; }
-    if (["DISETUJUI", "DIAJUKAN"].includes(p.status)) {
-      const ok = await Swal.fire({ title: "Simpan perubahan?", text: "Peta tema ini akan kembali menjadi draf dan perlu diajukan ulang.", icon: "question", showCancelButton: true, confirmButtonText: "Simpan", cancelButtonText: "Batal" });
+    if (p.jadwal_dibuat_pada) {
+      const ok = await Swal.fire({ title: "Simpan perubahan?", icon: "question", showCancelButton: true, confirmButtonText: "Simpan", cancelButtonText: "Batal",
+        text: `Peta tema ini sudah menjadi jadwal. Bila slot pola, tanggal mulai, atau lama tema berubah, sesi tema yang akan datang di Jadwal ikut menyesuaikan dan dihitung sebagai perubahan (${p.jumlah_perubahan || 0}/${p.batas_perubahan || 3}).` });
       if (!ok.isConfirmed) return false;
     }
     setProses("simpan");
     try {
       const r = await minta("PUT", `/perangkat-ajar/tema/${id}`, { ...payload(), ...(pakaiAi ? { sumber: "AI", ai_mode: pakaiAi } : {}) });
       terima(r.data); setPakaiAi(null);
-      Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Peta tema disimpan", showConfirmButton: false, timer: 1500 });
+      if (r.sinkron) Swal.fire({ icon: "success", title: "Peta tema disimpan", text: r.message });
+      else Swal.fire({ toast: true, position: "top-end", icon: "success", title: "Peta tema disimpan", showConfirmButton: false, timer: 1500 });
       return true;
     } catch (err) { Swal.fire("Gagal menyimpan", err.message, "error"); return false; }
     finally { setProses(null); }
@@ -353,14 +367,10 @@ function EditorTema({ id, referensi, akses, onKembali }) {
     } catch (err) { Swal.fire("Belum bisa", err.message, "warning"); }
     finally { setProses(null); }
   };
-  const kembalikan = async () => {
-    const r = await Swal.fire({ title: "Kembalikan ke guru", input: "textarea", inputLabel: "Catatan perbaikan", inputValidator: (v) => (!v?.trim() ? "Tulis catatan perbaikannya." : undefined), showCancelButton: true, confirmButtonText: "Kembalikan", cancelButtonText: "Batal" });
-    if (r.isConfirmed) aksi("revisi", null, { catatan: r.value });
-  };
   const hapus = async () => {
-    const ok = await Swal.fire({ title: "Hapus peta tema ini?", icon: "warning", showCancelButton: true, confirmButtonText: "Hapus", cancelButtonText: "Batal", confirmButtonColor: "#dc3545" });
+    const ok = await Swal.fire({ title: "Hapus peta tema ini?", text: p.jadwal_dibuat_pada ? "Sesi tema yang belum dimulai ikut dihapus dari Jadwal." : undefined, icon: "warning", showCancelButton: true, confirmButtonText: "Hapus", cancelButtonText: "Batal", confirmButtonColor: "#dc3545" });
     if (!ok.isConfirmed) return;
-    try { await minta("DELETE", `/perangkat-ajar/tema/${id}`); onKembali(); } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+    try { const r = await minta("DELETE", `/perangkat-ajar/tema/${id}`); Swal.fire({ toast: true, position: "top-end", icon: "success", title: r.message, showConfirmButton: false, timer: 3000 }); onKembali(); } catch (err) { Swal.fire("Gagal", err.message, "error"); }
   };
   const tutup = async () => {
     if (kotor) {
@@ -379,18 +389,14 @@ function EditorTema({ id, referensi, akses, onKembali }) {
           <div className="fw-bold fs-5">{p.jaring.kategori ? <span className="text-primary text-uppercase small me-2" style={{ letterSpacing: ".06em" }}>{p.jaring.kategori}</span> : null}{p.judul || "Tanpa tema"}</div>
           <div className="small text-muted">{p.kelas?.nama_kelas || "Semua kelas"}{p.fase && ` · Fase ${p.fase}`}{p.periode && ` · ${p.periode.semester} ${p.periode.tahun_ajaran}`} · {p.jumlah_minggu} minggu
             {" "}<span className={`badge text-bg-${st.warna} ms-1`}>{st.label}</span>{p.versi > 1 && <span className="badge text-bg-light border ms-1">v{p.versi}</span>}{kotor && <span className="badge text-bg-warning ms-1">belum disimpan</span>}</div>
+          <div className="small text-muted mt-1">Kepala sekolah: <Pengisi sebaris kosong="-" guru={p.pembuat?.name} pengisi={p.penginput?.name} />{p.status === "DISETUJUI" && p.disetujui_pada && <> · ditetapkan {new Date(p.disetujui_pada).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</>}</div>
           {p.status === "REVISI" && p.catatan_revisi && <div className="alert alert-danger py-1 px-2 small mt-1 mb-0"><b>Catatan kepala sekolah:</b> {p.catatan_revisi}</div>}
         </div>
         <div className="d-flex flex-wrap gap-1">
           {bisa && <button className="btn btn-sm btn-outline-primary" onClick={susunAi} disabled={!!proses || !ref}><i className="bi bi-stars me-1"></i>Susun dengan AI</button>}
           {bisa && <button className="btn btn-sm btn-outline-primary" onClick={kalibrasiAi} disabled={!!proses || !ref}><i className="bi bi-sliders me-1"></i>Kalibrasi AI</button>}
           {bisa && <button className="btn btn-sm btn-primary" onClick={() => simpan()} disabled={!kotor || !!proses}><i className="bi bi-save me-1"></i>Simpan</button>}
-          {bisa && ["DRAF", "REVISI"].includes(p.status) && <button className="btn btn-sm btn-success" onClick={() => aksi("ajukan", "Ajukan peta tema ke kepala sekolah?")} disabled={!!proses}><i className="bi bi-send me-1"></i>Ajukan</button>}
-          {bisa && p.status === "DIAJUKAN" && <button className="btn btn-sm btn-outline-secondary" onClick={() => aksi("tarik")} disabled={!!proses}>Tarik</button>}
-          {akses.isKepsek && p.status === "DIAJUKAN" && <>
-            <button className="btn btn-sm btn-success" onClick={() => aksi("setujui", "Setujui peta tema ini?")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Setujui</button>
-            <button className="btn btn-sm btn-outline-danger" onClick={kembalikan} disabled={!!proses}><i className="bi bi-arrow-counterclockwise me-1"></i>Kembalikan</button>
-          </>}
+          {bisa && p.status !== "DISETUJUI" && <button className="btn btn-sm btn-success" onClick={() => aksi("tetapkan", "Tetapkan peta tema ini? Guru dan wali kelas akan melihatnya.")} disabled={!!proses}><i className="bi bi-patch-check me-1"></i>Tetapkan</button>}
           <div className="dropdown">
             <button className="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i className="bi bi-download me-1"></i>Ekspor</button>
             <ul className="dropdown-menu dropdown-menu-end">
@@ -468,6 +474,7 @@ function EditorTema({ id, referensi, akses, onKembali }) {
                       <select className="form-select form-select-sm fw-semibold" aria-label={`Mata pelajaran cabang ${i + 1}`} disabled={!bisa} value={c.id_mapel || ""}
                         onChange={(e) => ubahCabang("mapel", i, { id_mapel: e.target.value || null, nama: mapelRef.find((m) => m.id_mapel === e.target.value)?.nama_mapel || c.nama, tp: [] })}>
                         {!c.id_mapel && <option value="">{c.nama || "— pilih mapel —"}</option>}
+                        {c.id_mapel && !mapelRef.some((m) => m.id_mapel === c.id_mapel) && <option value={c.id_mapel}>{c.nama}</option>}
                         {mapelRef.map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
                       </select>
                       {bisa && <>
@@ -477,6 +484,26 @@ function EditorTema({ id, referensi, akses, onKembali }) {
                       </>}
                     </div>
                     <Teks label={`Kalibrasi ${c.nama}`} bisa={bisa} nilai={c.kalibrasi} ubah={(v) => ubahCabang("mapel", i, { kalibrasi: v })} placeholder="Isi konkret mapel ini untuk tema, mis. hitung skor & ukuran lapangan" />
+                    {c.id_mapel && (
+                      <div className="d-flex flex-wrap gap-2 align-items-center mt-1 small pt-param" data-param={c.id_mapel}>
+                        <label className="d-flex align-items-center gap-1 mb-0">JP/minggu
+                          <input type="number" min={0} max={40} className="form-control form-control-sm" style={{ width: 64 }} aria-label={`JP per minggu ${c.nama}`} readOnly={!bisa} value={c.jp_minggu || 0} onChange={(e) => ubahCabang("mapel", i, { jp_minggu: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })} />
+                        </label>
+                        <select className="form-select form-select-sm w-auto" aria-label={`Frekuensi ${c.nama}`} disabled={!bisa} value={c.frekuensi || "PILIH"} onChange={(e) => ubahCabang("mapel", i, { frekuensi: e.target.value })}>
+                          {FREKUENSI.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                        {(c.frekuensi || "PILIH") !== "HARIAN" && (
+                          <span className="d-inline-flex flex-wrap gap-2" role="group" aria-label={`Hari ${c.nama}`}>
+                            {HARI_SLOT.map(([h, l]) => {
+                              const on = (c.hari || []).includes(h);
+                              return <label key={h} className="form-check form-check-inline mb-0 me-0"><input type="checkbox" className="form-check-input" disabled={!bisa} checked={on} aria-label={`${c.nama} hari ${l}`}
+                                onChange={() => ubahCabang("mapel", i, { hari: on ? c.hari.filter((x) => x !== h) : [...(c.hari || []), h].sort() })} /><span className="form-check-label">{l.slice(0, 3)}</span></label>;
+                            })}
+                          </span>
+                        )}
+                        {(() => { const t = targetJp(c); const ada = jpDariSlot(p.pola_slot)[c.id_mapel] || 0; return t ? <span className={`badge fw-normal ${Math.abs(t - ada) < 0.5 ? "text-bg-light border" : "text-bg-warning"}`}>pola {ada} JP</span> : null; })()}
+                      </div>
+                    )}
                     <div className="d-flex flex-wrap gap-1 align-items-center mt-1">
                       {(c.tp || []).map((t) => (
                         <span key={t} className="badge text-bg-light border fw-normal text-wrap text-start pt-tp">{namaTp(t)}
@@ -565,26 +592,10 @@ function EditorTema({ id, referensi, akses, onKembali }) {
         </div>
       </div>
 
-      {/* Pola mingguan */}
-      <div className="card shadow-sm mb-3">
-        <div className="card-header fw-semibold d-flex flex-wrap align-items-center gap-2">
-          <span><i className="bi bi-clock me-1 text-primary"></i>Pola mingguan</span>
-          {bisa && (
-            <div className="ms-auto d-flex flex-wrap gap-2">
-              {p.id_kelas && <button className="btn btn-sm btn-outline-primary" onClick={ambilPola} disabled={!!proses}><i className="bi bi-calendar3 me-1"></i>Ambil dari Jadwal</button>}
-              <button className="btn btn-sm btn-outline-success" onClick={rekomendasiPola} disabled={!!proses} title="Untuk kelas yang jadwalnya belum disusun atau masih kosong"><i className="bi bi-stars me-1"></i>Rekomendasi AI</button>
-            </div>
-          )}
-        </div>
-        <div className="card-body row g-2">
-          {HARI.map(([k, l]) => (
-            <div key={k} className="col-md-4 col-xl-2">
-              <label className="form-label small fw-semibold mb-0" htmlFor={`ptPola-${k}`}>{l}</label>
-              <Teks id={`ptPola-${k}`} label={`Kegiatan ${l}`} bisa={bisa} baris={4} nilai={p.pola?.[k]} ubah={(v) => ubah({ pola: { ...p.pola, [k]: v } })} placeholder={k === "sabtu" ? "Opsional" : "Jam 1: …"} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Pola mingguan → Jadwal */}
+      <PolaJadwalTema id={id} p={p} ubah={ubah} bisa={bisa} kotor={kotor} simpan={simpan} proses={proses} setProses={setProses} terima={terima}
+        rekomendasiPola={rekomendasiPola} ambilPola={ambilPola} Teks={Teks} HARI={HARI} />
+      <CekKeselarasan id={id} kotor={kotor && bisa} simpan={simpan} />
     </div>
   );
 }

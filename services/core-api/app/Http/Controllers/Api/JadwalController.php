@@ -14,6 +14,8 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TransJadwal;
 use App\Services\LampiranJadwalService;
+use App\Services\PetaTemaJadwalService;
+use App\Models\PetaTema;
 use Carbon\Carbon;
 use App\Models\ModulAjar;
 use App\Models\Atp;
@@ -317,6 +319,7 @@ class JadwalController extends Controller
         $jadwal = TransJadwal::findOrFail($id);
         $this->cekPemilik($request, $jadwal);
         $request->validate($this->rules(false), $this->pesanValidasi());
+        $this->cekTema($request, $jadwal, 'ubah', $request->mode ?? 'only_this');
 
         $mulai = Carbon::createFromFormat(self::FORMAT, $request->mulai);
         $selesai = Carbon::createFromFormat(self::FORMAT, $request->selesai);
@@ -358,10 +361,11 @@ class JadwalController extends Controller
         });
 
         if ($lampiranBaru || $request->boolean('hapus_lampiran')) LampiranJadwalService::bersihkan($lampiranLama);
+        $tema = $this->ikutkanPolaTema($request, $jadwal, $request->mode ?? 'only_this');
 
         return response()->json([
             'success' => true,
-            'message' => count($slot) > 1 ? count($slot) . ' sesi diperbarui.' : 'Jadwal diperbarui.',
+            'message' => (count($slot) > 1 ? count($slot) . ' sesi diperbarui.' : 'Jadwal diperbarui.') . ($tema ? " {$tema}" : ''),
             'jumlah' => count($slot),
         ]);
     }
@@ -379,6 +383,7 @@ class JadwalController extends Controller
             'delta_selesai' => 'required|integer|between:-525600,525600',
             'abaikan_bentrok' => 'nullable|boolean',
         ]);
+        $this->cekTema($request, $jadwal, 'geser', $request->mode ?? 'only_this');
 
         $target = $this->targetBerantai($request, $jadwal, $request->mode ?? 'only_this');
         $slot = $target->map(fn($t) => [
@@ -399,8 +404,9 @@ class JadwalController extends Controller
         DB::transaction(function () use ($slot) {
             foreach ($slot as $s) TransJadwal::whereKey($s['id_jadwal'])->update(['mulai' => $s['mulai'], 'selesai' => $s['selesai']]);
         });
+        $tema = $this->ikutkanPolaTema($request, $jadwal, $request->mode ?? 'only_this');
 
-        return response()->json(['success' => true, 'message' => count($slot) > 1 ? count($slot) . ' sesi digeser.' : 'Jadwal digeser.']);
+        return response()->json(['success' => true, 'message' => (count($slot) > 1 ? count($slot) . ' sesi digeser.' : 'Jadwal digeser.') . ($tema ? " {$tema}" : '')]);
     }
 
     public function status(Request $request, $id)
@@ -461,6 +467,7 @@ class JadwalController extends Controller
         $jadwal = TransJadwal::findOrFail($id);
         $this->cekPemilik($request, $jadwal);
         $request->validate(['mode' => ['nullable', Rule::in(self::MODE_BERANTAI)]]);
+        abort_if($jadwal->id_peta && $request->user()->isGuru(), 403, 'Sesi ini dibuat dari Peta Tema oleh kepala sekolah. Untuk meniadakan satu sesi, ubah statusnya menjadi Batal.');
 
         $target = $this->targetBerantai($request, $jadwal, $request->mode ?? 'only_this');
         $lampiran = $target->pluck('lampiran_url')->filter()->unique();
@@ -481,12 +488,43 @@ class JadwalController extends Controller
         abort_if($user->isGuru() && (!$user->id_guru || $jadwal->id_guru !== $user->id_guru), 403, 'Anda hanya dapat mengubah jadwal milik Anda sendiri.');
     }
 
+    /**
+     * Sesi dari Peta Tema: guru "terima jadi". Setelah pola diubah sebanyak batas (3x sejak jadwal dibuat), sesi terkunci
+     * untuk guru; mengubah rangkaian (yang mengubah pola) juga ditolak sampai kepala sekolah membuka kunci.
+     */
+    private function cekTema(Request $request, TransJadwal $jadwal, string $aksi, string $mode): void
+    {
+        if (!$jadwal->id_peta || !($peta = $jadwal->peta)) return;
+        $guru = $request->user()->isGuru();
+        abort_if($guru && $peta->terkunci(), 403, "Jadwal tema \"{$peta->judul}\" sudah dikunci kepala sekolah setelah " . PetaTema::BATAS_PERUBAHAN . ' kali perubahan pola.');
+        abort_if($mode !== 'only_this' && $peta->terkunci(), 422, 'Pola tema sudah diubah ' . PetaTema::BATAS_PERUBAHAN . ' kali dan terkunci. Kepala sekolah perlu membuka kunci di Peta Tema dulu.');
+    }
+
+    /** Rangkaian sesi tema digeser/diubah → slot pola ikut berubah, dihitung sebagai satu perubahan, sesi berikutnya diselaraskan. */
+    private function ikutkanPolaTema(Request $request, TransJadwal $jadwal, string $mode): ?string
+    {
+        if ($mode === 'only_this' || !$jadwal->id_peta || !$jadwal->id_slot_tema) return null;
+        $peta = PetaTema::find($jadwal->id_peta);
+        $sesi = TransJadwal::with('mapel:id_mapel,nama_mapel')->find($jadwal->id_jadwal);
+        if (!$peta || !$sesi) return null;
+        $layanan = app(PetaTemaJadwalService::class);
+        $ringkas = $layanan->slotDariSesi($peta, $sesi);
+        if (!$ringkas) return null;
+        $peta->catatPerubahan($request->user(), 'JADWAL', $ringkas);
+        $peta->save();
+        $layanan->sinkron($peta->fresh());
+        $sisa = max(0, PetaTema::BATAS_PERUBAHAN - $peta->jumlah_perubahan);
+        return "Pola mingguan Peta Tema ikut berubah ({$ringkas}); " . ($sisa ? "sisa {$sisa} kali perubahan sebelum dikunci." : 'batas perubahan tercapai, jadwal tema kini terkunci.');
+    }
+
     private function targetBerantai(Request $request, TransJadwal $jadwal, string $mode): Collection
     {
         if (!$jadwal->id_group || $mode === 'only_this') return collect([$jadwal]);
 
         $user = $request->user();
         return TransJadwal::where('id_group', $jadwal->id_group)
+            // Rangkaian sesi tema = satu slot pola (mis. Matematika Selasa 07:30), bukan seluruh sesi tema
+            ->when($jadwal->id_slot_tema, fn($q) => $q->where('id_slot_tema', $jadwal->id_slot_tema))
             ->when($user->isGuru(), fn($q) => $q->where('id_guru', $user->id_guru))
             ->when($mode === 'following', fn($q) => $q->where('mulai', '>=', $jadwal->mulai))
             ->orderBy('mulai')

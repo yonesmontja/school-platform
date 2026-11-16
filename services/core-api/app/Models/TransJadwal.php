@@ -15,7 +15,7 @@ class TransJadwal extends Model
     protected $fillable = [
         'id_jadwal', 'id_group', 'id_periode', 'id_kelas', 'id_guru', 'id_mapel', 'id_materi', 'id_ruangan',
         'judul', 'mulai', 'selesai', 'warna', 'catatan', 'lampiran_url', 'lampiran_nama', 'status_sesi',
-        'id_modul', 'pertemuan_ke', 'perangkat', 'dibuat_oleh',
+        'id_modul', 'pertemuan_ke', 'perangkat', 'dibuat_oleh', 'id_peta', 'id_slot_tema',
     ];
 
     // Akun yang menginput tercatat otomatis; bisa berbeda dari guru yang tercatat (mis. admin mengisi untuk guru)
@@ -71,6 +71,8 @@ class TransJadwal extends Model
     public function materi(): BelongsTo { return $this->belongsTo(MasterMateri::class, 'id_materi', 'id_materi'); }
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
     public function ruangan(): BelongsTo { return $this->belongsTo(MasterRuangan::class, 'id_ruangan', 'id_ruangan'); }
+
+    public function peta(): BelongsTo { return $this->belongsTo(PetaTema::class, 'id_peta', 'id_peta'); }
 
     public function modul(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(ModulAjar::class, 'id_modul', 'id_modul'); }
 }

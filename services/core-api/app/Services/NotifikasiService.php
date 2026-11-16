@@ -430,6 +430,18 @@ class NotifikasiService
             }
         }
         if ($this->user->isKepsek()) {
+            // Pola tema diubah lewat Jadwal (rangkaian sesi digeser guru) dalam 7 hari terakhir: dipantau kepala sekolah
+            $berubah = \App\Models\PetaTema::whereNotNull('jadwal_dibuat_pada')->where('updated_at', '>=', now()->subDays(7))->get(['id_peta', 'judul', 'riwayat_pola', 'jumlah_perubahan', 'updated_at'])
+                ->filter(fn($p) => collect($p->riwayat_pola ?? [])->contains(fn($r) => ($r['sumber'] ?? '') === 'JADWAL' && ($r['waktu'] ?? '') >= now(config('app.zona_sekolah'))->subDays(7)->format('Y-m-d H:i')));
+            if ($berubah->isNotEmpty()) {
+                $akhir = collect($berubah->first()->riwayat_pola)->last(fn($r) => ($r['sumber'] ?? '') === 'JADWAL');
+                $hasil[] = $this->buat('tema-perubahan', $berubah->map(fn($p) => $p->id_peta . ':' . $p->jumlah_perubahan)->sort()->values()->all(), [
+                    'tingkat' => 'info', 'kategori' => 'Perangkat Ajar', 'ikon' => 'bi-calendar2-week',
+                    'judul' => "Pola {$berubah->count()} peta tema diubah dari Jadwal",
+                    'pesan' => ($akhir['nama'] ?? 'Guru') . ': ' . \Illuminate\Support\Str::limit((string) ($akhir['ringkas'] ?? ''), 120) . " (perubahan {$berubah->first()->jumlah_perubahan}/" . \App\Models\PetaTema::BATAS_PERUBAHAN . ')',
+                    'jumlah' => $berubah->count(), 'tautan' => '/dashboard/perangkat-ajar?tab=tema&tema=' . $berubah->first()->id_peta, 'waktu' => $waktu($berubah),
+                ]);
+            }
             $tema = \App\Models\PetaTema::where('status', 'DIAJUKAN')->get(['id_peta', 'updated_at']);
             if ($tema->isNotEmpty()) {
                 $hasil[] = $this->buat('tema-persetujuan', $tema->pluck('id_peta')->sort()->values()->all(), [

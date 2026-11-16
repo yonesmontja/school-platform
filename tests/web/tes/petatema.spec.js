@@ -1,13 +1,14 @@
-// Peta Tema / spider web PBPM di Perangkat Ajar: guru menyusun jaring mapel (kalibrasi + TP), jaring konsep, peta mingguan;
-// ekspor PDF/Word/PNG; kepala sekolah menyetujui; peta tema bisa ditautkan dari editor jadwal.
+// Peta Tema / spider web PBPM di Perangkat Ajar: kepala sekolah menyusun jaring mapel (kalibrasi + TP + JP/minggu), jaring konsep,
+// peta mingguan, pola mingguan terstruktur (slot), ekspor PDF/Word/PNG, menetapkan, lalu Buat Jadwal; guru hanya melihat dan
+// menautkan peta tema dari editor jadwal.
 const fs = require("fs");
 const { test, expect, pilih, selectBerlabel } = require("../bantu");
 
 test.describe.configure({ mode: "serial" });
 
-test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/Word/PNG, lalu diajukan", async ({ page, masuk, context }) => {
-  test.setTimeout(180_000);
-  await masuk("guru");
+test("kepala sekolah menyusun peta tema, slot pola dari rekomendasi, ekspor, menetapkan, lalu Buat Jadwal", async ({ page, masuk, context }) => {
+  test.setTimeout(240_000);
+  await masuk("kepsek");
   await page.goto("/dashboard/perangkat-ajar?tab=tema");
   await page.getByRole("button", { name: "Peta tema baru" }).click({ timeout: 60_000 });
   const baru = page.getByRole("dialog", { name: "Peta tema baru" });
@@ -23,11 +24,14 @@ test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/
   await editor.getByRole("button", { name: "Tambah cabang mata pelajaran" }).click();
   await editor.getByLabel("Mata pelajaran cabang 1").selectOption({ label: "Matematika" });
   await editor.getByLabel("Kalibrasi Matematika").fill("Hitung skor & ukuran lapangan");
+  await editor.getByLabel("JP per minggu Matematika").fill("4");
   await editor.getByRole("button", { name: /Tautkan TP/ }).first().click();
   await editor.locator(".pt-tp-pilih").getByText(/Menyebutkan pembilang dan penyebut/).click();
   await editor.getByRole("button", { name: "Tambah cabang mata pelajaran" }).click();
   await editor.getByLabel("Mata pelajaran cabang 2").selectOption({ label: "IPA" });
   await editor.getByLabel("Kalibrasi IPA").fill("Gaya dan gerak bola saat ditendang");
+  // Tanggal jauh di depan agar tidak bentrok dengan jadwal contoh
+  await editor.locator("#ptMulaiE").fill("2031-03-03");
 
   await editor.getByRole("button", { name: "Tambah konsep" }).click();
   await editor.getByLabel("Konsep 1").fill("Aturan Permainan");
@@ -59,8 +63,19 @@ test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/
   const pola = await Promise.all(["senin", "selasa", "rabu", "kamis", "jumat"].map((h) => editor.locator(`#ptPola-${h}`).inputValue()));
   expect(pola.every((t) => t.trim().length > 0)).toBe(true);
   expect(pola.join(" ")).toMatch(/Realita|Matematika|IPA/);
+
+  // Teks rekomendasi → slot jam & mapel (pola terstruktur yang menjadi jadwal)
+  await editor.getByRole("button", { name: /Susun slot/ }).click();
+  await editor.getByRole("button", { name: /Dari teks pola/ }).click();
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".swal2-popup")).toContainText("Slot pola siap", { timeout: 30_000 });
+  await page.locator(".swal2-confirm").click();
+  const slot = editor.locator(".pt-slot tbody tr");
+  expect(await slot.count()).toBeGreaterThan(4);
+  await expect(editor.locator("[data-jp-mapel]").first()).toContainText("Matematika");
   await editor.getByRole("button", { name: "Simpan" }).click();
   await expect(page.locator(".swal2-toast")).toContainText("Peta tema disimpan");
+  await expect(editor.locator(".pt-slot tbody tr").first()).toBeVisible();
 
   // Ekspor: PDF resmi (jendela cetak), Word (diagram tertanam), PNG
   await editor.getByRole("button", { name: "Ekspor" }).click();
@@ -83,22 +98,37 @@ test("guru menyusun peta tema: jaring mapel & konsep, peta mingguan, ekspor PDF/
   expect(png.suggestedFilename()).toMatch(/\.png$/);
   expect(fs.readFileSync(await png.path()).subarray(1, 4).toString()).toBe("PNG");
 
-  await editor.getByRole("button", { name: "Ajukan" }).click();
+  // Tetapkan, lalu Buat Jadwal dari pola mingguan
+  await editor.getByRole("button", { name: "Tetapkan" }).click();
   await page.locator(".swal2-confirm").click();
-  await expect(editor).toContainText("Menunggu persetujuan", { timeout: 30_000 });
+  await expect(editor).toContainText("Ditetapkan", { timeout: 30_000 });
+  await editor.getByRole("button", { name: "Buat Jadwal" }).click();
+  await expect(page.locator(".swal2-popup")).toContainText("sesi baru", { timeout: 30_000 });
+  await page.locator(".swal2-confirm").click();
+  await expect(page.locator(".swal2-popup")).toContainText("Jadwal tema dibuat", { timeout: 30_000 });
+  await page.locator(".swal2-confirm").click();
+  await expect(editor.locator("[data-jadwal-tema]")).toContainText("sesi di Jadwal");
+  await expect(editor.locator("[data-perubahan]")).toContainText("Perubahan 0/3");
+
+  // Cek keselarasan TP & CP
+  await editor.getByRole("button", { name: "Periksa keselarasan" }).click();
+  await expect(editor.locator("[data-keselarasan] table")).toContainText("Matematika", { timeout: 30_000 });
 });
 
-test("kepala sekolah menyetujui peta tema; guru menautkannya dari editor jadwal", async ({ page, masuk }) => {
+test("guru melihat peta tema yang ditetapkan (tanpa mengubah) dan menautkannya dari editor jadwal", async ({ page, masuk }) => {
   test.setTimeout(150_000);
-  await masuk("kepsek");
-  await page.goto("/dashboard/perangkat-ajar?tab=tema&status=DIAJUKAN");
+  await masuk("guru");
+  await page.goto("/dashboard/perangkat-ajar?tab=tema");
   await page.locator(".kartu-tema", { hasText: "Main Bola E2E" }).click({ timeout: 60_000 });
   const editor = page.locator(".editor-tema");
-  await editor.getByRole("button", { name: "Setujui" }).click();
-  await page.locator(".swal2-confirm").click();
-  await expect(editor).toContainText("Disetujui", { timeout: 30_000 });
+  await expect(editor).toContainText("Ditetapkan");
+  await expect(editor.getByRole("button", { name: "Simpan" })).toHaveCount(0);
+  await expect(editor.getByRole("button", { name: "Buat Jadwal" })).toHaveCount(0);
+  await expect(editor.locator("[data-pola-jadwal]")).toContainText("ditetapkan kepala sekolah");
+  await page.goto("/dashboard/perangkat-ajar?tab=tema");
+  await expect(page.locator(".kartu-tema").first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Peta tema baru" })).toHaveCount(0);
 
-  await masuk("guru");
   await page.goto("/dashboard/jadwal");
   await page.getByRole("button", { name: "Buat" }).first().click();
   const form = page.locator(".jadwal-form");

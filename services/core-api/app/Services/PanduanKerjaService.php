@@ -276,15 +276,34 @@ class PanduanKerjaService
             $n, $siswa->count(), "{$n} dari {$siswa->count()} siswa kelas binaan sudah diisi.", '/dashboard/diagnostik', 'Isi Diagnostik');
     }
 
+    /**
+     * Peta Tema: milestone wajib. Kepala sekolah menyusun & menetapkan peta tema tiap kelas lalu membuat jadwalnya;
+     * guru menerima sesi tema di Jadwal. Selesai bila tiap kelas yang diajar/dibina punya peta tema yang ditetapkan
+     * dan sudah dijadikan jadwal semester ini; selain itu menunggu kepala sekolah.
+     */
     private function langkahPetaTema(): ?array
     {
-        if (!$this->kelasBinaan) return null;
-        $peta = PetaTema::whereIn('id_kelas', $this->kelasBinaan)->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))->pluck('status');
-        $info = $peta->isEmpty() ? 'Belum ada peta tema untuk kelas binaan semester ini.'
-            : $peta->count() . ' peta tema; ' . $peta->filter(fn($s) => $s === 'DISETUJUI')->count() . ' disetujui.';
-        $status = $peta->contains('DISETUJUI') ? 'selesai' : ($peta->contains('DIAJUKAN') ? 'menunggu' : ($peta->isNotEmpty() ? 'proses' : 'opsional'));
-        return $this->langkah('peta_tema', 'Peta Tema PBPM (spider web)', 'Tema lintas mapel untuk kelas binaan, dengan pola mingguan Realita → Imajinasi → Makna → Produk.',
-            0, 0, $info, '/dashboard/perangkat-ajar?tab=tema', 'Buka Peta Tema', ['status' => $status, 'wajib' => false]);
+        $kelas = collect($this->kelasBinaan)->merge($this->unit->pluck('id_kelas'))->filter()->unique()->values();
+        if ($kelas->isEmpty()) return null;
+        $nama = Classes::whereIn('id_kelas', $kelas)->pluck('nama_kelas', 'id_kelas');
+        $peta = PetaTema::whereIn('id_kelas', $kelas)->when($this->periode, fn($q) => $q->where('id_periode', $this->periode->id_periode))
+            ->get(['id_peta', 'judul', 'id_kelas', 'status', 'jadwal_dibuat_pada'])->groupBy('id_kelas');
+        $siap = fn($k) => ($peta[$k] ?? collect())->contains(fn($p) => $p->status === 'DISETUJUI' && $p->jadwal_dibuat_pada);
+        $n = $kelas->filter($siap)->count();
+        $rincian = $kelas->map(function ($k) use ($peta, $siap, $nama) {
+            $p = $peta[$k] ?? collect();
+            $catatan = match (true) {
+                $siap($k) => 'ditetapkan & sudah di Jadwal: ' . $p->first(fn($x) => $x->status === 'DISETUJUI' && $x->jadwal_dibuat_pada)->judul,
+                $p->contains('status', 'DISETUJUI') => 'ditetapkan, menunggu kepala sekolah membuat jadwal tema',
+                $p->isNotEmpty() => 'masih disusun kepala sekolah ("' . $p->first()->judul . '")',
+                default => 'belum ada peta tema; menunggu kepala sekolah menyusun',
+            };
+            return ['label' => $nama[$k] ?? $k, 'ok' => $siap($k), 'catatan' => $catatan];
+        })->values()->all();
+        $status = $n === $kelas->count() ? 'selesai' : 'menunggu';
+        return $this->langkah('peta_tema', 'Peta Tema PBPM & jadwal tema', 'Peta tema lintas mapel tiap kelas, ditetapkan kepala sekolah dan dijadikan sesi Jadwal. Pelajari kalibrasi mapel Anda dan sesi tema di Jadwal.',
+            $n, $kelas->count(), "{$n} dari {$kelas->count()} kelas sudah punya peta tema yang ditetapkan dan masuk Jadwal.", '/dashboard/perangkat-ajar?tab=tema', 'Lihat Peta Tema',
+            ['status' => $status, 'rincian' => $rincian]);
     }
 
     private function langkahKisi(): ?array
