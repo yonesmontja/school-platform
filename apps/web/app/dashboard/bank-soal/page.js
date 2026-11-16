@@ -11,6 +11,8 @@ import ModalDrafAI from "@/components/banksoal/ModalDrafAI";
 import KisiKisi from "@/components/banksoal/KisiKisi";
 import ImporSoal from "@/components/banksoal/ImporSoal";
 import PaketSoal from "@/components/banksoal/PaketSoal";
+import CakupanSoal from "@/components/banksoal/CakupanSoal";
+import ModalVarianAI, { JENIS_VARIAN } from "@/components/banksoal/ModalVarianAI";
 import { minta } from "@/components/banksoal/api";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
@@ -18,6 +20,7 @@ import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 const TAB = [
   { id: "soal", label: "Bank Soal", icon: "bi-collection" },
   { id: "kisi", label: "Kisi-kisi", icon: "bi-grid-3x3" },
+  { id: "cakupan", label: "Cakupan", icon: "bi-bullseye" },
   { id: "paket", label: "Paket Soal", icon: "bi-journal-text" },
   { id: "impor", label: "Impor Paket", icon: "bi-box-arrow-in-down" },
 ];
@@ -57,6 +60,7 @@ function BankSoalPage() {
   const [terbuka, setTerbuka] = useState({}); // soal yang pratinjaunya dibuka
   const [editor, setEditor] = useState(null); // { soal } untuk EditorSoal
   const [drafAi, setDrafAi] = useState(false);
+  const [varian, setVarian] = useState(null); // soal disetujui yang dibuatkan varian
 
   useEffect(() => {
     minta("GET", "/bank-soal/referensi").then(setReferensi).catch((err) => Swal.fire("Gagal memuat", err.message, "error"));
@@ -157,6 +161,8 @@ function BankSoalPage() {
         <div className="alert alert-info"><i className="bi bi-info-circle me-2"></i>Akun Anda belum mengampu mata pelajaran. Minta admin menautkan mapel di Master Mapel.</div>
       ) : tab === "kisi" ? (
         <KisiKisi referensi={referensi} onSoalBerubah={muat} />
+      ) : tab === "cakupan" ? (
+        <CakupanSoal referensi={referensi} onSoalBerubah={muat} />
       ) : tab === "paket" ? (
         <PaketSoal referensi={referensi} />
       ) : tab === "impor" ? (
@@ -232,6 +238,8 @@ function BankSoalPage() {
                               <span className="badge text-bg-light border">{s.level_kognitif}</span>
                               <LencanaStnkm soal={s} />
                               {s.sumber !== "MANUAL" && <span className="badge text-bg-light border fw-normal"><i className={`bi ${s.sumber === "AI" ? "bi-magic" : "bi-box-arrow-in-down"} me-1`}></i>{SUMBER[s.sumber]}</span>}
+                              {s.id_induk && <span className="badge text-bg-info-subtle text-info-emphasis border border-info-subtle fw-normal" title="Varian buatan AI dari soal yang sudah disetujui">
+                                <i className="bi bi-shuffle me-1"></i>Varian{s.jenis_varian ? ` · ${JENIS_VARIAN.find((j) => j.value === s.jenis_varian)?.label.toLowerCase() || ""}` : ""}</span>}
                               {(s.gambar_svg || s.gambar_url) && <i className="bi bi-image text-muted" title="Bergambar"></i>}
                               {s.statistik && <LencanaTeruji stat={s.statistik} />}
                             </div>
@@ -252,6 +260,8 @@ function BankSoalPage() {
                                 onClick: () => minta("POST", "/bank-soal/ajukan", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error")) },
                               { label: "Setujui", ikon: "bi-patch-check", tampil: bolehSetujui && s.status === "DIAJUKAN",
                                 onClick: () => minta("POST", "/bank-soal/setujui", { id_soal: [s.id_soal] }).then(muat).catch((e) => Swal.fire("Gagal", e.message, "error")) },
+                              { label: "Buat varian dengan AI", ikon: "bi-shuffle", tampil: s.status === "DISETUJUI" && referensi.mapel.some((m) => m.id_mapel === s.id_mapel)
+                                  && !["LENGKAPI_GAMBAR", "MEMBACA_NYARING"].includes(s.bentuk), onClick: () => setVarian(s) },
                               { label: "Tarik pengajuan", ikon: "bi-arrow-return-left", tampil: bolehUbah(s) && s.status === "DIAJUKAN" && !bolehSetujui, onClick: () => tarik(s) },
                               aksiHapus(() => hapus(s), bolehUbah(s) && (s.status !== "DISETUJUI" || isPengelola)),
                             ]} />
@@ -278,6 +288,10 @@ function BankSoalPage() {
 
       {editor && referensi && (
         <EditorSoal soal={editor.soal} referensi={referensi} bawaan={filter.id_mapel ? { id_mapel: filter.id_mapel } : undefined} onTutup={() => setEditor(null)} onTersimpan={() => { setEditor(null); muat(); }} />
+      )}
+      {varian && (
+        <ModalVarianAI soal={varian} onTutup={() => setVarian(null)}
+          onSelesai={(baru) => { setVarian(null); if (baru.length) ubahFilter({ ...FILTER_AWAL, status: "DRAF", milik: true }); }} />
       )}
       {drafAi && referensi && (
         <ModalDrafAI referensi={referensi} onTutup={() => setDrafAi(false)}

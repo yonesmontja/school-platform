@@ -8,13 +8,14 @@ import { minta } from "./api";
  * Minta AI membuat draf soal untuk satu TP (atau satu baris kisi-kisi bila `baris` diisi).
  * Hasil tersimpan sebagai draf milik guru; tidak ada yang dipakai sebelum disetujui kepala sekolah.
  */
-export default function ModalDrafAI({ referensi, baris, kisi, onTutup, onSelesai }) {
+export default function ModalDrafAI({ referensi, baris, kisi, awal, onTutup, onSelesai }) {
   const [f, setF] = useState(() => ({
     id_mapel: kisi?.id_mapel || referensi.mapel[0]?.id_mapel || "", id_kelas: kisi?.id_kelas || "",
     id_materi: baris?.id_materi || "", id_indikator: baris?.id_indikator || "",
     bentuk: baris?.bentuk || "PG", level_kognitif: baris?.level_kognitif || "C2", tingkat_kesulitan: baris?.tingkat_kesulitan || "SEDANG",
     dimensi: baris?.dimensi || "", jumlah: Math.min(baris ? Math.max(baris.jumlah - (baris.soal?.length || 0), 1) : 3, 10),
     gambar: false, catatan: "", ai_mode: bacaAiMode(),
+    ...(awal || {}), // isian awal, mis. dari tab Cakupan: mapel, kelas, materi, TP, jumlah yang kurang
   }));
   const [proses, setProses] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));

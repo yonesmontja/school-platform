@@ -328,6 +328,131 @@ class BankSoalController extends Controller
         ]);
     }
 
+    /**
+     * Varian AI dari soal yang sudah disetujui (Fase 24, variasi bank soal). Varian tersimpan sebagai DRAF yang menunjuk
+     * soal induknya; varian yang kembar dengan induk, sesamanya, atau soal lain di TP yang sama dilewati.
+     */
+    public function varianAI(Request $request, string $id, SoalAIService $ai)
+    {
+        $request->validate([
+            'jenis' => ['required', Rule::in(BankSoal::JENIS_VARIAN)],
+            'target_level' => ['required_if:jenis,LEVEL', 'nullable', Rule::in(BankSoal::LEVEL)],
+            'target_kesulitan' => ['required_if:jenis,KESULITAN', 'nullable', Rule::in(BankSoal::KESULITAN)],
+            'jumlah' => 'nullable|integer|min:1|max:5',
+            'catatan' => 'nullable|string|max:1000',
+            'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
+        ]);
+        $induk = $this->terjangkau($request)->with(['materi', 'indikator', 'kelas', 'mapel'])->findOrFail($id);
+        abort_unless($induk->status === 'DISETUJUI', 422, 'Varian hanya dibuat dari soal yang sudah disetujui kepala sekolah.');
+        abort_if(in_array($induk->bentuk, ['LENGKAPI_GAMBAR', 'MEMBACA_NYARING'], true), 422, 'Soal bergambar atau membaca nyaring belum bisa dibuatkan varian otomatis.');
+        $this->cekMapel($request, $induk->id_mapel);
+        $jumlah = $request->integer('jumlah', 3);
+        $target = $request->jenis === 'LEVEL' ? $request->target_level : ($request->jenis === 'KESULITAN' ? $request->target_kesulitan : null);
+
+        $konteks = array_filter([
+            'mapel' => $induk->mapel?->nama_mapel, 'kelas' => $induk->kelas?->nama_kelas, 'materi' => $induk->materi?->nama_materi,
+            'tp' => $induk->indikator?->deskripsi, 'catatan_guru' => $request->catatan,
+        ]);
+        $sumber = $induk->only(['pertanyaan', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'isi', 'kunci', 'rubrik', 'pembahasan']);
+        $mentah = $ai->varianSoal($sumber, $request->jenis, $target, $jumlah, $konteks, $request->ai_mode);
+        if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
+
+        // Buang varian yang kembar dengan soal induk, soal lain di TP/materi yang sama, atau varian sebelumnya
+        $pembanding = BankSoal::where('id_mapel', $induk->id_mapel)
+            ->where(fn($q) => $induk->id_indikator ? $q->where('id_indikator', $induk->id_indikator) : $q->where('id_materi', $induk->id_materi))
+            ->get(['pertanyaan', 'isi'])->map(fn($s) => BankSoalService::sidik(BankSoalService::teksBanding($s->toArray())))->all();
+        $pembanding[] = BankSoalService::sidik(BankSoalService::teksBanding($sumber));
+        $lolos = [];
+        $kembar = 0;
+        foreach ($mentah as $m) {
+            $sidik = BankSoalService::sidik(BankSoalService::teksBanding($m));
+            $mirip = collect($pembanding)->contains(fn($p) => BankSoalService::kemiripan($sidik, $p) >= BankSoal::AMBANG_KEMBAR);
+            if ($mirip) { $kembar++; continue; }
+            $pembanding[] = $sidik;
+            $lolos[] = $m;
+        }
+
+        $tetap = [
+            'id_mapel' => $induk->id_mapel, 'id_kelas' => $induk->id_kelas, 'id_materi' => $induk->id_materi, 'id_indikator' => $induk->id_indikator,
+            'id_kisi_baris' => null, 'id_induk' => $induk->id_soal, 'jenis_varian' => $request->jenis,
+            'bentuk' => $induk->bentuk, 'level_kognitif' => $request->jenis === 'LEVEL' ? $target : $induk->level_kognitif,
+            'tingkat_kesulitan' => $request->jenis === 'KESULITAN' ? $target : $induk->tingkat_kesulitan,
+            'sumber' => 'AI', 'ai_mode' => $request->ai_mode, 'dimensi' => null,
+        ];
+        [$tersimpan, $gagal] = $this->simpanMentah($request, array_slice($lolos, 0, $jumlah), $tetap, $induk->materi);
+        return response()->json([
+            'success' => true,
+            'message' => count($tersimpan) . ' varian soal dibuat sebagai draf' . ($kembar ? "; {$kembar} dilewati karena terlalu mirip dengan soal yang sudah ada" : '')
+                . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '') . '. Periksa lalu ajukan ke kepala sekolah.',
+            'data' => $tersimpan,
+        ]);
+    }
+
+    /** Pasangan soal yang kembar (teks sangat mirip) dalam satu mapel, untuk dibersihkan guru. */
+    public function kembar(Request $request)
+    {
+        $request->validate(['id_mapel' => 'required|exists:subjects,id_mapel']);
+        $this->cekMapel($request, $request->id_mapel);
+        $soal = $this->terjangkau($request)->where('id_mapel', $request->id_mapel)->with('indikator:id_indikator,deskripsi')
+            ->orderByDesc('updated_at')->limit(1500)
+            ->get(['id_soal', 'id_indikator', 'id_induk', 'bentuk', 'level_kognitif', 'status', 'pertanyaan', 'isi', 'dibuat_oleh']);
+        $sidik = $soal->map(fn($s) => BankSoalService::sidik(BankSoalService::teksBanding($s->toArray())))->all();
+        $pasangan = [];
+        $n = $soal->count();
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $skor = BankSoalService::kemiripan($sidik[$i], $sidik[$j]);
+                if ($skor >= BankSoal::AMBANG_KEMBAR) $pasangan[] = ['skor' => round($skor, 2), 'a' => $soal[$i], 'b' => $soal[$j]];
+            }
+        }
+        usort($pasangan, fn($x, $y) => $y['skor'] <=> $x['skor']);
+        return response()->json(['data' => array_slice($pasangan, 0, 100), 'diperiksa' => $n]);
+    }
+
+    /**
+     * Cakupan bank soal per TP aktif dan level kognitif: soal disetujui dibanding target (cukup untuk 2 paket berbeda),
+     * plus soal yang masih diproses. Dipakai untuk melihat TP mana yang perlu dilengkapi.
+     */
+    public function cakupan(Request $request)
+    {
+        $request->validate([
+            'id_mapel' => 'required|exists:subjects,id_mapel',
+            'id_kelas' => 'nullable|exists:classes,id_kelas',
+            'target' => 'nullable|integer|min:1|max:50',
+        ]);
+        $this->cekMapel($request, $request->id_mapel);
+        $target = $request->integer('target', 4);
+        $materi = MasterMateri::with(['indikator' => fn($q) => $q->where('aktif', true)->orderBy('urutan')])
+            ->where('id_mapel', $request->id_mapel)
+            ->when($request->id_kelas, fn($q) => $q->where(fn($w) => $w->where('id_kelas', $request->id_kelas)->orWhereNull('id_kelas')))
+            ->orderBy('nama_materi')->get(['id_materi', 'nama_materi', 'id_kelas']);
+        $idTp = $materi->flatMap(fn($m) => $m->indikator->pluck('id_indikator'))->all();
+        $hitung = BankSoal::whereIn('id_indikator', $idTp)
+            ->selectRaw("id_indikator, level_kognitif, status, (id_induk IS NOT NULL) AS varian, count(*) AS jumlah")
+            ->groupBy('id_indikator', 'level_kognitif', 'status', 'varian')->get()->groupBy('id_indikator');
+
+        $baris = [];
+        foreach ($materi as $m) {
+            foreach ($m->indikator as $tp) {
+                $h = $hitung->get($tp->id_indikator, collect());
+                $setuju = $h->where('status', 'DISETUJUI');
+                $perLevel = array_fill_keys(BankSoal::LEVEL, 0);
+                foreach ($setuju as $x) $perLevel[$x->level_kognitif] = ($perLevel[$x->level_kognitif] ?? 0) + (int) $x->jumlah;
+                $total = array_sum($perLevel);
+                $baris[] = [
+                    'id_materi' => $m->id_materi, 'nama_materi' => $m->nama_materi, 'id_indikator' => $tp->id_indikator, 'deskripsi' => $tp->deskripsi,
+                    'per_level' => $perLevel, 'disetujui' => $total,
+                    'varian' => (int) $setuju->filter(fn($x) => $x->varian)->sum('jumlah'),
+                    'diproses' => (int) $h->where('status', '!=', 'DISETUJUI')->sum('jumlah'),
+                    'kurang' => max(0, $target - $total),
+                ];
+            }
+        }
+        return response()->json(['data' => $baris, 'ringkasan' => [
+            'tp' => count($baris), 'cukup' => count(array_filter($baris, fn($b) => $b['kurang'] === 0)), 'target' => $target,
+        ]]);
+    }
+
     private static function catatanBelajar(array $b): string
     {
         $bagian = array_filter([

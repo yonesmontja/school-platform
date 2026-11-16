@@ -102,6 +102,33 @@ class BankSoalService
     }
 
     /** Skor maksimal bawaan: banyaknya bagian yang dinilai (uraian ditentukan guru). */
+    /** Teks pembanding satu soal: pertanyaan + semua teks pilihan/pernyataan/pasangan. */
+    public static function teksBanding(array $soal): string
+    {
+        $teks = [(string) ($soal['pertanyaan'] ?? '')];
+        $isi = is_array($soal['isi'] ?? null) ? $soal['isi'] : [];
+        array_walk_recursive($isi, function ($v) use (&$teks) { if (is_string($v)) $teks[] = $v; });
+        return mb_strtolower(implode(' ', $teks));
+    }
+
+    /** Himpunan pasangan kata berurutan (bigram) dari teks; dipakai untuk membandingkan soal. */
+    public static function sidik(string $teks): array
+    {
+        $kata = preg_split('~[^\pL\pN]+~u', mb_strtolower($teks), -1, PREG_SPLIT_NO_EMPTY);
+        if (count($kata) < 2) return array_fill_keys($kata, true);
+        $hasil = [];
+        for ($i = 0; $i < count($kata) - 1; $i++) $hasil[$kata[$i] . ' ' . $kata[$i + 1]] = true;
+        return $hasil;
+    }
+
+    /** Kemiripan dua sidik (indeks Jaccard 0-1). */
+    public static function kemiripan(array $a, array $b): float
+    {
+        if (!$a || !$b) return 0.0;
+        $sama = count(array_intersect_key($a, $b));
+        return $sama / (count($a) + count($b) - $sama);
+    }
+
     public static function skorBawaan(string $bentuk, array $isi, array $kunci = []): int
     {
         return match ($bentuk) {

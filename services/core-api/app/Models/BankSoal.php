@@ -21,9 +21,12 @@ class BankSoal extends Model
     public const KESULITAN = ['MUDAH', 'SEDANG', 'SULIT'];
     public const STATUS = ['DRAF', 'DIAJUKAN', 'DISETUJUI', 'REVISI'];
     public const DIMENSI = ['S', 'T', 'N', 'K', 'M'];
+    public const JENIS_VARIAN = ['ANGKA', 'KONTEKS', 'KESULITAN', 'LEVEL'];
+    /** Kemiripan teks (Jaccard bigram) mulai dari nilai ini dianggap soal kembar. */
+    public const AMBANG_KEMBAR = 0.75;
 
     protected $fillable = [
-        'id_soal', 'id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris',
+        'id_soal', 'id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'id_induk', 'jenis_varian',
         'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'dim_S', 'dim_T', 'dim_N', 'dim_K', 'dim_M',
         'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'skor_maks',
         'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode', 'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'id_video',
@@ -42,6 +45,7 @@ class BankSoal extends Model
     public function kelas(): BelongsTo { return $this->belongsTo(Classes::class, 'id_kelas', 'id_kelas'); }
     public function materi(): BelongsTo { return $this->belongsTo(MasterMateri::class, 'id_materi', 'id_materi'); }
     public function indikator(): BelongsTo { return $this->belongsTo(MasterIndikator::class, 'id_indikator', 'id_indikator'); }
+    public function induk(): BelongsTo { return $this->belongsTo(self::class, 'id_induk', 'id_soal'); }
     public function pembuat(): BelongsTo { return $this->belongsTo(User::class, 'dibuat_oleh'); }
     public function penyetuju(): BelongsTo { return $this->belongsTo(User::class, 'disetujui_oleh'); }
     public function video(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(VideoBelajar::class, 'id_video', 'id_video'); }

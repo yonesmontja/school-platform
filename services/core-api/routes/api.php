@@ -334,6 +334,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/setujui', [BankSoalController::class, 'setujui']);
             Route::post('/revisi', [BankSoalController::class, 'revisi']);
             Route::post('/ai/draf', [BankSoalController::class, 'drafAI']);
+            Route::get('/cakupan', [BankSoalController::class, 'cakupan']);
+            Route::get('/kembar', [BankSoalController::class, 'kembar']);
+            Route::post('/{id}/varian', [BankSoalController::class, 'varianAI'])->middleware('throttle:20,1');
             Route::post('/ai/dari-riset', [BankSoalController::class, 'drafDariRiset'])->middleware('throttle:10,1');
             Route::post('/impor', [BankSoalController::class, 'impor']);
             Route::post('/gambar', [BankSoalController::class, 'unggahGambar']);
