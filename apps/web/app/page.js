@@ -97,7 +97,7 @@ export default async function Beranda() {
           <div className="b-wadah b-hero-isi">
             <div className="b-hero-teks">
               <p className="b-alis">{s.kota} · Papua Tengah</p>
-              <h1>Belajar dari realita, tumbuh untuk <em>masa depan Papua</em>.</h1>
+              <h1>Belajar dari aset, tumbuh untuk <em>masa depan Papua</em>.</h1>
               <p className="b-pengantar">
                 Ruang belajar digital {s.nama_sekolah}. Capaian belajar, rapor, jadwal, dan perkembangan setiap anak
                 ada di satu tempat bagi guru, orang tua, dan siswa.
@@ -161,7 +161,7 @@ export default async function Beranda() {
 
         <section className="b-semboyan" aria-label="Semboyan sekolah">
           <div className="b-wadah">
-            <p>“Osdiya, masa depan Papua.”</p>
+            <p>“Cerita Masa Depan Papua”</p>
             <span>Semboyan {s.nama_sekolah}</span>
           </div>
         </section>
