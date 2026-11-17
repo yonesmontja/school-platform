@@ -179,6 +179,20 @@ class SchoolSettingController extends Controller
         return response('', 302, ['Location' => "/icons/{$nama}.png", 'Cache-Control' => 'public, max-age=300']);
     }
 
+    /** Identitas sekolah untuk beranda publik: hanya data yang memang tercantum di papan nama sekolah. */
+    public function publik()
+    {
+        $s = SchoolSetting::first();
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+        return response()->json(['data' => [
+            'nama_sekolah' => $s?->nama_sekolah,
+            'kota' => $s?->kota,
+            'alamat_sekolah' => $s?->alamat_sekolah,
+            'npsn' => $s?->npsn,
+            'ada_logo' => (bool) ($s?->logo_sekolah_url && $disk->exists('logo/' . basename($s->logo_sekolah_url))),
+        ]], 200, ['Cache-Control' => 'public, max-age=300']);
+    }
+
     /** Logo resmi sekolah untuk kop dokumen & halaman masuk (publik, tanpa login; 404 bila belum diunggah). */
     public function logo()
     {

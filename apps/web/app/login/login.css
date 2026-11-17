@@ -44,6 +44,15 @@
 .masuk-sandi:focus-within .masuk-mata { border-color: rgba(var(--app-accent-rgb, 6, 111, 209), .6); }
 .masuk-sandi:focus-within .form-control { box-shadow: none; }
 .masuk-sandi:focus-within { border-radius: 6px; box-shadow: 0 0 0 .2rem rgba(var(--app-accent-rgb, 6, 111, 209), .2); }
+.masuk-peran {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  margin: -.75rem 0 1.25rem; padding: .5rem .75rem; border-radius: 999px;
+  background: rgba(var(--app-accent-rgb, 6, 111, 209), .08); color: var(--bs-emphasis-color); font-size: .8125rem;
+}
+.masuk-peran .bi { color: var(--app-accent, #066fd1); }
+.masuk-kembali { margin: .75rem 0 0; text-align: center; font-size: .8125rem; }
+.masuk-kembali a { color: var(--bs-secondary-color); text-decoration: none; }
+.masuk-kembali a:hover { color: var(--bs-emphasis-color); text-decoration: underline; }
 .masuk-petunjuk { margin: 1.25rem 0 0; text-align: center; font-size: .8125rem; color: var(--bs-secondary-color); line-height: 1.6; }
 @media (max-width: 575.98px) {
   .halaman-masuk { align-items: flex-start; padding-top: 3rem; }

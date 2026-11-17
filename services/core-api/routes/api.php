@@ -100,6 +100,8 @@ Route::get('/health', function () {
 
 // Logo resmi sekolah (publik: dipakai juga di halaman masuk)
 Route::get('/logo-sekolah', [SchoolSettingController::class, 'logo']);
+// Identitas sekolah untuk beranda publik (nama, kota, alamat, NPSN; tanpa data pribadi)
+Route::get('/sekolah-publik', [SchoolSettingController::class, 'publik'])->middleware('throttle:60,1');
 // Ikon aplikasi (favicon/PWA): logo sekolah bila diaktifkan admin, selain itu dialihkan ke ikon bawaan
 Route::get('/ikon-aplikasi/{nama}', [SchoolSettingController::class, 'ikon'])->where('nama', '[a-z0-9-]+(\.png)?');
 

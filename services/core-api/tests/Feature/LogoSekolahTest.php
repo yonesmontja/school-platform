@@ -34,6 +34,20 @@ class LogoSekolahTest extends TestCase
         return 'data:image/png;base64,' . base64_encode($png);
     }
 
+    public function test_identitas_sekolah_publik_tanpa_data_pribadi(): void
+    {
+        SchoolSetting::first()->update(['kota' => 'Nabire', 'npsn' => '12345678', 'nama_kepsek' => 'Rahasia', 'nip_kepsek' => '1987']);
+        $r = $this->getJson('/api/sekolah-publik')->assertOk()
+            ->assertJsonPath('data.nama_sekolah', 'SD Uji')->assertJsonPath('data.kota', 'Nabire')
+            ->assertJsonPath('data.npsn', '12345678')->assertJsonPath('data.ada_logo', false);
+        $this->assertStringNotContainsString('Rahasia', $r->getContent());
+        $this->assertStringNotContainsString('1987', $r->getContent());
+
+        Sanctum::actingAs($this->sekolah->admin);
+        $this->postJson('/api/settings', ['logo_sekolah_base64' => $this->pngDataUrl()])->assertOk();
+        $this->getJson('/api/sekolah-publik')->assertJsonPath('data.ada_logo', true);
+    }
+
     public function test_admin_mengunggah_mengganti_dan_menghapus_logo(): void
     {
         $this->getJson('/api/logo-sekolah')->assertNotFound();

@@ -1,14 +1,26 @@
 // app/login/page.js
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { login } from '../lib/api';
 import { halamanAwal } from '../lib/akses';
 import './login.css';
 
+// Peran dari beranda (?peran=…): hanya mengubah petunjuk isian; semua peran tetap masuk lewat endpoint yang sama
+const PERAN_MASUK = {
+  guru: { judul: 'Guru & Wali Kelas', ikon: 'bi-easel2', label: 'Email / Username', contoh: 'mis. nama@sekolah.com' },
+  pengelola: { judul: 'Kepala Sekolah & Pengelola', ikon: 'bi-building', label: 'Email / Username', contoh: 'mis. kepsek@sekolah.com' },
+  ortu: { judul: 'Orang Tua / Wali', ikon: 'bi-people', label: 'Username orang tua', contoh: 'ortu.NISN anak, mis. ortu.0123456789' },
+  siswa: { judul: 'Siswa', ikon: 'bi-backpack', label: 'NISN', contoh: 'NISN Anda', angka: true },
+};
+
 export default function LoginPage() {
   const router = useRouter();
+  const [peran, setPeran] = useState(null);
+  // Dibaca di klien (bukan useSearchParams) agar halaman tidak perlu batas Suspense saat build
+  useEffect(() => { setPeran(PERAN_MASUK[new URLSearchParams(window.location.search).get('peran')] || null); }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -44,6 +56,9 @@ export default function LoginPage() {
         <div className="card masuk-kartu">
           <div className="card-body">
             <h1 className="masuk-judul">Masuk ke akun Anda</h1>
+            {peran && (
+              <p className="masuk-peran"><i className={`bi ${peran.ikon}`} aria-hidden="true"></i>Masuk sebagai <b>{peran.judul}</b></p>
+            )}
 
             {error && (
               <div className="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
@@ -53,16 +68,17 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} noValidate={false}>
               <div className="mb-3">
-                <label className="form-label" htmlFor="masuk-login">Email / Username / NISN</label>
+                <label className="form-label" htmlFor="masuk-login">{peran?.label || 'Email / Username / NISN'}</label>
                 <input
                   id="masuk-login"
                   type="text"
                   className="form-control"
                   autoComplete="username"
                   autoFocus
+                  inputMode={peran?.angka ? 'numeric' : undefined}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="mis. admin@sekolah.com atau NISN"
+                  placeholder={peran?.contoh || 'mis. admin@sekolah.com atau NISN'}
                   required
                 />
               </div>
@@ -97,6 +113,9 @@ export default function LoginPage() {
 
         <p className="masuk-petunjuk">
           Siswa masuk dengan NISN; orang tua dengan <b>ortu.NISN</b> anak.<br />Lupa kata sandi? Hubungi admin sekolah.
+        </p>
+        <p className="masuk-kembali">
+          <Link href="/"><i className="bi bi-arrow-left" aria-hidden="true"></i> Kembali ke beranda</Link>
         </p>
       </div>
     </div>
