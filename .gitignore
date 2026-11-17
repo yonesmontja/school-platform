@@ -8,3 +8,6 @@ __pycache__/
 
 # Hasil backup database & file unggahan (infra/backup)
 /backups/
+
+# graphify (graf pengetahuan lokal)
+graphify-out/

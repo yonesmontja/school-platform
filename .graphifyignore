@@ -1,0 +1,18 @@
+# Aset statis (ribuan SVG/WEBP, font, tangkapan layar) — bukan kode, mahal untuk dibaca model
+apps/web/public/
+remotion-video/public/
+services/video-render/assets/
+# Laravel public/ (berisi symlink storage ke path container yang tak terbaca di Windows)
+services/core-api/public/
+# Data peta Natural Earth (ratusan GeoJSON) dan media uji
+services/core-api/resources/peta/
+tests/web/data/
+# Hasil build, dependensi, data
+node_modules/
+vendor/
+.next/
+storage/
+backups/
+graphify-out/
+**/*.min.js
+**/package-lock.json
