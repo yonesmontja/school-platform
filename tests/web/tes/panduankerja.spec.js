@@ -33,7 +33,8 @@ test("guru melihat langkah berikutnya di dashboard dan peta kerja lengkap di Pan
   await expect(peta.locator("[data-langkah=kalender]")).toBeVisible();
   const urutan = await peta.locator("[data-langkah]").evaluateAll((el) => el.map((e) => e.getAttribute("data-langkah")));
   const posisi = (id) => urutan.indexOf(id);
-  expect(posisi("kalender")).toBeLessThan(posisi("tp"));
+  expect(posisi("kalender")).toBeLessThan(posisi("tema_kelas"));
+  expect(posisi("tema_kelas")).toBeLessThan(posisi("tp"));
   expect(posisi("atp")).toBeLessThan(posisi("peta_tema"));
   expect(posisi("peta_tema")).toBeLessThan(posisi("jadwal"));
   expect(posisi("jadwal")).toBeLessThan(posisi("modul"));
@@ -43,8 +44,8 @@ test("guru melihat langkah berikutnya di dashboard dan peta kerja lengkap di Pan
   await page.getByRole("button", { name: /^\W*Guru$/ }).click();
   await page.getByRole("button", { name: /Alur perencanaan/ }).click();
   const alur = page.getByRole("list", { name: "Diagram alur" });
-  await expect(alur.locator("li")).toHaveCount(7);
-  await expect(alur).toContainText("Peta Tema");
+  await expect(alur.locator("li")).toHaveCount(8);
+  await expect(alur).toContainText("Tema & High Level");
   await expect(alur).toContainText("Promes & Prota");
   await alur.screenshot({ path: test.info().outputPath("alur-perencanaan.png") });
 });

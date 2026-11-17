@@ -107,16 +107,49 @@ export default function TabPetaTema({ referensi, akses, statusAwal, temaAwal }) 
   );
 }
 
+/**
+ * High Level tema (dulu "Kategori pusat"): satu dari master High Level semua mapel. Materi kelas ini nanti memakai
+ * High Level yang sama secara otomatis. Kepala sekolah/admin bisa menambah High Level baru langsung dari sini.
+ */
+function PilihHighLevel({ id, nilai, daftar, bisa, onUbah, onDaftarBaru, saran }) {
+  const tambah = async (awal = "") => {
+    const r = await Swal.fire({ title: "High Level baru", input: "text", inputValue: awal, inputLabel: "Nama High Level (berlaku untuk semua mapel)", inputAttributes: { maxlength: 150 },
+      inputValidator: (v) => (!v?.trim() ? "Tulis nama High Level." : undefined), showCancelButton: true, confirmButtonText: "Tambah", cancelButtonText: "Batal" });
+    if (!r.isConfirmed) return;
+    try {
+      const h = await minta("POST", "/perangkat-ajar/tema/high-level", { nama_kategori: r.value.trim() });
+      const baru = h.data;
+      if (!(daftar || []).some((k) => k.id_kategori === baru.id_kategori)) {
+        onDaftarBaru([...(daftar || []), baru].sort((a, b) => a.nama_kategori.localeCompare(b.nama_kategori)));
+      }
+      onUbah(baru.id_kategori, baru.nama_kategori);
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
+  return (
+    <>
+      <select id={id} className="form-select form-select-sm" disabled={!bisa} value={nilai || ""}
+        onChange={(e) => (e.target.value === "__baru" ? tambah() : onUbah(e.target.value || null))}>
+        <option value="">— pilih High Level —</option>
+        {(daftar || []).map((k) => <option key={k.id_kategori} value={k.id_kategori}>{k.nama_kategori}</option>)}
+        {bisa && <option value="__baru">+ High Level baru…</option>}
+      </select>
+      {bisa && saran && <button type="button" className="btn btn-link btn-sm p-0 small" onClick={() => tambah(saran)}><i className="bi bi-stars me-1"></i>Saran AI: {saran} (belum ada, tambahkan)</button>}
+    </>
+  );
+}
+
 function ModalTemaBaru({ referensi, onTutup, onDibuat }) {
   const aktif = referensi.periode.find((p) => p.status_aktif === "AKTIF");
-  const [f, setF] = useState({ judul: "", id_kelas: "", id_periode: aktif?.id_periode || "", tanggal_mulai: "", jumlah_minggu: 3 });
+  const [f, setF] = useState({ judul: "", id_kelas: "", id_periode: aktif?.id_periode || "", tanggal_mulai: "", jumlah_minggu: 3, id_kategori: "" });
   const [proses, setProses] = useState(false);
+  const [highLevel, setHighLevel] = useState([]);
+  useEffect(() => { minta("GET", "/perangkat-ajar/tema/referensi").then((r) => setHighLevel(r.high_level || [])).catch(() => {}); }, []);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const simpan = async (e) => {
     e.preventDefault();
     setProses(true);
     try {
-      const r = await minta("POST", "/perangkat-ajar/tema", { ...f, id_kelas: f.id_kelas || null, tanggal_mulai: f.tanggal_mulai || null, jumlah_minggu: Number(f.jumlah_minggu) || 3 });
+      const r = await minta("POST", "/perangkat-ajar/tema", { ...f, id_kelas: f.id_kelas || null, tanggal_mulai: f.tanggal_mulai || null, jumlah_minggu: Number(f.jumlah_minggu) || 3, id_kategori: f.id_kategori || null });
       onDibuat(r.data.id_peta);
     } catch (err) { Swal.fire("Gagal", err.message, "error"); setProses(false); }
   };
@@ -129,6 +162,11 @@ function ModalTemaBaru({ referensi, onTutup, onDibuat }) {
             <div className="col-12">
               <label className="form-label small fw-semibold" htmlFor="ptJudul">Tema</label>
               <input id="ptJudul" className="form-control" required maxLength={200} placeholder="mis. Aku dan Sukuku, Main Bola, Kebun Sagu" value={f.judul} onChange={(e) => set("judul", e.target.value)} autoFocus />
+            </div>
+            <div className="col-12">
+              <label className="form-label small fw-semibold" htmlFor="ptHlBaru">High Level</label>
+              <PilihHighLevel id="ptHlBaru" nilai={f.id_kategori} daftar={highLevel} bisa onUbah={(v) => set("id_kategori", v || "")} onDaftarBaru={setHighLevel} />
+              <div className="form-text">Pusat spider web; Materi kelas ini nanti otomatis memakai High Level ini.</div>
             </div>
             <div className="col-sm-6">
               <label className="form-label small fw-semibold" htmlFor="ptKelas">Kelas</label>
@@ -178,6 +216,7 @@ function EditorTema({ id, referensi, akses, onKembali }) {
   const [proses, setProses] = useState(null);
   const [pakaiAi, setPakaiAi] = useState(null);
   const [tpTerbuka, setTpTerbuka] = useState(null);
+  const [saranHl, setSaranHl] = useState(null); // nama High Level usulan AI yang belum ada di master
 
   const terima = useCallback((d) => { setP(d); setKotor(false); }, []);
   useEffect(() => { minta("GET", `/perangkat-ajar/tema/${id}`).then((r) => terima(r.data)).catch((err) => Swal.fire("Gagal memuat", err.message, "error")); }, [id, terima]);
@@ -220,7 +259,7 @@ function EditorTema({ id, referensi, akses, onKembali }) {
   const payload = () => ({
     judul: p.judul, id_kelas: p.id_kelas || null, id_periode: p.id_periode || null, tanggal_mulai: p.tanggal_mulai || null,
     jumlah_minggu: p.jumlah_minggu, pendekatan: p.pendekatan, konteks_lokal: p.konteks_lokal, jaring: p.jaring, minggu: p.minggu, pola: p.pola,
-    pola_slot: p.pola_slot,
+    pola_slot: p.pola_slot, id_kategori: p.id_kategori || null,
   });
   const simpan = async () => {
     if (!p.judul?.trim()) { Swal.fire("Tema kosong", "Tulis tema peta ini dulu.", "info"); return false; }
@@ -247,7 +286,8 @@ function EditorTema({ id, referensi, akses, onKembali }) {
     Swal.fire({ title: judulTunggu, html: "Biasanya 20–90 detik.", allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
     try {
       const r = await minta("POST", `/perangkat-ajar/tema/${id}/ai`, { bagian, judul: p.judul, jaring: p.jaring, konteks_lokal: p.konteks_lokal, ...body });
-      ubah({ jaring: r.jaring, ...(r.minggu ? { minggu: r.minggu } : {}) });
+      ubah({ jaring: r.jaring, ...(r.minggu ? { minggu: r.minggu } : {}), ...(r.id_kategori ? { id_kategori: r.id_kategori } : {}) });
+      setSaranHl(r.kategori_saran || null);
       setPakaiAi(body.ai_mode);
       Swal.fire({ icon: "success", title: bagian === "kalibrasi" ? "Kalibrasi siap" : "Draf peta tema siap", text: r.message });
     } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }
@@ -420,8 +460,11 @@ function EditorTema({ id, referensi, akses, onKembali }) {
             <input id="ptTema" className="form-control form-control-sm" maxLength={200} readOnly={!bisa} value={p.judul} onChange={(e) => ubah({ judul: e.target.value })} />
           </div>
           <div className="col-md-3">
-            <label className="form-label small fw-semibold mb-0" htmlFor="ptKategori">Kategori pusat</label>
-            <input id="ptKategori" className="form-control form-control-sm" maxLength={40} placeholder="mis. HOBI, BUDAYA, ALAM" readOnly={!bisa} value={p.jaring.kategori || ""} onChange={(e) => ubahJaring({ kategori: e.target.value })} />
+            <label className="form-label small fw-semibold mb-0" htmlFor="ptKategori">High Level</label>
+            <PilihHighLevel id="ptKategori" nilai={p.id_kategori} daftar={ref?.high_level} bisa={bisa} saran={saranHl}
+              onUbah={(v, namaBaru) => { const k = (ref?.high_level || []).find((x) => x.id_kategori === v); ubah({ id_kategori: v, jaring: { ...p.jaring, kategori: namaBaru || k?.nama_kategori || "" } }); setSaranHl(null); }}
+              onDaftarBaru={(d) => setRef((r) => ({ ...r, high_level: d }))} />
+            <div className="form-text">Pusat spider web. Materi kelas ini otomatis memakai High Level ini.</div>
           </div>
           <div className="col-md-2">
             <label className="form-label small fw-semibold mb-0" htmlFor="ptKelasE">Kelas</label>

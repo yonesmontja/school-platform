@@ -44,8 +44,11 @@ test("kepala sekolah menyusun peta tema, slot pola dari rekomendasi, ekspor, men
 
   // Diagram ikut berubah langsung
   // Kategori diisi setelah isian lain: bila diketik saat editor baru terbuka, bisa tertimpa data yang selesai dimuat
-  await editor.locator("#ptKategori").fill("Hobi");
-  await expect(editor.locator("#ptKategori")).toHaveValue("Hobi");
+  // High Level (dulu "Kategori pusat"): pilih "+ High Level baru…" lalu ketik namanya
+  await editor.locator("#ptKategori").selectOption("__baru");
+  await page.locator(".swal2-input").fill("Hobi");
+  await page.locator(".swal2-confirm").click();
+  await expect(editor.locator("#ptKategori option:checked")).toHaveText("Hobi");
   const webMapel = editor.getByRole("figure", { name: "Spider web mata pelajaran" });
   await expect(webMapel).toContainText("Hitung skor & ukuran lapangan");
   await expect(webMapel).toContainText("HOBI");
@@ -128,6 +131,17 @@ test("guru melihat peta tema yang ditetapkan (tanpa mengubah) dan menautkannya d
   await page.goto("/dashboard/perangkat-ajar?tab=tema");
   await expect(page.locator(".kartu-tema").first()).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Peta tema baru" })).toHaveCount(0);
+
+  // Materi: High Level terisi otomatis dari Peta Tema kelas itu (peta tema ditentukan lebih dulu)
+  await page.goto("/dashboard/master-materi");
+  await page.getByRole("button", { name: /Tambah Data/ }).click({ timeout: 60_000 });
+  const modal = page.locator(".modal-content");
+  const pilihan = modal.locator("select.form-select");
+  await pilihan.nth(0).selectOption({ label: "Matematika" });
+  await pilihan.nth(1).selectOption({ label: "4A" });
+  await expect(modal.locator("[data-hl-tema]")).toContainText("Dari Peta Tema «Main Bola E2E»", { timeout: 30_000 });
+  await expect(pilihan.nth(3).locator("option:checked")).toHaveText(/Hobi/);
+  await modal.getByRole("button", { name: "Batal" }).click();
 
   await page.goto("/dashboard/jadwal");
   await page.getByRole("button", { name: "Buat" }).first().click();

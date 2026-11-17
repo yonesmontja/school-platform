@@ -87,7 +87,7 @@ export default function Gantt({ kolom, baris, posisiKini = null, lebar = 34, lab
                       {b.sesi.length ? (
                         <ul className="gantt-sesi">
                           {b.sesi.map((s, i) => (
-                            <li key={`${s.id_jadwal}-${i}`}><span className={`gantt-dot st-${s.status.toLowerCase()} position-static`}></span>{tglJam(s.mulai)}–{s.selesai} · {s.jp} JP · {s.status}{s.pertemuan_ke ? ` · pertemuan ${s.pertemuan_ke}` : ""}</li>
+                            <li key={`${s.id_jadwal}-${i}`}><span className={`gantt-dot st-${s.status.toLowerCase()} position-static`}></span><Link href={`/dashboard/jadwal?sesi=${encodeURIComponent(s.id_jadwal)}`} title="Buka detail sesi di Jadwal">{tglJam(s.mulai)}–{s.selesai}</Link> · {s.jp} JP · {s.status}{s.pertemuan_ke ? ` · pertemuan ${s.pertemuan_ke}` : ""}</li>
                           ))}
                         </ul>
                       ) : <div className="small text-body-secondary">Belum ada sesi jadwal yang menautkan TP ini. Tautkan lewat editor jadwal (tombol <b>ATP / TP</b>).</div>}

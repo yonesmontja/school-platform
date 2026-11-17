@@ -11,6 +11,7 @@ import DaftarIndikator from "@/components/referensi/DaftarIndikator";
 import { BOBOT, BantuTp, PilihAI, SaranIktp, TombolBikinAI, kelengkapanMateri } from "@/components/referensi/AsistenMateri";
 import { bacaAiMode } from "@/components/banksoal/konstanta";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { minta } from "@/components/banksoal/api";
 
 // Admin & guru menambah dan mengubah materi (guru hanya mapel yang diampu); kepsek melihat saja; hapus khusus admin
 const PENGUBAH = ["admin", "guru"];
@@ -52,6 +53,20 @@ export default function MasterMateriPage() {
   const [aiMode, setAiMode] = useState("GEMINI");
   const [alasanAI, setAlasanAI] = useState("");
   useEffect(() => { setAiMode(bacaAiMode()); }, []);
+  // High Level dari Peta Tema kelas ini (peta tema ditentukan lebih dulu, lalu materi memakai High Level-nya)
+  const [hlTema, setHlTema] = useState(null);
+  useEffect(() => {
+    if (!showModal || !formData.id_kelas) { setHlTema(null); return; }
+    let batal = false;
+    const q = new URLSearchParams({ id_kelas: formData.id_kelas, ...(formData.id_mapel ? { id_mapel: formData.id_mapel } : {}), ...(formData.id_periode ? { id_periode: formData.id_periode } : {}) });
+    minta("GET", `/perangkat-ajar/tema/high-level?${q}`).then((r) => {
+      if (batal) return;
+      setHlTema(r.data);
+      // Isi otomatis bila High Level belum dipilih
+      setFormData((f) => (!f.id_kategori && r.data[0] ? { ...f, id_kategori: r.data[0].id_kategori } : f));
+    }).catch(() => { if (!batal) setHlTema([]); });
+    return () => { batal = true; };
+  }, [showModal, formData.id_kelas, formData.id_mapel, formData.id_periode]);
 
   const safeFetch = async (url, options = {}) => {
     const res = await fetch(url, options);
@@ -562,6 +577,19 @@ export default function MasterMateriPage() {
                             </option>
                           ))}
                       </select>
+                      {hlTema && (hlTema.length ? (
+                        <div className="form-text" data-hl-tema>
+                          <i className="bi bi-bezier2 text-primary me-1"></i>
+                          {hlTema.find((t) => t.id_kategori === formData.id_kategori)
+                            ? <>Dari Peta Tema «{hlTema.find((t) => t.id_kategori === formData.id_kategori).judul}»{hlTema.find((t) => t.id_kategori === formData.id_kategori).status !== "DISETUJUI" && " (masih disusun)"}.</>
+                            : <span className="text-warning-emphasis">Berbeda dari High Level Peta Tema kelas ini.</span>}
+                          {hlTema.length > 1 && <> Tema lain: {hlTema.filter((t) => t.id_kategori !== formData.id_kategori).map((t) => (
+                            <button key={t.id_peta} type="button" className="btn btn-link btn-sm p-0 ms-1 align-baseline" onClick={() => setFormData((f) => ({ ...f, id_kategori: t.id_kategori }))}>{t.nama_kategori} («{t.judul}»)</button>
+                          ))}</>}
+                        </div>
+                      ) : (
+                        <div className="form-text text-warning-emphasis" data-hl-tema><i className="bi bi-exclamation-triangle me-1"></i>Belum ada Peta Tema dengan High Level untuk kelas ini. Kepala sekolah menentukan tema & High Level lebih dulu; sementara pilih manual.</div>
+                      ))}
                     </div>
                   </div>
 

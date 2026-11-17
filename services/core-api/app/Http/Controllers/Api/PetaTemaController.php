@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CapaianPembelajaran;
 use App\Models\Classes;
 use App\Models\MasterIndikator;
+use App\Models\MasterKategoriPenilaian;
 use App\Models\MasterPeriode;
 use App\Models\PetaTema;
 use App\Models\Subject;
@@ -26,7 +27,7 @@ use Illuminate\Validation\Rule;
  */
 class PetaTemaController extends Controller
 {
-    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru,role', 'penyetuju:id,name', 'penginput:id,name,role'];
+    private const RELASI = ['kelas:id_kelas,nama_kelas', 'periode:id_periode,tahun_ajaran,semester', 'pembuat:id,name,id_guru,role', 'penyetuju:id,name', 'penginput:id,name,role', 'kategori:id_kategori,nama_kategori'];
 
     public function __construct(private PetaTemaJadwalService $jadwal) {}
 
@@ -44,7 +45,44 @@ class PetaTemaController extends Controller
             'mapel' => Subject::orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel'])
                 ->map(fn($s) => $s->toArray() + ['tp' => ($tp[$s->id_mapel] ?? collect())->map(fn($t) => $t->only(['id_indikator', 'deskripsi', 'nama_materi']))->values()]),
             'pendekatan_bawaan' => PetaTema::PENDEKATAN_BAWAAN,
+            // High Level yang berlaku untuk semua mapel (tema lintas mapel)
+            'high_level' => MasterKategoriPenilaian::whereNull('id_mapel')->orderBy('nama_kategori')->get(['id_kategori', 'nama_kategori']),
         ]);
+    }
+
+    /** Tambah High Level (semua mapel) dari Peta Tema: kepala sekolah/admin; nama yang sudah ada dipakai ulang. */
+    public function tambahHighLevel(Request $request)
+    {
+        abort_unless($this->bolehMenyusun($request), 403, 'High Level baru ditambahkan kepala sekolah atau admin.');
+        $nama = trim((string) $request->validate(['nama_kategori' => 'required|string|max:150'])['nama_kategori']);
+        $ada = MasterKategoriPenilaian::whereNull('id_mapel')->get(['id_kategori', 'nama_kategori'])->first(fn($k) => mb_strtolower(trim($k->nama_kategori)) === mb_strtolower($nama));
+        $k = $ada ?? MasterKategoriPenilaian::create(['id_kategori' => 'KAT-' . Str::random(8), 'id_mapel' => null, 'nama_kategori' => $nama, 'keterangan' => 'Dibuat dari Peta Tema']);
+        return response()->json(['success' => true, 'data' => $k->only(['id_kategori', 'nama_kategori']),
+            'message' => $ada ? "High Level \"{$k->nama_kategori}\" sudah ada; dipakai." : "High Level \"{$k->nama_kategori}\" ditambahkan."], $ada ? 200 : 201);
+    }
+
+    /**
+     * High Level dari peta tema kelas ini untuk formulir Materi: peta tema ditentukan lebih dulu, lalu materi mapel–kelas itu
+     * otomatis memakai High Level-nya. Peta yang memuat mapel itu sebagai cabang didahulukan; yang sedang/akan berjalan lebih dulu.
+     */
+    public function highLevel(Request $request)
+    {
+        $request->validate(['id_kelas' => 'required|exists:classes,id_kelas', 'id_mapel' => 'nullable|exists:subjects,id_mapel', 'id_periode' => 'nullable|string']);
+        $kini = Carbon::now(config('app.zona_sekolah'))->startOfDay();
+        $peta = PetaTema::with('kategori:id_kategori,nama_kategori')->where('id_kelas', $request->id_kelas)->whereNotNull('id_kategori')
+            ->when($request->id_periode, fn($q) => $q->where(fn($w) => $w->where('id_periode', $request->id_periode)->orWhereNull('id_periode')))
+            ->get(['id_peta', 'judul', 'status', 'id_kategori', 'tanggal_mulai', 'jumlah_minggu', 'jaring'])
+            ->map(function ($p) use ($request, $kini) {
+                $akhir = $p->tanggal_mulai ? Carbon::parse($p->tanggal_mulai->format('Y-m-d'))->addWeeks($p->jumlah_minggu) : null;
+                return [
+                    'id_peta' => $p->id_peta, 'judul' => $p->judul, 'status' => $p->status, 'id_kategori' => $p->id_kategori,
+                    'nama_kategori' => $p->kategori?->nama_kategori, 'tanggal_mulai' => $p->tanggal_mulai?->format('Y-m-d'),
+                    'memuat_mapel' => $request->id_mapel ? collect($p->jaring['mapel'] ?? [])->contains('id_mapel', $request->id_mapel) : false,
+                    'berjalan' => !$akhir || $akhir->gte($kini),
+                ];
+            })
+            ->sortBy(fn($p) => [!$p['memuat_mapel'], !$p['berjalan'], $p['status'] !== 'DISETUJUI', $p['tanggal_mulai'] ?? '9999'])->values();
+        return response()->json(['data' => $peta]);
     }
 
     public function index(Request $request)
@@ -84,6 +122,7 @@ class PetaTemaController extends Controller
             'pola' => 'nullable|array',
             'pola_slot' => 'nullable|array',
             'pola_slot.slot' => 'nullable|array|max:' . PetaTema::MAKS_SLOT,
+            'id_kategori' => 'nullable|exists:master_kategori_penilaian,id_kategori',
         ]);
         $kelas = array_key_exists('id_kelas', $data) ? Classes::find($data['id_kelas']) : $peta?->kelas;
         $jumlah = (int) ($data['jumlah_minggu'] ?? $peta?->jumlah_minggu ?? 3);
@@ -94,6 +133,9 @@ class PetaTemaController extends Controller
             'minggu' => PetaTema::normalMinggu($data['minggu'] ?? $peta?->minggu, $jumlah),
             'pola' => PetaTema::normalPola($data['pola'] ?? $peta?->pola),
         ];
+        // High Level menjadi pusat spider web: teks kategori di jaring mengikuti nama High Level
+        $idKategori = array_key_exists('id_kategori', $data) ? $data['id_kategori'] : $peta?->id_kategori;
+        if ($idKategori) $isi['jaring']['kategori'] = mb_substr((string) MasterKategoriPenilaian::whereKey($idKategori)->value('nama_kategori'), 0, 40);
         $slotBerubah = false;
         if (array_key_exists('pola_slot', $data)) {
             $isi['pola_slot'] = PetaTema::normalSlot($data['pola_slot']);
@@ -187,6 +229,8 @@ class PetaTemaController extends Controller
             ])->values()->all(),
             'jaring_sekarang' => $request->bagian === 'kalibrasi' ? collect($jaring['mapel'])->map(fn($c) => ['id_mapel' => $c['id_mapel'], 'nama' => $c['nama'], 'kalibrasi' => $c['kalibrasi']])->all() : null,
             'contoh_peta_disetujui' => $contoh ? ['tema' => $contoh->judul, 'minggu_1' => $contoh->minggu[0] ?? null] : null,
+            // Kategori pusat diambil dari High Level sekolah bila cocok
+            'high_level_tersedia' => MasterKategoriPenilaian::whereNull('id_mapel')->orderBy('nama_kategori')->pluck('nama_kategori')->all(),
         ], fn($v) => $v !== null && $v !== '' && $v !== []);
 
         $mentah = $ai->susunPetaTema($konteks, $request->bagian, $request->ai_mode);
@@ -213,6 +257,11 @@ class PetaTemaController extends Controller
                 'minggu' => PetaTema::normalMinggu($mentah['minggu'] ?? [], $peta->jumlah_minggu),
             ];
         }
+        // Kategori usulan AI dicocokkan ke High Level yang ada (nama sama); bila belum ada, disarankan untuk dibuat
+        $saran = trim((string) ($mentah['kategori'] ?? ''));
+        $cocok = $saran !== '' ? MasterKategoriPenilaian::whereNull('id_mapel')->get(['id_kategori', 'nama_kategori'])
+            ->first(fn($k) => mb_strtolower(trim($k->nama_kategori)) === mb_strtolower($saran)) : null;
+        $hasil += ['id_kategori' => $cocok?->id_kategori, 'kategori_saran' => $cocok ? null : ($saran ?: null)];
         return response()->json(['success' => true, 'message' => $request->bagian === 'kalibrasi'
             ? 'Kalibrasi tiap mata pelajaran siap. Periksa, ubah bila perlu, lalu Simpan.'
             : 'Draf peta tema siap. Periksa jaring, konsep, dan peta mingguan, ubah bila perlu, lalu Simpan.'] + $hasil);

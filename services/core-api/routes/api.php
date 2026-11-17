@@ -318,6 +318,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/paket/pratinjau', [JadwalPaketController::class, 'pratinjau']);
             Route::post('/paket/aktifkan', [JadwalPaketController::class, 'aktifkan']);
             Route::get('/{id}/rencana', [JadwalController::class, 'rencana']);
+            Route::get('/{id}', [JadwalController::class, 'show']);
             Route::post('/', [JadwalController::class, 'store']);
             Route::put('/{id}', [JadwalController::class, 'update']);
             Route::patch('/{id}/geser', [JadwalController::class, 'geser']);
@@ -484,6 +485,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/modul/{id}/revisi', [ModulAjarController::class, 'revisi']);
             // Peta Tema / spider web kurikulum PBPM (lintas mapel; persetujuan kepala sekolah dicek di controller)
             Route::get('/tema/referensi', [PetaTemaController::class, 'referensi']);
+            Route::get('/tema/high-level', [PetaTemaController::class, 'highLevel']);
+            Route::post('/tema/high-level', [PetaTemaController::class, 'tambahHighLevel']);
             Route::get('/tema', [PetaTemaController::class, 'index']);
             Route::post('/tema', [PetaTemaController::class, 'simpan']);
             Route::get('/tema/{id}', [PetaTemaController::class, 'show']);

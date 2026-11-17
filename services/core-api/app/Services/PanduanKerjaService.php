@@ -54,9 +54,9 @@ class PanduanKerjaService
     {
         $tahap = [
             ['id' => 'persiapan', 'label' => 'Persiapan semester', 'ikon' => 'bi-diagram-3',
-                'keterangan' => 'Dikerjakan di awal semester, sekali untuk tiap mapel–kelas. Urutannya: kalender → TP → ATP → Peta Tema → Jadwal → modul; Promes & Prota terisi sendiri dari ATP dan Jadwal.',
+                'keterangan' => 'Dikerjakan di awal semester, sekali untuk tiap mapel–kelas. Urutannya: kalender → tema & High Level kelas → Materi/TP → ATP → Peta Tema ditetapkan & jadwal tema → Jadwal → modul; Promes & Prota terisi sendiri dari ATP dan Jadwal.',
                 'langkah' => array_values(array_filter([
-                    $this->langkahKalender(), $this->langkahTp(), $this->langkahAtp(), $this->langkahPetaTema(), $this->langkahJadwal(), $this->langkahModul(),
+                    $this->langkahKalender(), $this->langkahTemaKelas(), $this->langkahTp(), $this->langkahAtp(), $this->langkahPetaTema(), $this->langkahJadwal(), $this->langkahModul(),
                     $this->langkahDiagnostik(), $this->langkahKisi(),
                 ]))],
             ['id' => 'rutin', 'label' => 'Rutin mingguan', 'ikon' => 'bi-arrow-repeat',
@@ -283,6 +283,27 @@ class PanduanKerjaService
             'Tanggal semester dan minggu tidak efektif menentukan minggu ke berapa tiap TP di ATP dan Promes.',
             $ada ? 1 : 0, 1, $info, '/dashboard/program-ajar?tab=kalender', 'Lihat kalender',
             ['status' => $ada ? 'selesai' : 'menunggu', 'wajib' => false]);
+    }
+
+    /**
+     * Tema & High Level kelas (kepala sekolah): peta tema tiap kelas ditentukan lebih dulu agar Materi memakai High Level-nya.
+     * Guru menunggu; tidak memengaruhi persen.
+     */
+    private function langkahTemaKelas(): ?array
+    {
+        $kelas = collect($this->kelasBinaan)->merge($this->unit->pluck('id_kelas'))->filter()->unique()->values();
+        if ($kelas->isEmpty()) return null;
+        $nama = Classes::whereIn('id_kelas', $kelas)->pluck('nama_kelas', 'id_kelas');
+        $peta = PetaTema::with('kategori:id_kategori,nama_kategori')->whereIn('id_kelas', $kelas)->whereNotNull('id_kategori')
+            ->when($this->periode, fn($q) => $q->where(fn($w) => $w->where('id_periode', $this->periode->id_periode)->orWhereNull('id_periode')))
+            ->get(['id_peta', 'judul', 'id_kelas', 'id_kategori'])->groupBy('id_kelas');
+        $n = $kelas->filter(fn($k) => isset($peta[$k]))->count();
+        $rincian = $kelas->map(fn($k) => ['label' => $nama[$k] ?? $k, 'ok' => isset($peta[$k]),
+            'catatan' => isset($peta[$k]) ? $peta[$k]->map(fn($p) => "\"{$p->judul}\" (High Level {$p->kategori?->nama_kategori})")->implode(', ') : 'belum ada; menunggu kepala sekolah menentukan tema & High Level'])->values()->all();
+        return $this->langkah('tema_kelas', 'Tema & High Level kelas (kepala sekolah)',
+            'Tema lintas mapel tiap kelas beserta High Level-nya ditentukan lebih dulu; Materi memakai High Level ini secara otomatis.',
+            $n, $kelas->count(), "{$n} dari {$kelas->count()} kelas sudah punya tema & High Level.", '/dashboard/perangkat-ajar?tab=tema', 'Lihat Peta Tema',
+            ['status' => $n === $kelas->count() ? 'selesai' : 'menunggu', 'wajib' => false, 'rincian' => $rincian]);
     }
 
     private function langkahDiagnostik(): ?array

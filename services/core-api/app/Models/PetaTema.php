@@ -36,7 +36,7 @@ class PetaTema extends Model
     protected $keyType = 'string';
     protected $fillable = [
         'id_peta', 'judul', 'id_kelas', 'id_periode', 'fase', 'tanggal_mulai', 'jumlah_minggu', 'pendekatan', 'konteks_lokal',
-        'jaring', 'minggu', 'pola', 'pola_slot', 'jadwal_dibuat_pada', 'jumlah_perubahan', 'riwayat_pola', 'diinput_oleh', 'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode', 'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada',
+        'jaring', 'minggu', 'pola', 'pola_slot', 'id_kategori', 'jadwal_dibuat_pada', 'jumlah_perubahan', 'riwayat_pola', 'diinput_oleh', 'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode', 'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada',
     ];
     protected $casts = [
         'jaring' => 'array', 'minggu' => 'array', 'pola' => 'array', 'pola_slot' => 'array', 'riwayat_pola' => 'array',
@@ -49,6 +49,8 @@ class PetaTema extends Model
     public function pembuat(): BelongsTo { return $this->belongsTo(User::class, 'dibuat_oleh'); }
     public function penyetuju(): BelongsTo { return $this->belongsTo(User::class, 'disetujui_oleh'); }
     public function penginput(): BelongsTo { return $this->belongsTo(User::class, 'diinput_oleh'); }
+    /** High Level peta tema (dulu "Kategori pusat"); Materi kelas ini memakai High Level yang sama. */
+    public function kategori(): BelongsTo { return $this->belongsTo(MasterKategoriPenilaian::class, 'id_kategori', 'id_kategori'); }
 
     /** Setelah jadwal dibuat, pola sudah diubah sebanyak batas: guru tidak bisa lagi mengubah sesi tema. */
     public function terkunci(): bool

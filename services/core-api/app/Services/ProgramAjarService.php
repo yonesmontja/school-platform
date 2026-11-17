@@ -87,7 +87,10 @@ class ProgramAjarService
 
         $sesi = TransJadwal::with('modul:id_modul,tp')
             ->where('id_mapel', $idMapel)->when($idKelas, fn($q) => $q->where('id_kelas', $idKelas))
-            ->where('mulai', '>=', $awal)->where('mulai', '<=', $akhir)->orderBy('mulai')
+            ->where('mulai', '>=', $awal)->where('mulai', '<=', $akhir)
+            // Sesi remedial individual (dari Tindak Lanjut) bukan KBM kelas: tidak dihitung sebagai realisasi Promes/Prota
+            ->where(fn($q) => $q->whereNull('judul')->orWhere('judul', 'not like', 'Remedial ·%'))
+            ->orderBy('mulai')
             ->get(['id_jadwal', 'id_materi', 'id_modul', 'pertemuan_ke', 'mulai', 'selesai', 'status_sesi', 'perangkat', 'judul']);
 
         $baris = $atp ? $this->rencana($atp, $minggu) : [];
@@ -207,7 +210,7 @@ class ProgramAjarService
 
             $jp = $s->jp();
             $ringkas = [
-                'id_jadwal' => $s->id_jadwal, 'mulai' => $s->mulai->format('Y-m-d\TH:i'), 'selesai' => $s->selesai->format('H:i'),
+                'id_jadwal' => $s->id_jadwal, 'judul' => $s->judul, 'mulai' => $s->mulai->format('Y-m-d\TH:i'), 'selesai' => $s->selesai->format('H:i'),
                 'status' => $s->status_sesi, 'jp' => $jp, 'pertemuan_ke' => $s->pertemuan_ke,
                 'minggu' => $this->indeksMinggu($minggu, $s->mulai->format('Y-m-d')),
             ];

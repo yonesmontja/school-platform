@@ -1,7 +1,7 @@
 // Fase 20: editor jadwal menautkan perangkat ajar (panel per jenis, kosong bila belum ada), status sesi otomatis,
 // lalu Prota & Promes menampilkan Gantt, tabel Promes, kalender minggu efektif, dan ekspor Excel/CSV/PDF.
 const path = require("path");
-const { test, expect, pilih, selectBerlabel, hariIni, API } = require("../bantu");
+const { test, expect, pilih, selectBerlabel, hariIni, hariSekolahTerakhir, API } = require("../bantu");
 const XLSX = require(path.join(__dirname, "../../../apps/web/node_modules/xlsx"));
 
 test.describe.configure({ mode: "serial" });
@@ -128,4 +128,24 @@ test("kepala sekolah menandai minggu tidak efektif; guru hanya melihat", async (
   await page.goto("/dashboard/program-ajar?tab=kalender&mapel=MPL-EMTK&kelas=KLS-E4A");
   await expect(page.locator(".pa-minggu-list")).toContainText("MPLS", { timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Simpan kalender semester" })).toHaveCount(0);
+});
+
+test("sesi yang belum tertaut TP tampil di Promes dan tautannya membuka detail sesi di Jadwal", async ({ page, masuk }) => {
+  test.setTimeout(150_000);
+  const sesi = await masuk("guru");
+  // Sesi tanpa ATP/TP/materi/modul: tidak bisa dihitung sebagai realisasi
+  const tgl = hariSekolahTerakhir();
+  const res = await fetch(`${API}/api/jadwal`, {
+    method: "POST", headers: { Authorization: `Bearer ${sesi.access_token}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ id_mapel: "MPL-EMTK", id_kelas: "KLS-E4A", pola: "sekali", mulai: `${tgl}T10:00`, selesai: `${tgl}T11:10`, abaikan_bentrok: true }),
+  });
+  expect(res.status).toBe(201);
+
+  await page.goto("/dashboard/program-ajar?mapel=MPL-EMTK&kelas=KLS-E4A");
+  const lepas = page.locator("[data-sesi-lepas]");
+  await expect(lepas).toContainText("belum tertaut ke TP", { timeout: 60_000 });
+  await lepas.getByRole("link").first().click();
+  const detail = page.getByRole("complementary", { name: "Detail sesi" });
+  await expect(detail).toBeVisible({ timeout: 60_000 });
+  await expect(detail).toContainText("Matematika");
 });

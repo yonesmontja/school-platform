@@ -111,6 +111,21 @@ export default function JadwalPage() {
   }, [rentang?.start?.getTime(), rentang?.end?.getTime(), muatUlang]);
   const segarkan = () => setMuatUlang((n) => n + 1);
 
+  // Buka detail satu sesi dari tautan (?sesi=ID, mis. dari Promes/Prota), termasuk sesi di hari yang disembunyikan kalender
+  const [sesiLuar, setSesiLuar] = useState(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("sesi");
+    if (!id) return;
+    kirimAPI("GET", `/jadwal/${encodeURIComponent(id)}`).then((res) => {
+      if (!res.ok) return Swal.fire("Sesi tidak ditemukan", pesanGalat(res.json), "info");
+      const r = res.json.data;
+      setSesiLuar(r);
+      setDetailId(r.id_jadwal);
+      setTimeout(() => { api()?.gotoDate(r.mulai.slice(0, 10)); setTanggalAktif(parseLokal(r.mulai)); }, 0);
+      window.history.replaceState(null, "", window.location.pathname);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Hari libur (selain Minggu): diarsir di kalender dan ditandai namanya; jadwal di tanggal ini ditolak server
   const [libur, setLibur] = useState(new Map());
   useEffect(() => {
@@ -149,7 +164,9 @@ export default function JadwalPage() {
   }).concat(eventLibur), [rowsTampil, warnaSesi, milikSendiri, eventLibur]);
 
   const tanggalBerisi = useMemo(() => new Set(rows.map((r) => r.mulai.slice(0, 10))), [rows]);
-  const detail = rows.find((r) => r.id_jadwal === detailId) || null;
+  const detail = rows.find((r) => r.id_jadwal === detailId) || (sesiLuar?.id_jadwal === detailId ? sesiLuar : null);
+  // Sesi di hari yang disembunyikan (mis. Minggu, data lama) tidak tampil di kalender: diberi tahu agar tetap bisa dibuka/dihapus
+  const sesiTersembunyi = useMemo(() => rowsTampil.filter((r) => HARI_TERSEMBUNYI[prefs.hari].includes(parseLokal(r.mulai).getDay())), [rowsTampil, prefs.hari]);
   const hariIni = ymd(new Date());
   const agendaHariIni = rows.filter((r) => r.mulai.startsWith(hariIni) && r.status_sesi !== "Batal").sort((a, b) => a.mulai.localeCompare(b.mulai));
 
@@ -445,6 +462,16 @@ export default function JadwalPage() {
 
       {/* KALENDER */}
       <main className="jadwal-main">
+        {sesiTersembunyi.length > 0 && (
+          <div className="alert alert-warning small py-1 px-2 mb-2" data-sesi-tersembunyi>
+            <i className="bi bi-eye-slash me-1"></i>{sesiTersembunyi.length} sesi di rentang ini jatuh pada hari yang disembunyikan kalender:
+            {sesiTersembunyi.slice(0, 5).map((r) => (
+              <button key={r.id_jadwal} type="button" className="btn btn-link btn-sm py-0 px-1 align-baseline" onClick={() => setDetailId(r.id_jadwal)}>
+                {judulSesi(r)} ({parseLokal(r.mulai).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })})
+              </button>
+            ))}
+          </div>
+        )}
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -491,7 +518,7 @@ export default function JadwalPage() {
         <DetailSesi
           jadwal={detail}
           bolehUbah={milikSendiri(detail.id_guru)}
-          onClose={() => setDetailId(null)}
+          onClose={() => { setDetailId(null); setSesiLuar(null); }}
           onEdit={() => setFormAwal({ mode: "edit", jadwal: detail })}
           onDuplikat={() => setFormAwal({ mode: "duplikat", jadwal: detail })}
           onHapus={() => hapus(detail)}

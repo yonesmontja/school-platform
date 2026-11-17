@@ -223,7 +223,8 @@ function ProgramAjar() {
   const ringkas = isi ? (mode === "prota" ? ringkasProta(isi) : isi.ringkasan) : null;
   const opsiEkspor = { mapel: namaMapel, kelas: namaKelas, sekolah: ref?.settings };
   const adaBaris = isi && (mode === "prota" ? isi.semester.some((d) => d.baris.length) : isi.baris.length);
-  const lepas = isi ? (mode === "prota" ? isi.semester.reduce((n, d) => n + d.sesi_lepas.length, 0) : isi.sesi_lepas.length) : 0;
+  const daftarLepas = isi ? (mode === "prota" ? isi.semester.flatMap((d) => d.sesi_lepas) : isi.sesi_lepas) : [];
+  const lepas = daftarLepas.length;
 
   const ekspor = (jenis) => {
     if (!isi) return;
@@ -337,9 +338,22 @@ function ProgramAjar() {
             <div className="alert alert-info small py-2"><i className="bi bi-info-circle me-1"></i>Acuan: <b>{isi.atp.judul}</b> masih berstatus {isi.atp.status.toLowerCase()} (belum disetujui kepala sekolah).</div>
           )}
           {lepas > 0 && (
-            <div className="alert alert-light border small py-2 d-flex align-items-center gap-2">
-              <i className="bi bi-link-45deg fs-5 text-warning"></i>
-              <span><b>{lepas} sesi</b> {namaMapel} belum tertaut ke TP mana pun, sehingga belum dihitung sebagai realisasi. Buka sesinya di <Link href="/dashboard/jadwal">Jadwal</Link>, lalu tautkan <b>ATP / TP</b>, indikator, modul ajar, atau materinya.</span>
+            <div className="alert alert-light border small py-2" data-sesi-lepas>
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-link-45deg fs-5 text-warning"></i>
+                <span><b>{lepas} sesi</b> {namaMapel} belum tertaut ke TP mana pun, sehingga belum dihitung sebagai realisasi. Buka sesinya, lalu tautkan <b>ATP / TP</b>, indikator, modul ajar, atau materinya.</span>
+              </div>
+              <ul className="list-unstyled mb-0 mt-1 ms-4">
+                {daftarLepas.slice(0, 20).map((s) => (
+                  <li key={s.id_jadwal}>
+                    <Link href={`/dashboard/jadwal?sesi=${encodeURIComponent(s.id_jadwal)}`}>
+                      <i className="bi bi-box-arrow-up-right me-1"></i>{new Date(s.mulai).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}, {s.mulai.slice(11, 16)}–{s.selesai}
+                    </Link>
+                    <span className="text-body-secondary"> · {s.judul || namaMapel} · {s.jp} JP · {s.status}</span>
+                  </li>
+                ))}
+                {lepas > 20 && <li className="text-body-secondary">… dan {lepas - 20} sesi lainnya</li>}
+              </ul>
             </div>
           )}
 

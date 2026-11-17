@@ -136,6 +136,13 @@ class JadwalController extends Controller
         return response()->json(['data' => $data]);
     }
 
+    /** Satu sesi (untuk membuka detailnya langsung dari Promes/Prota atau tautan lain, termasuk sesi di hari yang disembunyikan). */
+    public function show($id)
+    {
+        TransJadwal::perbaruiStatusOtomatis();
+        return response()->json(['data' => TransJadwal::with(self::RELASI)->findOrFail($id)]);
+    }
+
     private function rules(bool $baru): array
     {
         return [

@@ -107,6 +107,38 @@ class PetaTemaTest extends TestCase
         $this->assertSame($s->admin->id, PetaTema::find($baru)->diinput_oleh);
     }
 
+    public function test_high_level_peta_tema_menjadi_high_level_materi_kelas_itu(): void
+    {
+        $s = $this->sekolah;
+        \App\Models\MasterKategoriPenilaian::create(['id_kategori' => 'KAT-ALAM', 'nama_kategori' => 'Alam']);
+        \App\Models\MasterKategoriPenilaian::create(['id_kategori' => 'KAT-KHUSUS', 'nama_kategori' => 'Khusus IPA', 'id_mapel' => 'MPL-B']);
+        // Referensi hanya memuat High Level semua mapel; pusat spider web mengikuti nama High Level
+        $this->sebagai($s->kepsek)->getJson('/api/perangkat-ajar/tema/referensi')->assertOk()
+            ->assertJsonPath('high_level.0.id_kategori', 'KAT-ALAM')->assertJsonCount(1, 'high_level');
+        $id = $this->postJson('/api/perangkat-ajar/tema', ['judul' => 'Kebun Sagu', 'id_kelas' => 'KLS-A', 'id_kategori' => 'KAT-ALAM', 'tanggal_mulai' => now()->format('Y-m-d'),
+            'jaring' => ['kategori' => 'diabaikan', 'mapel' => [['id_mapel' => 'MPL-A', 'nama' => 'Matematika']]]])
+            ->assertCreated()->assertJsonPath('data.jaring.kategori', 'Alam')->assertJsonPath('data.kategori.nama_kategori', 'Alam')->json('data.id_peta');
+
+        // High Level baru dari Peta Tema (kepala sekolah); nama yang sudah ada dipakai ulang, guru tidak boleh
+        $this->postJson('/api/perangkat-ajar/tema/high-level', ['nama_kategori' => 'Hobi'])->assertCreated()->assertJsonPath('data.nama_kategori', 'Hobi');
+        $this->postJson('/api/perangkat-ajar/tema/high-level', ['nama_kategori' => ' alam '])->assertOk()->assertJsonPath('data.id_kategori', 'KAT-ALAM');
+        $this->sebagai($s->guruA)->postJson('/api/perangkat-ajar/tema/high-level', ['nama_kategori' => 'X'])->assertForbidden();
+
+        // Formulir Materi (guru, peta masih draf): High Level otomatis dari peta tema kelas itu; peta yang memuat mapel didahulukan
+        $hl = $this->sebagai($s->guruA)->getJson('/api/perangkat-ajar/tema/high-level?id_kelas=KLS-A&id_mapel=MPL-A')->assertOk()->json('data');
+        $this->assertSame([$id, 'KAT-ALAM', 'Alam', true], [$hl[0]['id_peta'], $hl[0]['id_kategori'], $hl[0]['nama_kategori'], $hl[0]['memuat_mapel']]);
+        $this->getJson('/api/perangkat-ajar/tema/high-level?id_kelas=KLS-B&id_mapel=MPL-A')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_detail_satu_sesi_jadwal_termasuk_hari_minggu_lama(): void
+    {
+        // Sesi lama di hari Minggu (sebelum aturan larangan Minggu) tersembunyi di kalender, tetapi bisa dibuka langsung
+        TransJadwal::create(['id_jadwal' => 'JDW-MGG', 'id_periode' => 'PER-T', 'id_kelas' => 'KLS-A', 'id_guru' => 'GR-A', 'id_mapel' => 'MPL-A',
+            'mulai' => Carbon::parse('2030-01-06 13:00'), 'selesai' => Carbon::parse('2030-01-06 14:00'), 'status_sesi' => 'Menunggu']);
+        $this->sebagai($this->sekolah->guruA)->getJson('/api/jadwal/JDW-MGG')->assertOk()
+            ->assertJsonPath('data.id_jadwal', 'JDW-MGG')->assertJsonPath('data.mapel.nama_mapel', 'Matematika')->assertJsonPath('data.mulai', '2030-01-06T13:00');
+    }
+
     public function test_pola_mingguan_dari_jadwal_dan_tautan_di_editor_jadwal(): void
     {
         $s = $this->sekolah;
