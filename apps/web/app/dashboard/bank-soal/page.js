@@ -12,6 +12,7 @@ import KisiKisi from "@/components/banksoal/KisiKisi";
 import ImporSoal from "@/components/banksoal/ImporSoal";
 import PaketSoal from "@/components/banksoal/PaketSoal";
 import CakupanSoal from "@/components/banksoal/CakupanSoal";
+import StimulusAkm from "@/components/banksoal/StimulusAkm";
 import ModalVarianAI, { JENIS_VARIAN } from "@/components/banksoal/ModalVarianAI";
 import { minta } from "@/components/banksoal/api";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
@@ -19,12 +20,13 @@ import Pengisi, { pengisiMapel } from "@/components/dashboard/Pengisi";
 
 const TAB = [
   { id: "soal", label: "Bank Soal", icon: "bi-collection" },
+  { id: "stimulus", label: "Stimulus AKM", icon: "bi-file-earmark-richtext" },
   { id: "kisi", label: "Kisi-kisi", icon: "bi-grid-3x3" },
   { id: "cakupan", label: "Cakupan", icon: "bi-bullseye" },
   { id: "paket", label: "Paket Soal", icon: "bi-journal-text" },
   { id: "impor", label: "Impor Paket", icon: "bi-box-arrow-in-down" },
 ];
-const FILTER_AWAL = { id_mapel: "", status: "", bentuk: "", level_kognitif: "", cari: "", milik: false };
+const FILTER_AWAL = { id_mapel: "", status: "", bentuk: "", level_kognitif: "", cari: "", milik: false, id_stimulus: "" };
 
 /** Hasil analisis butir dari paket yang pernah memakai soal ini. */
 function LencanaTeruji({ stat }) {
@@ -61,6 +63,7 @@ function BankSoalPage() {
   const [editor, setEditor] = useState(null); // { soal } untuk EditorSoal
   const [drafAi, setDrafAi] = useState(false);
   const [varian, setVarian] = useState(null); // soal disetujui yang dibuatkan varian
+  const [stimulusAktif, setStimulusAktif] = useState(null); // filter soal per stimulus: { id_stimulus, judul }
 
   useEffect(() => {
     minta("GET", "/bank-soal/referensi").then(setReferensi).catch((err) => Swal.fire("Gagal memuat", err.message, "error"));
@@ -159,6 +162,10 @@ function BankSoalPage() {
         <div className="text-muted"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
       ) : !referensi.mapel.length ? (
         <div className="alert alert-info"><i className="bi bi-info-circle me-2"></i>Akun Anda belum mengampu mata pelajaran. Minta admin menautkan mapel di Master Mapel.</div>
+      ) : tab === "stimulus" ? (
+        <StimulusAkm referensi={referensi}
+          onLihatSoal={(st) => { setStimulusAktif(st); setTab("soal"); ubahFilter({ ...FILTER_AWAL, id_stimulus: st.id_stimulus }); }}
+          onBuatSoal={(st) => setEditor({ soal: null, bawaan: { id_mapel: st.id_mapel, id_kelas: st.id_kelas || "", id_stimulus: st.id_stimulus, stimulus: st } })} />
       ) : tab === "kisi" ? (
         <KisiKisi referensi={referensi} onSoalBerubah={muat} />
       ) : tab === "cakupan" ? (
@@ -184,6 +191,13 @@ function BankSoalPage() {
                 </button>
               ))}
             </div>
+            {filter.id_stimulus && (
+              <div className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-2" data-filter-stimulus>
+                <i className="bi bi-file-earmark-richtext"></i><span className="me-auto">Soal untuk stimulus <strong>{stimulusAktif?.judul || "terpilih"}</strong></span>
+                <button type="button" className="btn btn-sm btn-outline-primary py-0" onClick={() => setEditor({ soal: null, bawaan: { id_mapel: stimulusAktif?.id_mapel, id_kelas: stimulusAktif?.id_kelas || "", id_stimulus: filter.id_stimulus, stimulus: stimulusAktif } })}><i className="bi bi-plus-lg me-1"></i>Soal baru</button>
+                <button type="button" className="btn-close" aria-label="Hapus filter stimulus" onClick={() => { setStimulusAktif(null); ubahFilter({ id_stimulus: "" }); }}></button>
+              </div>
+            )}
             {/* Filter lain */}
             <div className="row g-2 mb-3">
               <div className="col-6 col-md-3"><select className="form-select form-select-sm" value={filter.id_mapel} onChange={(e) => ubahFilter({ id_mapel: e.target.value })} aria-label="Filter mapel">
@@ -237,6 +251,7 @@ function BankSoalPage() {
                               <span className="badge text-bg-light border">{labelBentuk(s.bentuk)}</span>
                               <span className="badge text-bg-light border">{s.level_kognitif}</span>
                               <LencanaStnkm soal={s} />
+                              {s.stimulus && <span className="badge text-bg-primary-subtle text-primary-emphasis border border-primary-subtle fw-normal" data-lencana-stimulus title="Stimulus bersama"><i className="bi bi-file-earmark-richtext me-1"></i>{s.stimulus.judul}</span>}
                               {s.sumber !== "MANUAL" && <span className="badge text-bg-light border fw-normal"><i className={`bi ${s.sumber === "AI" ? "bi-magic" : "bi-box-arrow-in-down"} me-1`}></i>{SUMBER[s.sumber]}</span>}
                               {s.id_induk && <span className="badge text-bg-info-subtle text-info-emphasis border border-info-subtle fw-normal" title="Varian buatan AI dari soal yang sudah disetujui">
                                 <i className="bi bi-shuffle me-1"></i>Varian{s.jenis_varian ? ` · ${JENIS_VARIAN.find((j) => j.value === s.jenis_varian)?.label.toLowerCase() || ""}` : ""}</span>}
@@ -287,7 +302,7 @@ function BankSoalPage() {
       )}
 
       {editor && referensi && (
-        <EditorSoal soal={editor.soal} referensi={referensi} bawaan={filter.id_mapel ? { id_mapel: filter.id_mapel } : undefined} onTutup={() => setEditor(null)} onTersimpan={() => { setEditor(null); muat(); }} />
+        <EditorSoal soal={editor.soal} referensi={referensi} bawaan={editor.bawaan || (filter.id_mapel ? { id_mapel: filter.id_mapel } : undefined)} onTutup={() => setEditor(null)} onTersimpan={() => { setEditor(null); muat(); }} />
       )}
       {varian && (
         <ModalVarianAI soal={varian} onTutup={() => setVarian(null)}

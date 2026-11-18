@@ -31,7 +31,7 @@ class AuditTrail
         'TransJurnal' => 'Jurnal', 'TransPresensi' => 'Presensi', 'TransJadwal' => 'Jadwal',
         'TransNilaiP5' => 'Proyek', 'TransCatatanP5' => 'Proyek', 'TransCatatanWali' => 'Rapor',
         'SchoolSetting' => 'Pengaturan Sekolah', 'User' => 'Pengguna', 'TransDiagnostikNonkognitif' => 'Asesmen Diagnostik',
-        'BankSoal' => 'Bank Soal', 'KisiKisi' => 'Bank Soal', 'KisiKisiBaris' => 'Bank Soal',
+        'BankSoal' => 'Bank Soal', 'BankStimulus' => 'Bank Soal', 'KisiKisi' => 'Bank Soal', 'KisiKisiBaris' => 'Bank Soal',
         'PaketSoal' => 'Paket Soal', 'PaketSoalButir' => 'Paket Soal', 'PaketSoalJawaban' => 'Paket Soal',
         'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar', 'VideoBelajar' => 'Video Belajar', 'VideoTautan' => 'Video Belajar',
         'OperatorSekolah' => 'Administrasi',

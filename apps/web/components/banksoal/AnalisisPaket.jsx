@@ -6,6 +6,7 @@ import { ATAS_ISI, gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, 
 import autoTable from "jspdf-autotable";
 import { DIMENSI, HURUF, labelBentuk } from "./konstanta";
 import { minta } from "./api";
+import LevelKompetensi from "./LevelKompetensi";
 
 const KESUKARAN = { MUDAH: ["Mudah", "info"], SEDANG: ["Sedang", "success"], SUKAR: ["Sukar", "warning"] };
 const DAYA_BEDA = { BAIK_SEKALI: ["Baik sekali", "success"], BAIK: ["Baik", "success"], CUKUP: ["Cukup", "warning"], JELEK: ["Perlu diperbaiki", "danger"] };
@@ -44,6 +45,15 @@ export default function AnalisisPaket({ paket }) {
       head: [["TP", "Materi", "Butir", "Rata-rata (%)", "Tuntas"]],
       body: a.per_tp.map((t) => [t.tp || "(tanpa TP)", t.materi || "", t.jumlah_butir, t.rata ?? "", `${t.tuntas}/${a.jumlah_siswa}`].map(teksPdf)),
     });
+    if (a.kompetensi?.siswa?.length) {
+      const k = a.kompetensi, label = (kode) => k.batas.find((l) => l.kode === kode)?.label || "";
+      autoTable(doc, {
+        ...gayaTabelResmi, startY: doc.lastAutoTable.finalY + 6,
+        head: [["No", "Siswa", "Kelas", "Capaian (%)", "Level kompetensi", ...k.domain.map((d) => d.label)]],
+        body: k.siswa.map((s, i) => [i + 1, s.nama_siswa, s.kelas || "", s.persen, label(s.level),
+          ...k.domain.map((d) => (s.domain[d.domain] ? `${s.domain[d.domain].persen}% ${label(s.domain[d.domain].level)}` : "-"))].map(teksPdf)),
+      });
+    }
     ttdPdf(doc, sek, doc.lastAutoTable.finalY + 12, { kanan: { jabatan: "Guru Mata Pelajaran", nama: paket.pembuat?.name } });
     selesaikanPdf(doc, sek, { judul, sub });
     doc.save(`analisis-${paket.judul.replace(/[^\w-]+/g, "_")}.pdf`);
@@ -72,6 +82,8 @@ export default function AnalisisPaket({ paket }) {
           </div>
         ))}
       </div>
+
+      <LevelKompetensi k={a.kompetensi} />
 
       <div className="row g-3">
         <div className="col-lg-5">

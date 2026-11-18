@@ -143,6 +143,7 @@ class PaketSoalController extends Controller
                 $butir->get($b['id'])?->update(['urutan' => $i + 1, 'skor_maks' => $b['skor_maks']]);
             }
         });
+        self::rapikanStimulus($paket);
         $this->hitungUlang($paket);
         return response()->json(['success' => true, 'message' => 'Susunan butir disimpan.', 'data' => $paket->fresh([...self::RELASI, 'butir'])]);
     }
@@ -363,7 +364,7 @@ class PaketSoalController extends Controller
         $paket = PaketSoal::with(['butir', 'mapel:id_mapel,kkm'])->findOrFail($id);
         $this->cekAkses($request, $paket);
         UjianService::tutupKedaluwarsa($paket);
-        $paket->load('jawaban.siswa:id_siswa,nama_siswa');
+        $paket->load(['jawaban.siswa:id_siswa,nama_siswa,id_kelas', 'jawaban.siswa.kelas:id_kelas,nama_kelas']);
         $hasil = PaketSoalService::analisis($paket, (float) ($paket->mapel?->kkm ?? 75));
         StatistikSoalService::simpan($paket, $hasil);
         return response()->json(['data' => $hasil]);
@@ -556,15 +557,39 @@ class PaketSoalController extends Controller
                 'skor_maks' => $s->skor_maks ?: 1, 'versi' => $s->versi, 'soal' => self::salinan($s),
             ]);
         }
-        if (count($soal)) $this->hitungUlang($paket);
+        if (count($soal)) {
+            self::rapikanStimulus($paket);
+            $this->hitungUlang($paket);
+        }
+    }
+
+    /**
+     * Soal yang memakai stimulus yang sama dikumpulkan berurutan di tempat soal pertamanya muncul,
+     * agar siswa membaca stimulusnya sekali lalu menjawab semua soalnya (juga di naskah cetak).
+     */
+    public static function rapikanStimulus(PaketSoal $paket): void
+    {
+        $butir = $paket->butir()->orderBy('urutan')->orderBy('id')->get();
+        $kelompok = $butir->groupBy(fn($b) => ($b->soal['id_stimulus'] ?? null) ?: 'tanpa-' . $b->id);
+        $urut = [];
+        foreach ($butir as $b) {
+            $kunci = ($b->soal['id_stimulus'] ?? null) ?: 'tanpa-' . $b->id;
+            if (isset($urut[$kunci])) continue;
+            $urut[$kunci] = $kelompok[$kunci];
+        }
+        $i = 0;
+        foreach (collect($urut)->flatten(1) as $b) {
+            if ($b->urutan !== ++$i) $b->update(['urutan' => $i]);
+        }
     }
 
     /** Salinan soal untuk butir paket (termasuk nama materi & TP untuk cetak dan analisis). */
     private static function salinan(BankSoal $s): array
     {
         return $s->only(['id_soal', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'dim_S', 'dim_T', 'dim_N', 'dim_K', 'dim_M',
-            'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'id_materi', 'id_indikator', 'id_video'])
-            + ['materi' => $s->materi?->only(['nama_materi']), 'indikator' => $s->indikator?->only(['deskripsi']), 'video' => $s->video?->ringkas()];
+            'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'id_materi', 'id_indikator', 'id_video', 'id_stimulus'])
+            + ['materi' => $s->materi?->only(['nama_materi']), 'indikator' => $s->indikator?->only(['deskripsi']), 'video' => $s->video?->ringkas(),
+                'stimulus' => $s->stimulus?->ringkas()];
     }
 
     /** Setelah butir berubah, skor semua jawaban dihitung ulang. */

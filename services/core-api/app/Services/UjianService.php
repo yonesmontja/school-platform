@@ -57,8 +57,11 @@ class UjianService
             if ($n) shuffle($i);
             return $n ? $i : [];
         };
-        $butir = $paket->butir->pluck('id')->all();
-        if ($paket->acak_soal) shuffle($butir);
+        // Soal satu stimulus diacak sebagai satu kelompok dan tetap berdampingan dalam urutan aslinya
+        $kelompok = $paket->butir->groupBy(fn($b) => ($b->soal['id_stimulus'] ?? null) ?: 'tanpa-' . $b->id)
+            ->map(fn($g) => $g->pluck('id')->all())->values()->all();
+        if ($paket->acak_soal) shuffle($kelompok);
+        $butir = array_merge([], ...$kelompok);
         $pilihan = [];
         foreach ($paket->butir as $b) {
             $isi = $b->soal['isi'] ?? [];
@@ -100,6 +103,8 @@ class UjianService
                 'id' => $b->id, 'bentuk' => $s['bentuk'], 'pertanyaan' => $s['pertanyaan'], 'skor_maks' => $b->skor_maks,
                 'gambar_svg' => $s['gambar_svg'] ?? null, 'gambar_url' => $s['gambar_url'] ?? null,
                 'video' => isset($s['video']['file_url']) ? array_intersect_key($s['video'], array_flip(['judul', 'file_url', 'poster_url', 'durasi_detik'])) : null,
+                'stimulus' => isset($s['stimulus']['id_stimulus'])
+                    ? array_intersect_key($s['stimulus'], array_flip(['id_stimulus', 'judul', 'jenis', 'konten', 'gambar_url', 'sumber_teks'])) : null,
             ];
             return $data + match ($s['bentuk']) {
                 'PG', 'PG_KOMPLEKS' => ['pilihan' => $susun($isi['pilihan'] ?? [], fn($t) => $t)],

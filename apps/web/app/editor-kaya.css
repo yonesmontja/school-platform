@@ -41,3 +41,13 @@
 .riwayat-versi > li:first-child::before { background: #2fb344; }
 .beda-tambah { background: rgba(47, 179, 68, .2); text-decoration: none; }
 .beda-hapus { background: rgba(214, 57, 57, .18); text-decoration: line-through; }
+
+/* Stimulus AKM bersama (KotakStimulus): tabel data rapi, dan di ujian siswa ikut menempel saat soal digulir */
+.kotak-stimulus .isi-kaya table { border-collapse: collapse; margin: .3rem 0 .5rem; }
+.kotak-stimulus .isi-kaya th, .kotak-stimulus .isi-kaya td { border: 1px solid var(--bs-border-color); padding: .25rem .5rem; }
+.kotak-stimulus .isi-kaya th { background: var(--bs-tertiary-bg); }
+.kotak-stimulus summary { cursor: pointer; }
+.stimulus-ujian .kotak-stimulus { font-size: 1.05rem; line-height: 1.7; }
+@media (min-width: 992px) {
+  .stimulus-ujian { position: sticky; top: 72px; max-height: calc(100vh - 90px); overflow-y: auto; }
+}

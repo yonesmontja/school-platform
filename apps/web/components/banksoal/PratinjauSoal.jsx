@@ -1,6 +1,6 @@
 "use client";
 import { API_ORIGIN } from "@/app/lib/config";
-import { DIMENSI, HURUF } from "./konstanta";
+import { DIMENSI, HURUF, JENIS_STIMULUS } from "./konstanta";
 
 // SVG dari AI ditampilkan sebagai <img> (skrip di dalamnya tidak pernah berjalan)
 export const srcSvg = (svg) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -22,6 +22,31 @@ export function LencanaStnkm({ soal }) {
 }
 
 /**
+ * Stimulus AKM bersama: judul, jenis, isi (HTML yang sudah dibersihkan server), gambar, dan sumber teks.
+ * `lipat` = isi disembunyikan dalam <details> (pratinjau butir); tanpa konten hanya judulnya yang tampil.
+ */
+export function KotakStimulus({ stimulus, lipat = false, keterangan }) {
+  if (!stimulus) return null;
+  const jenis = JENIS_STIMULUS.find((j) => j.value === stimulus.jenis);
+  const kepala = (
+    <span className="d-inline-flex flex-wrap align-items-center gap-2">
+      <i className="bi bi-file-earmark-richtext text-primary"></i><strong>{stimulus.judul}</strong>
+      {jenis && <span className={`badge text-bg-${jenis.warna}-subtle text-${jenis.warna}-emphasis border border-${jenis.warna}-subtle fw-normal`}>{jenis.label}</span>}
+      {keterangan && <span className="small text-muted">{keterangan}</span>}
+    </span>
+  );
+  const isi = stimulus.konten || stimulus.gambar_url ? (
+    <div className="mt-2">
+      {stimulus.konten && <div className="isi-kaya" dangerouslySetInnerHTML={{ __html: stimulus.konten }} />}
+      {stimulus.gambar_url && <img src={srcGambar(stimulus.gambar_url)} alt={`Gambar stimulus ${stimulus.judul}`} className="border rounded bg-white mt-1" style={{ maxWidth: "100%", maxHeight: 360 }} />}
+      {stimulus.sumber_teks && <div className="small text-muted fst-italic mt-1">Sumber: {stimulus.sumber_teks}</div>}
+    </div>
+  ) : null;
+  if (lipat && isi) return <details className="kotak-stimulus border rounded p-2 mb-2 bg-body" data-kotak-stimulus><summary>{kepala}</summary>{isi}</details>;
+  return <div className="kotak-stimulus border rounded p-2 p-md-3 mb-2 bg-body" data-kotak-stimulus>{kepala}{isi}</div>;
+}
+
+/**
  * Tampilan satu soal seperti dilihat siswa, dengan kunci ditandai bila `kunci` true.
  * Menjodohkan & mengurutkan ditampilkan dengan jawaban benar (urutan diacak saat tes).
  */
@@ -32,6 +57,7 @@ export default function PratinjauSoal({ soal, nomor, kunci = true }) {
 
   return (
     <div className="pratinjau-soal">
+      {soal.stimulus && <KotakStimulus stimulus={soal.stimulus} lipat />}
       <div className="d-flex gap-2">
         {nomor != null && <b>{nomor}.</b>}
         <div className="flex-grow-1 min-w-0" style={{ whiteSpace: "pre-wrap" }}>{soal.pertanyaan}</div>

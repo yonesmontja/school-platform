@@ -22,6 +22,18 @@ const gambar = (soal) => {
   return src ? `<div class="gb"><img src="${esc(src)}" alt=""></div>` : "";
 };
 
+// Stimulus bersama dicetak sekali, tepat sebelum soal pertama yang memakainya (isi HTML sudah dibersihkan server)
+function stimulusSebelum(butir, n) {
+  const st = butir[n].soal.stimulus;
+  if (!st || butir[n - 1]?.soal.stimulus?.id_stimulus === st.id_stimulus) return "";
+  const nomor = butir.map((b, i) => (b.soal.stimulus?.id_stimulus === st.id_stimulus ? i + 1 : null)).filter(Boolean);
+  const rentang = nomor.length > 1 ? `nomor ${nomor[0]}–${nomor[nomor.length - 1]}` : `nomor ${nomor[0]}`;
+  return `<div class="stimulus"><div class="st-ket">Bacalah teks berikut untuk menjawab soal ${rentang}.</div>
+    <div class="st-judul">${esc(st.judul)}</div><div class="st-isi">${st.konten || ""}</div>
+    ${st.gambar_url ? `<div class="gb"><img src="${esc(srcGambar(st.gambar_url))}" alt=""></div>` : ""}
+    ${st.sumber_teks ? `<div class="st-sumber">Sumber: ${esc(st.sumber_teks)}</div>` : ""}</div>`;
+}
+
 function isiNaskah(b, kunci) {
   const s = b.soal, isi = s.isi || {}, k = s.kunci || {};
   const ok = (cond) => (kunci && cond ? ' class="ok"' : "");
@@ -89,6 +101,10 @@ const GAYA = `
   body { font-family: "Times New Roman", serif; font-size: 12pt; }
   .meta { width: 100%; font-size: 11pt; margin-bottom: 8px; } .meta td { padding: 1px 4px; }
   .petunjuk { border: 1px solid #000; padding: 6px 8px; font-size: 11pt; margin-bottom: 10px; }
+  .stimulus { border: 1px solid #000; padding: 6px 10px; margin: 8px 0 10px; break-inside: avoid-page; }
+  .stimulus .st-ket { font-style: italic; font-size: 11pt; margin-bottom: 4px; } .stimulus .st-judul { font-weight: bold; text-align: center; margin-bottom: 4px; }
+  .stimulus .st-isi p { margin: 0 0 4px; text-align: justify; } .stimulus .st-sumber { font-size: 10pt; font-style: italic; margin-top: 4px; }
+  .stimulus table { border-collapse: collapse; margin: 4px 0; } .stimulus th, .stimulus td { border: 1px solid #000; padding: 2px 6px; }
   .butir { break-inside: avoid; margin-bottom: 12px; display: flex; gap: 6px; }
   .butir .n { min-width: 22px; font-weight: bold; } .butir .q { flex: 1; }
   .pil { list-style: none; padding-left: 4px; margin: 4px 0; } .pil li { margin: 2px 0; }
@@ -130,11 +146,11 @@ export function cetakPaket(paket, jenis) {
 function tulisPaket(w, paket, jenis, sek) {
   const butir = paket.butir || [];
   const naskah = () => `${kop(paket, "", sek)}${paket.petunjuk ? `<div class="petunjuk"><b>Petunjuk:</b> ${teks(paket.petunjuk)}</div>` : ""}
-    ${butir.map((b, n) => `<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, false)}</div></div>`).join("")}`;
+    ${butir.map((b, n) => `${stimulusSebelum(butir, n)}<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, false)}</div></div>`).join("")}`;
   const lembar = () => `${kop(paket, "Lembar Jawaban", sek)}${lembarJawaban(butir)}
     <div class="catatan">Hitamkan atau silang pilihanmu dengan jelas. Lembar ini bisa difoto guru untuk dikoreksi.</div>`;
   const kunci = () => `${kopHtml(sek)}${judulHtml(paket.judul, "Kunci & Rubrik (untuk guru)")}
-    ${butir.map((b, n) => `<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, true)}
+    ${butir.map((b, n) => `${stimulusSebelum(butir, n)}<div class="butir"><div class="n">${n + 1}.</div><div class="q">${teks(b.soal.pertanyaan)}${gambar(b.soal)}${isiNaskah(b, true)}
       ${b.soal.pembahasan ? `<div><i>Pembahasan:</i> ${teks(b.soal.pembahasan)}</div>` : ""}
       <div class="info">${esc(labelBentuk(b.soal.bentuk))} · ${esc(b.soal.level_kognitif || "")} · skor maks. ${b.skor_maks}${b.soal.indikator?.deskripsi ? ` · TP: ${esc(b.soal.indikator.deskripsi)}` : ""}
       · STNKM ${["S", "T", "N", "K", "M"].filter((d) => Number(b.soal[`dim_${d}`]) > 0).map((d) => `${d} ${Number(b.soal[`dim_${d}`]).toFixed(1)}`).join(" ")}</div></div></div>`).join("")}`;

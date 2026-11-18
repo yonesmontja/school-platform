@@ -273,7 +273,7 @@ export const BAGIAN = [
       "Atau tekan ikon kamera di baris siswa, unggah foto lembar jawabannya, lalu Baca AI. Periksa hasil bacaan AI sebelum Simpan.",
       "Uraian: tekan Nilai uraian (AI) untuk semua siswa, atau Nilai uraian dengan AI di rincian satu siswa. AI mengusulkan skor sesuai rubrik dari jawaban tes online atau foto lembar jawaban, beserta alasannya. Periksa, ubah bila perlu, lalu Simpan.",
       "Tekan Kirim ke Input Nilai: nilai per TP masuk ke Input Nilai pada tanggal paket, termasuk perhitungan STNKM dan tanda remedial untuk nilai di bawah KKM.",
-      "Buka bagian Analisis untuk melihat tingkat kesukaran, daya beda, pengecoh yang tidak dipilih siswa, capaian per TP, dan profil STNKM kelas.",
+      "Buka bagian Analisis untuk melihat level kompetensi siswa, tingkat kesukaran, daya beda, pengecoh yang tidak dipilih siswa, capaian per TP, dan profil STNKM kelas.",
     ],
     tips: [
       "Isi baris siswa dan tekan Enter untuk turun ke siswa berikutnya pada nomor yang sama, sehingga koreksi bisa per nomor.",
@@ -302,6 +302,24 @@ export const BAGIAN = [
       "Bila sinyal putus, jawaban siswa tetap tersimpan di HP dan terkirim otomatis begitu sinyal kembali.",
       "Satu paket bisa dipakai beberapa sesi (Sesi 1, Sesi 2) dengan kelas dan jam berbeda.",
       "Tombol daftar (ikon garis) di baris siswa menampilkan log lengkap: masuk, keluar halaman/layar penuh, sinyal putus, percobaan dari perangkat lain, izin pengawas.",
+    ],
+  },
+  {
+    id: "stimulus-akm", kelompok: "guru", judul: "Stimulus AKM dan laporan level kompetensi", icon: "bi-file-earmark-richtext",
+    href: "/dashboard/bank-soal",
+    langkah: [
+      "Buka Bank Soal → tab Stimulus AKM, lalu tekan Stimulus baru.",
+      "Isi judul, mapel, jenis (literasi teks informasi, literasi teks fiksi, atau numerasi), dan konteks. Tulis bacaannya atau buat tabel data di kotak isi; tambahkan gambar atau grafik bila perlu, dan sumber teksnya.",
+      "Tekan Soal baru di baris stimulus untuk menulis soal yang memakainya, atau di editor soal mana pun pilih Stimulus bersama. Satu stimulus biasanya dipakai 3–5 soal dengan level kognitif berbeda.",
+      "Ajukan soal-soalnya ke kepala sekolah seperti biasa, lalu masukkan ke paket. Soal satu stimulus otomatis dikumpulkan berurutan.",
+      "Saat tes online atau sesi CBT, siswa membaca stimulus di samping soal (di HP di atas soal), dengan keterangan nomor soal yang memakainya. Di naskah cetak, stimulus tercetak sekali sebelum soal pertamanya.",
+      "Setelah dikoreksi, buka Analisis paket: bagian Level kompetensi menunjukkan sebaran siswa (Perlu intervensi khusus, Dasar, Cakap, Mahir), per domain literasi dan numerasi, per kelas, per level kognitif, dan per stimulus.",
+    ],
+    tips: [
+      "Acak soal tetap aman: soal satu stimulus diacak sebagai satu kelompok dan tidak terpisah.",
+      "Level dihitung dari persentase capaian pada paket itu (0–39, 40–59, 60–79, 80–100). ANBK resmi memakai penskalaan sendiri, jadi pakai laporan ini untuk latihan dan menentukan siswa yang perlu pendampingan.",
+      "Mengubah stimulus tidak mengubah paket yang sudah berisi soalnya. Stimulus yang masih dipakai soal tidak bisa dihapus.",
+      "Unduh PDF di Analisis kini juga memuat tabel level kompetensi tiap siswa.",
     ],
   },
   {

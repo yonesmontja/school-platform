@@ -29,7 +29,7 @@ class BankSoal extends Model
         'id_soal', 'id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'id_induk', 'jenis_varian',
         'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'dim_S', 'dim_T', 'dim_N', 'dim_K', 'dim_M',
         'pertanyaan', 'gambar_svg', 'gambar_url', 'isi', 'kunci', 'rubrik', 'pembahasan', 'skor_maks',
-        'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode', 'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'id_video',
+        'status', 'catatan_revisi', 'versi', 'sumber', 'ai_mode', 'dibuat_oleh', 'disetujui_oleh', 'disetujui_pada', 'id_video', 'id_stimulus',
     ];
 
     protected $casts = [
@@ -49,4 +49,5 @@ class BankSoal extends Model
     public function pembuat(): BelongsTo { return $this->belongsTo(User::class, 'dibuat_oleh'); }
     public function penyetuju(): BelongsTo { return $this->belongsTo(User::class, 'disetujui_oleh'); }
     public function video(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(VideoBelajar::class, 'id_video', 'id_video'); }
+    public function stimulus(): BelongsTo { return $this->belongsTo(BankStimulus::class, 'id_stimulus', 'id_stimulus'); }
 }

@@ -20,6 +20,19 @@ export const LEVEL = [
   { value: "C5", label: "C5 Mengevaluasi" },
   { value: "C6", label: "C6 Mencipta" },
 ];
+// Stimulus AKM bersama (BankStimulus::JENIS / KONTEKS)
+export const JENIS_STIMULUS = [
+  { value: "LITERASI_INFORMASI", label: "Literasi teks informasi", warna: "primary" },
+  { value: "LITERASI_FIKSI", label: "Literasi teks fiksi", warna: "info" },
+  { value: "NUMERASI", label: "Numerasi", warna: "success" },
+];
+export const labelJenisStimulus = (v) => JENIS_STIMULUS.find((j) => j.value === v)?.label || v;
+export const KONTEKS_STIMULUS = [
+  { value: "PERSONAL", label: "Personal" },
+  { value: "SOSIAL_BUDAYA", label: "Sosial budaya" },
+  { value: "SAINTIFIK", label: "Saintifik" },
+];
+
 export const KESULITAN = [
   { value: "MUDAH", label: "Mudah" },
   { value: "SEDANG", label: "Sedang" },

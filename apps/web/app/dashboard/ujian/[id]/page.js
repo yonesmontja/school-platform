@@ -6,7 +6,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { HURUF } from "@/components/banksoal/konstanta";
-import { srcGambar, srcSvg } from "@/components/banksoal/PratinjauSoal";
+import { KotakStimulus, srcGambar, srcSvg } from "@/components/banksoal/PratinjauSoal";
 import PerekamSuara from "@/components/banksoal/PerekamSuara";
 import { idPerangkat, keluarLayarPenuh, layarPenuhDidukung, masukLayarPenuh, sedangLayarPenuh } from "@/app/lib/perangkatUjian";
 
@@ -305,9 +305,13 @@ export default function KerjakanUjian() {
   const s = soal[Math.min(idx, soal.length - 1)];
   const dijawab = soal.filter((x) => terjawab(x, jawaban[x.id])).length;
   const hampirHabis = sisa != null && sisa <= 300;
+  // Stimulus bersama: dibaca di samping soal (layar lebar) atau di atasnya (HP), dengan rentang nomor soal yang memakainya
+  const adaStimulus = soal.some((x) => x.stimulus);
+  const nomorStimulus = s.stimulus ? soal.map((x, i) => (x.stimulus?.id_stimulus === s.stimulus.id_stimulus ? i + 1 : null)).filter(Boolean) : [];
+  const rentangStimulus = nomorStimulus.length > 1 ? `untuk soal ${nomorStimulus[0]}–${nomorStimulus[nomorStimulus.length - 1]}` : nomorStimulus.length ? `untuk soal ${nomorStimulus[0]}` : "";
 
   return (
-    <div className="container-fluid px-2 px-md-4 mb-5 halaman-ujian" style={{ maxWidth: 900 }}>
+    <div className="container-fluid px-2 px-md-4 mb-5 halaman-ujian" style={{ maxWidth: adaStimulus ? 1320 : 900 }}>
       {wajibLayarPenuh && !layarPenuh && (
         <div className="kunci-ai" role="dialog" aria-modal="true" aria-label="Kembali ke layar penuh" data-minta-layar-penuh>
           <div className="card shadow p-4 text-center" style={{ maxWidth: 380 }}>
@@ -340,7 +344,16 @@ export default function KerjakanUjian() {
         </div>
       </div>
 
-      <div className="card shadow-sm mb-3">
+      <div className={s.stimulus ? "row g-3 mb-3" : ""}>
+      {s.stimulus && (
+        <div className="col-lg-6">
+          <div className="stimulus-ujian" data-stimulus-ujian aria-label="Bacaan untuk soal ini">
+            <KotakStimulus key={s.stimulus.id_stimulus} stimulus={s.stimulus} keterangan={rentangStimulus} />
+          </div>
+        </div>
+      )}
+      <div className={s.stimulus ? "col-lg-6" : ""}>
+      <div className={`card shadow-sm ${s.stimulus ? "" : "mb-3"}`}>
         <div className="card-body p-3 p-md-4">
           <div className="d-flex align-items-center mb-2">
             <span className="badge text-bg-primary fs-6 me-2">Soal {idx + 1}</span>
@@ -373,6 +386,8 @@ export default function KerjakanUjian() {
             </>
           ) : <Jawab soal={s} nilai={jawaban[s.id]} ubah={(v) => ubah(s.id, v)} />}
         </div>
+      </div>
+      </div>
       </div>
 
       <div className="d-flex gap-2 mb-3">

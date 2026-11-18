@@ -34,6 +34,7 @@ class BankSoalController extends Controller
         'mapel:id_mapel,nama_mapel,id_guru', 'mapel.guru:id_guru,nama_guru', 'kelas:id_kelas,nama_kelas', 'materi:id_materi,nama_materi',
         'indikator:id_indikator,deskripsi,urutan', 'pembuat:id,name,id_guru', 'penyetuju:id,name',
         'video:id_video,judul,file_url,poster_url,durasi_detik,status',
+        'stimulus:id_stimulus,judul,jenis,konteks',
     ];
     private const MAKS_DRAF = 10;
     private const GAMBAR_MIME = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
@@ -47,7 +48,7 @@ class BankSoalController extends Controller
             'per_halaman' => 'nullable|integer|min:5|max:100',
         ]);
         $query = $this->terjangkau($request)->with(self::RELASI);
-        foreach (['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'status', 'bentuk', 'level_kognitif'] as $k) {
+        foreach (['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'status', 'bentuk', 'level_kognitif', 'id_stimulus'] as $k) {
             if ($request->filled($k)) $query->where($k, $request->$k);
         }
         if ($request->boolean('milik')) $query->where('dibuat_oleh', $request->user()->id);
@@ -570,6 +571,7 @@ class BankSoalController extends Controller
             'gambar_svg' => 'nullable|string|max:60000',
             'gambar_url' => ['nullable', 'string', 'max:500', 'regex:#^/storage/soal/#'],
             'id_video' => 'nullable|exists:video_belajar,id_video',
+            'id_stimulus' => 'nullable|exists:bank_stimulus,id_stimulus',
             'isi' => 'nullable|array',
             'kunci' => 'nullable|array',
             'rubrik' => 'nullable|string|max:5000',
@@ -579,7 +581,11 @@ class BankSoalController extends Controller
         $this->cekMapel($request, $request->id_mapel);
 
         [$isi, $kunci] = BankSoalService::normalisasi($request->bentuk, $request->isi, $request->kunci);
-        $data = $request->only(['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'pertanyaan', 'rubrik', 'pembahasan', 'gambar_url', 'id_video']);
+        $data = $request->only(['id_mapel', 'id_kelas', 'id_materi', 'id_indikator', 'id_kisi_baris', 'bentuk', 'level_kognitif', 'tingkat_kesulitan', 'pertanyaan', 'rubrik', 'pembahasan', 'gambar_url', 'id_video', 'id_stimulus']);
+        // Stimulus bersama hanya dari mapel yang sama
+        if (($data['id_stimulus'] ?? null) && \App\Models\BankStimulus::whereKey($data['id_stimulus'])->value('id_mapel') !== $request->id_mapel) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['id_stimulus' => 'Stimulus ini milik mata pelajaran lain.']);
+        }
         foreach (BankSoal::DIMENSI as $d) $data["dim_{$d}"] = round((float) $request->input("dim_{$d}", 0), 2);
         // TP menentukan materinya
         if ($data['id_indikator'] ?? null) $data['id_materi'] = MasterIndikator::find($data['id_indikator'])->id_materi;

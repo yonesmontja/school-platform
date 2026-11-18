@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\ClassesController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\NilaiController;
 use App\Http\Controllers\Api\BankSoalController;
+use App\Http\Controllers\Api\StimulusController;
 use App\Http\Controllers\Api\KisiKisiController;
 use App\Http\Controllers\Api\PaketSoalController;
 use App\Http\Controllers\Api\PerangkatAjarController;
@@ -499,6 +500,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/{id}', [BankSoalController::class, 'destroy']);
             Route::post('/{id}/tarik', [BankSoalController::class, 'tarik']);
         });
+        // Stimulus AKM bersama (CBT Tahap B): satu bacaan/tabel untuk beberapa soal
+        Route::apiResource('/stimulus', StimulusController::class)->parameters(['stimulus' => 'id']);
         Route::apiResource('/kisi-kisi', KisiKisiController::class)->parameters(['kisi-kisi' => 'id']);
         // Paket soal (Fase 16 Tahap B): naskah, koreksi, kirim nilai ke Input Nilai, analisis butir
         Route::prefix('paket-soal')->group(function () {

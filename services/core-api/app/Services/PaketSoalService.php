@@ -318,6 +318,7 @@ class PaketSoalService
             'butir' => $hasilButir,
             'per_tp' => $perTp,
             'stnkm' => $stnkm,
+            'kompetensi' => \App\Support\Kompetensi::laporan($butir, $jawaban),
             'siswa' => $urut->map(fn($j) => [
                 'id_siswa' => $j->id_siswa, 'nama_siswa' => $j->siswa?->nama_siswa, 'total' => $j->total, 'nilai' => $j->nilai,
                 'stnkm' => $profilSiswa[$j->id_siswa],

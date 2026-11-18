@@ -35,6 +35,7 @@ const dariSoal = (s, bawaan) => {
     ...Object.fromEntries(DIMENSI.map((d) => [`dim_${d.key}`, s ? Number(s[`dim_${d.key}`]) : 0])),
     pertanyaan: s?.pertanyaan || "", gambar_svg: s?.gambar_svg || null, gambar_url: s?.gambar_url || null,
     id_video: s?.id_video || null, video: s?.video || null,
+    id_stimulus: s?.id_stimulus || bawaan?.id_stimulus || null, stimulus: s?.stimulus || bawaan?.stimulus || null,
     isi, kunci, rubrik: s?.rubrik || "", pembahasan: s?.pembahasan || "", skor_maks: s?.skor_maks || "",
   };
 };
@@ -46,6 +47,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
   const [proses, setProses] = useState(false);
   const [gambarAi, setGambarAi] = useState(false);
   const [pilihVideo, setPilihVideo] = useState(false);
+  const [daftarStimulus, setDaftarStimulus] = useState([]); // stimulus AKM mapel ini
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const setIsi = (k, v) => setF((x) => ({ ...x, isi: { ...x.isi, [k]: v } }));
   const setKunci = (v) => setF((x) => ({ ...x, kunci: { ...x.kunci, jawaban: v } }));
@@ -55,6 +57,18 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onTutup, gambarAi]);
+
+  // Stimulus bersama hanya dari mapel soal; isi lengkapnya dipakai untuk pratinjau
+  useEffect(() => {
+    if (!f.id_mapel) { setDaftarStimulus([]); return; }
+    let batal = false;
+    minta("GET", `/stimulus?id_mapel=${encodeURIComponent(f.id_mapel)}`).then((r) => { if (!batal) setDaftarStimulus(r.data || []); }).catch(() => {});
+    return () => { batal = true; };
+  }, [f.id_mapel]);
+  useEffect(() => {
+    const st = daftarStimulus.find((x) => x.id_stimulus === f.id_stimulus);
+    if (st && !f.stimulus?.konten) setF((x) => ({ ...x, stimulus: st }));
+  }, [daftarStimulus, f.id_stimulus]);
 
   const materiMapel = useMemo(() => (referensi.materi || []).filter((m) => m.id_mapel === f.id_mapel && (!f.id_kelas || !m.id_kelas || m.id_kelas === f.id_kelas)), [referensi, f.id_mapel, f.id_kelas]);
   const tpMateri = materiMapel.find((m) => m.id_materi === f.id_materi)?.indikator || [];
@@ -155,7 +169,7 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                   <div className="row g-2 mb-2">
                     <div className="col-sm-6">
                       <label className="form-label small fw-semibold mb-1">Mata pelajaran</label>
-                      <select className="form-select form-select-sm" required value={f.id_mapel} onChange={(e) => setF((x) => ({ ...x, id_mapel: e.target.value, id_materi: "", id_indikator: "" }))}>
+                      <select className="form-select form-select-sm" required value={f.id_mapel} onChange={(e) => setF((x) => ({ ...x, id_mapel: e.target.value, id_materi: "", id_indikator: "", id_stimulus: null, stimulus: null }))}>
                         <option value="">— Pilih —</option>
                         {referensi.mapel.map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
                       </select>
@@ -200,6 +214,14 @@ export default function EditorSoal({ soal, referensi, bawaan, onTutup, onTersimp
                       </select>
                     </div>
                   </div>
+
+                  <label className="form-label small fw-semibold mb-1" htmlFor="sStimulus">Stimulus bersama <span className="fw-normal text-muted">(opsional: bacaan/tabel untuk beberapa soal)</span></label>
+                  <select id="sStimulus" className="form-select form-select-sm mb-2" value={f.id_stimulus || ""} disabled={!f.id_mapel}
+                    onChange={(e) => { const st = daftarStimulus.find((x) => x.id_stimulus === e.target.value); setF((x) => ({ ...x, id_stimulus: st?.id_stimulus || null, stimulus: st || null })); }}>
+                    <option value="">Tanpa stimulus bersama</option>
+                    {f.id_stimulus && !daftarStimulus.some((x) => x.id_stimulus === f.id_stimulus) && <option value={f.id_stimulus}>{f.stimulus?.judul || "Stimulus terpilih"}</option>}
+                    {daftarStimulus.map((x) => <option key={x.id_stimulus} value={x.id_stimulus}>{x.judul} ({x.soal_count} soal)</option>)}
+                  </select>
 
                   <label className="form-label small fw-semibold mb-1">Pertanyaan</label>
                   <textarea className="form-control mb-2" rows={3} required maxLength={5000} value={f.pertanyaan} onChange={(e) => set("pertanyaan", e.target.value)} aria-label="Pertanyaan" />
