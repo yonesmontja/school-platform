@@ -1,6 +1,6 @@
 # School Platform
 
-Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), jadwal pembelajaran, input nilai dengan remedial, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, kegiatan kokurikuler (menu Proyek), cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, manajemen pengguna berbasis peran, portal siswa/orang tua, serta ekspor laporan ke PDF/Excel.
+Platform manajemen sekolah berbasis monorepo: data master (siswa, guru, kelas, mata pelajaran, periode, kategori penilaian, MBK, materi), jadwal pembelajaran, input nilai dengan remedial, jurnal anekdotal dengan analisis STNKM berbasis AI, presensi, kegiatan kokurikuler (menu Proyek), cetak rapor, laporan STNKM, pengiriman WhatsApp, pengaturan sekolah, manajemen pengguna berbasis peran, portal siswa/orang tua, administrasi sekolah (SPMB, keuangan, surat & arsip, inventaris), beranda publik, serta ekspor laporan ke PDF/Excel.
 
 ## Arsitektur
 
@@ -30,7 +30,13 @@ school-platform/
 
 ## Fitur
 
-- **Autentikasi & Peran** — login/logout dengan token Laravel Sanctum (login dibatasi throttle), ganti password di halaman Akun Saya, akun nonaktif ditolak. Delapan peran: `admin`, `kepsek`, `guru` (staf), `siswa`, `ortu` (portal baca), serta peran **peninjau** hanya-lihat `wakakur` (Wakasek Kurikulum), `wakasis` (Wakasek Kesiswaan), dan `yayasan` (membuka semua menu dan data seperti admin/kepsek, tetapi setiap perubahan ditolak server dengan 403; ganti kata sandi sendiri tetap bisa). Guru dibatasi ke mapel yang diampu, kelas binaan, dan data miliknya
+- **Autentikasi & Peran** — login/logout dengan token Laravel Sanctum (login dibatasi throttle), ganti password di halaman Akun Saya, akun nonaktif ditolak. Sembilan peran: `admin`, `kepsek`, `guru` (staf), `siswa`, `ortu` (portal baca), serta peran **peninjau** hanya-lihat `wakakur` (Wakasek Kurikulum), `wakasis` (Wakasek Kesiswaan), dan `yayasan` (membuka semua menu dan data seperti admin/kepsek, tetapi setiap perubahan ditolak server dengan 403; ganti kata sandi sendiri tetap bisa), serta **`operator`** (staf tata usaha bukan guru: hanya membuka submodul Administrasi yang ditunjuk kepala sekolah, Disposisi Surat, dan Akun). Guru dibatasi ke mapel yang diampu, kelas binaan, dan data miliknya
+- **Beranda publik** — halaman `/` Sekolah Anak Papua untuk tamu (identitas sekolah dari `GET /sekolah-publik`, disegarkan tiap 5 menit): memilih peran untuk masuk (guru, kepala sekolah & pengelola, orang tua, siswa), alur belajar Realita → Imajinasi → Makna → Produk anak, dan info SPMB; pengguna yang sudah masuk diteruskan ke halaman awal perannya
+- **Administrasi Sekolah (Fase 26 Tahap A)** — menu Administrasi Sekolah berisi submodul SPMB, Keuangan, Surat & Arsip, dan Inventaris. Kepala sekolah menunjuk **operator** per submodul (`/administrasi/operator`, tabel `operator_sekolah`); akses dicek middleware `administrasi:KODE`. Admin/kepsek/peninjau melihat semua submodul (peninjau hanya baca), guru atau operator hanya submodul yang ditunjuk
+- **SPMB (Tahap B)** — pendaftaran siswa baru: formulir publik `/spmb` tanpa login (nomor pendaftaran + kode akses untuk cek status, perbaikan data, unggah berkas, daftar ulang), gelombang pendaftaran dan pengumuman, verifikasi berkas, hasil seleksi, hingga pendaftar dijadikan siswa di Master Siswa
+- **Keuangan (Tahap C)** — jenis biaya, beasiswa, tagihan per siswa, pembayaran dengan kuitansi cetak dan pembatalan, tunggakan beserta pengingat, buku kas, dan **tujuan bayar** (rekening/kanal pembayaran sekolah); orang tua/siswa melihat tagihan anak di Portal
+- **Surat & Arsip (Tahap D)** — templat surat dan penomoran, surat keluar (draf → diajukan → terbit → ditandatangani) dengan kode verifikasi keaslian di halaman publik `/verifikasi/{kode}`, surat masuk dengan **disposisi** ke staf (halaman Disposisi Surat untuk penerima), dan arsip dokumen berberkas
+- **Inventaris (Tahap E)** — barang (inventaris, pemeriksaan kondisi, peminjaman/pengembalian), stok habis pakai beserta mutasi, dan pengadaan dengan keputusan dan penyelesaian
 - **Manajemen Pengguna** — admin membuat/mengubah/menghapus akun, membuat akun massal (generate), dan reset password
 - **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak miliknya (read-only): ringkasan dengan kotak **Perlu didampingi** (tindak lanjut terjadwal, mapel di bawah KKM, TP belum dikuasai, alpa) dan grafik perkembangan nilai; **Capaian TP** per mapel → materi → indikator dengan tingkat KKTP, tanda tuntas, dan kalimat deskripsi seperti di rapor; **Tindak Lanjut** (remedial: jadwal, jam, ruang, catatan guru, nilai awal → remedial, serta tips mendampingi di rumah per bentuk tindak lanjut); **Jadwal** kelas 7 hari ke depan (sesi remedial siswa lain tidak ditampilkan); kalender kehadiran per bulan; catatan positif (narasi jurnal negatif tidak ditampilkan); dan pratinjau/cetak rapor
 - **Jadwal Terhubung Perangkat Ajar** — form sesi jadwal punya panel editor untuk menautkan ATP, modul, CP, indikator, materi, bank soal, dan video per mapel (ada keadaan kosong bila belum ada, menu cepat `/`); status sesi mengikuti jam sekolah otomatis (Menunggu → Berlangsung → Selesai, lewat perintah terjadwal `jadwal:status-otomatis` tiap menit), hanya **Batal** yang manual
@@ -330,6 +336,20 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/login` | Login (throttle 20/menit), mengembalikan token | – | – |
 | GET | `/health` | Status API dan database untuk pemantau uptime | – | – |
 | GET | `/signature/{filename}` | Gambar tanda tangan (proxy CORS) | – | – |
+| GET | `/sekolah-publik` | Identitas sekolah untuk beranda publik (throttle 60/menit) | – | – |
+| GET | `/spmb/info` | SPMB publik: info gelombang yang dibuka | – | – |
+| POST | `/spmb/daftar`, `/spmb/status`, `/spmb/berkas`, `/spmb/ajukan-ulang`, `/spmb/daftar-ulang` · PUT `/spmb/data` | SPMB publik: daftar, cek status, perbaiki data, unggah berkas, ajukan ulang, daftar ulang (nomor + kode akses; throttle) | – | – |
+| GET | `/verifikasi-surat/{kode}` | Verifikasi keaslian surat keluar dari kode tercetak (throttle 30/menit) | – | – |
+| GET | `/administrasi` | Ringkasan submodul Administrasi untuk akun ini | staf, operator (yang punya submodul) | ✔ |
+| GET | `/administrasi/operator`, `/administrasi/kandidat` | Daftar operator submodul / kandidat yang bisa ditunjuk | admin, kepsek | ✔ |
+| POST/PUT/DELETE | `/administrasi/operator[/{id}]` | Tunjuk, ubah, cabut operator submodul | kepsek | ✔ |
+| GET/POST/PUT/DELETE | `/administrasi/spmb/*` | SPMB: pilihan, gelombang (+ umumkan), pendaftar (detail, ubah, verifikasi, hasil, selesaikan, kode baru, berkas) | admin, kepsek, operator SPMB | ✔ |
+| GET/POST/PUT/DELETE | `/administrasi/keuangan/*` | Keuangan: ringkasan, jenis biaya, beasiswa, tagihan, pembayaran + kuitansi, tunggakan, pengingat, kas, tujuan bayar | admin, kepsek, operator KEUANGAN | ✔ |
+| GET/POST/PUT/DELETE | `/administrasi/surat/*` | Surat & Arsip: pengaturan, templat, surat keluar (ajukan/terbitkan/tandatangani/batal), surat masuk + disposisi, arsip | admin, kepsek, operator SURAT | ✔ |
+| GET/POST/PUT | `/administrasi/inventaris/*` | Inventaris: ringkasan, barang (periksa/hapus), peminjaman, stok + mutasi, pengadaan (putuskan/selesaikan) | admin, kepsek, operator INVENTARIS | ✔ |
+| GET/POST | `/disposisi`, `/disposisi/{id}/baca`, `/disposisi/{id}/selesai`, `/disposisi/{id}/berkas` | Disposisi surat untuk penerimanya | admin, kepsek, guru, operator | ✔ |
+| GET | `/portal/tagihan` | Tagihan anak (portal) | siswa, ortu | ✔ |
+| GET/POST | `/perangkat-ajar/tema/high-level` | High Level bersama Peta Tema dan Materi: daftar / tambah | staf | ✔ |
 | GET | `/me`, `/user` | Data user yang sedang login | semua peran | ✔ |
 | POST | `/akun/password` | Ganti password sendiri | semua peran | ✔ |
 | POST | `/logout` | Logout | semua peran | ✔ |
@@ -508,12 +528,15 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/ruangan` | Daftar ruangan | staf | ✔ |
 | POST/PUT/DELETE | `/ruangan, /ruangan/{id}` | Kelola ruangan | admin, kepsek | ✔ |
 
-Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom Peran: *staf* = `admin`, `kepsek`, `guru`; endpoint `/register` sudah dihapus (akun dibuat admin lewat `/users`).
+Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom Peran: *staf* = `admin`, `kepsek`, `guru` (peran `operator` hanya untuk Administrasi & Disposisi); endpoint `/register` sudah dihapus (akun dibuat admin lewat `/users`).
 
 ## Halaman Web
 
 | Path                      | Halaman              |
 |---------------------------|----------------------|
+| `/`                       | Beranda publik (pilih peran untuk masuk, info SPMB) |
+| `/spmb`                   | SPMB publik: formulir pendaftaran, cek status, daftar ulang (tanpa login) |
+| `/verifikasi/{kode}`      | Verifikasi keaslian surat keluar (tanpa login) |
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
 | `/dashboard/master-siswa` | Master Siswa (admin & kepsek)  |
@@ -525,6 +548,12 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/master-kategori` | High Level (kategori penilaian) |
 | `/dashboard/master-mbk`   | Aktivitas (MBK)      |
 | `/dashboard/master-materi`| Materi (admin & guru tambah/ubah, guru hanya mapel diampu; kepsek lihat; hapus khusus admin) |
+| `/dashboard/administrasi` | Administrasi Sekolah: ringkasan submodul dan operator (kepala sekolah menunjuk) |
+| `/dashboard/administrasi/spmb` | SPMB: gelombang, pendaftar, verifikasi, hasil |
+| `/dashboard/administrasi/keuangan` | Keuangan: biaya, tagihan, pembayaran & kuitansi, tunggakan, kas |
+| `/dashboard/administrasi/surat` | Surat & Arsip: templat, surat keluar/masuk, arsip |
+| `/dashboard/administrasi/inventaris` | Inventaris: barang, peminjaman, stok, pengadaan |
+| `/dashboard/disposisi`    | Disposisi Surat untuk penerima (staf & operator) |
 | `/dashboard/jadwal`       | Jadwal (grup menu "TDU - Jadwal") |
 | `/dashboard/nilai`        | Input Nilai (termasuk mode remedial) |
 | `/dashboard/video-belajar` | Video Belajar: pustaka, unggah, persetujuan, tempat dipakai |
