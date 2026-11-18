@@ -20,6 +20,8 @@ const UJIAN_ITEM = { href: "/dashboard/ujian", label: "Tes Online", icon: "bi-pe
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
 const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
 const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
+// Administrasi Sekolah (Fase 26): tampil bila akun punya minimal satu submodul (admin/kepsek/peninjau semua; guru & operator yang ditunjuk)
+const ADMINISTRASI_ITEM = { href: "/dashboard/administrasi", label: "Administrasi", icon: "bi-briefcase", syarat: (u) => (u?.administrasi || []).length > 0 };
 
 // Grup menu sidebar staf, disusun menurut alur kerja guru; setiap grup bisa dilipat/dibuka.
 // Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
@@ -89,6 +91,11 @@ const MENU_GROUPS = [
     ],
   },
   {
+    // Terpisah dari menu pembelajaran: tata usaha sekolah
+    id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear",
+    items: [ADMINISTRASI_ITEM],
+  },
+  {
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
     items: [
       AKUN_ITEM,
@@ -108,8 +115,16 @@ const PORTAL_GROUPS = [
   { id: "akun", label: "Akun", icon: "bi-person-circle", items: [NOTIF_ITEM, AKUN_ITEM, PANDUAN_ITEM] },
 ];
 
+// Operator Sekolah (staf TU) hanya melihat Administrasi dan akunnya sendiri
+const OPERATOR_GROUPS = [
+  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM] },
+  { id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM, PANDUAN_ITEM] },
+];
+
 const bolehItem = (it, role, user) => (!it.peran || peranBoleh(it.peran, role)) && (!it.syarat || it.syarat(user));
-const menuUntuk = (role, user) => (role === "siswa" || role === "ortu")
+const menuUntuk = (role, user) => role === "operator"
+  ? OPERATOR_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => !it.syarat || it.syarat(user)) }))
+  : (role === "siswa" || role === "ortu")
   ? PORTAL_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length)
   : MENU_GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => bolehItem(it, role, user)) })).filter((g) => g.items.length);
 
@@ -167,9 +182,10 @@ export default function DashboardLayout({ children }) {
   const mini = isDesktop && isMini;
   const role = user?.role;
   const isPortal = role === "siswa" || role === "ortu";
-  const homeItem = isPortal ? PORTAL_ITEM : DASHBOARD_ITEM;
+  const isOperator = role === "operator";
+  const homeItem = isPortal ? PORTAL_ITEM : isOperator ? ADMINISTRASI_ITEM : DASHBOARD_ITEM;
   // Item teratas di luar grup: beranda, dan untuk staf juga "Perlu Tindakan"
-  const itemAtas = useMemo(() => (isPortal ? [PORTAL_ITEM] : [DASHBOARD_ITEM, NOTIF_ITEM]), [isPortal]);
+  const itemAtas = useMemo(() => (isPortal ? [PORTAL_ITEM] : isOperator ? [NOTIF_ITEM] : [DASHBOARD_ITEM, NOTIF_ITEM]), [isPortal, isOperator]);
   const menuGroups = useMemo(() => menuUntuk(role, user), [role, user]);
 
   // Audit trail: catat setiap halaman yang dibuka dan setiap output (unduh, cetak, chat WA, salin)

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\LogAktivitas;
+use App\Models\OperatorSekolah;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,7 @@ class AuditTrail
         'BankSoal' => 'Bank Soal', 'KisiKisi' => 'Bank Soal', 'KisiKisiBaris' => 'Bank Soal',
         'PaketSoal' => 'Paket Soal', 'PaketSoalButir' => 'Paket Soal', 'PaketSoalJawaban' => 'Paket Soal',
         'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar', 'VideoBelajar' => 'Video Belajar', 'VideoTautan' => 'Video Belajar',
+        'OperatorSekolah' => 'Administrasi',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit
@@ -166,6 +169,10 @@ class AuditTrail
         foreach (self::LABEL as $kolom) {
             if (filled($model->getAttribute($kolom))) return Str::limit((string) $model->getAttribute($kolom), 120);
         }
+        // Penunjukan operator administrasi: tampilkan nama akunnya
+        if ($model instanceof OperatorSekolah && $model->id_user) {
+            return User::whereKey($model->id_user)->value('name');
+        }
         if ($id = $model->getAttribute('id_siswa')) {
             return self::$namaSiswa[$id] ??= Student::whereKey($id)->value('nama_siswa') ?? $id;
         }
@@ -257,6 +264,9 @@ class AuditTrail
         'POST api/rapor/catatan-wali/generate' => ['Rapor', 'AI', 'Membuat catatan wali kelas dengan AI', 'OUTPUT'],
         'POST api/settings' => ['Pengaturan Sekolah', 'UBAH', 'Mengubah pengaturan sekolah'],
         'POST api/users' => ['Pengguna', 'TAMBAH', 'Membuat akun pengguna'],
+        'POST api/administrasi/operator' => ['Administrasi', 'TAMBAH', 'Menunjuk operator administrasi'],
+        'PUT api/administrasi/operator/{id}' => ['Administrasi', 'UBAH', 'Mengubah submodul operator administrasi'],
+        'DELETE api/administrasi/operator/{id}' => ['Administrasi', 'HAPUS', 'Mencabut penunjukan operator administrasi'],
         'POST api/users/generate' => ['Pengguna', 'TAMBAH', 'Membuat akun pengguna massal'],
         'PUT api/users/{id}' => ['Pengguna', 'UBAH', 'Mengubah akun pengguna'],
         'DELETE api/users/{id}' => ['Pengguna', 'HAPUS', 'Menghapus akun pengguna'],

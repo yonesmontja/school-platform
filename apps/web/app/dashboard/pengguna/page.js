@@ -6,7 +6,7 @@ import { API_URL, PENINJAU, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { cetakSuratAkun } from "@/components/pengguna/cetakAkun";
 
-const ROLES = ["admin", "kepsek", "wakakur", "wakasis", "yayasan", "guru", "siswa", "ortu"];
+const ROLES = ["admin", "kepsek", "wakakur", "wakasis", "yayasan", "guru", "operator", "siswa", "ortu"];
 // Kartu ringkasan: tiga peran peninjau digabung dalam satu kartu "Peninjau"
 const KARTU = ["admin", "kepsek", "peninjau", "guru", "siswa", "ortu"];
 const LABEL_KARTU = { ...ROLE_LABEL, peninjau: "Peninjau (lihat saja)" };
@@ -277,6 +277,7 @@ function FormAkun({ form, setF, refData, menyimpan, onSimpan, onTutup }) {
                 {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}{PENINJAU.includes(r) ? " (lihat saja)" : ""}</option>)}
               </select>
               {PENINJAU.includes(form.role) && <div className="form-text">Peninjau dapat membuka semua menu dan melihat seluruh data, tetapi tidak dapat mengubah data apa pun.</div>}
+              {form.role === "operator" && <div className="form-text">Untuk staf tata usaha yang bukan guru. Akun ini hanya membuka menu Administrasi; submodulnya diberikan kepala sekolah di Administrasi → Operator.</div>}
             </div>
 
             {bisaGuru && (

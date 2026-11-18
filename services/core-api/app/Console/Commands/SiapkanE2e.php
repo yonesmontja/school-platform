@@ -111,6 +111,8 @@ class SiapkanE2e extends Command
             ['Ester Rumbiak', 'guru2.e2e', 'guru', ['id_guru' => 'GR-E2']],
             ['Paulus Kogoya', 'ortu.e2e', 'ortu', ['id_ortu' => 'ORT-E1']],
             ['Natan Murib', 'siswa.e2e', 'siswa', ['id_siswa' => 'SIS-E3']],
+            // Staf TU tanpa penunjukan; administrasi.spec.js menunjuknya lewat halaman Administrasi
+            ['Maria Yeimo', 'operator.e2e', 'operator', []],
         ];
         foreach ($akun as [$nama, $username, $role, $extra]) {
             User::create($extra + [

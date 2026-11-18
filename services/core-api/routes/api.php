@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AdministrasiController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\KeluargaController;
@@ -151,6 +152,21 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/ringkasan', [LogAktivitasController::class, 'ringkasan']);
         Route::get('/opsi', [LogAktivitasController::class, 'opsi']);
         Route::get('/{id}', [LogAktivitasController::class, 'show'])->whereNumber('id');
+    });
+    // ===== ADMINISTRASI SEKOLAH (Fase 26) =====
+    // Tahap A: ringkasan untuk akun yang punya submodul; daftar operator dilihat pengelola, diubah kepala sekolah.
+    // Submodul berikutnya memakai ->middleware('administrasi:KODE') (SPMB, KEUANGAN, SURAT, INVENTARIS).
+    Route::prefix('administrasi')->group(function () {
+        Route::get('/', [AdministrasiController::class, 'ringkasan'])->middleware('administrasi');
+        Route::middleware('role:admin,kepsek')->group(function () {
+            Route::get('/operator', [AdministrasiController::class, 'operator']);
+            Route::get('/kandidat', [AdministrasiController::class, 'kandidat']);
+        });
+        Route::middleware('role:kepsek')->group(function () {
+            Route::post('/operator', [AdministrasiController::class, 'tunjuk']);
+            Route::put('/operator/{id}', [AdministrasiController::class, 'ubah'])->whereNumber('id');
+            Route::delete('/operator/{id}', [AdministrasiController::class, 'cabut'])->whereNumber('id');
+        });
     });
     // Dasbor pemakaian (masa pakai nyata): admin & kepala sekolah
     Route::get('/pemakaian', [PemakaianController::class, 'index'])->middleware('role:admin,kepsek');

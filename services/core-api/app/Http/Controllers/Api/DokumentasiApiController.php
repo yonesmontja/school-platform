@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  */
 class DokumentasiApiController extends Controller
 {
-    private const PERAN = ['admin' => 'Admin', 'kepsek' => 'Kepala sekolah', 'guru' => 'Guru', 'siswa' => 'Siswa', 'ortu' => 'Orang tua', 'wakakur' => 'Wakasek kurikulum (lihat saja)', 'wakasis' => 'Wakasek kesiswaan (lihat saja)', 'yayasan' => 'Yayasan (lihat saja)'];
+    private const PERAN = ['admin' => 'Admin', 'kepsek' => 'Kepala sekolah', 'guru' => 'Guru', 'siswa' => 'Siswa', 'ortu' => 'Orang tua', 'wakakur' => 'Wakasek kurikulum (lihat saja)', 'wakasis' => 'Wakasek kesiswaan (lihat saja)', 'yayasan' => 'Yayasan (lihat saja)', 'operator' => 'Operator sekolah (submodul administrasi)'];
     private const NAMA_SUMBER = ['classes' => 'kelas', 'students' => 'siswa', 'teachers' => 'guru', 'subjects' => 'mata pelajaran', 'users' => 'pengguna', 'settings' => 'pengaturan sekolah'];
     private const AKSI_CRUD = ['index' => 'Daftar', 'store' => 'Tambah', 'show' => 'Detail', 'update' => 'Ubah', 'destroy' => 'Hapus'];
 

@@ -17,11 +17,14 @@ export const ROLE_LABEL = {
   wakakur: "Wakasek Kurikulum",
   wakasis: "Wakasek Kesiswaan",
   yayasan: "Yayasan",
+  operator: "Operator Sekolah",
 };
-export const ROLE_WARNA = { admin: "danger", kepsek: "warning", guru: "primary", siswa: "success", ortu: "info", wakakur: "dark", wakasis: "dark", yayasan: "secondary" };
+export const ROLE_WARNA = { admin: "danger", kepsek: "warning", guru: "primary", siswa: "success", ortu: "info", wakakur: "dark", wakasis: "dark", yayasan: "secondary", operator: "light" };
 
 const STAF = ["admin", "kepsek", "guru"];
 const PORTAL = ["siswa", "ortu"];
+// Operator Sekolah (staf TU bukan guru): hanya menu Administrasi yang diberikan kepala sekolah, plus akun sendiri
+export const OPERATOR = "operator";
 // Peninjau: melihat semua menu milik admin & kepala sekolah, tanpa bisa mengubah (server menolak perubahan)
 export const PENINJAU = ["wakakur", "wakasis", "yayasan"];
 
@@ -31,9 +34,11 @@ export const peranBoleh = (daftar, role) =>
 
 // Halaman yang dibatasi perannya (dicocokkan dengan awalan path); halaman staf lain terbuka untuk semua staf
 const ATURAN_HALAMAN = [
-  { awalan: "/dashboard/akun", peran: [...STAF, ...PORTAL] },
-  { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL] },
-  { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL] },
+  { awalan: "/dashboard/akun", peran: [...STAF, ...PORTAL, OPERATOR] },
+  { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL, OPERATOR] },
+  { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL, OPERATOR] },
+  // Administrasi Sekolah: halaman memeriksa sendiri submodul yang diberikan (user.administrasi)
+  { awalan: "/dashboard/administrasi", peran: [...STAF, OPERATOR] },
   { awalan: "/dashboard/portal", peran: PORTAL },
   { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
@@ -50,7 +55,7 @@ const ATURAN_HALAMAN = [
 ];
 
 export const halamanAwal = (user) =>
-  !user ? "/login" : user.wajib_ganti_password ? "/dashboard/akun" : PORTAL.includes(user.role) ? "/dashboard/portal" : "/dashboard";
+  !user ? "/login" : user.wajib_ganti_password ? "/dashboard/akun" : PORTAL.includes(user.role) ? "/dashboard/portal" : user.role === OPERATOR ? "/dashboard/administrasi" : "/dashboard";
 
 export function bolehBuka(role, pathname) {
   if (!role) return false;
@@ -84,12 +89,16 @@ export function aksesDari(user) {
   const isKepsek = role === "kepsek";
   const isGuru = role === "guru";
   const isPeninjau = PENINJAU.includes(role);
+  const isOperator = role === OPERATOR;
+  // Kode submodul Administrasi yang boleh dibuka (SPMB, KEUANGAN, SURAT, INVENTARIS)
+  const administrasi = user?.administrasi || [];
   // Peninjau melihat seluruh data seperti pengelola; tombol ubah boleh tampil, tetapi server menolak perubahannya
   const isPengelola = isAdmin || isKepsek || isPeninjau;
   const kelasBinaan = user?.kelas_binaan || [];
   const mapelDiampu = user?.mapel_diampu || [];
   return {
-    user, role, isAdmin, isKepsek, isGuru, isPengelola, isPeninjau,
+    user, role, isAdmin, isKepsek, isGuru, isPengelola, isPeninjau, isOperator, administrasi,
+    bolehAdministrasi: (kode) => (kode ? administrasi.includes(kode) : administrasi.length > 0),
     isStaf: STAF.includes(role) || isPeninjau,
     isPortal: PORTAL.includes(role),
     idGuru: user?.id_guru || null,

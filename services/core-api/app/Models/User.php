@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Support\Administrasi;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -19,15 +21,18 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLES = ['admin', 'kepsek', 'guru', 'siswa', 'ortu', 'wakakur', 'wakasis', 'yayasan'];
+    public const ROLES = ['admin', 'kepsek', 'guru', 'siswa', 'ortu', 'wakakur', 'wakasis', 'yayasan', 'operator'];
     /** Peninjau (wakasek kurikulum, wakasek kesiswaan, yayasan): melihat seluruh data seperti kepala sekolah, tanpa mengubah. */
     public const PENINJAU = ['wakakur', 'wakasis', 'yayasan'];
     public const STAF = ['admin', 'kepsek', 'guru'];
     public const PORTAL = ['siswa', 'ortu'];
+    /** Operator Sekolah (staf TU bukan guru): hanya membuka submodul Administrasi yang diberikan kepala sekolah. */
+    public const OPERATOR = 'operator';
 
     private ?array $cacheKelasBinaan = null;
     private ?array $cacheMapelDiampu = null;
     private ?array $cacheSiswaTerjangkau = null;
+    private ?array $cacheAdministrasi = null;
 
     /**
      * Get the attributes that should be cast.
@@ -49,6 +54,7 @@ class User extends Authenticatable
     public function siswa(): BelongsTo { return $this->belongsTo(Student::class, 'id_siswa', 'id_siswa'); }
     public function ortu(): BelongsTo { return $this->belongsTo(MasterOrtu::class, 'id_ortu', 'id_ortu'); }
     public function wali(): BelongsTo { return $this->belongsTo(MasterWali::class, 'id_wali', 'id_wali'); }
+    public function penunjukanOperator(): HasOne { return $this->hasOne(OperatorSekolah::class, 'id_user'); }
 
     public function isAdmin(): bool { return $this->role === 'admin'; }
     public function isKepsek(): bool { return $this->role === 'kepsek'; }
@@ -56,6 +62,25 @@ class User extends Authenticatable
     public function isStaf(): bool { return in_array($this->role, self::STAF, true); }
     public function isPortal(): bool { return in_array($this->role, self::PORTAL, true); }
     public function isPeninjau(): bool { return in_array($this->role, self::PENINJAU, true); }
+    public function isOperator(): bool { return $this->role === self::OPERATOR; }
+
+    /**
+     * Kode submodul Administrasi yang boleh dibuka akun ini. Admin, kepala sekolah, dan peninjau (baca saja) melihat semua;
+     * guru dan operator hanya yang ditunjuk kepala sekolah; akun portal tidak pernah.
+     */
+    public function submodulAdministrasi(): array
+    {
+        if ($this->cacheAdministrasi !== null) return $this->cacheAdministrasi;
+        if ($this->isPengelola()) return $this->cacheAdministrasi = Administrasi::kode();
+        if (!$this->isGuru() && !$this->isOperator()) return $this->cacheAdministrasi = [];
+        return $this->cacheAdministrasi = Administrasi::rapikan((array) ($this->penunjukanOperator?->submodul ?? []));
+    }
+
+    public function bolehAdministrasi(?string $kode = null): bool
+    {
+        $daftar = $this->submodulAdministrasi();
+        return $kode === null ? $daftar !== [] : in_array($kode, $daftar, true);
+    }
 
     // Admin & kepsek mengelola seluruh data akademik tanpa batasan kelas/mapel. Peninjau ikut melihat seluruh data;
     // perubahan oleh peninjau sudah ditolak middleware 'role' sebelum sampai ke controller.
@@ -117,6 +142,8 @@ class User extends Authenticatable
             'mapel_diampu' => $this->mapelDiampu(),
             'siswa_terjangkau' => $this->siswaTerjangkau(),
             'peninjau' => $this->isPeninjau(),
+            // Submodul Administrasi Sekolah yang boleh dibuka (Fase 26)
+            'administrasi' => $this->submodulAdministrasi(),
             // Studio Rakit Video: hanya satu pengguna yang ditunjuk admin
             'studio_video' => $this->isStaf() && SchoolSetting::query()->value('id_pembuat_video') === $this->id,
         ];
