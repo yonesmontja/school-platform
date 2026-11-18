@@ -9,15 +9,15 @@ import PetaKerja from "@/components/panduan/PetaKerja";
 const normalisasi = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 export default function PanduanPage() {
-  const { role, isGuru, isPengelola, kelasBinaan } = useAkses();
+  const { role, isGuru, isPengelola, kelasBinaan, administrasi } = useAkses();
   const [pilihan, setPilihan] = useState(null);
   const [cari, setCari] = useState("");
   const [terbuka, setTerbuka] = useState(() => new Set());
 
-  const bagian = useMemo(() => (role ? bagianUntuk(role) : []), [role]);
+  const bagian = useMemo(() => (role ? bagianUntuk(role, administrasi) : []), [role, administrasi]);
   const kelompok = useMemo(() => KELOMPOK.filter((k) => bagian.some((b) => b.kelompok === k.id)), [bagian]);
   // Tab awal: guru langsung ke tugasnya, wali kelas ke tugas wali, lainnya ke Mulai di sini
-  const awal = isGuru ? (kelasBinaan.length ? "wali" : "guru") : role === "admin" || role === "kepsek" ? "pengelola" : "mulai";
+  const awal = isGuru ? (kelasBinaan.length ? "wali" : "guru") : role === "admin" || role === "kepsek" ? "pengelola" : role === "operator" ? "administrasi" : "mulai";
   const aktif = pilihan || (kelompok.some((k) => k.id === awal) ? awal : kelompok[0]?.id);
 
   const kata = normalisasi(cari.trim());

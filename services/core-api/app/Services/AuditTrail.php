@@ -36,6 +36,8 @@ class AuditTrail
         'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar', 'VideoBelajar' => 'Video Belajar', 'VideoTautan' => 'Video Belajar',
         'OperatorSekolah' => 'Administrasi',
         'SpmbGelombang' => 'SPMB', 'SpmbPendaftar' => 'SPMB', 'SpmbBerkas' => 'SPMB',
+        'KeuJenisBiaya' => 'Keuangan', 'KeuBeasiswa' => 'Keuangan', 'KeuTagihan' => 'Keuangan', 'KeuPembayaran' => 'Keuangan',
+        'KeuPembayaranRincian' => 'Keuangan', 'KeuKas' => 'Keuangan', 'KeuPengingat' => 'Keuangan',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit
@@ -167,6 +169,14 @@ class AuditTrail
 
     private static function label(Model $model): ?string
     {
+        // Keuangan: label yang memuat siswa atau nomor kuitansi
+        $siswaDari = fn($id) => self::$namaSiswa[$id] ??= Student::whereKey($id)->value('nama_siswa') ?? $id;
+        if ($model instanceof \App\Models\KeuTagihan) return Str::limit("{$model->judul} · " . $siswaDari($model->id_siswa), 120);
+        if ($model instanceof \App\Models\KeuPembayaran) return "{$model->nomor_kuitansi} · " . $siswaDari($model->id_siswa);
+        if ($model instanceof \App\Models\KeuBeasiswa) return "{$model->nama} · " . $siswaDari($model->id_siswa);
+        if ($model instanceof \App\Models\KeuJenisBiaya) return $model->nama;
+        if ($model instanceof \App\Models\KeuKas) return ($model->arah === 'MASUK' ? 'Pemasukan' : 'Pengeluaran') . " · {$model->kategori}";
+        if ($model instanceof \App\Models\KeuPembayaranRincian) return \App\Models\KeuPembayaran::whereKey($model->id_pembayaran)->value('nomor_kuitansi');
         foreach (self::LABEL as $kolom) {
             if (filled($model->getAttribute($kolom))) return Str::limit((string) $model->getAttribute($kolom), 120);
         }
@@ -283,6 +293,21 @@ class AuditTrail
         'POST api/administrasi/spmb/pendaftar/{id}/hasil' => ['SPMB', 'UBAH', 'Menetapkan hasil seleksi SPMB'],
         'POST api/administrasi/spmb/pendaftar/{id}/kode-baru' => ['SPMB', 'UBAH', 'Membuat kode akses baru pendaftar SPMB'],
         'POST api/administrasi/spmb/pendaftar/{id}/selesaikan' => ['SPMB', 'TAMBAH', 'Menyelesaikan daftar ulang SPMB menjadi siswa'],
+        'POST api/administrasi/keuangan/jenis-biaya' => ['Keuangan', 'TAMBAH', 'Membuat jenis biaya'],
+        'PUT api/administrasi/keuangan/jenis-biaya/{id}' => ['Keuangan', 'UBAH', 'Mengubah jenis biaya'],
+        'DELETE api/administrasi/keuangan/jenis-biaya/{id}' => ['Keuangan', 'HAPUS', 'Menghapus jenis biaya'],
+        'POST api/administrasi/keuangan/beasiswa' => ['Keuangan', 'TAMBAH', 'Memberi beasiswa/potongan siswa'],
+        'PUT api/administrasi/keuangan/beasiswa/{id}' => ['Keuangan', 'UBAH', 'Mengubah beasiswa/potongan siswa'],
+        'DELETE api/administrasi/keuangan/beasiswa/{id}' => ['Keuangan', 'HAPUS', 'Menghapus beasiswa/potongan siswa'],
+        'POST api/administrasi/keuangan/tagihan/buat' => ['Keuangan', 'TAMBAH', 'Membuat tagihan siswa'],
+        'PUT api/administrasi/keuangan/tagihan/{id}' => ['Keuangan', 'UBAH', 'Mengubah tagihan siswa'],
+        'POST api/administrasi/keuangan/tagihan/{id}/batal' => ['Keuangan', 'HAPUS', 'Membatalkan tagihan siswa'],
+        'POST api/administrasi/keuangan/pembayaran' => ['Keuangan', 'TAMBAH', 'Mencatat pembayaran siswa'],
+        'POST api/administrasi/keuangan/pembayaran/{id}/batal' => ['Keuangan', 'HAPUS', 'Membatalkan pembayaran siswa'],
+        'POST api/administrasi/keuangan/pengingat' => ['Keuangan', 'KIRIM_WA', 'Mengirim pengingat tunggakan ke orang tua', 'OUTPUT'],
+        'POST api/administrasi/keuangan/pengingat/{id}/catat' => ['Keuangan', 'KIRIM_WA', 'Mencatat pengingat tunggakan lewat chat WA', 'OUTPUT'],
+        'POST api/administrasi/keuangan/kas' => ['Keuangan', 'TAMBAH', 'Mencatat kas sekolah'],
+        'DELETE api/administrasi/keuangan/kas/{id}' => ['Keuangan', 'HAPUS', 'Menghapus catatan kas sekolah'],
         'POST api/users/generate' => ['Pengguna', 'TAMBAH', 'Membuat akun pengguna massal'],
         'PUT api/users/{id}' => ['Pengguna', 'UBAH', 'Mengubah akun pengguna'],
         'DELETE api/users/{id}' => ['Pengguna', 'HAPUS', 'Menghapus akun pengguna'],

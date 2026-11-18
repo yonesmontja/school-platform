@@ -43,6 +43,11 @@ test("kepsek menunjuk operator; operator melihat submodul yang dicentang saja", 
   await expect(page.locator('[data-submodul="KEUANGAN"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Tunjuk operator" })).toHaveCount(0);
   await expect(page.locator(".app-sidebar")).toContainText("Administrasi");
+
+  // Panduan operator langsung membuka tab Administrasi Sekolah, hanya bagian submodul yang diberikan
+  await page.goto("/dashboard/panduan");
+  await expect(page.getByText("SPMB: membuka gelombang pendaftaran")).toBeVisible();
+  await expect(page.getByText("Menunjuk operator administrasi")).toHaveCount(0);
 });
 
 test("admin melihat daftar operator tanpa bisa menunjuk; kepsek mencabut", async ({ page, masuk }) => {

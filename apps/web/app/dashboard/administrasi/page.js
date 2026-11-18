@@ -8,7 +8,7 @@ import { MenuAksi } from "@/components/dashboard/menuAksi";
 
 const esc = (x) => String(x ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 // Halaman submodul yang sudah dibangun (Tahap B–E menambah barisnya)
-const HALAMAN = { SPMB: "/dashboard/administrasi/spmb" };
+const HALAMAN = { SPMB: "/dashboard/administrasi/spmb", KEUANGAN: "/dashboard/administrasi/keuangan" };
 const toast = (title) => Swal.fire({ toast: true, position: "top-end", icon: "success", title, showConfirmButton: false, timer: 2500 });
 
 /**

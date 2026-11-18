@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdministrasiController;
 use App\Http\Controllers\Api\SpmbController;
+use App\Http\Controllers\Api\KeuanganController;
 use App\Http\Controllers\Api\SpmbPublikController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
@@ -200,6 +201,34 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/pendaftar/{id}/kode-baru', [SpmbController::class, 'kodeBaru'])->whereNumber('id');
             Route::get('/berkas/{id}', [SpmbController::class, 'berkas'])->whereNumber('id');
         });
+        // Submodul Keuangan (Tahap C): jenis biaya, beasiswa, tagihan, pembayaran + kuitansi, tunggakan, kas
+        Route::prefix('keuangan')->middleware('administrasi:KEUANGAN')->group(function () {
+            Route::get('/pilihan', [KeuanganController::class, 'pilihan']);
+            Route::get('/ringkasan', [KeuanganController::class, 'ringkasan']);
+            Route::post('/jenis-biaya', [KeuanganController::class, 'simpanJenis']);
+            Route::put('/jenis-biaya/{id}', [KeuanganController::class, 'ubahJenis'])->whereNumber('id');
+            Route::delete('/jenis-biaya/{id}', [KeuanganController::class, 'hapusJenis'])->whereNumber('id');
+            Route::get('/beasiswa', [KeuanganController::class, 'beasiswa']);
+            Route::post('/beasiswa', [KeuanganController::class, 'simpanBeasiswa']);
+            Route::put('/beasiswa/{id}', [KeuanganController::class, 'ubahBeasiswa'])->whereNumber('id');
+            Route::delete('/beasiswa/{id}', [KeuanganController::class, 'hapusBeasiswa'])->whereNumber('id');
+            Route::get('/tagihan', [KeuanganController::class, 'tagihan']);
+            Route::post('/tagihan/buat', [KeuanganController::class, 'buatTagihan']);
+            Route::put('/tagihan/{id}', [KeuanganController::class, 'ubahTagihan'])->whereNumber('id');
+            Route::post('/tagihan/{id}/batal', [KeuanganController::class, 'batalTagihan'])->whereNumber('id');
+            Route::get('/siswa', [KeuanganController::class, 'siswa']);
+            Route::get('/siswa/{id}', [KeuanganController::class, 'detailSiswa']);
+            Route::get('/pembayaran', [KeuanganController::class, 'pembayaran']);
+            Route::post('/pembayaran', [KeuanganController::class, 'simpanPembayaran']);
+            Route::get('/pembayaran/{id}', [KeuanganController::class, 'kuitansi'])->whereNumber('id');
+            Route::post('/pembayaran/{id}/batal', [KeuanganController::class, 'batalPembayaran'])->whereNumber('id');
+            Route::get('/tunggakan', [KeuanganController::class, 'tunggakan']);
+            Route::post('/pengingat', [KeuanganController::class, 'pengingat']);
+            Route::post('/pengingat/{id}/catat', [KeuanganController::class, 'catatPengingat']);
+            Route::get('/kas', [KeuanganController::class, 'kas']);
+            Route::post('/kas', [KeuanganController::class, 'simpanKas']);
+            Route::delete('/kas/{id}', [KeuanganController::class, 'hapusKas'])->whereNumber('id');
+        });
     });
     // Dasbor pemakaian (masa pakai nyata): admin & kepala sekolah
     Route::get('/pemakaian', [PemakaianController::class, 'index'])->middleware('role:admin,kepsek');
@@ -209,6 +238,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/video', [VideoBelajarController::class, 'portal']);
         Route::get('/rapor', [PortalController::class, 'rapor']);
+        Route::get('/tagihan', [KeuanganController::class, 'portal']);
     });
 
     // ===== TES ONLINE SISWA (Fase 16 Tahap C) =====

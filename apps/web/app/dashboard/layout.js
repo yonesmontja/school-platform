@@ -23,6 +23,7 @@ const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-q
 // Administrasi Sekolah (Fase 26): tampil bila akun punya minimal satu submodul (admin/kepsek/peninjau semua; guru & operator yang ditunjuk)
 const ADMINISTRASI_ITEM = { href: "/dashboard/administrasi", label: "Administrasi", icon: "bi-briefcase", syarat: (u) => (u?.administrasi || []).length > 0 };
 const SPMB_ITEM = { href: "/dashboard/administrasi/spmb", label: "SPMB", icon: "bi-person-plus", syarat: (u) => (u?.administrasi || []).includes("SPMB") };
+const KEUANGAN_ITEM = { href: "/dashboard/administrasi/keuangan", label: "Keuangan", icon: "bi-cash-coin", syarat: (u) => (u?.administrasi || []).includes("KEUANGAN") };
 
 // Grup menu sidebar staf, disusun menurut alur kerja guru; setiap grup bisa dilipat/dibuka.
 // Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
@@ -94,7 +95,7 @@ const MENU_GROUPS = [
   {
     // Terpisah dari menu pembelajaran: tata usaha sekolah
     id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear",
-    items: [ADMINISTRASI_ITEM, SPMB_ITEM],
+    items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM],
   },
   {
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
@@ -118,7 +119,7 @@ const PORTAL_GROUPS = [
 
 // Operator Sekolah (staf TU) hanya melihat Administrasi dan akunnya sendiri
 const OPERATOR_GROUPS = [
-  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM, SPMB_ITEM] },
+  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM] },
   { id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM, PANDUAN_ITEM] },
 ];
 

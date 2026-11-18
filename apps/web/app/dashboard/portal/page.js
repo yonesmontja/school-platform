@@ -109,6 +109,48 @@ function VideoPortal() {
   );
 }
 
+const rupiah = (n) => `Rp${Number(n || 0).toLocaleString("id-ID")}`;
+const tglPendek = (t) => new Date(`${String(t).slice(0, 10)}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+
+/** Tagihan sekolah anak dan riwayat pembayarannya (Keuangan); tidak tampil bila belum ada tagihan. */
+function TagihanPortal({ idSiswa }) {
+  const [d, setD] = useState(null);
+  const [buka, setBuka] = useState(false);
+  useEffect(() => {
+    setD(null);
+    fetch(`${API_URL}/portal/tagihan?id_siswa=${encodeURIComponent(idSiswa)}`, { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : { data: null })).then((r) => setD(r.data)).catch(() => {});
+  }, [idSiswa]);
+  if (!d?.tagihan?.length) return null;
+  const sisa = (t) => (t.status === "LUNAS" ? 0 : Math.max(0, t.nominal - t.potongan - t.terbayar));
+  const belum = d.tagihan.filter((t) => sisa(t) > 0);
+  const total = belum.reduce((a, t) => a + sisa(t), 0);
+  const lewat = belum.some((t) => String(t.jatuh_tempo).slice(0, 10) < d.hari_ini);
+  return (
+    <div className="card border-0 shadow-sm mb-4" data-tagihan-portal>
+      <button type="button" className="btn text-start p-3 d-flex align-items-center gap-2" onClick={() => setBuka((b) => !b)} aria-expanded={buka}>
+        <i className={`bi bi-receipt fs-3 ${lewat ? "text-danger" : "text-success"}`}></i>
+        <span className="me-auto"><b>Tagihan Sekolah</b> <span className="text-muted small">{total ? `belum dibayar ${rupiah(total)}` : "semua lunas"}</span></span>
+        <i className={`bi ${buka ? "bi-chevron-up" : "bi-chevron-down"}`}></i>
+      </button>
+      {buka && (
+        <div className="px-3 pb-3">
+          <ul className="list-group mb-2">
+            {d.tagihan.map((t) => (
+              <li key={t.id} className="list-group-item d-flex align-items-center gap-2 small">
+                <span className="me-auto">{t.judul}<br /><span className="text-muted">Jatuh tempo {tglPendek(t.jatuh_tempo)}{t.potongan > 0 ? ` · potongan ${rupiah(t.potongan)}` : ""}</span></span>
+                {sisa(t) > 0 ? <span className={`badge text-bg-${String(t.jatuh_tempo).slice(0, 10) < d.hari_ini ? "danger" : "warning"}`}>{rupiah(sisa(t))}</span> : <span className="badge text-bg-success">Lunas</span>}
+              </li>
+            ))}
+          </ul>
+          {d.pembayaran.length > 0 && <div className="small text-muted">Pembayaran terakhir: {d.pembayaran.slice(0, 3).map((p) => `${rupiah(p.jumlah)} (${tglPendek(p.tanggal)}, ${p.nomor_kuitansi})`).join(" · ")}</div>}
+          <div className="small text-muted mt-1"><i className="bi bi-info-circle me-1"></i>Pembayaran dilakukan di bagian keuangan sekolah.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Pengingat tes online yang bisa dikerjakan siswa sekarang. */
 function TesTersedia() {
   const [daftar, setDaftar] = useState([]);
@@ -343,6 +385,7 @@ function PortalPage() {
       <style>{RAPOR_CSS + PREVIEW_CSS}</style>
       {role === "siswa" && <TesTersedia />}
       <VideoPortal />
+      {idSiswa && <TagihanPortal idSiswa={idSiswa} />}
 
       {/* SAMBUTAN & PILIHAN */}
       <div className="card border-0 shadow-sm mb-4 overflow-hidden">

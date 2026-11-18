@@ -3,10 +3,11 @@
 // perbarui di sini bila alur halaman berubah.
 
 export const KELOMPOK = [
-  { id: "mulai", label: "Mulai di sini", icon: "bi-flag", peran: ["admin", "kepsek", "guru", "siswa", "ortu"] },
+  { id: "mulai", label: "Mulai di sini", icon: "bi-flag", peran: ["admin", "kepsek", "guru", "siswa", "ortu", "operator"] },
   { id: "guru", label: "Guru", icon: "bi-person-video3", peran: ["admin", "kepsek", "guru"] },
   { id: "wali", label: "Wali Kelas", icon: "bi-person-badge", peran: ["admin", "kepsek", "guru"] },
   { id: "pengelola", label: "Admin & Kepala Sekolah", icon: "bi-shield-lock", peran: ["admin", "kepsek"] },
+  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", peran: ["admin", "kepsek", "guru", "operator", "wakakur", "wakasis", "yayasan"] },
   { id: "ortu", label: "Orang Tua & Siswa", icon: "bi-house-heart", peran: ["admin", "kepsek", "siswa", "ortu"] },
 ];
 
@@ -38,7 +39,7 @@ export const BAGIAN = [
     tips: ["Halaman yang pernah dibuka tetap bisa dibuka saat sinyal putus. Lihat bagian Mengisi saat sinyal putus."],
   },
   {
-    id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off",
+    id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off", peran: ["admin", "kepsek", "guru", "siswa", "ortu"],
     langkah: [
       "Saat aplikasi dibuka dengan sinyal, SAPrapor otomatis menyiapkan halaman Input Nilai, Jurnal, dan Presensi beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
       "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, atau presensi seperti biasa lalu tekan Simpan.",
@@ -539,6 +540,149 @@ export const BAGIAN = [
     tips: ["Sebelum perubahan besar (misalnya kenaikan kelas), minta pengelola teknis membuat backup manual."],
   },
 
+  // ---------- Administrasi sekolah ----------
+  // `submodul`: bagian hanya tampil untuk akun yang diberi submodul itu (admin, kepsek, peninjau mendapat semuanya)
+  {
+    id: "tunjuk-operator", kelompok: "administrasi", judul: "Menunjuk operator administrasi", icon: "bi-person-gear", peran: ["kepsek", "admin"],
+    href: "/dashboard/administrasi",
+    langkah: [
+      "Kepala sekolah membuka Administrasi Sekolah di menu samping.",
+      "Bila petugasnya staf TU yang belum punya akun, minta admin membuat akun berperan Operator Sekolah di Manajemen Pengguna. Guru yang membantu cukup memakai akun gurunya.",
+      "Tekan Tunjuk operator, pilih akun, centang submodul yang boleh dibuka (misalnya SPMB), isi catatan tugas bila perlu, lalu tekan Tunjuk.",
+      "Operator langsung melihat menu submodul itu setelah memuat ulang halaman. Ubah submodul atau Cabut penunjukan dari daftar operator kapan saja.",
+    ],
+    tips: [
+      "Admin dan peninjau hanya bisa melihat; penunjukan operator adalah keputusan kepala sekolah.",
+      "Akun Operator Sekolah hanya membuka menu Administrasi, tidak melihat nilai, jurnal, atau rapor.",
+      "Setiap penunjukan, perubahan, dan pencabutan tercatat di Log Aktivitas.",
+    ],
+  },
+  {
+    id: "spmb-gelombang", kelompok: "administrasi", submodul: "SPMB", judul: "SPMB: membuka gelombang pendaftaran", icon: "bi-person-plus",
+    href: "/dashboard/administrasi/spmb",
+    alur: [
+      { label: "Buka gelombang", siapa: "Operator", href: "/dashboard/administrasi/spmb", ikon: "bi-door-open" },
+      { label: "Daftar & unggah berkas", siapa: "Orang tua", href: "/spmb", ikon: "bi-pencil-square" },
+      { label: "Verifikasi berkas", siapa: "Operator", href: "/dashboard/administrasi/spmb?status=DIAJUKAN", ikon: "bi-patch-check" },
+      { label: "Tetapkan hasil & umumkan", siapa: "Operator", href: "/dashboard/administrasi/spmb?status=TERVERIFIKASI", ikon: "bi-megaphone" },
+      { label: "Daftar ulang", siapa: "Orang tua", href: "/spmb?cek=1", ikon: "bi-clipboard-check" },
+      { label: "Jadikan siswa", siapa: "Operator", href: "/dashboard/administrasi/spmb?status=DAFTAR_ULANG", ikon: "bi-mortarboard" },
+    ],
+    langkah: [
+      "Buka Administrasi Sekolah → SPMB, lalu tekan Gelombang baru.",
+      "Isi nama gelombang (misalnya Gelombang 1), tahun ajaran, tanggal buka dan tutup formulir, serta tanggal pengumuman bila sudah ditentukan.",
+      "Isi kuota bila jumlah murid baru dibatasi. Sistem menolak menerima pendaftar melebihi kuota.",
+      "Centang berkas wajib (akta kelahiran, Kartu Keluarga, pas foto, dan lainnya). Berkas yang tidak dicentang tetap boleh diunggah sebagai tambahan.",
+      "Tulis informasi untuk pendaftar (syarat usia, biaya, jadwal tes, nomor yang bisa dihubungi), lalu tekan Simpan.",
+      "Selama tanggal buka sampai tutup, pita SPMB dibuka tampil di beranda sekolah dan formulir di halaman /spmb bisa diisi siapa saja tanpa akun. Bagikan tautan halaman pendaftaran lewat WhatsApp atau brosur.",
+    ],
+    tips: [
+      "Ubah gelombang bila tanggal atau syarat berubah. Gelombang yang sudah punya pendaftar tidak bisa dihapus.",
+      "Setelah tanggal tutup, formulir baru tidak menerima pendaftar, tetapi pendaftar lama tetap bisa melengkapi berkas dan melihat hasil.",
+    ],
+  },
+  {
+    id: "spmb-verifikasi", kelompok: "administrasi", submodul: "SPMB", judul: "SPMB: memverifikasi berkas dan meminta perbaikan", icon: "bi-patch-check",
+    href: "/dashboard/administrasi/spmb?status=DIAJUKAN",
+    langkah: [
+      "Pendaftar baru muncul di Perlu Tindakan dan di daftar SPMB dengan status Menunggu verifikasi. Tekan saringan status untuk menyaringnya.",
+      "Tekan nama pendaftar untuk membuka detail. Periksa data anak dan keluarga; tekan Lihat pada setiap berkas untuk membukanya.",
+      "Pilih status setiap berkas: Sah atau Ditolak. Berkas yang ditolak sebaiknya diberi alasan agar orang tua tahu apa yang harus diunggah ulang.",
+      "Bila semua berkas wajib sah dan datanya benar, tekan Tandai terverifikasi.",
+      "Bila ada yang kurang, tekan Minta perbaikan dan tulis catatannya. Orang tua melihat catatan itu saat mengecek status, memperbaiki data atau mengunggah ulang, lalu menekan Kirim perbaikan. Pendaftar kembali ke status Menunggu verifikasi.",
+    ],
+    tips: [
+      "Salah ketik kecil (nama, tanggal lahir) bisa dibetulkan sendiri lewat menu ⋮ → Rapikan data tanpa meminta orang tua mengisi ulang.",
+      "Tandai terverifikasi ditolak selama masih ada berkas wajib yang belum sah. Status berkas yang sudah Anda pilih tetap tersimpan.",
+    ],
+  },
+  {
+    id: "spmb-hasil", kelompok: "administrasi", submodul: "SPMB", judul: "SPMB: menetapkan hasil, mengumumkan, dan daftar ulang", icon: "bi-megaphone",
+    href: "/dashboard/administrasi/spmb",
+    langkah: [
+      "Untuk pendaftar terverifikasi, tekan Diterima, Cadangan, atau Tidak diterima. Isi skor seleksi dan pesan untuk pendaftar bila perlu (misalnya berkas asli yang dibawa saat daftar ulang), lalu Simpan.",
+      "Hasil belum terlihat oleh orang tua sampai diumumkan. Salah pilih? Tekan Batalkan hasil untuk mengembalikannya ke Terverifikasi.",
+      "Setelah semua pendaftar terverifikasi diberi hasil, tekan Umumkan hasil. Orang tua melihat hasilnya dengan nomor pendaftaran dan kode akses. Tarik pengumuman bila ada yang perlu dibetulkan.",
+      "Orang tua yang diterima menekan Konfirmasi daftar ulang di halaman status, atau datang langsung ke sekolah. Pendaftar yang sudah daftar ulang muncul di Perlu Tindakan.",
+      "Tekan Selesaikan daftar ulang, pilih kelas bila sudah ditentukan (bisa diatur nanti), lalu tekan Jadikan siswa.",
+      "Data siswa, orang tua atau wali, dan sekolah asal dibuat otomatis di Master Siswa tanpa mengetik ulang. Bila kakaknya sudah bersekolah di sini (nomor WhatsApp dan nama orang tua sama), siswa baru dihubungkan ke data orang tua yang sudah ada.",
+    ],
+    tips: [
+      "Umumkan hasil ditolak bila masih ada pendaftar terverifikasi yang belum diberi hasil, agar tidak ada yang terlewat.",
+      "Setelah menjadi siswa, buat akun siswa dan orang tua seperti biasa di Manajemen Pengguna.",
+    ],
+  },
+  {
+    id: "spmb-bantu", kelompok: "administrasi", submodul: "SPMB", judul: "SPMB: membantu orang tua yang kesulitan", icon: "bi-life-preserver",
+    href: "/dashboard/administrasi/spmb",
+    langkah: [
+      "Lupa kode akses: buka detail pendaftar, tekan ⋮ → Buat kode akses baru, lalu sampaikan kode yang tampil kepada orang tua. Kode lama langsung tidak berlaku, dan kode baru tidak bisa dilihat lagi setelah jendela ditutup.",
+      "Orang tua tanpa HP atau internet: isi formulir di halaman /spmb dari komputer sekolah bersama mereka, lalu catat nomor pendaftaran dan kode aksesnya di kertas untuk dibawa pulang.",
+      "Berkas difoto miring atau buram: tolak berkasnya dengan alasan, lalu tekan Minta perbaikan. Foto otomatis diperkecil saat diunggah; PDF juga diterima, maksimal 5 MB.",
+      "Pendaftaran ganda atau keliru: tekan ⋮ → Hapus pendaftaran. Pendaftar yang sudah menjadi siswa tidak bisa dihapus.",
+    ],
+    tips: [
+      "Berkas pendaftar disimpan tertutup dan hanya bisa dibuka oleh akun yang diberi submodul SPMB, kepala sekolah, dan admin.",
+      "Semua tindakan operator dan pendaftar tercatat di Log Aktivitas.",
+    ],
+  },
+
+  {
+    id: "keu-mulai", kelompok: "administrasi", submodul: "KEUANGAN", judul: "Keuangan: jenis biaya, beasiswa, dan tagihan", icon: "bi-cash-coin",
+    href: "/dashboard/administrasi/keuangan?tab=pengaturan",
+    alur: [
+      { label: "Jenis biaya", siapa: "Operator", href: "/dashboard/administrasi/keuangan?tab=pengaturan", ikon: "bi-sliders" },
+      { label: "Buat tagihan", siapa: "Operator", href: "/dashboard/administrasi/keuangan?tab=tagihan", ikon: "bi-receipt" },
+      { label: "Catat pembayaran", siapa: "Operator", href: "/dashboard/administrasi/keuangan?tab=siswa", ikon: "bi-cash-stack" },
+      { label: "Ingatkan tunggakan", siapa: "Operator", href: "/dashboard/administrasi/keuangan?tab=tunggakan", ikon: "bi-whatsapp" },
+      { label: "Laporan kas", siapa: "Operator", href: "/dashboard/administrasi/keuangan?tab=kas", ikon: "bi-journal-bookmark" },
+    ],
+    langkah: [
+      "Buka Administrasi Sekolah → Keuangan, tab Jenis Biaya & Beasiswa, lalu tekan Jenis biaya baru.",
+      "Isi nama (misalnya SPP), periode Bulanan atau Sekali bayar (uang pangkal, seragam, kegiatan tahunan), dan nominal bakunya.",
+      "Siswa yang mendapat keringanan dicatat di Beasiswa baru: pilih siswa, berlaku untuk satu jenis biaya atau semua, bentuk persen atau nominal rupiah.",
+      "Buka tab Tagihan, tekan Buat tagihan. Pilih jenis biaya, rentang bulan (misalnya Juli sampai Desember) dan tanggal jatuh tempo, atau label dan tanggal jatuh tempo untuk sekali bayar.",
+      "Pilih untuk semua siswa, kelas tertentu, atau siswa tertentu, lalu tekan Buat tagihan. Beasiswa langsung dipotongkan; tagihan yang sudah ada untuk bulan yang sama dilewati, jadi aman bila tombol ditekan dua kali.",
+    ],
+    tips: [
+      "Tagihan bisa diubah (nominal, potongan, jatuh tempo) lewat menu ⋮ di tab Tagihan, atau dibatalkan dengan alasan selama belum ada pembayaran.",
+      "Mengubah jenis biaya atau beasiswa tidak mengubah tagihan yang sudah dibuat.",
+      "Jenis biaya yang sudah dipakai tidak bisa dihapus; nonaktifkan saja agar tidak muncul lagi saat membuat tagihan.",
+    ],
+  },
+  {
+    id: "keu-bayar", kelompok: "administrasi", submodul: "KEUANGAN", judul: "Keuangan: mencatat pembayaran dan mencetak kuitansi", icon: "bi-cash-stack",
+    href: "/dashboard/administrasi/keuangan?tab=siswa",
+    langkah: [
+      "Buka tab Siswa & Bayar, cari nama siswa, lalu tekan namanya. Angka merah berarti ada tunggakan, kuning berarti ada tagihan yang belum jatuh tempo.",
+      "Centang tagihan yang dibayar. Jumlahnya terisi sisa tagihan; ubah bila orang tua membayar sebagian.",
+      "Isi tanggal, cara bayar (tunai atau transfer), nama penyetor, dan keterangan bila perlu (misalnya nomor referensi transfer), lalu tekan Catat pembayaran.",
+      "Tekan Cetak kuitansi. Kuitansi memuat kop sekolah, nomor kuitansi berurutan, rincian, jumlah terbilang, dan tanda tangan. Simpan sebagai PDF untuk dikirim lewat WhatsApp, atau cetak di kertas A5.",
+      "Kuitansi lama bisa dicetak ulang dari Riwayat pembayaran lewat menu ⋮ → Cetak kuitansi.",
+    ],
+    tips: [
+      "Salah catat? Menu ⋮ → Batalkan pembayaran dengan alasan. Tagihannya kembali terbuka; kuitansi tetap tersimpan bertanda dibatalkan agar nomor urutnya tidak hilang.",
+      "Orang tua bisa melihat tagihan dan riwayat pembayaran anaknya di Portal (kartu Tagihan Sekolah).",
+      "Pembayaran daring lewat QRIS atau virtual account belum tersedia; semua pembayaran dicatat oleh petugas.",
+    ],
+  },
+  {
+    id: "keu-tunggakan", kelompok: "administrasi", submodul: "KEUANGAN", judul: "Keuangan: tunggakan, pengingat WA, dan laporan kas", icon: "bi-whatsapp",
+    href: "/dashboard/administrasi/keuangan?tab=tunggakan",
+    langkah: [
+      "Tagihan yang lewat jatuh tempo muncul di Perlu Tindakan dan di tab Tunggakan, diurutkan dari tunggakan terbesar.",
+      "Tekan Chat WA pada baris siswa. WhatsApp terbuka dengan pesan sopan berisi daftar tagihan dan totalnya; periksa lalu tekan kirim. Pengingat tercatat dan tanggalnya tampil di kolom Kontak.",
+      "Bila WhatsApp otomatis (Fonnte) sudah aktif di Pengaturan Sekolah, centang beberapa siswa lalu tekan Kirim pengingat otomatis.",
+      "Pemasukan lain (dana BOS, sumbangan) dan pengeluaran (honor, ATK, listrik) dicatat di tab Kas lewat Catat pemasukan atau Catat pengeluaran.",
+      "Pilih rentang tanggal di tab Kas untuk melihat saldo awal, pemasukan, pengeluaran, dan saldo akhir, lalu tekan Cetak laporan untuk laporan kas resmi dengan tanda tangan kepala sekolah dan bendahara.",
+    ],
+    tips: [
+      "Nomor WA diambil dari data orang tua, lalu wali, lalu nomor siswa. Lengkapi di Data Orang Tua & Wali bila tombol Chat WA tidak aktif.",
+      "Pembayaran siswa otomatis masuk ke laporan kas; tidak perlu dicatat dua kali.",
+      "Semua pencatatan, pembatalan, dan pengingat tercatat di Log Aktivitas.",
+    ],
+  },
+
   // ---------- Orang tua & siswa ----------
   {
     id: "kerjakan-tes", kelompok: "ortu", judul: "Mengerjakan tes online", icon: "bi-pencil-square", peran: ["siswa", "admin", "kepsek"],
@@ -577,8 +721,9 @@ export const BAGIAN = [
 ];
 
 // Bagian yang terlihat untuk satu peran
-export const bagianUntuk = (role) =>
+// `administrasi` = submodul Administrasi Sekolah milik akun (user.administrasi); bagian ber-`submodul` hanya untuk pemiliknya.
+export const bagianUntuk = (role, administrasi = []) =>
   BAGIAN.filter((b) => {
     const kelompok = KELOMPOK.find((k) => k.id === b.kelompok);
-    return kelompok.peran.includes(role) && (!b.peran || b.peran.includes(role));
+    return kelompok.peran.includes(role) && (!b.peran || b.peran.includes(role)) && (!b.submodul || administrasi.includes(b.submodul));
   });

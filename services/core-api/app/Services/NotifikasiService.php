@@ -63,6 +63,7 @@ class NotifikasiService
             $item = $item->merge($this->atp());
             $item = $item->merge($this->pembinaanPresensi());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('SPMB')) $item = $item->merge($this->spmb());
+            if (!$u->isPeninjau() && $u->bolehAdministrasi('KEUANGAN')) $item = $item->merge($this->keuangan());
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -294,6 +295,21 @@ class NotifikasiService
             ]);
         }
         return $item;
+    }
+
+    /** Tunggakan tagihan siswa (lewat jatuh tempo, belum lunas) untuk operator keuangan. */
+    private function keuangan(): array
+    {
+        $t = \App\Models\KeuTagihan::whereIn('status', ['BELUM', 'SEBAGIAN'])->where('jatuh_tempo', '<', $this->hariIni)
+            ->selectRaw('count(distinct id_siswa) as siswa, coalesce(sum(nominal - potongan - terbayar), 0) as total, max(jatuh_tempo) as terakhir')->first();
+        if (!$t || !$t->siswa) return [];
+        return [$this->buat('keuangan-tunggakan', [(int) $t->siswa, (int) $t->total], [
+            'tingkat' => 'info', 'kategori' => 'Keuangan', 'ikon' => 'bi-cash-coin',
+            'judul' => "{$t->siswa} siswa punya tunggakan " . \App\Support\Keuangan::rupiah((int) $t->total),
+            'pesan' => 'Tagihan sudah lewat jatuh tempo. Kirim pengingat WhatsApp ke orang tua dari tab Tunggakan.',
+            'jumlah' => (int) $t->siswa, 'tautan' => '/dashboard/administrasi/keuangan?tab=tunggakan',
+            'waktu' => \Carbon\Carbon::parse($t->terakhir, config('app.zona_sekolah'))->toIso8601String(),
+        ])];
     }
 
     private function presensiSekolah(): array
