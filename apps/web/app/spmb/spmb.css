@@ -1,0 +1,23 @@
+/* Halaman publik SPMB: memakai palet beranda (.beranda) + komponen Bootstrap untuk formulir. */
+.spmb-atas { background: var(--b-malam); padding: 1rem 0; }
+.spmb-isi { padding-top: 2.5rem; padding-bottom: 4rem; max-width: 52rem; }
+.spmb-judul { font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.5rem); font-weight: 600; }
+.spmb .card { border-color: var(--b-garis); border-radius: 14px; }
+.spmb .nav-pills .nav-link { border-radius: 999px; font-weight: 600; color: var(--b-tinta); }
+.spmb .nav-pills .nav-link.active { background: var(--b-malam); color: #fff; }
+.spmb .form-label { font-weight: 600; font-size: .9rem; margin-bottom: .25rem; }
+.spmb-bagian { font-family: var(--b-serif); font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 .75rem; padding-top: 1rem; border-top: 1px solid var(--b-garis); }
+.spmb-bagian:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.spmb-kode { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.spmb-kode > div { background: var(--b-pasir); border: 1px dashed var(--b-emas-tua); border-radius: 12px; padding: .875rem 1rem; }
+.spmb-kode b { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.5rem; letter-spacing: .08em; }
+.spmb-langkah { display: flex; gap: .5rem; list-style: none; padding: 0; margin: 0 0 1rem; counter-reset: langkah; }
+.spmb-langkah li { flex: 1; text-align: center; font-size: .8rem; color: var(--b-tinta-2); position: relative; padding-top: 2.1rem; }
+.spmb-langkah li::before {
+  counter-increment: langkah; content: counter(langkah); position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 1.75rem; height: 1.75rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
+  background: #e9edf1; color: var(--b-tinta-2);
+}
+.spmb-langkah li.selesai::before { content: "✓"; background: #198754; color: #fff; }
+.spmb-langkah li.kini { color: var(--b-tinta); font-weight: 600; }
+.spmb-langkah li.kini::before { background: var(--b-emas); color: var(--b-malam); }

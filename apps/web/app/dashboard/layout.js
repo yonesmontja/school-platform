@@ -22,6 +22,7 @@ const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", ico
 const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
 // Administrasi Sekolah (Fase 26): tampil bila akun punya minimal satu submodul (admin/kepsek/peninjau semua; guru & operator yang ditunjuk)
 const ADMINISTRASI_ITEM = { href: "/dashboard/administrasi", label: "Administrasi", icon: "bi-briefcase", syarat: (u) => (u?.administrasi || []).length > 0 };
+const SPMB_ITEM = { href: "/dashboard/administrasi/spmb", label: "SPMB", icon: "bi-person-plus", syarat: (u) => (u?.administrasi || []).includes("SPMB") };
 
 // Grup menu sidebar staf, disusun menurut alur kerja guru; setiap grup bisa dilipat/dibuka.
 // Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
@@ -93,7 +94,7 @@ const MENU_GROUPS = [
   {
     // Terpisah dari menu pembelajaran: tata usaha sekolah
     id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear",
-    items: [ADMINISTRASI_ITEM],
+    items: [ADMINISTRASI_ITEM, SPMB_ITEM],
   },
   {
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
@@ -117,7 +118,7 @@ const PORTAL_GROUPS = [
 
 // Operator Sekolah (staf TU) hanya melihat Administrasi dan akunnya sendiri
 const OPERATOR_GROUPS = [
-  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM] },
+  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM, SPMB_ITEM] },
   { id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM, PANDUAN_ITEM] },
 ];
 
@@ -140,7 +141,7 @@ const namaHalaman = (pathname) =>
     .find((it) => pathname === it.href || pathname.startsWith(`${it.href}/`))?.label || pathname;
 
 const isActivePath = (pathname, href) =>
-  href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  href === "/dashboard" || href === "/dashboard/administrasi" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 const normalisasi = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const bacaStorage = (key, fallback) => {
   try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch (e) { return fallback; }

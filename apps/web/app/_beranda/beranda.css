@@ -51,6 +51,8 @@
 .b-tombol-terang:hover { background: rgba(255, 255, 255, .12); border-color: var(--b-putih); }
 .b-tombol-garis { border-color: rgba(255, 255, 255, .5); color: var(--b-putih) !important; }
 .b-tombol-garis:hover { background: rgba(255, 255, 255, .12); }
+.b-tombol-gelap { border-color: rgba(19, 40, 61, .35); color: var(--b-tinta) !important; background: var(--b-putih); }
+.b-tombol-gelap:hover { border-color: var(--b-tinta); }
 .b-tombol-kecil { min-height: 2.375rem; padding: .375rem 1.125rem; font-size: .9rem; }
 
 /* ---------- Bilah atas ---------- */
@@ -58,6 +60,11 @@
 .b-atas-isi { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .b-merek { display: inline-flex; align-items: center; gap: .75rem; color: var(--b-putih) !important; text-decoration: none; font-weight: 700; font-size: 1.0625rem; letter-spacing: .01em; border-radius: 999px; }
 .b-merek img { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--b-putih); padding: 2px; object-fit: contain; }
+
+.b-atas-nav { display: flex; align-items: center; gap: 1.25rem; }
+.b-atas-tautan { color: var(--b-putih) !important; font-weight: 600; text-decoration: none; font-size: .95rem; }
+.b-atas-tautan:hover { color: var(--b-emas) !important; }
+.b-atas-tautan:focus-visible { outline: 3px solid var(--b-emas); outline-offset: 3px; border-radius: 4px; }
 
 /* ---------- Hero ---------- */
 .b-hero {
@@ -146,6 +153,13 @@
   background-image: radial-gradient(30rem 14rem at 50% 0%, rgba(255, 255, 255, .16), transparent 70%); }
 .b-semboyan p { margin: 0; font-family: var(--b-serif); font-style: italic; font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem); line-height: 1.25; }
 .b-semboyan span { display: block; margin-top: .75rem; font-size: .8125rem; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .75); }
+
+/* ---------- Pita SPMB (muncul bila ada gelombang yang dibuka/akan dibuka) ---------- */
+.b-spmb { background: var(--b-pasir-2); padding: 2.5rem 0; border-bottom: 1px solid var(--b-garis); }
+.b-spmb-isi { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; }
+.b-spmb h2 { font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.125rem); font-weight: 600; }
+.b-spmb .b-alis { margin-bottom: .5rem; }
+.b-spmb .b-aksi { margin-top: 0; }
 
 /* ---------- Kaki ---------- */
 .b-kaki { background: var(--b-malam); color: rgba(255, 255, 255, .78); padding: 2.5rem 0; font-size: .9rem; }

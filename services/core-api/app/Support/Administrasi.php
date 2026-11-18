@@ -16,7 +16,7 @@ class Administrasi
     ];
 
     /** Submodul yang sudah dibangun; yang lain tampil sebagai "belum tersedia". */
-    public const TERSEDIA = [];
+    public const TERSEDIA = ['SPMB'];
 
     public static function kode(): array
     {

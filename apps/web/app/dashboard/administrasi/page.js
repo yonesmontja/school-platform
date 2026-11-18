@@ -7,6 +7,8 @@ import { minta } from "@/components/banksoal/api";
 import { MenuAksi } from "@/components/dashboard/menuAksi";
 
 const esc = (x) => String(x ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+// Halaman submodul yang sudah dibangun (Tahap B–E menambah barisnya)
+const HALAMAN = { SPMB: "/dashboard/administrasi/spmb" };
 const toast = (title) => Swal.fire({ toast: true, position: "top-end", icon: "success", title, showConfirmButton: false, timer: 2500 });
 
 /**
@@ -126,7 +128,9 @@ export default function AdministrasiPage() {
                     </div>
                     <p className="small text-muted mb-2">{s.uraian}</p>
                     {s.tersedia
-                      ? <span className="badge text-bg-success fw-normal">Tersedia</span>
+                      ? (s.boleh && HALAMAN[s.kode]
+                        ? <Link href={HALAMAN[s.kode]} className="btn btn-sm btn-primary stretched-link">Buka {s.nama}</Link>
+                        : <span className="badge text-bg-success fw-normal">Tersedia</span>)
                       : <span className="badge text-bg-light border fw-normal">Tahap {s.tahap} · belum tersedia</span>}
                   </div>
                 </div>

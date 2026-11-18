@@ -3,22 +3,10 @@
 import Link from "next/link";
 import AlihkanBilaMasuk from "./_beranda/AlihkanBilaMasuk";
 import "./_beranda/beranda.css";
+import { muatSekolah, muatSpmb } from "./_beranda/sekolah";
 
-// Identitas sekolah dibaca di server dan disegarkan tiap 5 menit; bila API belum terjangkau (mis. saat build) pakai bawaan
+// Identitas sekolah dibaca di server dan disegarkan tiap 5 menit
 export const revalidate = 300;
-const API_INTERNAL_URL = (process.env.API_INTERNAL_URL || "http://localhost:8000").replace(/\/+$/, "");
-const BAWAAN = { nama_sekolah: "Sekolah Anak Papua", kota: "Nabire", alamat_sekolah: "", npsn: "", ada_logo: true };
-
-async function muatSekolah() {
-  try {
-    const r = await fetch(`${API_INTERNAL_URL}/api/sekolah-publik`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
-    if (!r.ok) return BAWAAN;
-    const d = (await r.json()).data || {};
-    return { ...BAWAAN, ...Object.fromEntries(Object.entries(d).filter(([, v]) => v !== null && v !== "")) };
-  } catch {
-    return BAWAAN;
-  }
-}
 
 export async function generateMetadata() {
   const s = await muatSekolah();
@@ -41,6 +29,8 @@ const ALUR = [
   { judul: "Makna", isi: "Guru menautkan temuan anak ke konsep berbagai mata pelajaran." },
   { judul: "Produk anak", isi: "Anak menghasilkan karya nyata yang bisa dibagikan kepada keluarga dan kampung." },
 ];
+
+const tanggalPanjang = (t) => new Date(`${t}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
 /** Pita motif geometris (segitiga & belah ketupat) yang terinspirasi ragam hias ukiran Papua. */
 function PitaMotif({ id, className = "" }) {
@@ -71,7 +61,9 @@ function Lanskap() {
 }
 
 export default async function Beranda() {
-  const s = await muatSekolah();
+  const [s, spmb] = await Promise.all([muatSekolah(), muatSpmb()]);
+  const spmbBuka = spmb.find((g) => g.buka);
+  const spmbNanti = !spmbBuka && spmb[0];
   const npsn = s.npsn && !/^0+$/.test(s.npsn) ? s.npsn : null;
   const alamat = [s.alamat_sekolah, s.kota].filter(Boolean).join(", ");
   const tahun = new Date().getFullYear();
@@ -88,7 +80,10 @@ export default async function Beranda() {
             <img src={s.ada_logo ? "/api/logo-sekolah" : "/api/ikon-aplikasi/icon-192.png"} alt="" width="40" height="40" />
             <span>{s.nama_sekolah}</span>
           </Link>
-          <Link href="/login" className="b-tombol b-tombol-garis b-tombol-kecil">Masuk</Link>
+          <nav className="b-atas-nav" aria-label="Menu beranda">
+            <Link href="/spmb" className="b-atas-tautan">SPMB</Link>
+            <Link href="/login" className="b-tombol b-tombol-garis b-tombol-kecil">Masuk</Link>
+          </nav>
         </div>
       </header>
 
@@ -118,6 +113,26 @@ export default async function Beranda() {
         </section>
 
         <PitaMotif id="motif-atas" />
+
+        {(spmbBuka || spmbNanti) && (
+          <section className="b-spmb" aria-labelledby="judul-spmb">
+            <div className="b-wadah b-spmb-isi">
+              <div>
+                <p className="b-alis b-alis-gelap">Penerimaan murid baru · {(spmbBuka || spmbNanti).tahun_ajaran}</p>
+                <h2 id="judul-spmb">{spmbBuka ? `${spmbBuka.nama} dibuka` : `${spmbNanti.nama} segera dibuka`}</h2>
+                <p className="b-sub mb-0">
+                  {spmbBuka
+                    ? <>Daftar daring sampai <b>{tanggalPanjang(spmbBuka.tgl_tutup)}</b>. Isi formulir, unggah berkas, lalu pantau hasilnya dengan nomor pendaftaran.</>
+                    : <>Formulir dibuka <b>{tanggalPanjang(spmbNanti.tgl_buka)}</b> sampai {tanggalPanjang(spmbNanti.tgl_tutup)}.</>}
+                </p>
+              </div>
+              <div className="b-aksi">
+                {spmbBuka && <Link href="/spmb" className="b-tombol b-tombol-emas">Daftar sekarang <i className="bi bi-arrow-right" aria-hidden="true"></i></Link>}
+                <Link href="/spmb?cek=1" className="b-tombol b-tombol-gelap">Cek status pendaftaran</Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="b-bagian" id="peran" aria-labelledby="judul-peran">
           <div className="b-wadah">
@@ -180,6 +195,7 @@ export default async function Beranda() {
             </div>
           </div>
           <div className="b-kaki-tautan">
+            <Link href="/spmb">SPMB</Link>
             <Link href="/login">Masuk</Link>
             <span>© {tahun} {s.nama_sekolah} · SAPrapor</span>
           </div>

@@ -3,6 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdministrasiController;
+use App\Http\Controllers\Api\SpmbController;
+use App\Http\Controllers\Api\SpmbPublikController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\KeluargaController;
@@ -106,6 +108,19 @@ Route::get('/sekolah-publik', [SchoolSettingController::class, 'publik'])->middl
 // Ikon aplikasi (favicon/PWA): logo sekolah bila diaktifkan admin, selain itu dialihkan ke ikon bawaan
 Route::get('/ikon-aplikasi/{nama}', [SchoolSettingController::class, 'ikon'])->where('nama', '[a-z0-9-]+(\.png)?');
 
+// SPMB tanpa login (Fase 26 Tahap B): formulir daring; status/perbaikan/berkas/daftar ulang memakai nomor + kode akses
+Route::prefix('spmb')->group(function () {
+    Route::get('/info', [SpmbPublikController::class, 'info'])->middleware('throttle:60,1');
+    Route::post('/daftar', [SpmbPublikController::class, 'daftar'])->middleware('throttle:spmb-daftar');
+    Route::middleware('throttle:spmb')->group(function () {
+        Route::post('/status', [SpmbPublikController::class, 'status']);
+        Route::put('/data', [SpmbPublikController::class, 'ubah']);
+        Route::post('/berkas', [SpmbPublikController::class, 'unggah']);
+        Route::post('/ajukan-ulang', [SpmbPublikController::class, 'ajukanUlang']);
+        Route::post('/daftar-ulang', [SpmbPublikController::class, 'daftarUlang']);
+    });
+});
+
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {
     $path = storage_path('app/public/signatures/' . basename($filename));
@@ -166,6 +181,24 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::post('/operator', [AdministrasiController::class, 'tunjuk']);
             Route::put('/operator/{id}', [AdministrasiController::class, 'ubah'])->whereNumber('id');
             Route::delete('/operator/{id}', [AdministrasiController::class, 'cabut'])->whereNumber('id');
+        });
+        // Submodul SPMB (Tahap B): operator bertugas SPMB + admin/kepsek; peninjau hanya membaca
+        Route::prefix('spmb')->middleware('administrasi:SPMB')->group(function () {
+            Route::get('/pilihan', [SpmbController::class, 'pilihan']);
+            Route::get('/gelombang', [SpmbController::class, 'gelombang']);
+            Route::post('/gelombang', [SpmbController::class, 'simpanGelombang']);
+            Route::put('/gelombang/{id}', [SpmbController::class, 'ubahGelombang'])->whereNumber('id');
+            Route::delete('/gelombang/{id}', [SpmbController::class, 'hapusGelombang'])->whereNumber('id');
+            Route::post('/gelombang/{id}/umumkan', [SpmbController::class, 'umumkan'])->whereNumber('id');
+            Route::get('/pendaftar', [SpmbController::class, 'pendaftar']);
+            Route::get('/pendaftar/{id}', [SpmbController::class, 'detail'])->whereNumber('id');
+            Route::put('/pendaftar/{id}', [SpmbController::class, 'ubah'])->whereNumber('id');
+            Route::delete('/pendaftar/{id}', [SpmbController::class, 'hapus'])->whereNumber('id');
+            Route::post('/pendaftar/{id}/verifikasi', [SpmbController::class, 'verifikasi'])->whereNumber('id');
+            Route::post('/pendaftar/{id}/hasil', [SpmbController::class, 'hasil'])->whereNumber('id');
+            Route::post('/pendaftar/{id}/selesaikan', [SpmbController::class, 'selesaikan'])->whereNumber('id');
+            Route::post('/pendaftar/{id}/kode-baru', [SpmbController::class, 'kodeBaru'])->whereNumber('id');
+            Route::get('/berkas/{id}', [SpmbController::class, 'berkas'])->whereNumber('id');
         });
     });
     // Dasbor pemakaian (masa pakai nyata): admin & kepala sekolah

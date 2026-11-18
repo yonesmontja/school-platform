@@ -62,6 +62,7 @@ class NotifikasiService
             $item = $item->merge($this->bankSoal());
             $item = $item->merge($this->atp());
             $item = $item->merge($this->pembinaanPresensi());
+            if (!$u->isPeninjau() && $u->bolehAdministrasi('SPMB')) $item = $item->merge($this->spmb());
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -267,6 +268,32 @@ class NotifikasiService
             'tautan' => '/dashboard/presensi?' . http_build_query(array_filter(['kelas' => $kelas->count() === 1 ? $kelas->first() : null, 'pembinaan' => 1])),
             'waktu' => $perlu->first()->tanggal_tindak_lanjut->toDateString() . 'T00:00:00',
         ])];
+    }
+
+    /** Pendaftar SPMB yang menunggu verifikasi atau sudah daftar ulang (perlu dijadikan siswa). */
+    private function spmb(): array
+    {
+        $jumlah = \App\Models\SpmbPendaftar::whereIn('status', ['DIAJUKAN', 'DAFTAR_ULANG'])->selectRaw('status, count(*) as n, max(updated_at) as terakhir')->groupBy('status')->get()->keyBy('status');
+        $item = [];
+        if ($a = $jumlah->get('DIAJUKAN')) {
+            $item[] = $this->buat('spmb-verifikasi', [(int) $a->n, (string) $a->terakhir], [
+                'tingkat' => 'warning', 'kategori' => 'SPMB', 'ikon' => 'bi-person-plus',
+                'judul' => "{$a->n} pendaftar SPMB menunggu verifikasi",
+                'pesan' => 'Periksa data dan berkasnya, lalu tandai terverifikasi atau minta perbaikan.',
+                'jumlah' => (int) $a->n, 'tautan' => '/dashboard/administrasi/spmb?status=DIAJUKAN',
+                'waktu' => \Carbon\Carbon::parse($a->terakhir)->toIso8601String(),
+            ]);
+        }
+        if ($d = $jumlah->get('DAFTAR_ULANG')) {
+            $item[] = $this->buat('spmb-daftar-ulang', [(int) $d->n, (string) $d->terakhir], [
+                'tingkat' => 'info', 'kategori' => 'SPMB', 'ikon' => 'bi-person-check',
+                'judul' => "{$d->n} pendaftar sudah daftar ulang",
+                'pesan' => 'Selesaikan daftar ulangnya agar otomatis tercatat sebagai siswa beserta data orang tua.',
+                'jumlah' => (int) $d->n, 'tautan' => '/dashboard/administrasi/spmb?status=DAFTAR_ULANG',
+                'waktu' => \Carbon\Carbon::parse($d->terakhir)->toIso8601String(),
+            ]);
+        }
+        return $item;
     }
 
     private function presensiSekolah(): array

@@ -35,6 +35,7 @@ class AuditTrail
         'PaketSoal' => 'Paket Soal', 'PaketSoalButir' => 'Paket Soal', 'PaketSoalJawaban' => 'Paket Soal',
         'CapaianPembelajaran' => 'Perangkat Ajar', 'Atp' => 'Perangkat Ajar', 'AtpBaris' => 'Perangkat Ajar', 'ModulAjar' => 'Perangkat Ajar', 'VideoBelajar' => 'Video Belajar', 'VideoTautan' => 'Video Belajar',
         'OperatorSekolah' => 'Administrasi',
+        'SpmbGelombang' => 'SPMB', 'SpmbPendaftar' => 'SPMB', 'SpmbBerkas' => 'SPMB',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit
@@ -173,6 +174,11 @@ class AuditTrail
         if ($model instanceof OperatorSekolah && $model->id_user) {
             return User::whereKey($model->id_user)->value('name');
         }
+        // SPMB: gelombang memakai namanya, berkas memakai jenis + nama pendaftar
+        if ($model instanceof \App\Models\SpmbGelombang) return $model->nama;
+        if ($model instanceof \App\Models\SpmbBerkas) {
+            return (\App\Support\Spmb::BERKAS[$model->jenis] ?? $model->jenis) . ' · ' . \App\Models\SpmbPendaftar::whereKey($model->id_pendaftar)->value('nama_siswa');
+        }
         if ($id = $model->getAttribute('id_siswa')) {
             return self::$namaSiswa[$id] ??= Student::whereKey($id)->value('nama_siswa') ?? $id;
         }
@@ -267,6 +273,16 @@ class AuditTrail
         'POST api/administrasi/operator' => ['Administrasi', 'TAMBAH', 'Menunjuk operator administrasi'],
         'PUT api/administrasi/operator/{id}' => ['Administrasi', 'UBAH', 'Mengubah submodul operator administrasi'],
         'DELETE api/administrasi/operator/{id}' => ['Administrasi', 'HAPUS', 'Mencabut penunjukan operator administrasi'],
+        'POST api/administrasi/spmb/gelombang' => ['SPMB', 'TAMBAH', 'Membuat gelombang SPMB'],
+        'PUT api/administrasi/spmb/gelombang/{id}' => ['SPMB', 'UBAH', 'Mengubah gelombang SPMB'],
+        'DELETE api/administrasi/spmb/gelombang/{id}' => ['SPMB', 'HAPUS', 'Menghapus gelombang SPMB'],
+        'POST api/administrasi/spmb/gelombang/{id}/umumkan' => ['SPMB', 'UBAH', 'Mengumumkan / menarik hasil seleksi SPMB'],
+        'PUT api/administrasi/spmb/pendaftar/{id}' => ['SPMB', 'UBAH', 'Merapikan data pendaftar SPMB'],
+        'DELETE api/administrasi/spmb/pendaftar/{id}' => ['SPMB', 'HAPUS', 'Menghapus pendaftaran SPMB'],
+        'POST api/administrasi/spmb/pendaftar/{id}/verifikasi' => ['SPMB', 'UBAH', 'Memverifikasi berkas pendaftar SPMB'],
+        'POST api/administrasi/spmb/pendaftar/{id}/hasil' => ['SPMB', 'UBAH', 'Menetapkan hasil seleksi SPMB'],
+        'POST api/administrasi/spmb/pendaftar/{id}/kode-baru' => ['SPMB', 'UBAH', 'Membuat kode akses baru pendaftar SPMB'],
+        'POST api/administrasi/spmb/pendaftar/{id}/selesaikan' => ['SPMB', 'TAMBAH', 'Menyelesaikan daftar ulang SPMB menjadi siswa'],
         'POST api/users/generate' => ['Pengguna', 'TAMBAH', 'Membuat akun pengguna massal'],
         'PUT api/users/{id}' => ['Pengguna', 'UBAH', 'Mengubah akun pengguna'],
         'DELETE api/users/{id}' => ['Pengguna', 'HAPUS', 'Menghapus akun pengguna'],
