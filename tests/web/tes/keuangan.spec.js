@@ -87,14 +87,18 @@ test("tunggakan tampil dengan tombol Chat WA dan tercatat setelah diingatkan", a
 test("kas: pengeluaran mengurangi saldo; pembayaran siswa ikut masuk", async ({ page, masuk }) => {
   await masuk("admin");
   await page.goto("/dashboard/administrasi/keuangan?tab=kas");
-  await expect(page.locator("[data-saldo-akhir]")).toHaveText("Rp60.000");
+  // Saldo dibaca relatif: spesifikasi lain (pengadaan inventaris) bisa ikut mencatat kas.
+  await expect(page.getByRole("row").filter({ hasText: "KW-2026-00001 · Abner Kogoya" })).toContainText("Rp60.000");
+  const angka = (t) => Number(t.replace(/[^\d-]/g, ""));
+  const saldoAwal = angka(await page.locator("[data-saldo-akhir]").innerText());
+  const rupiah = (n) => `Rp${n < 0 ? "-" : ""}${Math.abs(n).toLocaleString("id-ID")}`;
   await page.getByRole("button", { name: "Catat pengeluaran" }).click();
   await page.locator("#kKategori").fill("ATK & bahan ajar");
   await page.locator("#kJumlah").fill("15000");
   await page.locator("#kKet").fill("Kertas ujian");
   await page.getByRole("button", { name: "Simpan", exact: true }).click();
   await expect(page.locator(".swal2-toast")).toContainText("Pengeluaran dicatat");
-  await expect(page.locator("[data-saldo-akhir]")).toHaveText("Rp45.000");
+  await expect(page.locator("[data-saldo-akhir]")).toHaveText(rupiah(saldoAwal - 15000));
   await expect(page.getByText("Kertas ujian")).toBeVisible();
 });
 
