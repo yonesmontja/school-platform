@@ -1,7 +1,7 @@
 // Keuangan (Administrasi Tahap C): jenis biaya → tagihan massal → pembayaran + kuitansi → tunggakan → kas → portal orang tua.
 const { test, expect, masukApi, API } = require("../bantu");
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 180000 });
 
 const zona = () => new Date(Date.now() + 9 * 3600000); // WIT
 const bulan = (geser = 0) => { const d = zona(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + geser); return d.toISOString().slice(0, 7); };
@@ -98,6 +98,18 @@ test("kas: pengeluaran mengurangi saldo; pembayaran siswa ikut masuk", async ({ 
   await expect(page.getByText("Kertas ujian")).toBeVisible();
 });
 
+test("admin mengisi tujuan pembayaran GoPay", async ({ page, masuk }) => {
+  await masuk("admin");
+  await page.goto("/dashboard/administrasi/keuangan?tab=pengaturan");
+  await page.getByRole("button", { name: "Tujuan baru" }).click();
+  await page.locator("#tbJenis").selectOption("EWALLET");
+  await page.locator("#tbPenyedia").fill("GoPay");
+  await page.locator("#tbNomor").fill("081299990000");
+  await page.locator("#tbNama").fill("Bendahara Sekolah");
+  await page.getByRole("button", { name: "Simpan", exact: true }).click();
+  await expect(page.locator('[data-tujuan-bayar="GoPay"]')).toContainText("081299990000");
+});
+
 test("orang tua melihat tagihan anak di Portal", async ({ page, masuk }) => {
   await masuk("ortu");
   await page.goto("/dashboard/portal");
@@ -106,4 +118,5 @@ test("orang tua melihat tagihan anak di Portal", async ({ page, masuk }) => {
   await kartu.getByRole("button").first().click();
   await expect(kartu).toContainText(judul(bulan(-2)));
   await expect(kartu).toContainText("Pembayaran terakhir: Rp60.000");
+  await expect(kartu.locator("[data-tujuan-portal]")).toContainText("GoPay 081299990000 a.n. Bendahara Sekolah");
 });

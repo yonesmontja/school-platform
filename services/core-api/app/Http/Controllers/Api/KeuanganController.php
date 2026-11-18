@@ -11,6 +11,7 @@ use App\Models\KeuPembayaran;
 use App\Models\KeuPembayaranRincian;
 use App\Models\KeuPengingat;
 use App\Models\KeuTagihan;
+use App\Models\KeuTujuanBayar;
 use App\Models\MasterPeriode;
 use App\Models\SchoolSetting;
 use App\Models\Student;
@@ -56,6 +57,8 @@ class KeuanganController extends Controller
             'tahun_ajaran' => MasterPeriode::where('status_aktif', 'AKTIF')->value('tahun_ajaran'),
             'hari_ini' => $this->hariIni(),
             'wa_otomatis' => (bool) ($s?->status_wa_api && $s?->wa_api_token),
+            'jenis_tujuan' => collect(Keuangan::JENIS_TUJUAN)->map(fn($n, $k) => ['kode' => $k, 'nama' => $n])->values(),
+            'tujuan_bayar' => KeuTujuanBayar::orderByDesc('aktif')->orderBy('urutan')->orderBy('id')->get(),
         ]]);
     }
 
@@ -118,6 +121,47 @@ class KeuanganController extends Controller
         }
         $j->delete();
         return response()->json(['message' => "Jenis biaya {$j->nama} dihapus."]);
+    }
+
+    // ===================== TUJUAN PEMBAYARAN =====================
+
+    private function aturanTujuan(): array
+    {
+        return [
+            'jenis' => ['required', Rule::in(array_keys(Keuangan::JENIS_TUJUAN))],
+            'penyedia' => 'required|string|max:50',
+            'nomor' => 'required|string|max:50',
+            'atas_nama' => 'nullable|string|max:100',
+            'catatan' => 'nullable|string|max:255',
+            'aktif' => 'boolean',
+            'urutan' => 'nullable|integer|min:0|max:1000',
+        ];
+    }
+
+    public function simpanTujuan(Request $request)
+    {
+        $t = KeuTujuanBayar::create($request->validate($this->aturanTujuan()));
+        return response()->json(['message' => "Tujuan pembayaran {$t->penyedia} disimpan.", 'data' => $t], 201);
+    }
+
+    public function ubahTujuan(Request $request, int $id)
+    {
+        $t = KeuTujuanBayar::findOrFail($id);
+        $t->update($request->validate($this->aturanTujuan()));
+        return response()->json(['message' => 'Tujuan pembayaran diperbarui.', 'data' => $t]);
+    }
+
+    public function hapusTujuan(int $id)
+    {
+        $t = KeuTujuanBayar::findOrFail($id);
+        $t->delete();
+        return response()->json(['message' => "Tujuan pembayaran {$t->penyedia} dihapus."]);
+    }
+
+    /** Tujuan pembayaran aktif untuk ditampilkan ke orang tua. */
+    private static function tujuanAktif(): Collection
+    {
+        return KeuTujuanBayar::where('aktif', true)->orderBy('urutan')->orderBy('id')->get(['jenis', 'penyedia', 'nomor', 'atas_nama', 'catatan']);
     }
 
     // ===================== BEASISWA / POTONGAN =====================
@@ -474,15 +518,21 @@ class KeuanganController extends Controller
         if ($grup->isEmpty()) self::tolak('id_siswa', 'Siswa yang dipilih tidak punya tunggakan.');
         $siswa = Student::with(['ortu', 'wali'])->whereIn('id_siswa', $grup->keys())->get()->keyBy('id_siswa');
         $sekolah = SchoolSetting::first()?->nama_sekolah ?: 'sekolah';
+        $tujuan = self::tujuanAktif();
+        $daftarTujuan = $tujuan->map(fn($x) => "• {$x->penyedia} {$x->nomor}" . ($x->atas_nama ? " a.n. {$x->atas_nama}" : ''))->join("
+");
 
-        $pesan = $grup->map(function ($t, $id) use ($siswa, $sekolah) {
+        $pesan = $grup->map(function ($t, $id) use ($siswa, $sekolah, $tujuan, $daftarTujuan) {
             $s = $siswa[$id];
             $kontak = self::kontak($s);
             $baris = $t->map(fn($x) => "• {$x->judul}: " . Keuangan::rupiah($x->sisa) . ' (jatuh tempo ' . Keuangan::tanggal($x->jatuh_tempo->toDateString()) . ')')->join("\n");
             $teks = "Yth. Bapak/Ibu " . ($kontak['nama'] ?: 'orang tua/wali') . ",\n\n"
                 . "Kami dari {$sekolah} menyampaikan bahwa ananda {$s->nama_siswa} masih memiliki tagihan yang telah lewat jatuh tempo:\n{$baris}\n\n"
                 . 'Total: ' . Keuangan::rupiah($t->sum('sisa')) . "\n\n"
-                . "Mohon dapat diselesaikan di bagian keuangan sekolah. Bila sudah membayar, abaikan pesan ini. Terima kasih.";
+                . ($tujuan->isEmpty() ? "Mohon dapat diselesaikan di bagian keuangan sekolah." : "Pembayaran dapat dilakukan di bagian keuangan sekolah atau ke:
+{$daftarTujuan}
+Mohon kirim bukti pembayaran kepada kami.")
+                . " Bila sudah membayar, abaikan pesan ini. Terima kasih.";
             $nomor = WhatsAppService::formatNomor($kontak['no_wa']);
             return [
                 'id_siswa' => $id, 'nama_siswa' => $s->nama_siswa, 'no_wa' => $kontak['no_wa'], 'total' => $t->sum('sisa'), 'pesan' => $teks,
@@ -594,6 +644,7 @@ class KeuanganController extends Controller
             'pembayaran' => KeuPembayaran::where('id_siswa', $request->id_siswa)->whereNull('dibatalkan_at')->latest('tanggal')->limit(20)
                 ->get(['id', 'nomor_kuitansi', 'tanggal', 'metode', 'jumlah']),
             'hari_ini' => $this->hariIni(),
+            'tujuan_bayar' => self::tujuanAktif(),
         ]]);
     }
 }

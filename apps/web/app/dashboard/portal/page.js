@@ -144,7 +144,19 @@ function TagihanPortal({ idSiswa }) {
             ))}
           </ul>
           {d.pembayaran.length > 0 && <div className="small text-muted">Pembayaran terakhir: {d.pembayaran.slice(0, 3).map((p) => `${rupiah(p.jumlah)} (${tglPendek(p.tanggal)}, ${p.nomor_kuitansi})`).join(" · ")}</div>}
-          <div className="small text-muted mt-1"><i className="bi bi-info-circle me-1"></i>Pembayaran dilakukan di bagian keuangan sekolah.</div>
+          {d.tujuan_bayar?.length > 0 ? (
+            <div className="border rounded p-2 mt-2 small" data-tujuan-portal>
+              <div className="fw-semibold mb-1">Bayar di bagian keuangan sekolah, atau transfer ke:</div>
+              {d.tujuan_bayar.map((t) => (
+                <div key={`${t.penyedia}-${t.nomor}`} className="d-flex align-items-center gap-2 mb-1">
+                  <i className={`bi ${t.jenis === "BANK" ? "bi-bank" : "bi-phone"}`}></i>
+                  <span className="me-auto"><b>{t.penyedia}</b> {t.nomor}{t.atas_nama ? ` a.n. ${t.atas_nama}` : ""}{t.catatan && <span className="text-muted"> · {t.catatan}</span>}</span>
+                  <button type="button" className="btn btn-sm btn-outline-secondary py-0" onClick={() => navigator.clipboard?.writeText(t.nomor)} aria-label={`Salin nomor ${t.penyedia}`}><i className="bi bi-copy"></i></button>
+                </div>
+              ))}
+              <div className="text-muted">Setelah membayar, kirim bukti ke petugas keuangan sekolah agar dicatat.</div>
+            </div>
+          ) : <div className="small text-muted mt-1"><i className="bi bi-info-circle me-1"></i>Pembayaran dilakukan di bagian keuangan sekolah.</div>}
         </div>
       )}
     </div>

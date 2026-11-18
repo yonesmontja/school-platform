@@ -39,6 +39,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL, OPERATOR] },
   // Administrasi Sekolah: halaman memeriksa sendiri submodul yang diberikan (user.administrasi)
   { awalan: "/dashboard/administrasi", peran: [...STAF, OPERATOR] },
+  { awalan: "/dashboard/disposisi", peran: [...STAF, OPERATOR] },
   { awalan: "/dashboard/portal", peran: PORTAL },
   { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },

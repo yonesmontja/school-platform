@@ -4,7 +4,7 @@ import { minta } from "@/components/banksoal/api";
 import { esc, judulHtml, kopHtml, muatSekolah, siapkanJendela, tulisJendela, ttdHtml, tanggalPanjang } from "@/app/lib/dokumenResmi";
 
 export const rp = (n) => `Rp${Number(n || 0).toLocaleString("id-ID")}`;
-export const METODE = { TUNAI: "Tunai", TRANSFER: "Transfer bank", LAINNYA: "Lainnya" };
+export const METODE = { TUNAI: "Tunai", TRANSFER: "Transfer bank", EWALLET: "E-wallet", LAINNYA: "Lainnya" };
 
 const SATUAN = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
 /** Terbilang rupiah: 150000 → "seratus lima puluh ribu". */

@@ -9,7 +9,9 @@ class Keuangan
 
     public const STATUS = ['BELUM' => 'Belum dibayar', 'SEBAGIAN' => 'Dibayar sebagian', 'LUNAS' => 'Lunas', 'BATAL' => 'Dibatalkan'];
 
-    public const METODE = ['TUNAI' => 'Tunai', 'TRANSFER' => 'Transfer bank', 'LAINNYA' => 'Lainnya'];
+    public const METODE = ['TUNAI' => 'Tunai', 'TRANSFER' => 'Transfer bank', 'EWALLET' => 'E-wallet (GoPay, DANA, …)', 'LAINNYA' => 'Lainnya'];
+
+    public const JENIS_TUJUAN = ['BANK' => 'Rekening bank', 'EWALLET' => 'E-wallet'];
 
     public const BULAN = [1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 

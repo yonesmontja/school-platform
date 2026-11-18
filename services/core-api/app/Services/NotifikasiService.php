@@ -64,6 +64,9 @@ class NotifikasiService
             $item = $item->merge($this->pembinaanPresensi());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('SPMB')) $item = $item->merge($this->spmb());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('KEUANGAN')) $item = $item->merge($this->keuangan());
+            if (!$u->isPeninjau() && $u->bolehAdministrasi('SURAT')) $item = $item->merge($this->surat($u));
+            if (!$u->isPeninjau() && $u->bolehAdministrasi('INVENTARIS')) $item = $item->merge($this->inventaris($u));
+            if (!$u->isPeninjau()) $item = $item->merge($this->disposisiSaya($u));
         }
 
         $urutan = ['danger' => 0, 'warning' => 1, 'info' => 2, 'success' => 3];
@@ -309,6 +312,87 @@ class NotifikasiService
             'pesan' => 'Tagihan sudah lewat jatuh tempo. Kirim pengingat WhatsApp ke orang tua dari tab Tunggakan.',
             'jumlah' => (int) $t->siswa, 'tautan' => '/dashboard/administrasi/keuangan?tab=tunggakan',
             'waktu' => \Carbon\Carbon::parse($t->terakhir, config('app.zona_sekolah'))->toIso8601String(),
+        ])];
+    }
+
+    /** Surat masuk belum didisposisi, surat menunggu tanda tangan (kepsek), dokumen legal mendekati habis masa berlaku. */
+    private function surat(User $u): array
+    {
+        $item = [];
+        $baru = \App\Models\SuratMasuk::where('status', 'BARU')->selectRaw('count(*) as n, max(updated_at) as t')->first();
+        if ($baru?->n) {
+            $item[] = $this->buat('surat-masuk', [(int) $baru->n, (string) $baru->t], [
+                'tingkat' => 'info', 'kategori' => 'Surat & Arsip', 'ikon' => 'bi-envelope-open',
+                'judul' => "{$baru->n} surat masuk belum didisposisi", 'pesan' => 'Teruskan ke guru/staf yang menangani lewat Disposisi.',
+                'jumlah' => (int) $baru->n, 'tautan' => '/dashboard/administrasi/surat?tab=masuk',
+            ]);
+        }
+        if ($u->isKepsek()) {
+            $ttd = \App\Models\SuratKeluar::where('status', 'DIAJUKAN')->selectRaw('count(*) as n, max(updated_at) as t')->first();
+            if ($ttd?->n) {
+                $item[] = $this->buat('surat-ttd', [(int) $ttd->n, (string) $ttd->t], [
+                    'tingkat' => 'warning', 'kategori' => 'Surat & Arsip', 'ikon' => 'bi-pen',
+                    'judul' => "{$ttd->n} surat menunggu tanda tangan Anda", 'pesan' => 'Periksa isinya, lalu tekan Tandatangani & terbitkan.',
+                    'jumlah' => (int) $ttd->n, 'tautan' => '/dashboard/administrasi/surat?tab=keluar&status=DIAJUKAN',
+                ]);
+            }
+        }
+        $batas = Carbon::parse($this->hariIni)->addDays(\App\Support\Surat::HARI_PENGINGAT)->toDateString();
+        $legal = \App\Models\ArsipDokumen::where('jenis', 'LEGAL')->whereNotNull('berlaku_sampai')->where('berlaku_sampai', '<=', $batas)->orderBy('berlaku_sampai')->get(['judul', 'berlaku_sampai']);
+        if ($legal->isNotEmpty()) {
+            $habis = $legal->filter(fn($d) => $d->berlaku_sampai->toDateString() < $this->hariIni)->count();
+            $item[] = $this->buat('dokumen-legal', [$legal->count(), $habis, (string) $legal->first()->berlaku_sampai], [
+                'tingkat' => $habis ? 'danger' : 'warning', 'kategori' => 'Surat & Arsip', 'ikon' => 'bi-shield-exclamation',
+                'judul' => $habis ? "{$habis} dokumen legal sudah habis masa berlaku" : "{$legal->count()} dokumen legal segera habis masa berlaku",
+                'pesan' => self::daftarNama($legal->pluck('judul')) . '. Urus perpanjangannya sebelum kedaluwarsa.',
+                'jumlah' => $legal->count(), 'tautan' => '/dashboard/administrasi/surat?tab=legal',
+            ]);
+        }
+        return $item;
+    }
+
+    /** Stok habis pakai menipis, peminjaman lewat rencana kembali, pengadaan menunggu keputusan (kepsek). */
+    private function inventaris(User $u): array
+    {
+        $item = [];
+        $tipis = \App\Models\InvStok::where('aktif', true)->where('stok_minimum', '>', 0)->whereColumn('stok', '<=', 'stok_minimum')->orderBy('nama')->get(['nama', 'stok']);
+        if ($tipis->isNotEmpty()) {
+            $item[] = $this->buat('stok-menipis', [$tipis->pluck('stok', 'nama')->all()], [
+                'tingkat' => 'warning', 'kategori' => 'Inventaris', 'ikon' => 'bi-box-seam',
+                'judul' => "{$tipis->count()} barang habis pakai menipis", 'pesan' => self::daftarNama($tipis->pluck('nama')) . '. Ajukan pengadaan atau catat barang masuk.',
+                'jumlah' => $tipis->count(), 'tautan' => '/dashboard/administrasi/inventaris?tab=stok',
+            ]);
+        }
+        $telat = \App\Models\InvPeminjaman::with('barang:id,nama')->where('status', 'DIPINJAM')->whereNotNull('rencana_kembali')->where('rencana_kembali', '<', $this->hariIni)->get();
+        if ($telat->isNotEmpty()) {
+            $item[] = $this->buat('pinjam-terlambat', [$telat->pluck('id')->all()], [
+                'tingkat' => 'warning', 'kategori' => 'Inventaris', 'ikon' => 'bi-arrow-return-left',
+                'judul' => "{$telat->count()} peminjaman lewat tanggal kembali", 'pesan' => self::daftarNama($telat->map(fn($p) => "{$p->barang?->nama} ({$p->peminjam})")) . '.',
+                'jumlah' => $telat->count(), 'tautan' => '/dashboard/administrasi/inventaris?tab=pinjam',
+            ]);
+        }
+        if ($u->isKepsek()) {
+            $aju = \App\Models\InvPengadaan::where('status', 'DIAJUKAN')->selectRaw('count(*) as n, max(updated_at) as t')->first();
+            if ($aju?->n) {
+                $item[] = $this->buat('pengadaan-keputusan', [(int) $aju->n, (string) $aju->t], [
+                    'tingkat' => 'info', 'kategori' => 'Inventaris', 'ikon' => 'bi-cart-check',
+                    'judul' => "{$aju->n} pengadaan menunggu keputusan Anda", 'pesan' => 'Setujui atau tolak pengajuan pengadaan barang.',
+                    'jumlah' => (int) $aju->n, 'tautan' => '/dashboard/administrasi/inventaris?tab=pengadaan',
+                ]);
+            }
+        }
+        return $item;
+    }
+
+    /** Disposisi surat yang ditujukan ke akun ini dan belum selesai. */
+    private function disposisiSaya(User $u): array
+    {
+        $d = \App\Models\SuratDisposisi::where('kepada_user', $u->id)->where('status', '<>', 'SELESAI')->selectRaw("count(*) as n, sum(case when status = 'BARU' then 1 else 0 end) as baru, max(updated_at) as t")->first();
+        if (!$d?->n) return [];
+        return [$this->buat('disposisi', [(int) $d->n, (string) $d->t], [
+            'tingkat' => $d->baru ? 'warning' : 'info', 'kategori' => 'Surat & Arsip', 'ikon' => 'bi-envelope-paper',
+            'judul' => "{$d->n} disposisi surat untuk Anda", 'pesan' => 'Baca suratnya dan catat tindak lanjut setelah dikerjakan.',
+            'jumlah' => (int) $d->n, 'tautan' => '/dashboard/disposisi',
         ])];
     }
 

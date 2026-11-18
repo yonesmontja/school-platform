@@ -24,6 +24,10 @@ const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-q
 const ADMINISTRASI_ITEM = { href: "/dashboard/administrasi", label: "Administrasi", icon: "bi-briefcase", syarat: (u) => (u?.administrasi || []).length > 0 };
 const SPMB_ITEM = { href: "/dashboard/administrasi/spmb", label: "SPMB", icon: "bi-person-plus", syarat: (u) => (u?.administrasi || []).includes("SPMB") };
 const KEUANGAN_ITEM = { href: "/dashboard/administrasi/keuangan", label: "Keuangan", icon: "bi-cash-coin", syarat: (u) => (u?.administrasi || []).includes("KEUANGAN") };
+const SURAT_ITEM = { href: "/dashboard/administrasi/surat", label: "Surat & Arsip", icon: "bi-envelope-paper", syarat: (u) => (u?.administrasi || []).includes("SURAT") };
+const INVENTARIS_ITEM = { href: "/dashboard/administrasi/inventaris", label: "Inventaris", icon: "bi-box-seam", syarat: (u) => (u?.administrasi || []).includes("INVENTARIS") };
+// Disposisi surat yang diteruskan ke akun ini (semua staf, tanpa perlu submodul Surat)
+const DISPOSISI_ITEM = { href: "/dashboard/disposisi", label: "Disposisi Surat", icon: "bi-envelope-check" };
 
 // Grup menu sidebar staf, disusun menurut alur kerja guru; setiap grup bisa dilipat/dibuka.
 // Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
@@ -95,12 +99,13 @@ const MENU_GROUPS = [
   {
     // Terpisah dari menu pembelajaran: tata usaha sekolah
     id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear",
-    items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM],
+    items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM, SURAT_ITEM, INVENTARIS_ITEM],
   },
   {
     id: "pengaturan", label: "Akun & Sistem", icon: "bi-gear",
     items: [
       AKUN_ITEM,
+      { ...DISPOSISI_ITEM, peran: ["admin", "kepsek", "guru"] },
       { href: "/dashboard/pengguna", label: "Manajemen Pengguna", icon: "bi-people", peran: ["admin"] },
       { href: "/dashboard/pengaturan", label: "Pengaturan Sekolah", icon: "bi-gear-fill", peran: ["admin"] },
       { href: "/dashboard/log-aktivitas", label: "Log Aktivitas", icon: "bi-shield-check", peran: ["admin", "kepsek", "guru"] },
@@ -119,8 +124,8 @@ const PORTAL_GROUPS = [
 
 // Operator Sekolah (staf TU) hanya melihat Administrasi dan akunnya sendiri
 const OPERATOR_GROUPS = [
-  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM] },
-  { id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM, PANDUAN_ITEM] },
+  { id: "administrasi", label: "Administrasi Sekolah", icon: "bi-building-gear", items: [ADMINISTRASI_ITEM, SPMB_ITEM, KEUANGAN_ITEM, SURAT_ITEM, INVENTARIS_ITEM] },
+  { id: "akun", label: "Akun", icon: "bi-person-circle", items: [AKUN_ITEM, DISPOSISI_ITEM, PANDUAN_ITEM] },
 ];
 
 const bolehItem = (it, role, user) => (!it.peran || peranBoleh(it.peran, role)) && (!it.syarat || it.syarat(user));

@@ -38,6 +38,9 @@ class AuditTrail
         'SpmbGelombang' => 'SPMB', 'SpmbPendaftar' => 'SPMB', 'SpmbBerkas' => 'SPMB',
         'KeuJenisBiaya' => 'Keuangan', 'KeuBeasiswa' => 'Keuangan', 'KeuTagihan' => 'Keuangan', 'KeuPembayaran' => 'Keuangan',
         'KeuPembayaranRincian' => 'Keuangan', 'KeuKas' => 'Keuangan', 'KeuPengingat' => 'Keuangan',
+        'KeuTujuanBayar' => 'Keuangan', 'AdmPengaturan' => 'Administrasi',
+        'SuratTemplat' => 'Surat & Arsip', 'SuratKeluar' => 'Surat & Arsip', 'SuratMasuk' => 'Surat & Arsip', 'SuratDisposisi' => 'Surat & Arsip', 'ArsipDokumen' => 'Surat & Arsip',
+        'InvBarang' => 'Inventaris', 'InvPemeriksaan' => 'Inventaris', 'InvPeminjaman' => 'Inventaris', 'InvStok' => 'Inventaris', 'InvStokMutasi' => 'Inventaris', 'InvPengadaan' => 'Inventaris',
     ];
 
     // Kolom yang tidak dicatat karena berubah sendiri atau tidak bermakna bagi audit
@@ -177,6 +180,18 @@ class AuditTrail
         if ($model instanceof \App\Models\KeuJenisBiaya) return $model->nama;
         if ($model instanceof \App\Models\KeuKas) return ($model->arah === 'MASUK' ? 'Pemasukan' : 'Pengeluaran') . " · {$model->kategori}";
         if ($model instanceof \App\Models\KeuPembayaranRincian) return \App\Models\KeuPembayaran::whereKey($model->id_pembayaran)->value('nomor_kuitansi');
+        if ($model instanceof \App\Models\KeuTujuanBayar) return "{$model->penyedia} {$model->nomor}";
+        // Surat & Arsip, Inventaris
+        if ($model instanceof \App\Models\SuratKeluar) return Str::limit(($model->nomor ? "{$model->nomor} · " : 'Draf · ') . $model->perihal, 120);
+        if ($model instanceof \App\Models\SuratMasuk) return Str::limit("Agenda {$model->nomor_agenda}/{$model->tahun} · {$model->perihal}", 120);
+        if ($model instanceof \App\Models\SuratDisposisi) return Str::limit('Disposisi · ' . \App\Models\SuratMasuk::whereKey($model->id_surat_masuk)->value('perihal'), 120);
+        if ($model instanceof \App\Models\SuratTemplat) return $model->nama;
+        if ($model instanceof \App\Models\InvBarang) return "{$model->kode} · {$model->nama}";
+        if ($model instanceof \App\Models\InvPemeriksaan || $model instanceof \App\Models\InvPeminjaman) {
+            return \App\Models\InvBarang::whereKey($model->id_barang)->value('nama');
+        }
+        if ($model instanceof \App\Models\InvStok) return $model->nama;
+        if ($model instanceof \App\Models\InvStokMutasi) return \App\Models\InvStok::whereKey($model->id_stok)->value('nama');
         foreach (self::LABEL as $kolom) {
             if (filled($model->getAttribute($kolom))) return Str::limit((string) $model->getAttribute($kolom), 120);
         }
@@ -306,6 +321,45 @@ class AuditTrail
         'POST api/administrasi/keuangan/pembayaran/{id}/batal' => ['Keuangan', 'HAPUS', 'Membatalkan pembayaran siswa'],
         'POST api/administrasi/keuangan/pengingat' => ['Keuangan', 'KIRIM_WA', 'Mengirim pengingat tunggakan ke orang tua', 'OUTPUT'],
         'POST api/administrasi/keuangan/pengingat/{id}/catat' => ['Keuangan', 'KIRIM_WA', 'Mencatat pengingat tunggakan lewat chat WA', 'OUTPUT'],
+        'POST api/administrasi/keuangan/tujuan-bayar' => ['Keuangan', 'TAMBAH', 'Menambah tujuan pembayaran'],
+        'PUT api/administrasi/keuangan/tujuan-bayar/{id}' => ['Keuangan', 'UBAH', 'Mengubah tujuan pembayaran'],
+        'DELETE api/administrasi/keuangan/tujuan-bayar/{id}' => ['Keuangan', 'HAPUS', 'Menghapus tujuan pembayaran'],
+        'PUT api/administrasi/surat/pengaturan' => ['Surat & Arsip', 'UBAH', 'Mengubah format nomor surat'],
+        'POST api/administrasi/surat/templat' => ['Surat & Arsip', 'TAMBAH', 'Membuat templat surat'],
+        'POST api/administrasi/surat/templat/contoh' => ['Surat & Arsip', 'TAMBAH', 'Menambah templat surat contoh'],
+        'PUT api/administrasi/surat/templat/{id}' => ['Surat & Arsip', 'UBAH', 'Mengubah templat surat'],
+        'DELETE api/administrasi/surat/templat/{id}' => ['Surat & Arsip', 'HAPUS', 'Menghapus templat surat'],
+        'POST api/administrasi/surat/keluar' => ['Surat & Arsip', 'TAMBAH', 'Membuat draf surat keluar'],
+        'PUT api/administrasi/surat/keluar/{id}' => ['Surat & Arsip', 'UBAH', 'Mengubah draf surat keluar'],
+        'DELETE api/administrasi/surat/keluar/{id}' => ['Surat & Arsip', 'HAPUS', 'Menghapus draf surat keluar'],
+        'POST api/administrasi/surat/keluar/{id}/ajukan' => ['Surat & Arsip', 'UBAH', 'Mengajukan surat untuk ditandatangani'],
+        'POST api/administrasi/surat/keluar/{id}/terbitkan' => ['Surat & Arsip', 'UBAH', 'Menerbitkan surat keluar'],
+        'POST api/administrasi/surat/keluar/{id}/tandatangani' => ['Surat & Arsip', 'UBAH', 'Menandatangani surat keluar'],
+        'POST api/administrasi/surat/keluar/{id}/batal' => ['Surat & Arsip', 'HAPUS', 'Membatalkan surat keluar'],
+        'POST api/administrasi/surat/masuk' => ['Surat & Arsip', 'TAMBAH', 'Mencatat surat masuk'],
+        'POST api/administrasi/surat/masuk/{id}' => ['Surat & Arsip', 'UBAH', 'Mengubah surat masuk'],
+        'DELETE api/administrasi/surat/masuk/{id}' => ['Surat & Arsip', 'HAPUS', 'Menghapus surat masuk'],
+        'POST api/administrasi/surat/masuk/{id}/disposisi' => ['Surat & Arsip', 'TAMBAH', 'Mengirim disposisi surat'],
+        'POST api/administrasi/surat/masuk/{id}/selesai' => ['Surat & Arsip', 'UBAH', 'Menandai surat masuk selesai'],
+        'POST api/administrasi/surat/arsip' => ['Surat & Arsip', 'TAMBAH', 'Menyimpan arsip/dokumen legal'],
+        'POST api/administrasi/surat/arsip/{id}' => ['Surat & Arsip', 'UBAH', 'Mengubah arsip/dokumen legal'],
+        'DELETE api/administrasi/surat/arsip/{id}' => ['Surat & Arsip', 'HAPUS', 'Menghapus arsip/dokumen legal'],
+        'POST api/administrasi/inventaris/barang' => ['Inventaris', 'TAMBAH', 'Mencatat aset inventaris'],
+        'PUT api/administrasi/inventaris/barang/{id}' => ['Inventaris', 'UBAH', 'Mengubah aset inventaris'],
+        'POST api/administrasi/inventaris/barang/{id}/hapus' => ['Inventaris', 'HAPUS', 'Menghapus aset dari buku inventaris'],
+        'POST api/administrasi/inventaris/barang/{id}/periksa' => ['Inventaris', 'TAMBAH', 'Mencatat pemeriksaan kondisi aset'],
+        'POST api/administrasi/inventaris/peminjaman' => ['Inventaris', 'TAMBAH', 'Mencatat peminjaman aset'],
+        'POST api/administrasi/inventaris/peminjaman/{id}/kembali' => ['Inventaris', 'UBAH', 'Mencatat pengembalian aset'],
+        'POST api/administrasi/inventaris/stok' => ['Inventaris', 'TAMBAH', 'Menambah barang habis pakai'],
+        'PUT api/administrasi/inventaris/stok/{id}' => ['Inventaris', 'UBAH', 'Mengubah barang habis pakai'],
+        'POST api/administrasi/inventaris/stok/{id}/mutasi' => ['Inventaris', 'SIMPAN', 'Mencatat barang masuk/keluar'],
+        'POST api/administrasi/inventaris/pengadaan' => ['Inventaris', 'TAMBAH', 'Mengajukan pengadaan barang'],
+        'PUT api/administrasi/inventaris/pengadaan/{id}' => ['Inventaris', 'UBAH', 'Mengubah pengajuan pengadaan'],
+        'DELETE api/administrasi/inventaris/pengadaan/{id}' => ['Inventaris', 'HAPUS', 'Menghapus pengajuan pengadaan'],
+        'POST api/administrasi/inventaris/pengadaan/{id}/putuskan' => ['Inventaris', 'UBAH', 'Memutuskan pengajuan pengadaan'],
+        'POST api/administrasi/inventaris/pengadaan/{id}/selesaikan' => ['Inventaris', 'UBAH', 'Menyelesaikan pengadaan barang'],
+        'POST api/disposisi/{id}/baca' => ['Surat & Arsip', 'UBAH', 'Membaca disposisi surat'],
+        'POST api/disposisi/{id}/selesai' => ['Surat & Arsip', 'UBAH', 'Mencatat tindak lanjut disposisi'],
         'POST api/administrasi/keuangan/kas' => ['Keuangan', 'TAMBAH', 'Mencatat kas sekolah'],
         'DELETE api/administrasi/keuangan/kas/{id}' => ['Keuangan', 'HAPUS', 'Menghapus catatan kas sekolah'],
         'POST api/users/generate' => ['Pengguna', 'TAMBAH', 'Membuat akun pengguna massal'],

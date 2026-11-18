@@ -76,7 +76,7 @@ const ALAT = [
 ];
 
 /**
- * props: value (HTML), onChange(html), label (nama untuk pembaca layar), placeholder, entitas ('pembinaan' | 'jurnal'),
+ * props: value (HTML), onChange(html), label (nama untuk pembaca layar), placeholder, entitas ('pembinaan' | 'jurnal'; kosong = tanpa foto/video),
  *        sisipan: [{ label, keterangan?, ikon?, html: () => string | Promise<string> }], onAi?: () => void, aiSibuk?
  */
 export default function EditorKaya({ value, onChange, label, placeholder, entitas, sisipan = [], onAi, aiSibuk = false, labelAi = "Bantu AI" }) {
@@ -226,9 +226,10 @@ export default function EditorKaya({ value, onChange, label, placeholder, entita
           <button key={a.label} type="button" className="btn btn-sm btn-light" title={a.label} aria-label={a.label} onMouseDown={tahan} onClick={() => jalankan(a)}><i className={`bi ${a.ikon}`}></i></button>
         ))}
         <span className="pemisah" />
-        <button type="button" className="btn btn-sm btn-light" data-buka-menu onMouseDown={tahan} onClick={() => setMenu(menu === "media" ? null : "media")} aria-haspopup="menu" aria-expanded={menu === "media"} title="Foto & video">
+        {/* Tanpa entitas (mis. isi surat) unggahan foto/video tidak tersedia */}
+        {entitas && <button type="button" className="btn btn-sm btn-light" data-buka-menu onMouseDown={tahan} onClick={() => setMenu(menu === "media" ? null : "media")} aria-haspopup="menu" aria-expanded={menu === "media"} title="Foto & video">
           <i className="bi bi-camera me-1"></i><span className="d-none d-sm-inline">Foto/Video</span>
-        </button>
+        </button>}
         {sisipan.length > 0 && (
           <button type="button" className="btn btn-sm btn-light" data-buka-menu onMouseDown={tahan} onClick={() => setMenu(menu === "data" ? null : "data")} aria-haspopup="menu" aria-expanded={menu === "data"} title="Sisipkan data terkait">
             <i className="bi bi-database-add me-1"></i><span className="d-none d-sm-inline">Sisipkan data</span>

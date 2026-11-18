@@ -153,6 +153,24 @@ class KeuanganTest extends TestCase
         $this->assertStringContainsString('Rp300.000', $notif['judul']);
     }
 
+    public function test_tujuan_pembayaran_tampil_di_pengingat_dan_portal(): void
+    {
+        $this->postJson(self::API . '/tujuan-bayar', ['jenis' => 'EWALLET', 'penyedia' => 'GoPay', 'nomor' => '081299990000', 'atas_nama' => 'Bendahara SD Uji'])->assertCreated();
+        $this->postJson(self::API . '/tujuan-bayar', ['jenis' => 'BANK', 'penyedia' => 'BRI', 'nomor' => '1234-01-000000-50-1', 'aktif' => false])->assertCreated();
+        $this->postJson(self::API . '/tujuan-bayar', ['jenis' => 'PULSA', 'penyedia' => 'X', 'nomor' => '1'])->assertJsonValidationErrors('jenis');
+        $this->assertCount(2, $this->getJson(self::API . '/pilihan')->json('data.tujuan_bayar'));
+
+        Student::whereKey('SIS-1')->update(['no_wa' => '081234560000']);
+        $spp = $this->jenis();
+        $this->postJson(self::API . '/tagihan/buat', ['id_jenis_biaya' => $spp, 'bulan' => [now(config('app.zona_sekolah'))->subMonths(2)->format('Y-m')], 'sasaran' => 'SISWA', 'id_siswa' => ['SIS-1']])->assertCreated();
+        $pesan = $this->postJson(self::API . '/pengingat', ['id_siswa' => ['SIS-1'], 'mode' => 'siapkan'])->json('data.0.pesan');
+        $this->assertStringContainsString('GoPay 081299990000 a.n. Bendahara SD Uji', $pesan);
+        $this->assertStringNotContainsString('BRI', $pesan);
+
+        Sanctum::actingAs($this->sekolah->siswa);
+        $this->getJson('/api/portal/tagihan?id_siswa=SIS-1')->assertOk()->assertJsonCount(1, 'data.tujuan_bayar')->assertJsonPath('data.tujuan_bayar.0.penyedia', 'GoPay');
+    }
+
     public function test_kas_dan_laporan(): void
     {
         $spp = $this->jenis();

@@ -154,7 +154,7 @@ function Ringkasan({ pilihan, pindah, bukaSiswa }) {
               <button type="button" className="btn btn-outline-danger text-start" onClick={() => pindah("tunggakan")}><i className="bi bi-whatsapp me-2"></i>Ingatkan orang tua yang menunggak</button>
               <button type="button" className="btn btn-outline-secondary text-start" onClick={() => pindah("kas")}><i className="bi bi-printer me-2"></i>Laporan kas</button>
             </div>
-            <div className="small text-muted mt-3"><i className="bi bi-info-circle me-1"></i>Pembayaran dicatat oleh petugas (tunai atau transfer). Pembayaran daring lewat QRIS/VA belum tersedia.</div>
+            <div className="small text-muted mt-3"><i className="bi bi-info-circle me-1"></i>Pembayaran dicatat oleh petugas (tunai, transfer, atau e-wallet seperti GoPay/DANA). Nomor tujuan pembayaran diatur di tab Jenis Biaya & Beasiswa.</div>
           </div></div>
         </div>
       </div>
@@ -723,6 +723,61 @@ function Pengaturan({ pilihan, bolehUbah, muatPilihan }) {
           </ul>
         </div>
       </div>
+      <div className="col-12">
+        <TujuanBayar pilihan={pilihan} bolehUbah={bolehUbah} muatPilihan={muatPilihan} />
+      </div>
+    </div>
+  );
+}
+
+/** Rekening bank & e-wallet (GoPay, DANA, …) yang ditampilkan ke orang tua di Portal dan pesan pengingat. */
+function TujuanBayar({ pilihan, bolehUbah, muatPilihan }) {
+  const form = async (t) => {
+    const r = await Swal.fire({
+      title: t ? "Ubah tujuan pembayaran" : "Tujuan pembayaran baru", showCancelButton: true, confirmButtonText: "Simpan", cancelButtonText: "Batal", focusConfirm: false,
+      html: `<div class="text-start small">
+        <label class="form-label mb-0" for="tbJenis">Jenis</label>
+        <select id="tbJenis" class="form-select form-select-sm mb-2">${pilihan.jenis_tujuan.map((j) => `<option value="${j.kode}" ${t?.jenis === j.kode ? "selected" : ""}>${j.nama}</option>`).join("")}</select>
+        <label class="form-label mb-0" for="tbPenyedia">Bank / e-wallet</label>
+        <input id="tbPenyedia" list="tbDaftar" class="form-control form-control-sm mb-2" placeholder="BRI, BNI, Bank Papua, GoPay, DANA, OVO…" value="${esc(t?.penyedia || "")}">
+        <datalist id="tbDaftar">${["BRI", "BNI", "Mandiri", "BCA", "Bank Papua", "BSI", "GoPay", "DANA", "OVO", "ShopeePay"].map((x) => `<option value="${x}">`).join("")}</datalist>
+        <label class="form-label mb-0" for="tbNomor">Nomor rekening / nomor HP</label>
+        <input id="tbNomor" class="form-control form-control-sm mb-2" value="${esc(t?.nomor || "")}">
+        <label class="form-label mb-0" for="tbNama">Atas nama</label>
+        <input id="tbNama" class="form-control form-control-sm mb-2" value="${esc(t?.atas_nama || "")}">
+        <label class="form-label mb-0" for="tbCatatan">Catatan (opsional)</label>
+        <input id="tbCatatan" class="form-control form-control-sm mb-2" placeholder="Mis. tulis nama siswa di berita transfer" value="${esc(t?.catatan || "")}">
+        <label class="form-check"><input id="tbAktif" type="checkbox" class="form-check-input" ${!t || t.aktif ? "checked" : ""}> Tampilkan ke orang tua</label></div>`,
+      preConfirm: async () => {
+        const isi = { jenis: nilai("tbJenis"), penyedia: nilai("tbPenyedia"), nomor: nilai("tbNomor"), atas_nama: nilai("tbNama") || null, catatan: nilai("tbCatatan") || null, aktif: document.getElementById("tbAktif").checked };
+        try { return await minta(t ? "PUT" : "POST", `/administrasi/keuangan/tujuan-bayar${t ? `/${t.id}` : ""}`, isi); } catch (e) { Swal.showValidationMessage(e.message); return false; }
+      },
+    });
+    if (r.isConfirmed) { toast(r.value.message); muatPilihan(); }
+  };
+  const hapus = async (t) => {
+    const k = await Swal.fire({ title: `Hapus ${t.penyedia}?`, icon: "warning", showCancelButton: true, confirmButtonText: "Hapus", cancelButtonText: "Batal", confirmButtonColor: "#d33" });
+    if (!k.isConfirmed) return;
+    try { const r = await minta("DELETE", `/administrasi/keuangan/tujuan-bayar/${t.id}`); toast(r.message); muatPilihan(); } catch (e) { gagal(e); }
+  };
+  return (
+    <div className="card">
+      <div className="card-header d-flex align-items-center"><span className="fw-semibold me-auto">Tujuan pembayaran (rekening & e-wallet)</span>
+        {bolehUbah && <button type="button" className="btn btn-primary btn-sm" onClick={() => form(null)}><i className="bi bi-plus-lg me-1"></i>Tujuan baru</button>}</div>
+      <ul className="list-group list-group-flush">
+        {pilihan.tujuan_bayar.length === 0 && <li className="list-group-item text-muted small">Belum diisi. Bila diisi, nomor rekening/GoPay/DANA tampil di Portal orang tua dan pesan pengingat tunggakan.</li>}
+        {pilihan.tujuan_bayar.map((t) => (
+          <li key={t.id} className={`list-group-item d-flex align-items-center gap-2 ${t.aktif ? "" : "text-muted"}`} data-tujuan-bayar={t.penyedia}>
+            <i className={`bi ${t.jenis === "BANK" ? "bi-bank" : "bi-phone"} fs-5`}></i>
+            <span className="me-auto"><b>{t.penyedia}</b> {t.nomor}{t.atas_nama && <span className="text-muted"> a.n. {t.atas_nama}</span>}
+              {t.catatan && <div className="small text-muted">{t.catatan}</div>}{!t.aktif && <div className="small">tidak ditampilkan</div>}</span>
+            {bolehUbah && <MenuAksi label={`Aksi untuk ${t.penyedia}`} items={[
+              { label: "Ubah", ikon: "bi-pencil-square", onClick: () => form(t) },
+              { label: "Hapus", ikon: "bi-trash", bahaya: true, pemisah: true, onClick: () => hapus(t) },
+            ]} />}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

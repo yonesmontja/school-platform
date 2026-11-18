@@ -663,7 +663,7 @@ export const BAGIAN = [
     tips: [
       "Salah catat? Menu ⋮ → Batalkan pembayaran dengan alasan. Tagihannya kembali terbuka; kuitansi tetap tersimpan bertanda dibatalkan agar nomor urutnya tidak hilang.",
       "Orang tua bisa melihat tagihan dan riwayat pembayaran anaknya di Portal (kartu Tagihan Sekolah).",
-      "Pembayaran daring lewat QRIS atau virtual account belum tersedia; semua pembayaran dicatat oleh petugas.",
+      "Isi Tujuan pembayaran (rekening bank, GoPay, DANA, dan lainnya) di tab Jenis Biaya & Beasiswa. Nomornya tampil di Portal orang tua dan di pesan pengingat; setelah orang tua mengirim bukti, catat pembayarannya dengan cara bayar Transfer bank atau E-wallet.",
     ],
   },
   {
@@ -681,6 +681,76 @@ export const BAGIAN = [
       "Pembayaran siswa otomatis masuk ke laporan kas; tidak perlu dicatat dua kali.",
       "Semua pencatatan, pembatalan, dan pengingat tercatat di Log Aktivitas.",
     ],
+  },
+
+  {
+    id: "surat-keluar", kelompok: "administrasi", submodul: "SURAT", judul: "Surat: membuat surat keluar bernomor otomatis", icon: "bi-envelope-paper",
+    href: "/dashboard/administrasi/surat",
+    alur: [
+      { label: "Templat & format nomor", siapa: "Operator", href: "/dashboard/administrasi/surat?tab=templat", ikon: "bi-file-earmark-text" },
+      { label: "Tulis draf", siapa: "Operator", href: "/dashboard/administrasi/surat", ikon: "bi-pencil" },
+      { label: "Tanda tangan", siapa: "Kepala sekolah", href: "/dashboard/administrasi/surat?tab=keluar&status=DIAJUKAN", ikon: "bi-pen" },
+      { label: "Cetak / kirim PDF", siapa: "Operator", href: "/dashboard/administrasi/surat", ikon: "bi-printer" },
+    ],
+    langkah: [
+      "Sekali saja di awal: buka tab Templat & Nomor, atur format nomor (misalnya {urut}/{kode}/{singkatan}/{bulan_romawi}/{tahun}) dan singkatan sekolah, lalu tekan Tambah contoh templat atau buat templat sendiri.",
+      "Di tab Surat Keluar tekan Surat baru. Pilih templat dan, bila suratnya tentang seorang siswa, pilih siswanya, lalu tekan Isi dari templat: nama, NISN, kelas, orang tua, dan data sekolah terisi otomatis.",
+      "Lengkapi tanggal, kode klasifikasi, sifat, perihal, dan tujuan; periksa isi surat, lalu Simpan draf.",
+      "Tanda tangan elektronik: menu ⋮ → Ajukan tanda tangan ke kepala sekolah. Kepala sekolah mendapat pengingat dan menekan Tandatangani & terbitkan. Bila surat akan ditandatangani di kertas, pilih Terbitkan (tanda tangan basah).",
+      "Saat terbit, surat mendapat nomor urut berikutnya dan kode verifikasi. Tekan ikon printer untuk mencetak atau menyimpan PDF; kop, tanda tangan, dan alamat verifikasi tercetak otomatis.",
+    ],
+    tips: [
+      "Siapa pun bisa memeriksa keaslian surat dengan membuka alamat verifikasi yang tercetak di bagian bawah surat.",
+      "Surat yang sudah terbit tidak bisa diubah atau dihapus. Bila keliru, Batalkan dengan alasan; nomornya tetap tercatat dan tidak dipakai ulang, dan halaman verifikasi menampilkan bahwa surat sudah dibatalkan.",
+      "Isian {{nomor}} dan {{tanggal}} di isi surat terisi saat dicetak.",
+    ],
+  },
+  {
+    id: "surat-masuk", kelompok: "administrasi", submodul: "SURAT", judul: "Surat: surat masuk dan disposisi", icon: "bi-inbox",
+    href: "/dashboard/administrasi/surat?tab=masuk",
+    langkah: [
+      "Buka tab Surat Masuk, tekan Catat surat masuk. Isi tanggal diterima, pengirim, nomor dan perihal surat, lalu unggah pindaian atau foto suratnya. Nomor agenda terisi otomatis.",
+      "Tekan Disposisi, pilih guru atau staf yang menangani, tulis instruksi (misalnya Hadiri dan laporkan) dan batas waktu bila ada.",
+      "Penerima melihat disposisinya di Perlu Tindakan dan menu Disposisi Surat, membuka pindaian surat, lalu menekan Selesai dan menulis tindak lanjutnya.",
+      "Status surat masuk berubah sendiri: Belum didisposisi → Didisposisi → Selesai setelah semua penerima mencatat tindak lanjut.",
+    ],
+    tips: ["Penerima disposisi tidak perlu diberi submodul Surat & Arsip; mereka hanya melihat surat yang diteruskan kepadanya."],
+  },
+  {
+    id: "surat-arsip", kelompok: "administrasi", submodul: "SURAT", judul: "Surat: arsip digital dan dokumen legal", icon: "bi-archive",
+    href: "/dashboard/administrasi/surat?tab=legal",
+    langkah: [
+      "Tab Arsip untuk dokumen sekolah apa saja (notulen, SK, laporan): isi judul, kategori, label (pisahkan dengan koma), dan unggah berkasnya (PDF, foto, Word, atau Excel, maksimal 10 MB).",
+      "Tekan label berwarna (#rapat, #guru, …) untuk menyaring arsip dengan label yang sama.",
+      "Tab Dokumen Legal untuk izin operasional, akreditasi, akta yayasan, NPSN, sertifikat tanah, dan perjanjian. Isi tanggal Berlaku sampai.",
+      "Mulai 90 hari sebelum masa berlaku habis, pengingat muncul di Perlu Tindakan (merah bila sudah lewat), dan lencana di daftar menunjukkan sisa harinya.",
+    ],
+    tips: ["Berkas arsip disimpan tertutup dan hanya bisa dibuka oleh akun yang diberi submodul Surat & Arsip, kepala sekolah, dan admin."],
+  },
+  {
+    id: "inv-aset", kelompok: "administrasi", submodul: "INVENTARIS", judul: "Inventaris: aset per ruang, kondisi, dan penyusutan", icon: "bi-box-seam",
+    href: "/dashboard/administrasi/inventaris",
+    langkah: [
+      "Buka Administrasi Sekolah → Inventaris, tab Aset, lalu tekan Aset baru. Isi nama, kategori, ruangan, jumlah, kondisi, tanggal dan harga perolehan per satuan, serta umur ekonomis (misalnya mebel 8 tahun, elektronik 4 tahun). Kode INV-tahun-nomor terisi otomatis.",
+      "Nilai buku dihitung otomatis dengan penyusutan garis lurus: turun rata setiap tahun sampai nol di akhir umur ekonomis.",
+      "Pemeriksaan berkala: menu ⋮ → Catat pemeriksaan untuk mencatat kondisi terbaru. Riwayat kondisi dan peminjaman tampil saat nama barang ditekan.",
+      "Pilih satu ruangan lalu tekan Cetak KIR untuk mencetak Kartu Inventaris Ruangan dan menempelnya di ruangan tersebut.",
+    ],
+    tips: [
+      "Aset rusak berat, hilang, atau dihibahkan dikeluarkan lewat menu ⋮ → Hapus dari buku inventaris dengan alasan; riwayatnya tetap bisa dilihat dengan mencentang Aset dihapus.",
+      "Daftar ruangan diambil dari menu Ruangan. Tambahkan ruangan baru di sana bila belum ada.",
+    ],
+  },
+  {
+    id: "inv-pinjam-stok", kelompok: "administrasi", submodul: "INVENTARIS", judul: "Inventaris: peminjaman, stok habis pakai, dan pengadaan", icon: "bi-arrow-left-right",
+    href: "/dashboard/administrasi/inventaris?tab=pinjam",
+    langkah: [
+      "Peminjaman: tab Peminjaman → Catat peminjaman. Pilih barang (hanya yang tersedia dan tidak rusak berat), jumlah, nama peminjam, keperluan, dan rencana tanggal kembali. Saat barang kembali, tekan Kembalikan dan pilih kondisinya; bila rusak, kondisi aset ikut diperbarui.",
+      "Stok habis pakai: tab Stok Habis Pakai → Barang baru dengan stok awal dan stok minimum. Tombol + untuk barang masuk, tombol − untuk barang keluar (tulis untuk siapa). Stok di batas minimum muncul di Perlu Tindakan.",
+      "Pengadaan: tab Pengadaan → Ajukan pengadaan, isi daftar barang, jumlah, dan harga. Kepala sekolah menekan Setujui atau Tolak.",
+      "Setelah barang dibeli, tekan Barang diterima: pilih tiap barang masuk ke Aset (dengan ruangannya) atau ke Stok habis pakai, dan centang Catat pengeluaran di kas agar laporan kas Keuangan ikut tercatat.",
+    ],
+    tips: ["Peminjaman yang lewat rencana tanggal kembali muncul di Perlu Tindakan dan bertanda Terlambat."],
   },
 
   // ---------- Orang tua & siswa ----------

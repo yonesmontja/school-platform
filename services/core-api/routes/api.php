@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AdministrasiController;
 use App\Http\Controllers\Api\SpmbController;
 use App\Http\Controllers\Api\KeuanganController;
+use App\Http\Controllers\Api\SuratController;
+use App\Http\Controllers\Api\InventarisController;
 use App\Http\Controllers\Api\SpmbPublikController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\StudentController;
@@ -121,6 +123,8 @@ Route::prefix('spmb')->group(function () {
         Route::post('/daftar-ulang', [SpmbPublikController::class, 'daftarUlang']);
     });
 });
+// Verifikasi keaslian surat keluar dari kode yang tercetak di surat (Fase 26 Tahap D)
+Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
 Route::get('/signature/{filename}', function ($filename) {
@@ -228,7 +232,73 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/kas', [KeuanganController::class, 'kas']);
             Route::post('/kas', [KeuanganController::class, 'simpanKas']);
             Route::delete('/kas/{id}', [KeuanganController::class, 'hapusKas'])->whereNumber('id');
+            Route::post('/tujuan-bayar', [KeuanganController::class, 'simpanTujuan']);
+            Route::put('/tujuan-bayar/{id}', [KeuanganController::class, 'ubahTujuan'])->whereNumber('id');
+            Route::delete('/tujuan-bayar/{id}', [KeuanganController::class, 'hapusTujuan'])->whereNumber('id');
         });
+        // Submodul Surat & Arsip (Tahap D)
+        Route::prefix('surat')->middleware('administrasi:SURAT')->group(function () {
+            Route::get('/pilihan', [SuratController::class, 'pilihan']);
+            Route::put('/pengaturan', [SuratController::class, 'simpanPengaturan']);
+            Route::post('/templat', [SuratController::class, 'simpanTemplat']);
+            Route::post('/templat/contoh', [SuratController::class, 'contohTemplat']);
+            Route::put('/templat/{id}', [SuratController::class, 'ubahTemplat'])->whereNumber('id');
+            Route::delete('/templat/{id}', [SuratController::class, 'hapusTemplat'])->whereNumber('id');
+            Route::get('/templat/{id}/isi', [SuratController::class, 'isiTemplat'])->whereNumber('id');
+            Route::get('/keluar', [SuratController::class, 'keluar']);
+            Route::post('/keluar', [SuratController::class, 'simpanKeluar']);
+            Route::get('/keluar/{id}', [SuratController::class, 'detailKeluar'])->whereNumber('id');
+            Route::put('/keluar/{id}', [SuratController::class, 'ubahKeluar'])->whereNumber('id');
+            Route::delete('/keluar/{id}', [SuratController::class, 'hapusKeluar'])->whereNumber('id');
+            Route::post('/keluar/{id}/ajukan', [SuratController::class, 'ajukanKeluar'])->whereNumber('id');
+            Route::post('/keluar/{id}/terbitkan', [SuratController::class, 'terbitkan'])->whereNumber('id');
+            Route::post('/keluar/{id}/tandatangani', [SuratController::class, 'tandatangani'])->whereNumber('id');
+            Route::post('/keluar/{id}/batal', [SuratController::class, 'batalKeluar'])->whereNumber('id');
+            Route::get('/masuk', [SuratController::class, 'masuk']);
+            Route::post('/masuk', [SuratController::class, 'simpanMasuk']);
+            Route::post('/masuk/{id}', [SuratController::class, 'ubahMasuk'])->whereNumber('id');
+            Route::delete('/masuk/{id}', [SuratController::class, 'hapusMasuk'])->whereNumber('id');
+            Route::get('/masuk/{id}/berkas', [SuratController::class, 'berkasMasuk'])->whereNumber('id');
+            Route::post('/masuk/{id}/disposisi', [SuratController::class, 'disposisi'])->whereNumber('id');
+            Route::post('/masuk/{id}/selesai', [SuratController::class, 'selesaiMasuk'])->whereNumber('id');
+            Route::get('/arsip', [SuratController::class, 'arsip']);
+            Route::post('/arsip', [SuratController::class, 'simpanArsip']);
+            Route::post('/arsip/{id}', [SuratController::class, 'ubahArsip'])->whereNumber('id');
+            Route::delete('/arsip/{id}', [SuratController::class, 'hapusArsip'])->whereNumber('id');
+            Route::get('/arsip/{id}/berkas', [SuratController::class, 'berkasArsip'])->whereNumber('id');
+        });
+        // Submodul Inventaris (Tahap E)
+        Route::prefix('inventaris')->middleware('administrasi:INVENTARIS')->group(function () {
+            Route::get('/pilihan', [InventarisController::class, 'pilihan']);
+            Route::get('/ringkasan', [InventarisController::class, 'ringkasan']);
+            Route::get('/barang', [InventarisController::class, 'barang']);
+            Route::post('/barang', [InventarisController::class, 'simpanBarang']);
+            Route::get('/barang/{id}', [InventarisController::class, 'detailBarang'])->whereNumber('id');
+            Route::put('/barang/{id}', [InventarisController::class, 'ubahBarang'])->whereNumber('id');
+            Route::post('/barang/{id}/hapus', [InventarisController::class, 'hapusBarang'])->whereNumber('id');
+            Route::post('/barang/{id}/periksa', [InventarisController::class, 'periksa'])->whereNumber('id');
+            Route::get('/peminjaman', [InventarisController::class, 'peminjaman']);
+            Route::post('/peminjaman', [InventarisController::class, 'pinjam']);
+            Route::post('/peminjaman/{id}/kembali', [InventarisController::class, 'kembali'])->whereNumber('id');
+            Route::get('/stok', [InventarisController::class, 'stok']);
+            Route::post('/stok', [InventarisController::class, 'simpanStok']);
+            Route::get('/stok/{id}', [InventarisController::class, 'detailStok'])->whereNumber('id');
+            Route::put('/stok/{id}', [InventarisController::class, 'ubahStok'])->whereNumber('id');
+            Route::post('/stok/{id}/mutasi', [InventarisController::class, 'mutasi'])->whereNumber('id');
+            Route::get('/pengadaan', [InventarisController::class, 'pengadaan']);
+            Route::post('/pengadaan', [InventarisController::class, 'simpanPengadaan']);
+            Route::put('/pengadaan/{id}', [InventarisController::class, 'ubahPengadaan'])->whereNumber('id');
+            Route::delete('/pengadaan/{id}', [InventarisController::class, 'hapusPengadaan'])->whereNumber('id');
+            Route::post('/pengadaan/{id}/putuskan', [InventarisController::class, 'putuskan'])->whereNumber('id');
+            Route::post('/pengadaan/{id}/selesaikan', [InventarisController::class, 'selesaikan'])->whereNumber('id');
+        });
+    });
+    // Disposisi surat untuk penerimanya (semua staf, tanpa perlu submodul Surat)
+    Route::middleware('role:admin,kepsek,guru,operator')->prefix('disposisi')->group(function () {
+        Route::get('/', [SuratController::class, 'disposisiSaya']);
+        Route::post('/{id}/baca', [SuratController::class, 'bacaDisposisi'])->whereNumber('id');
+        Route::post('/{id}/selesai', [SuratController::class, 'selesaiDisposisi'])->whereNumber('id');
+        Route::get('/{id}/berkas', [SuratController::class, 'berkasDisposisi'])->whereNumber('id');
     });
     // Dasbor pemakaian (masa pakai nyata): admin & kepala sekolah
     Route::get('/pemakaian', [PemakaianController::class, 'index'])->middleware('role:admin,kepsek');
