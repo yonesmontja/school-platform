@@ -114,6 +114,17 @@ class User extends Authenticatable
         };
     }
 
+    /**
+     * Boleh membuka data portal siswa ini: akun portalnya sendiri (siswa/ortu), atau sebagai "dashboard pribadi siswa"
+     * oleh admin, kepala sekolah (semua siswa), dan wali kelas (siswa di kelas binaannya). Peninjau tidak.
+     */
+    public function bolehDashboardSiswa(Student $siswa): bool
+    {
+        if ($this->isPortal()) return in_array($siswa->id_siswa, $this->siswaTerjangkau(), true);
+        if ($this->isAdmin() || $this->isKepsek()) return true;
+        return $this->isGuru() && $siswa->id_kelas && in_array($siswa->id_kelas, $this->kelasBinaan(), true);
+    }
+
     /** Boleh mengelola rapor, catatan wali, & P5 kelas ini (pengelola atau wali kelasnya) */
     public function bolehKelolaKelas(?string $idKelas): bool
     {

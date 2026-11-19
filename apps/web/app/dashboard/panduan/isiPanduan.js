@@ -241,6 +241,24 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "pas-foto-siswa", kelompok: "guru", judul: "Pas foto siswa & dashboard pribadi siswa", icon: "bi-person-bounding-box",
+    href: "/dashboard/master-siswa",
+    langkah: [
+      "Buka Data Sekolah → Siswa. Wali kelas melihat siswa kelas binaannya; admin dan kepala sekolah melihat semua siswa.",
+      "Tekan ⋮ pada baris siswa, lalu Tambah pas foto (atau Edit pas foto). Pilih foto dari galeri, atau tekan Kamera di HP.",
+      "Potong: seret foto untuk menggeser dan atur Perbesar agar wajah pas di bingkai 3 × 4. Putar bila foto miring.",
+      "Filter: atur kecerahan, kontras, saturasi, atau jadikan hitam putih. Latar: ganti latar menjadi merah, biru, putih, atau abu-abu; prosesnya di perangkat Anda dan foto tidak dikirim ke mana pun.",
+      "AI (pilihan): bila latar kurang rapi, tulis perintah (mis. ganti latar merah polos), centang persetujuan, lalu Edit dengan AI. Periksa hasilnya, lalu tekan Simpan foto.",
+      "Foto langsung tampil di halaman biodata rapor (kotak 3 × 4 di samping tanda tangan kepala sekolah) dan di profil portal siswa/orang tua. Unduh lewat ⋮ → Unduh pas foto.",
+      "Dashboard pribadi siswa: tekan ⋮ → Dashboard pribadi siswa. Tampilannya sama dengan portal siswa (capaian, nilai, tindak lanjut, jadwal, kehadiran, catatan, rapor) dan bisa diunduh, tanpa video pembelajaran dan tagihan.",
+    ],
+    tips: [
+      "Foto asli ikut disimpan, jadi Anda bisa memotong ulang kapan saja tanpa menurunkan mutu.",
+      "Foto anak adalah data pribadi: pakai tombol AI hanya bila perlu, karena foto dikirim ke penyedia AI sekolah.",
+      "Siswa tanpa foto tetap mendapat kotak kosong di rapor untuk ditempel foto cetak.",
+    ],
+  },
+  {
     id: "video-belajar", kelompok: "guru", judul: "Video belajar", icon: "bi-play-btn",
     href: "/dashboard/video-belajar",
     langkah: [

@@ -80,7 +80,7 @@ const MENU_GROUPS = [
   {
     id: "master", label: "Data Sekolah", icon: "bi-database",
     items: [
-      { href: "/dashboard/master-siswa", label: "Siswa", icon: "bi-people-fill", peran: PENGELOLA },
+      { href: "/dashboard/master-siswa", label: "Siswa", icon: "bi-people-fill", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/master-keluarga", label: "Orang Tua & Wali", icon: "bi-house-heart", peran: PENGELOLA },
       { href: "/dashboard/master-guru", label: "Guru", icon: "bi-person-video3", peran: PENGELOLA },
       { href: "/dashboard/master-kelas", label: "Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },

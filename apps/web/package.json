@@ -15,6 +15,7 @@
     "@fullcalendar/list": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@mediapipe/tasks-vision": "^0.10.21",
     "@remotion/player": "4.0.541",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.2",

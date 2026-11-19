@@ -1,6 +1,7 @@
 "use client";
 // Mesin kalkulasi & komponen dokumen rapor, dipakai halaman Cetak Rapor dan Portal Siswa/Orang Tua
 import { Fragment } from "react";
+import { srcFoto } from "@/components/siswa/fotoSiswa";
 import { API_URL } from "@/app/lib/config";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { skalaDari, tingkatPredikat, predikatTampil, keteranganSkala, deskripsiKokurikuler, labelBentuk } from "@/app/lib/kokurikuler";
@@ -282,6 +283,9 @@ export function susunPesanWA(r) {
 
 // CSS dokumen dipakai bersama oleh pratinjau dan jendela cetak
 export const RAPOR_CSS = `
+  .rp-foto { width: 30mm; height: 40mm; border: 1px solid #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .rp-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rp-foto span { font-size: 10px; color: #555; text-align: center; line-height: 1.4; }
 .rp-page { font-family: "Times New Roman", Times, serif; color: #000; font-size: 12px; line-height: 1.35; }
 .rp-break { page-break-after: always; break-after: page; }
 .rp-main { width: 100%; border-collapse: collapse; }
@@ -398,7 +402,12 @@ export const Biodata = ({ r, tanggal, pecah }) => {
         ))}
       </tbody></table>
       <table className="rp-ttd" style={{ marginTop: "30mm" }}><tbody><tr>
-        <td width="55%"></td>
+        <td width="55%" style={{ verticalAlign: "top", paddingLeft: "12mm" }}>
+          {/* Pas foto 3 × 4 cm; kotak kosong bila belum ada (bisa ditempel foto cetak) */}
+          <div className="rp-foto" data-foto-rapor={s.foto_url ? "ada" : "kosong"}>
+            {s.foto_url ? <img src={srcFoto(s.foto_url)} alt={`Pas foto ${s.nama_siswa}`} /> : <span>Pas foto<br />3 × 4</span>}
+          </div>
+        </td>
         <td style={{ textAlign: "left", paddingLeft: 20 }}>
           {r.sek.kota || "-"}, {tanggalPanjang(tanggal)}<br />Kepala Sekolah,
           <div className="rp-ttd-space" style={{ justifyContent: "flex-start" }}>{ttdKepsek && <img src={ttdKepsek} alt="" />}</div>

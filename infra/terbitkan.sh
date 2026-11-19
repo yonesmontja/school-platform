@@ -34,7 +34,7 @@ if [ "${1:-}" != "--cepat" ]; then
   if [ "${1:-}" = "--lengkap" ]; then
     (cd ../tests/web && WEB_URL=http://localhost:3002 npx playwright test --reporter=dot)
   else
-    (cd ../tests/web && WEB_URL=http://localhost:3002 npx playwright test --reporter=dot --project=desktop tes/masuk.spec.js tes/alur.spec.js tes/offline.spec.js tes/banksoal.spec.js tes/perangkatajar.spec.js tes/pustaka.spec.js tes/studio.spec.js tes/pemakaian.spec.js tes/administrasi.spec.js tes/spmb.spec.js tes/keuangan.spec.js tes/surat.spec.js tes/inventaris.spec.js tes/stimulus.spec.js tes/android.spec.js tes/notebook-riset.spec.js)
+    (cd ../tests/web && WEB_URL=http://localhost:3002 npx playwright test --reporter=dot --project=desktop tes/masuk.spec.js tes/alur.spec.js tes/offline.spec.js tes/banksoal.spec.js tes/perangkatajar.spec.js tes/pustaka.spec.js tes/studio.spec.js tes/pemakaian.spec.js tes/administrasi.spec.js tes/spmb.spec.js tes/keuangan.spec.js tes/surat.spec.js tes/inventaris.spec.js tes/stimulus.spec.js tes/android.spec.js tes/notebook-riset.spec.js tes/foto-siswa.spec.js)
   fi
 
   echo "== Menunggu tes backend"

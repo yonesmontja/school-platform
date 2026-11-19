@@ -42,14 +42,16 @@ const ATURAN_HALAMAN = [
   // Administrasi Sekolah: halaman memeriksa sendiri submodul yang diberikan (user.administrasi)
   { awalan: "/dashboard/administrasi", peran: [...STAF, OPERATOR] },
   { awalan: "/dashboard/disposisi", peran: [...STAF, OPERATOR] },
-  { awalan: "/dashboard/portal", peran: PORTAL },
+  // Staf membuka portal sebagai "dashboard pribadi siswa" (?siswa=...); server membatasi ke admin, kepsek, wali kelasnya
+  { awalan: "/dashboard/portal", peran: [...PORTAL, ...STAF] },
   { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/dokumentasi-api", peran: ["admin"] },
   { awalan: "/dashboard/pemakaian", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },
   // Master data & semester hanya untuk pengelola; guru tetap membacanya lewat dropdown di halaman lain
-  { awalan: "/dashboard/master-siswa", peran: ["admin", "kepsek"] },
+  // Wali kelas: siswa kelas binaannya (pas foto & dashboard pribadi siswa)
+  { awalan: "/dashboard/master-siswa", peran: ["admin", "kepsek", "guru"] },
   { awalan: "/dashboard/master-keluarga", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-guru", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-kelas", peran: ["admin", "kepsek"] },

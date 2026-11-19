@@ -301,8 +301,81 @@ TXT;
         return ['data' => $data, 'mime' => $mime, 'model' => $model];
     }
 
+    /**
+     * Edit foto (mis. pas foto siswa: ganti latar, rapikan pencahayaan) lewat penyedia gambar yang sama.
+     * Foto dikirim ke penyedia AI pihak ketiga; pemanggil wajib sudah meminta persetujuan pengguna.
+     * @return array|null ['data' => biner, 'mime' => ..., 'model' => ...]
+     */
+    public function editFoto(string $mode, string $data, string $mime, string $perintah, ?string $model = null): ?array
+    {
+        $this->galat = null;
+        $this->svgCadangan = null;
+        if (!in_array($mode, self::MODES_GAMBAR, true)) {
+            $this->galat = (self::LABEL[$mode] ?? $mode) . ' tidak bisa mengedit foto. Pilih Gemini, OpenKey, atau OpenRouter.';
+            return null;
+        }
+        $model = trim((string) $model) ?: self::MODEL_GAMBAR[$mode];
+        $foto = ['data' => $data, 'mime' => $mime];
+        $prompt = "Edit pas foto siswa sekolah ini: {$perintah}\n"
+            . 'Wajah, ekspresi, bentuk tubuh, warna kulit, rambut, dan pakaian harus tetap sama persis seperti aslinya (jangan dipercantik atau diubah). '
+            . 'Keluarkan satu gambar foto realistis potret tegak, tanpa tulisan, tanpa bingkai.';
+        $url = match ($mode) {
+            'GEMINI' => $this->gambarGemini($model, $prompt, $foto),
+            'QWEN' => $this->gambarChat('QWEN', 'https://openrouter.ai/api/v1/chat/completions', $this->apiKey('api_key_qwen', 'openrouter_key'), $model, $prompt, ['X-Title' => 'EduRapor'], $foto),
+            'OPENKEY' => $this->editFotoOpenKey($model, $prompt, $foto),
+        };
+        if ($url === null) {
+            $this->galat ??= self::LABEL[$mode] . ' belum diatur. Periksa API key di Pengaturan Sekolah.';
+            return null;
+        }
+        $hasil = $this->unduhGambar($url);
+        if ($hasil === null) {
+            $this->galat ??= self::LABEL[$mode] . " (model {$model}) tidak mengembalikan foto.";
+            return null;
+        }
+        $mimeHasil = (new \finfo(FILEINFO_MIME_TYPE))->buffer($hasil);
+        if (!in_array($mimeHasil, self::MIME_GAMBAR, true)) {
+            $this->galat = self::LABEL[$mode] . " mengembalikan berkas yang bukan gambar ({$mimeHasil}).";
+            return null;
+        }
+        return ['data' => $hasil, 'mime' => $mimeHasil, 'model' => $model];
+    }
+
+    /** OpenKey: endpoint edit gambar gaya OpenAI (multipart), lalu chat completions dengan foto masukan. */
+    private function editFotoOpenKey(string $model, string $prompt, array $foto): ?string
+    {
+        $s = $this->settings();
+        $apiKey = $this->apiKey('api_key_openkey', 'openkey_key');
+        $baseUrl = rtrim((string) $s?->openkey_base_url, '/');
+        if (!$apiKey || !$baseUrl) return null;
+        $v1 = match (true) {
+            str_ends_with($baseUrl, '/chat/completions') => substr($baseUrl, 0, -strlen('/chat/completions')),
+            str_ends_with($baseUrl, '/v1') => $baseUrl,
+            default => "{$baseUrl}/v1",
+        };
+        $ekstensi = ['image/png' => 'png', 'image/webp' => 'webp'][$foto['mime']] ?? 'jpg';
+        try {
+            $response = Http::timeout(self::TIMEOUT)->withToken($apiKey)
+                ->attach('image', $foto['data'], "foto.{$ekstensi}", ['Content-Type' => $foto['mime']])
+                ->post("{$v1}/images/edits", ['model' => $model, 'prompt' => $prompt, 'n' => 1]);
+            if ($response->successful()) {
+                $item = $response->json('data.0', []);
+                if (!empty($item['b64_json'])) return 'data:image/png;base64,' . $item['b64_json'];
+                if (!empty($item['url'])) return $item['url'];
+            }
+            $galatEdit = $response->successful() ? 'tidak ada gambar dalam jawaban' : $this->ringkasGalat($response);
+        } catch (\Exception $e) {
+            $galatEdit = mb_substr($e->getMessage(), 0, 150);
+        }
+        $hasil = $this->gambarChat('OPENKEY', "{$v1}/chat/completions", $apiKey, $model, $prompt, [], $foto);
+        if ($hasil === null) {
+            $this->galat = "OpenKey (model {$model}) belum bisa mengedit foto. Endpoint edit: {$galatEdit}. Chat: " . ($this->galat ?? 'tidak ada gambar');
+        }
+        return $hasil;
+    }
+
     /** Gemini: generateContent dengan keluaran gambar; mengembalikan data URL. */
-    private function gambarGemini(string $model, string $prompt): ?string
+    private function gambarGemini(string $model, string $prompt, ?array $foto = null): ?string
     {
         $apiKey = $this->apiKey('api_key_gemini', 'gemini_key');
         if (!$apiKey) return null;
@@ -310,7 +383,10 @@ TXT;
             $response = Http::timeout(self::TIMEOUT)
                 ->withHeaders(['x-goog-api-key' => $apiKey])
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
-                    'contents' => [['role' => 'user', 'parts' => [['text' => $prompt]]]],
+                    'contents' => [['role' => 'user', 'parts' => array_values(array_filter([
+                        $foto ? ['inlineData' => ['mimeType' => $foto['mime'], 'data' => base64_encode($foto['data'])]] : null,
+                        ['text' => $prompt],
+                    ]))]],
                     'generationConfig' => ['responseModalities' => ['TEXT', 'IMAGE']],
                 ]);
             if (!$response->successful()) return $this->tolak('GEMINI', $model, $response);
@@ -363,13 +439,16 @@ TXT;
     }
 
     /** Chat completions dengan keluaran gambar (OpenRouter & layanan serupa): message.images atau tautan gambar di teks. */
-    private function gambarChat(string $mode, string $url, ?string $apiKey, string $model, string $prompt, array $extraHeaders = []): ?string
+    private function gambarChat(string $mode, string $url, ?string $apiKey, string $model, string $prompt, array $extraHeaders = [], ?array $foto = null): ?string
     {
         if (!$apiKey) return null;
         $this->galat = null;
+        $isi = $foto
+            ? [['type' => 'image_url', 'image_url' => ['url' => 'data:' . $foto['mime'] . ';base64,' . base64_encode($foto['data'])]], ['type' => 'text', 'text' => $prompt]]
+            : $prompt;
         try {
             $response = Http::timeout(self::TIMEOUT)->withToken($apiKey)->withHeaders($extraHeaders)
-                ->post($url, ['model' => $model, 'messages' => [['role' => 'user', 'content' => $prompt]], 'modalities' => ['image', 'text']]);
+                ->post($url, ['model' => $model, 'messages' => [['role' => 'user', 'content' => $isi]], 'modalities' => ['image', 'text']]);
             if (!$response->successful()) return $this->tolak($mode, $model, $response);
             $pesan = $response->json('choices.0.message', []);
             $gambar = $pesan['images'][0]['image_url']['url'] ?? $pesan['images'][0]['url'] ?? null;

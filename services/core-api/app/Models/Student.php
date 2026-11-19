@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\URL;
 
 class Student extends Model
 {
@@ -21,6 +22,24 @@ class Student extends Model
         'id_agama', 'id_sekolah_asal', 'status_tempat_tinggal',
         'jalan_siswa', 'id_wilayah_siswa', 'id_ortu', 'id_wali', 'no_wa',
     ];
+
+    // Lokasi berkas foto tidak pernah dikirim; yang dikirim tautan bertanda tangan (foto_url)
+    protected $hidden = ['foto_path', 'foto_asli_path'];
+    protected $appends = ['foto_url'];
+    protected $casts = ['foto_diperbarui' => 'datetime'];
+
+    /**
+     * Tautan pas foto bertanda tangan (relatif terhadap asal API), berlaku sampai akhir besok.
+     * Masa berlaku dibulatkan per hari agar peramban bisa menyimpan cache; v berubah setiap foto diganti.
+     */
+    public function getFotoUrlAttribute(): ?string
+    {
+        if (!$this->foto_path) return null;
+        return URL::temporarySignedRoute('siswa.foto', now()->startOfDay()->addDays(2), [
+            'id' => $this->id_siswa,
+            'v' => $this->foto_diperbarui?->timestamp ?? 0,
+        ], absolute: false);
+    }
 
     // Relasi ke Kelas
     public function kelas(): BelongsTo

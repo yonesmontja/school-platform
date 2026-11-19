@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { bacaUser, useAkses } from "@/app/lib/akses";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import EditorFoto, { FotoKecil } from "@/components/siswa/EditorFoto";
+import { srcFoto, unduhFoto } from "@/components/siswa/fotoSiswa";
 
 export default function MasterSiswaPage() {
   const [students, setStudents] = useState([]);
@@ -34,8 +36,22 @@ export default function MasterSiswaPage() {
   const tableRef = useRef(null);
   const tabulatorInstance = useRef(null);
   // Data master hanya diubah admin
-  const { isAdmin, user } = useAkses();
-  const kolomTampil = () => (bacaUser()?.role === "admin" ? COLUMNS_DEF : COLUMNS_DEF.filter((c) => c.field !== "action"));
+  const { isAdmin, user, isGuru, kelasBinaan } = useAkses();
+  // Wali kelas hanya melihat siswa kelas binaannya di menu ini
+  const kunciBinaan = kelasBinaan.join(",");
+  const siswaTampil = useMemo(
+    () => (isGuru ? students.filter((r) => kunciBinaan.split(",").includes(r.id_kelas)) : students),
+    [students, isGuru, kunciBinaan],
+  );
+  const kolomTampil = () => COLUMNS_DEF;
+  // Pas foto & dashboard pribadi: admin, kepala sekolah, atau wali kelas siswa itu (server memeriksa ulang)
+  const bolehSiswa = (r) => {
+    const u = bacaUser();
+    return u?.role === "admin" || u?.role === "kepsek" || (u?.role === "guru" && (u.kelas_binaan || []).includes(r.id_kelas));
+  };
+  const [fotoSiswa, setFotoSiswa] = useState(null);
+  const bukaDashboard = (r) => window.open(`/dashboard/portal?siswa=${encodeURIComponent(r.id_siswa)}`, "_blank", "noopener");
+  const unduh = (r) => unduhFoto(r).catch((e) => Swal.fire("Gagal", e.message, "error"));
 
   const getToken = () => localStorage.getItem("token");
 
@@ -47,6 +63,21 @@ export default function MasterSiswaPage() {
       width: 60,
       headerHozAlign: "center",
       field: "row_num",
+    },
+    {
+      title: "Foto",
+      field: "foto_url",
+      width: 64,
+      headerSort: false,
+      hozAlign: "center",
+      headerHozAlign: "center",
+      formatter: (cell) => {
+        const d = cell.getRow().getData();
+        const src = srcFoto(d.foto_url);
+        return src
+          ? `<img src="${src}" alt="" width="33" height="44" loading="lazy" class="rounded border" style="object-fit:cover" data-foto-siswa="${d.id_siswa}">`
+          : `<span class="rounded border bg-body-tertiary d-inline-flex align-items-center justify-content-center text-secondary" style="width:33px;height:44px"><i class="bi bi-person"></i></span>`;
+      },
     },
     {
       title: "NISN / ID",
@@ -111,7 +142,16 @@ export default function MasterSiswaPage() {
       formatter: (cell) =>
         `<small class="text-muted">${cell.getValue() || "-"}</small>`,
     },
-    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_siswa))]),
+    kolomAksi((r) => {
+      const admin = bacaUser()?.role === "admin";
+      return [
+        { label: r.foto_url ? "Edit pas foto" : "Tambah pas foto", ikon: "bi-person-bounding-box", onClick: () => setFotoSiswa(r), tampil: bolehSiswa(r) },
+        { label: "Unduh pas foto", ikon: "bi-download", onClick: () => unduh(r), tampil: Boolean(r.foto_url) },
+        { label: "Dashboard pribadi siswa", ikon: "bi-person-vcard", onClick: () => bukaDashboard(r), tampil: bolehSiswa(r) },
+        { ...aksiUbah(() => openModal(r), admin), pemisah: true },
+        aksiHapus(() => handleDelete(r.id_siswa), admin),
+      ];
+    }),
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(
@@ -218,7 +258,7 @@ export default function MasterSiswaPage() {
 
         tabulatorInstance.current.on("tableBuilt", () => {
           if (isMounted && tabulatorInstance.current) {
-            tabulatorInstance.current.replaceData(students);
+            tabulatorInstance.current.replaceData(siswaTampil);
             applyColumnVisibility(visibleColumns);
           }
         });
@@ -238,12 +278,12 @@ export default function MasterSiswaPage() {
     if (tabulatorInstance.current) {
       setTimeout(() => {
         if (tabulatorInstance.current) {
-          tabulatorInstance.current.replaceData(students);
+          tabulatorInstance.current.replaceData(siswaTampil);
           applyFilters();
         }
       }, 50);
     }
-  }, [students]);
+  }, [siswaTampil]);
 
   const applyFilters = () => {
     if (!tabulatorInstance.current) return;
@@ -534,7 +574,7 @@ export default function MasterSiswaPage() {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
         <h3 className="fw-bold text-primary m-0">
           <i className="bi bi-people-fill me-2"></i>Grand Master Data Siswa
-          {user && !isAdmin && <span className="badge text-bg-secondary fw-normal fs-6 ms-2 align-middle"><i className="bi bi-eye me-1"></i>Lihat saja</span>}
+          {user && !isAdmin && <span className="badge text-bg-secondary fw-normal fs-6 ms-2 align-middle"><i className={`bi ${isGuru ? "bi-person-badge" : "bi-eye"} me-1`}></i>{isGuru ? "Kelas binaan Anda · pas foto & dashboard pribadi" : "Lihat saja"}</span>}
         </h3>
         <div className="d-flex gap-2 flex-wrap">
           <div className="dropdown">
@@ -688,6 +728,18 @@ export default function MasterSiswaPage() {
                   <div className="p-4 bg-white">
                     {activeTab === "identitas" && (
                       <div className="row g-3">
+                        {editingStudent && (
+                          <div className="col-12 d-flex align-items-center gap-3 border rounded p-2 bg-body-tertiary">
+                            <FotoKecil siswa={editingStudent} ukuran={45} />
+                            <div className="small me-auto">
+                              <div className="fw-bold">Pas foto (3 × 4)</div>
+                              <div className="text-muted">Tampil di biodata rapor dan profil portal siswa.</div>
+                            </div>
+                            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setFotoSiswa(editingStudent)}>
+                              <i className="bi bi-person-bounding-box me-1"></i>{editingStudent.foto_url ? "Edit foto" : "Tambah foto"}
+                            </button>
+                          </div>
+                        )}
                         <div className="col-md-4">
                           <label className="form-label fw-bold small text-muted">
                             NISN *
@@ -1004,6 +1056,16 @@ export default function MasterSiswaPage() {
             </div>
           </div>
         </div>
+      )}
+      {fotoSiswa && (
+        <EditorFoto
+          siswa={fotoSiswa}
+          onTutup={() => setFotoSiswa(null)}
+          onBerubah={(url) => {
+            setEditingStudent((e) => (e && e.id_siswa === fotoSiswa.id_siswa ? { ...e, foto_url: url } : e));
+            fetchStudents();
+          }}
+        />
       )}
     </div>
   );

@@ -62,6 +62,7 @@ use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PanduanKerjaController;
 use App\Http\Controllers\Api\DiagnostikController;
 use App\Http\Controllers\Api\PortalController;
+use App\Http\Controllers\Api\FotoSiswaController;
 
 /*
 | Peran: admin, kepsek, guru (staf) · siswa, ortu (portal baca).
@@ -125,6 +126,8 @@ Route::prefix('spmb')->group(function () {
     });
 });
 // Verifikasi keaslian surat keluar dari kode yang tercetak di surat (Fase 26 Tahap D)
+// Pas foto siswa lewat tautan bertanda tangan (dibuat untuk akun yang boleh melihat siswa itu; dipakai <img> & cetak rapor)
+Route::get('/siswa/{id}/foto', [FotoSiswaController::class, 'tampil'])->name('siswa.foto')->middleware(['signed:relative', 'throttle:240,1']);
 Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
@@ -306,10 +309,13 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
 
     // ===== PORTAL SISWA & ORANG TUA =====
     Route::middleware('role:siswa,ortu')->prefix('portal')->group(function () {
-        Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/video', [VideoBelajarController::class, 'portal']);
-        Route::get('/rapor', [PortalController::class, 'rapor']);
         Route::get('/tagihan', [KeuanganController::class, 'portal']);
+    });
+    // Data portal juga dibuka sebagai "dashboard pribadi siswa" untuk admin, kepsek, dan wali kelas (lihat User::siswaDashboard)
+    Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('portal')->group(function () {
+        Route::get('/anak', [PortalController::class, 'anak']);
+        Route::get('/rapor', [PortalController::class, 'rapor']);
     });
 
     // ===== TES ONLINE SISWA (Fase 16 Tahap C) =====
@@ -367,6 +373,13 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::middleware('role:admin,kepsek,guru')->group(function () {
         // Master data: baca untuk semua staf (dropdown & halaman master kepsek)
         Route::get('/students/master-data', [StudentController::class, 'getMasterData']);
+        // Pas foto siswa: admin, kepsek, atau wali kelasnya (dicek di controller)
+        Route::prefix('siswa/{id}/foto')->controller(FotoSiswaController::class)->group(function () {
+            Route::post('/', 'simpan');
+            Route::delete('/', 'hapus');
+            Route::get('/asli', 'asli');
+            Route::post('/ai', 'ai')->middleware('throttle:10,1');
+        });
         Route::apiResource('/students', StudentController::class)->only(['index']);
         Route::apiResource('/teachers', TeacherController::class)->only(['index']);
         Route::apiResource('/classes', ClassesController::class)->only(['index']);

@@ -14,13 +14,25 @@ use Illuminate\Http\Request;
  */
 class PortalController extends Controller
 {
+    /**
+     * Daftar siswa yang bisa dipilih di portal. Akun siswa/ortu: dirinya/anaknya.
+     * Staf (dashboard pribadi siswa): wajib menyebut id_siswa, dan hanya siswa itu yang dikembalikan bila boleh.
+     */
     public function anak(Request $request)
     {
+        $u = $request->user();
+        $kolom = ['id_siswa', 'nisn', 'nama_siswa', 'id_kelas', 'jenis_kelamin', 'foto_path', 'foto_diperbarui'];
+        if ($u->isPortal()) {
+            $siswa = Student::with('kelas:id_kelas,nama_kelas')->whereIn('id_siswa', $u->siswaTerjangkau())->orderBy('nama_siswa')->get($kolom);
+        } else {
+            abort_unless(($u->isAdmin() || $u->isKepsek() || $u->isGuru()) && $request->filled('id_siswa'), 403,
+                'Portal ini untuk akun siswa dan orang tua. Staf membuka dashboard pribadi siswa dari menu Siswa.');
+            $satu = Student::with('kelas:id_kelas,nama_kelas,wali_kelas')->findOrFail($request->id_siswa, [...$kolom, 'tempat_lahir', 'tgl_lahir']);
+            abort_unless($u->bolehDashboardSiswa($satu), 403, 'Dashboard pribadi siswa hanya untuk admin, kepala sekolah, dan wali kelasnya.');
+            $siswa = collect([$satu]);
+        }
         return response()->json([
-            'siswa' => Student::with('kelas:id_kelas,nama_kelas')
-                ->whereIn('id_siswa', $request->user()->siswaTerjangkau())
-                ->orderBy('nama_siswa')
-                ->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas', 'jenis_kelamin']),
+            'siswa' => $siswa,
             'periodes' => MasterPeriode::orderByDesc('tahun_ajaran')->orderBy('semester')->get(),
         ]);
     }
@@ -35,9 +47,8 @@ class PortalController extends Controller
             'id_siswa' => 'required|string',
             'id_periode' => 'required|exists:master_periode,id_periode',
         ]);
-        abort_unless(in_array($request->id_siswa, $request->user()->siswaTerjangkau(), true), 403, 'Data siswa ini tidak dapat diakses dari akun Anda.');
-
         $siswa = Student::find($request->id_siswa);
+        abort_unless($siswa && $request->user()->bolehDashboardSiswa($siswa), 403, 'Data siswa ini tidak dapat diakses dari akun Anda.');
         if (!$siswa?->id_kelas) {
             return response()->json(['message' => 'Siswa belum terdaftar di kelas mana pun.'], 422);
         }

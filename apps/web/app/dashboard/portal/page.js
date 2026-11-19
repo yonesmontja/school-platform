@@ -13,6 +13,8 @@ import {
 } from "@/components/rapor/raporDokumen";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
 import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
+import { FotoKecil } from "@/components/siswa/EditorFoto";
+import { unduhFoto } from "@/components/siswa/fotoSiswa";
 import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 
@@ -203,8 +205,19 @@ function PortalPage() {
 
   const gantiTab = (t) => { setTab(t); setCari(""); setSaring("semua"); };
 
+  // Staf (admin, kepsek, wali kelas) membuka portal sebagai "dashboard pribadi siswa" untuk satu siswa: lihat & unduh saja,
+  // tanpa video pembelajaran, tes online, dan tagihan sekolah
+  const staf = Boolean(role) && !["siswa", "ortu"].includes(role);
+  const siswaStaf = staf ? params.get("siswa") : null;
+
   useEffect(() => {
-    ambil("/portal/anak").then((d) => {
+    if (!role) return;
+    if (staf && !siswaStaf) {
+      setGalat("Buka dashboard pribadi siswa dari menu Siswa (menu ⋮ pada baris siswa).");
+      setLoading(false);
+      return;
+    }
+    ambil(staf ? `/portal/anak?id_siswa=${encodeURIComponent(siswaStaf)}` : "/portal/anak").then((d) => {
       setAnak(d.siswa || []);
       setPeriodes(d.periodes || []);
       if (d.siswa?.[0]) setIdSiswa(d.siswa[0].id_siswa);
@@ -212,7 +225,7 @@ function PortalPage() {
       if (aktif) setIdPeriode(aktif.id_periode);
       if (!d.siswa?.length) setLoading(false);
     }).catch((e) => { setGalat(e.message); setLoading(false); });
-  }, []);
+  }, [role, staf, siswaStaf]);
 
   // Tautan langsung: pilih anak, periode, dan tab yang dituju (juga saat sudah berada di portal)
   useEffect(() => {
@@ -396,15 +409,24 @@ function PortalPage() {
     <div className="container-fluid mt-4 mb-5">
       <style>{RAPOR_CSS + PREVIEW_CSS}</style>
       {role === "siswa" && <TesTersedia />}
-      <VideoPortal />
-      {idSiswa && <TagihanPortal idSiswa={idSiswa} />}
+      {!staf && <VideoPortal />}
+      {!staf && idSiswa && <TagihanPortal idSiswa={idSiswa} />}
 
       {/* SAMBUTAN & PILIHAN */}
       <div className="card border-0 shadow-sm mb-4 overflow-hidden">
         <div className="p-4 text-white" style={{ background: "linear-gradient(135deg, var(--app-accent), var(--app-accent-2))" }}>
-          <div className="small opacity-75">{role === "ortu" ? "Portal Orang Tua" : "Portal Siswa"}</div>
-          <h4 className="fw-bold mb-1">Halo, {user?.name}</h4>
-          <div className="small opacity-75">Pantau perkembangan belajar {role === "ortu" ? "ananda" : "Anda"}: capaian tujuan pembelajaran, nilai, tindak lanjut, jadwal, kehadiran, catatan positif, dan rapor.</div>
+          <div className="d-flex align-items-center gap-3">
+            {siswa && <FotoKecil siswa={siswa} ukuran={staf ? 66 : 54} className="border-2 border-white shadow-sm flex-shrink-0" />}
+            <div>
+              <div className="small opacity-75">{staf ? <><i className="bi bi-person-vcard me-1"></i>Dashboard Pribadi Siswa · lihat saja</> : role === "ortu" ? "Portal Orang Tua" : "Portal Siswa"}</div>
+              <h4 className="fw-bold mb-1" data-judul-portal>{staf ? (siswa?.nama_siswa || "Memuat…") : `Halo, ${user?.name || ""}`}</h4>
+              <div className="small opacity-75">
+                {staf
+                  ? "Tampilan yang sama dengan portal siswa (tanpa video pembelajaran dan tagihan): capaian tujuan pembelajaran, nilai, tindak lanjut, jadwal, kehadiran, catatan positif, dan rapor. Data bisa diunduh dari tiap tab."
+                  : `Pantau perkembangan belajar ${role === "ortu" ? "ananda" : "Anda"}: capaian tujuan pembelajaran, nilai, tindak lanjut, jadwal, kehadiran, catatan positif, dan rapor.`}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="p-3 d-flex flex-wrap gap-3 align-items-end">
           {anak.length > 1 && (
@@ -425,6 +447,11 @@ function PortalPage() {
             <div className="ms-auto text-end small">
               <div className="fw-bold">{siswa.nama_siswa}</div>
               <div className="text-muted">{siswa.kelas?.nama_kelas || "Belum ada kelas"} · NISN {siswa.nisn || "-"}</div>
+              {siswa.foto_url && (
+                <button type="button" className="btn btn-link btn-sm p-0" onClick={() => unduhFoto(siswa).catch((e) => Swal.fire("Gagal", e.message, "error"))}>
+                  <i className="bi bi-download me-1"></i>Unduh pas foto
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -451,7 +478,7 @@ function PortalPage() {
           {tab === "ringkasan" && (
             <div className="row g-3">
               <div className="col-12">
-                <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={(t, rencana) => { gantiTab(t); setSorot(rencana || null); }} sebutan={role === "ortu" ? "Ananda" : "Anda"} />
+                <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={(t, rencana) => { gantiTab(t); setSorot(rencana || null); }} sebutan={role === "ortu" ? "Ananda" : staf ? "Siswa" : "Anda"} />
               </div>
               <div className="col-6 col-lg-3"><Stat label="Rata-rata nilai" nilai={rapor.rataUmum} icon="bi-graph-up" warna="primary" /></div>
               <div className="col-6 col-lg-3"><Stat label="Kehadiran" nilai={persenHadir == null ? "-" : `${persenHadir}%`} icon="bi-calendar-check" warna="success" sub={`${rapor.presensi.hadir} dari ${totalHari} hari`} /></div>
