@@ -35,7 +35,7 @@ school-platform/
 - **Administrasi Sekolah (Fase 26 Tahap A)** — menu Administrasi Sekolah berisi submodul SPMB, Keuangan, Surat & Arsip, dan Inventaris. Kepala sekolah menunjuk **operator** per submodul (`/administrasi/operator`, tabel `operator_sekolah`); akses dicek middleware `administrasi:KODE`. Admin/kepsek/peninjau melihat semua submodul (peninjau hanya baca), guru atau operator hanya submodul yang ditunjuk
 - **SPMB (Tahap B)** — pendaftaran siswa baru: formulir publik `/spmb` tanpa login (nomor pendaftaran + kode akses untuk cek status, perbaikan data, unggah berkas, daftar ulang), gelombang pendaftaran dan pengumuman, verifikasi berkas, hasil seleksi, hingga pendaftar dijadikan siswa di Master Siswa
 - **Keuangan (Tahap C)** — jenis biaya, beasiswa, tagihan per siswa, pembayaran dengan kuitansi cetak dan pembatalan, tunggakan beserta pengingat, buku kas, dan **tujuan bayar** (rekening/kanal pembayaran sekolah); orang tua/siswa melihat tagihan anak di Portal
-- **Surat & Arsip (Tahap D)** — templat surat dan penomoran, surat keluar (draf → diajukan → terbit → ditandatangani) dengan kode verifikasi keaslian di halaman publik `/verifikasi/{kode}`, surat masuk dengan **disposisi** ke staf (halaman Disposisi Surat untuk penerima), dan arsip dokumen berberkas
+- **Surat & Arsip (Tahap D)** — templat surat dan penomoran, surat keluar (draf → diajukan → terbit → ditandatangani) dengan kode verifikasi keaslian (dicetak juga sebagai **kode QR** di surat) di halaman publik `/verifikasi/{kode}`, surat masuk dengan **disposisi** ke staf (halaman Disposisi Surat untuk penerima), dan arsip dokumen berberkas
 - **Inventaris (Tahap E)** — barang (inventaris, pemeriksaan kondisi, peminjaman/pengembalian), stok habis pakai beserta mutasi, dan pengadaan dengan keputusan dan penyelesaian
 - **Manajemen Pengguna** — admin membuat/mengubah/menghapus akun, membuat akun massal (generate), dan reset password
 - **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak miliknya (read-only): ringkasan dengan kotak **Perlu didampingi** (tindak lanjut terjadwal, mapel di bawah KKM, TP belum dikuasai, alpa) dan grafik perkembangan nilai; **Capaian TP** per mapel → materi → indikator dengan tingkat KKTP, tanda tuntas, dan kalimat deskripsi seperti di rapor; **Tindak Lanjut** (remedial: jadwal, jam, ruang, catatan guru, nilai awal → remedial, serta tips mendampingi di rumah per bentuk tindak lanjut); **Jadwal** kelas 7 hari ke depan (sesi remedial siswa lain tidak ditampilkan); kalender kehadiran per bulan; catatan positif (narasi jurnal negatif tidak ditampilkan); dan pratinjau/cetak rapor
@@ -74,6 +74,11 @@ school-platform/
 - **AI Asesmen (Fase 16 Tahap D)** — memakai penyedia AI yang sama dengan rapor & jurnal (dipilih guru): **gambar soal dari AI** di editor soal (ilustrasi lewat Gemini, OpenKey, atau OpenRouter dengan model gambar yang bisa diganti; diagram SVG lewat semua penyedia; pesan penolakan penyedia ditampilkan apa adanya), **penilaian uraian berbantuan AI** sesuai rubrik dari jawaban tes online, catatan guru, atau foto lembar jawaban (usulan skor + alasan + transkrip, diperiksa guru sebelum disimpan; per siswa atau sekaligus satu kelas), dan **AI belajar dari analisis butir**: p, D, dan saran tiap butir tersimpan saat analisis dibuka atau nilai dikirim, bank soal menandai soal Teruji baik/Perlu ditinjau, dan draf AI diberi contoh soal yang teruji baik, catatan soal bermasalah, serta capaian siswa pada TP itu
 - **Tes Online (Fase 16 Tahap C)** — paket soal dibuka sebagai tes di HP siswa (akun siswa → menu Tes Online): jadwal buka-tutup, waktu mengerjakan yang dihitung server sejak mulai, token kelas, acak urutan soal & pilihan per siswa (kolom kanan menjodohkan, langkah mengurutkan, dan bank kata selalu diacak), simpan otomatis dengan coba ulang saat sinyal putus, penanda ragu-ragu, kumpul otomatis saat waktu habis, dan pencatatan keluar dari halaman tes. Soal interaktif: menjodohkan (ketuk-pasangkan), mengurutkan, **membaca nyaring** (siswa merekam suara di HP, rekaman diputar guru saat koreksi dan dinilai dengan rubrik; di kertas dinilai langsung), dan bentuk baru **melengkapi gambar** (gambar bernomor + jawaban per bagian, bank kata opsional; juga untuk draf AI, cetak, dan koreksi kertas) — semuanya dinilai otomatis, uraian oleh guru. Guru memantau status, jumlah terjawab, sisa waktu, dan keluar halaman per siswa, dapat mengakhiri sesi atau mengizinkan mengulang; jawaban online masuk ke koreksi, kirim nilai, dan analisis butir yang sama dengan koreksi kertas
 - **Sesi Ujian CBT (Tahap A)** — menu Asesmen → Sesi Ujian (CBT): satu paket soal dipakai untuk beberapa kelas sekaligus dalam satu sesi (jadwal, token sesi, mode ujian), pengawas memantau peserta langsung (status, jumlah terjawab, log kejadian per siswa), dapat mengizinkan mengulang atau mengakhiri sesi seorang siswa, dan mencetak kartu peserta; hak akses dicek di controller
+- **Stimulus AKM & Level Kompetensi (CBT Tahap B)** — satu stimulus bersama (bacaan/tabel) dipakai beberapa soal di Bank Soal dan paket (`StimulusAkm`), serta laporan **level kompetensi** pada analisis paket
+- **Pas foto siswa** — editor foto (potong, filter, latar di peramban, atau AI) di Master Siswa; foto tampil di biodata rapor dan Portal lewat tautan bertanda tangan. Wali kelas membuka Master Siswa untuk kelas binaannya dan melihat **dashboard pribadi siswa** (data portal) bersama admin dan kepsek
+- **Notebook riset multi-dokumen** — Pustaka Dokumen: notebook pribadi per akun yang menggabungkan beberapa dokumen, tanya-jawab lintas dokumen, dan catatan yang bisa dijadikan bahan ATP, modul ajar, atau Peta Tema (*Jadikan…*)
+- **Aplikasi Android (TWA)** — halaman publik `/android` untuk mengunduh APK langsung (`apps/web/public/unduh`, dibuat dengan `apps/android/buat-apk.sh`)
+- **Pemantau uptime mandiri** — perintah terjadwal `situs:pantau` tiap 5 menit memeriksa beranda dan `/api/health` lewat alamat publik; bila gagal 2 kali berturut-turut admin dikabari lewat WA (Fonnte) dan dikabari lagi saat pulih
 - **Variasi Bank Soal** — dari soal yang sudah ada, AI membuat **varian** (`ModalVarianAI`), soal kembar/duplikat dideteksi (`/bank-soal/kembar`), dan panel **Cakupan** per TP menunjukkan TP yang belum punya soal atau kurang variasi; draf soal juga bisa dibuat dari hasil riset Notebook (`Jadikan soal`)
 - **Peta Tema → Jadwal kelas** — kepala sekolah menetapkan Peta Tema (slot, tetapkan, buka kunci) lalu pratinjau dan membuat sesi Jadwal kelas darinya, dengan pengecekan konflik (`/perangkat-ajar/tema/{id}/cek`); komponen `PolaJadwalTema`. Sesi modul ditautkan dihitung penuh per TP, dan Panduan memuat alur perencanaan serta urutan peta kerja
 - **Kunci layar saat AI bekerja & ekspor Notebook** — layar dikunci sementara selama permintaan AI berjalan (`KunciAi`); CP bisa diisi dari dokumen Pustaka (`/perangkat-ajar/cp/dari-dokumen`); hasil Notebook dapat diunduh sebagai `.docx` dan `.pdf` asli, dan Peta Kerja menjelaskan apa yang membuat langkah belum lengkap
@@ -363,8 +368,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET/PUT | `/diagnostik/nonkognitif` | Diagnostik non-kognitif kelas per semester (ubah: wali kelas/pengelola) | staf | ✔ |
 | POST | `/notifikasi/baca` | Tandai dibaca (`kunci[]`, atau semua bila kosong) | semua peran | ✔ |
 | GET | `/settings` | Ambil pengaturan sekolah | semua peran | ✔ |
-| GET | `/portal/anak` | Data anak (portal) | siswa, ortu | ✔ |
-| GET | `/portal/rapor` | Rapor anak (portal) + `remedial` (rencana tindak lanjut & hasil) + `jadwal_pekan` (jadwal kelas 7 hari ke depan) | siswa, ortu | ✔ |
+| GET | `/portal/anak` | Data anak (portal); juga dipakai sebagai dashboard pribadi siswa oleh admin, kepsek, dan wali kelas | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/portal/rapor` | Rapor anak (portal) + `remedial` (rencana tindak lanjut & hasil) + `jadwal_pekan` (jadwal kelas 7 hari ke depan); dibuka juga untuk dashboard pribadi siswa | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
 | GET | `/logo-sekolah` | Logo resmi sekolah (404 bila belum diunggah) | – | – |
 | POST | `/settings` | Simpan pengaturan sekolah | admin | ✔ |
 | POST/PUT/DELETE | `/students, /teachers, /classes, /subjects, /periodes, /kategori-penilaian` | Tambah/ubah/hapus data master | admin | ✔ |
@@ -415,6 +420,15 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/bank-soal/kembar` | Deteksi soal kembar/duplikat | staf | ✔ |
 | POST | `/bank-soal/{id}/varian` | Varian soal oleh AI (throttle 20/menit) | staf | ✔ |
 | POST | `/bank-soal/ai/dari-riset` | Draf soal dari hasil riset Notebook (throttle 10/menit) | staf | ✔ |
+| GET/POST/PUT/DELETE | `/stimulus`, `/stimulus/{id}` | Stimulus AKM bersama: satu bacaan/tabel dipakai beberapa soal (CBT Tahap B) | staf | ✔ |
+| POST/DELETE | `/siswa/{id}/foto` | Simpan / hapus pas foto siswa (admin, kepsek, atau wali kelasnya) | staf | ✔ |
+| GET | `/siswa/{id}/foto/asli` | Foto asli sebelum disunting | staf | ✔ |
+| POST | `/siswa/{id}/foto/ai` | Pas foto dengan latar rapi oleh AI (throttle 10/menit) | staf | ✔ |
+| GET | `/siswa/{id}/foto` | Tampilkan pas foto lewat tautan bertanda tangan (throttle 240/menit; dipakai gambar & cetak rapor) | – | – |
+| GET/POST | `/notebook`, `/notebook/catatan` | Notebook riset beberapa dokumen (pribadi per akun): daftar & buat; semua catatan sebagai bahan *Jadikan…* | staf | ✔ |
+| GET/PUT/DELETE | `/notebook/{id}` | Detail, ubah, hapus notebook | staf | ✔ |
+| POST | `/notebook/{id}/tanya` | Tanya-jawab lintas dokumen notebook (throttle 20/menit) | staf | ✔ |
+| POST/PUT/DELETE | `/notebook/{id}/catatan`, `/notebook/{id}/catatan/{idCatatan}` | Simpan / ubah / hapus catatan notebook | staf | ✔ |
 | POST | `/bank-soal/impor` | Pecah paket soal lama (teks/Word/PDF/foto) menjadi draf | staf | ✔ |
 | POST | `/bank-soal/gambar` | Unggah gambar soal (PNG/JPG/WEBP, maks. 2MB) | staf | ✔ |
 | GET | `/video-belajar/studio` | Pengaturan Studio Rakit Video: pembuat video, mesin render, merek sekolah | staf | ✔ |
@@ -537,9 +551,10 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/`                       | Beranda publik (pilih peran untuk masuk, info SPMB) |
 | `/spmb`                   | SPMB publik: formulir pendaftaran, cek status, daftar ulang (tanpa login) |
 | `/verifikasi/{kode}`      | Verifikasi keaslian surat keluar (tanpa login) |
+| `/android`                | Unduh aplikasi Android (APK) |
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
-| `/dashboard/master-siswa` | Master Siswa (admin & kepsek)  |
+| `/dashboard/master-siswa` | Master Siswa (admin & kepsek; wali kelas untuk kelas binaan; pas foto siswa) |
 | `/dashboard/master-keluarga` | Orang Tua & Wali (admin & kepsek; tampilan Tabler) |
 | `/dashboard/master-guru`  | Master Guru (admin & kepsek)   |
 | `/dashboard/master-kelas` | Master Kelas (admin & kepsek; rombel aktif/nonaktif per semester) |
