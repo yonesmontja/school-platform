@@ -1,6 +1,7 @@
 // Cetak surat keluar resmi: kop sekolah, nomor/sifat/lampiran/perihal, isi, tanda tangan kepala sekolah,
 // dan kode verifikasi keaslian (dicek di halaman publik /verifikasi/<kode>).
 import Swal from "sweetalert2";
+import QRCode from "qrcode";
 import { minta } from "@/components/banksoal/api";
 import { esc, kopHtml, muatSekolah, siapkanJendela, tulisJendela, tanggalPanjang } from "@/app/lib/dokumenResmi";
 
@@ -17,7 +18,9 @@ const GAYA = `
   .surat .ttd .ruang { height: 70px; display: flex; align-items: center; }
   .surat .ttd .ruang img { max-height: 66px; max-width: 200px; }
   .surat .ttd .nama { font-weight: bold; text-decoration: underline; }
-  .surat .verifikasi { margin-top: 22px; border-top: 1px solid #cfd6e4; padding-top: 6px; font-size: 8.5pt; color: #475569; }
+  .surat .verifikasi { margin-top: 22px; border-top: 1px solid #cfd6e4; padding-top: 6px; font-size: 8.5pt; color: #475569; display: flex; align-items: center; gap: 10px; }
+  .surat .verifikasi .qr { width: 22mm; height: 22mm; flex: none; }
+  .surat .verifikasi .qr svg { width: 100%; height: 100%; display: block; }
   .surat .digital { font-size: 8.5pt; color: #166534; }
   .surat .cap { position: absolute; top: 40%; left: 10%; transform: rotate(-25deg); font-size: 64pt; color: rgba(185, 28, 28, .15); font-weight: bold; pointer-events: none; }
 `;
@@ -34,6 +37,8 @@ export async function cetakSurat(id) {
     const s = r.data;
     const digital = Boolean(s.ditandatangani_at);
     const tautan = s.kode_verifikasi ? `${window.location.origin}/verifikasi/${s.kode_verifikasi}` : null;
+    // QR berisi tautan verifikasi; SVG sebaris supaya langsung tercetak tanpa menunggu gambar dimuat.
+    const qr = tautan ? await QRCode.toString(tautan, { type: "svg", margin: 0, errorCorrectionLevel: "M" }) : "";
     const cap = s.status === "BATAL" ? "DIBATALKAN" : s.status !== "TERBIT" ? "DRAF" : null;
     const badan = `<div class="surat">${cap ? `<div class="cap">${cap}</div>` : ""}${kopHtml(sek)}
       <div class="kepala">
@@ -52,7 +57,7 @@ export async function cetakSurat(id) {
         <div class="nama">${esc(sek?.nama_kepsek || "..............................")}</div>${sek?.nip_kepsek ? `<div>NIP. ${esc(sek.nip_kepsek)}</div>` : ""}
         ${digital ? `<div class="digital">Ditandatangani secara elektronik ${esc(tanggalPanjang(s.ditandatangani_at))}</div>` : ""}
       </div>
-      ${tautan ? `<div class="verifikasi">Keaslian surat ini dapat diperiksa di <b>${esc(tautan)}</b> · Kode verifikasi: <b>${esc(s.kode_verifikasi)}</b></div>` : ""}
+      ${tautan ? `<div class="verifikasi"><div class="qr" data-qr-verifikasi>${qr}</div><div>Pindai kode QR atau buka <b>${esc(tautan)}</b> untuk memeriksa keaslian surat ini.<br>Kode verifikasi: <b>${esc(s.kode_verifikasi)}</b></div></div>` : ""}
     </div>`;
     if (!tulisJendela(w, `Surat ${s.nomor || "draf"} - ${s.perihal}`, GAYA, badan)) Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info");
   } catch (e) {

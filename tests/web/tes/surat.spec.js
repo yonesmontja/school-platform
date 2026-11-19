@@ -57,6 +57,9 @@ test("kepala sekolah menandatangani; surat tercetak bernomor dan terverifikasi d
   await expect(cetak.locator("body")).toContainText(`${nomor}`);
   await expect(cetak.locator("body")).toContainText("Ditandatangani secara elektronik");
   await expect(cetak.locator("body")).toContainText("Abner Kogoya");
+  // Kode QR verifikasi tercetak sebagai SVG di samping tautannya
+  await expect(cetak.locator("[data-qr-verifikasi] svg")).toBeVisible();
+  await expect(cetak.locator(".verifikasi")).toContainText("/verifikasi/");
   await cetak.close();
 
   const sesi = await masukApi("kepsek");
