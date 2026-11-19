@@ -1,0 +1,5 @@
+# Proyek Android dibuat ulang oleh buat-apk.sh dari twa-manifest.json; yang disimpan di git hanya konfigurasi & skrip
+*
+!.gitignore
+!twa-manifest.json
+!buat-apk.sh

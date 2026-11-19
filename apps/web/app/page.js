@@ -82,6 +82,7 @@ export default async function Beranda() {
           </Link>
           <nav className="b-atas-nav" aria-label="Menu beranda">
             <Link href="/spmb" className="b-atas-tautan">SPMB</Link>
+            <Link href="/android" className="b-atas-tautan">Aplikasi Android</Link>
             <Link href="/login" className="b-tombol b-tombol-garis b-tombol-kecil">Masuk</Link>
           </nav>
         </div>
@@ -196,6 +197,7 @@ export default async function Beranda() {
           </div>
           <div className="b-kaki-tautan">
             <Link href="/spmb">SPMB</Link>
+            <Link href="/android">Aplikasi Android</Link>
             <Link href="/login">Masuk</Link>
             <span>© {tahun} {s.nama_sekolah} · SAPrapor</span>
           </div>

@@ -37,6 +37,8 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/akun", peran: [...STAF, ...PORTAL, OPERATOR] },
   { awalan: "/dashboard/notifikasi", peran: [...STAF, ...PORTAL, OPERATOR] },
   { awalan: "/dashboard/panduan", peran: [...STAF, ...PORTAL, OPERATOR] },
+  // Halaman publik unduhan aplikasi Android (ditautkan dari Panduan untuk semua peran)
+  { awalan: "/android", peran: [...STAF, ...PORTAL, OPERATOR, ...PENINJAU] },
   // Administrasi Sekolah: halaman memeriksa sendiri submodul yang diberikan (user.administrasi)
   { awalan: "/dashboard/administrasi", peran: [...STAF, OPERATOR] },
   { awalan: "/dashboard/disposisi", peran: [...STAF, OPERATOR] },

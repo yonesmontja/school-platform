@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.saprapor.app",
+      "sha256_cert_fingerprints": ["6F:A6:18:27:E5:73:4E:DA:00:B4:FB:CE:D8:74:2D:1B:1E:8E:A5:87:75:4E:09:41:EC:60:EF:AD:A4:89:FE:E6"]
+    }
+  }
+]

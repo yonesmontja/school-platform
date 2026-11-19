@@ -30,13 +30,19 @@ export const BAGIAN = [
   },
   {
     id: "pasang", kelompok: "mulai", judul: "Pasang SAPrapor di HP", icon: "bi-phone",
+    href: "/android",
     langkah: [
-      "Buka SAPrapor di Chrome (Android) dan masuk.",
-      "Tekan tombol Pasang aplikasi di bagian atas layar, lalu pilih Pasang.",
+      "Android: buka halaman Aplikasi Android (tautan di beranda sekolah, atau tombol Buka halaman di atas), tekan Unduh APK, lalu buka berkasnya.",
+      "Bila HP meminta izin, aktifkan Izinkan dari sumber ini untuk peramban, lalu tekan Pasang. Bila Play Protect bertanya, pilih Tetap pasang: aplikasi dibagikan langsung oleh sekolah.",
+      "Buka ikon SAPrapor dan masuk dengan akun yang sama seperti di web.",
+      "Cara lain tanpa APK: buka SAPrapor di Chrome, tekan Pasang aplikasi di bagian atas layar, lalu Pasang.",
       "Di iPhone: buka di Safari, tekan Bagikan, lalu Tambah ke Layar Utama.",
-      "Ikon SAPrapor muncul di layar utama dan terbuka layar penuh seperti aplikasi biasa.",
     ],
-    tips: ["Halaman yang pernah dibuka tetap bisa dibuka saat sinyal putus. Lihat bagian Mengisi saat sinyal putus."],
+    tips: [
+      "Aplikasi Android menampilkan situs SAPrapor dalam layar penuh, jadi fitur baru langsung ikut tanpa memasang ulang.",
+      "Bila sekolah mengumumkan APK baru (ikon atau pengaturan berubah), pasang saja di atas versi lama; akun dan data tetap.",
+      "Halaman yang pernah dibuka tetap bisa dibuka saat sinyal putus. Lihat bagian Mengisi saat sinyal putus.",
+    ],
   },
   {
     id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off", peran: ["admin", "kepsek", "guru", "siswa", "ortu"],
