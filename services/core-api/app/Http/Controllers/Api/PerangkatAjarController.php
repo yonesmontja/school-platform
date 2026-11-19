@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\NotebookCatatan;
 use App\Http\Controllers\Controller;
 use App\Models\Atp;
 use App\Models\AtpBaris;
@@ -316,7 +317,7 @@ class PerangkatAjarController extends Controller
     {
         $atp = Atp::with(['mapel', 'kelas', 'periode'])->findOrFail($id);
         $this->cekPengubah($request, $atp);
-        $request->validate(['ai_mode' => ['required', Rule::in(SoalAIService::MODES)], 'catatan' => 'nullable|string|max:1500']);
+        $request->validate(['ai_mode' => ['required', Rule::in(SoalAIService::MODES)], 'catatan' => 'nullable|string|max:1500', 'id_catatan_notebook' => 'nullable|integer']);
 
         $cp = CapaianPembelajaran::where('id_mapel', $atp->id_mapel)->when($atp->fase, fn($q) => $q->where('fase', $atp->fase))
             ->orderBy('urutan')->get(['id_cp', 'fase', 'elemen', 'teks']);
@@ -350,6 +351,7 @@ class PerangkatAjarController extends Controller
         ];
         $sumber = app(PustakaDokumenService::class)->pasang($ai, 'alur tujuan pembelajaran ' . ($atp->mapel?->nama_mapel ?? '') . " fase {$atp->fase} "
             . $cp->pluck('elemen')->implode(' '), $atp->id_mapel, $atp->fase);
+        $dariNotebook = NotebookCatatan::pasang($ai, $request->id_catatan_notebook, $request->user());
         $mentah = $ai->susunAtp(array_filter($konteks, fn($v) => $v !== null), $request->ai_mode);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 
@@ -378,7 +380,7 @@ class PerangkatAjarController extends Controller
         $baru = $baris->whereNotNull('tp_usulan')->count();
         return response()->json([
             'success' => true,
-            'message' => "AI menyusun {$baris->count()} langkah ATP" . ($baru ? " ({$baru} TP baru diusulkan)" : '') . '. Periksa, ubah bila perlu, lalu Simpan.',
+            'message' => "AI menyusun {$baris->count()} langkah ATP" . ($baru ? " ({$baru} TP baru diusulkan)" : '') . '. Periksa, ubah bila perlu, lalu Simpan.' . $dariNotebook,
             'baris' => $baris,
         ]);
     }

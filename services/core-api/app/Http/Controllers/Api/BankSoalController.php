@@ -273,7 +273,8 @@ class BankSoalController extends Controller
     public function drafDariRiset(Request $request, SoalAIService $ai)
     {
         $request->validate([
-            'id_riset' => 'required|integer|exists:dokumen_riset,id',
+            'id_riset' => 'required_without:id_catatan|nullable|integer|exists:dokumen_riset,id',
+            'id_catatan' => 'required_without:id_riset|nullable|integer',
             'id_mapel' => 'required|exists:subjects,id_mapel',
             'id_kelas' => 'nullable|exists:classes,id_kelas',
             'id_materi' => 'nullable|exists:master_materi,id_materi',
@@ -286,13 +287,23 @@ class BankSoalController extends Controller
             'ai_mode' => ['required', Rule::in(SoalAIService::MODES)],
         ]);
         $u = $request->user();
-        $riset = DokumenRiset::with('dokumen')->findOrFail($request->id_riset);
-        $d = $riset->dokumen;
-        abort_unless($d && ($u->isPengelola() || $d->status === 'AKTIF' || $d->diunggah_oleh === $u->id), 404);
-        abort_if($riset->jenis === 'TANYA' && !$u->isPengelola() && $riset->dibuat_oleh !== $u->id, 404);
+        if ($request->id_catatan) {
+            // Catatan notebook beberapa dokumen (Fase 23 Tahap B), milik akun ini
+            $catatan = \App\Models\NotebookCatatan::milik((int) $request->id_catatan, $u);
+            $judulSumber = $catatan->notebook->judul;
+            $labelBahan = $catatan->label() . ' · catatan';
+            $bahan = $catatan->keTeks();
+        } else {
+            $riset = DokumenRiset::with('dokumen')->findOrFail($request->id_riset);
+            $d = $riset->dokumen;
+            abort_unless($d && ($u->isPengelola() || $d->status === 'AKTIF' || $d->diunggah_oleh === $u->id), 404);
+            abort_if($riset->jenis === 'TANYA' && !$u->isPengelola() && $riset->dibuat_oleh !== $u->id, 404);
+            $judulSumber = $d->judul;
+            $labelBahan = "{$d->judul} · Notebook AI " . (DokumenRiset::LABEL[$riset->jenis] ?? $riset->jenis);
+            $bahan = RisetDokumenAIService::keTeks($riset);
+        }
         $this->cekMapel($request, $request->id_mapel);
 
-        $bahan = RisetDokumenAIService::keTeks($riset);
         abort_if($bahan === '', 422, 'Hasil Notebook ini kosong, jadi belum bisa dijadikan soal.');
         $indikator = $request->id_indikator ? MasterIndikator::find($request->id_indikator) : null;
         $materi = MasterMateri::find($request->id_materi ?? $indikator?->id_materi);
@@ -310,12 +321,12 @@ class BankSoalController extends Controller
             'bentuk' => $p['bentuk'], 'level_kognitif' => $p['level_kognitif'], 'tingkat_kesulitan' => $p['tingkat_kesulitan'],
             'dimensi_utama' => null, 'jumlah' => $p['jumlah'],
             'catatan_guru' => trim(($request->catatan ? $request->catatan . "\n" : '')
-                . "Susun soal yang isinya bersumber dari bahan dokumen \"{$d->judul}\" pada rujukan; jangan menanyakan hal yang tidak ada di bahan itu. "
+                . "Susun soal yang isinya bersumber dari bahan \"{$judulSumber}\" pada rujukan; jangan menanyakan hal yang tidak ada di bahan itu. "
                 . 'Sesuaikan bahasa dengan usia siswa kelas yang dituju.'),
             'gambar' => $p['bentuk'] === 'LENGKAPI_GAMBAR',
         ];
         $belajar = StatistikSoalService::bahanBelajar($p['bentuk'], $p['id_indikator'], $p['id_materi']);
-        $ai->denganRujukan("[{$d->judul} · Notebook AI " . (DokumenRiset::LABEL[$riset->jenis] ?? $riset->jenis) . "]\n{$bahan}");
+        $ai->denganRujukan("[{$labelBahan}]\n{$bahan}");
         $mentah = $ai->drafSoal($konteks, $belajar['contoh'], $request->ai_mode, $belajar['hindari']);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 
@@ -323,7 +334,7 @@ class BankSoalController extends Controller
         [$tersimpan, $gagal] = $this->simpanMentah($request, array_slice($mentah, 0, $p['jumlah']), $tetap, $materi);
         return response()->json([
             'success' => true,
-            'message' => count($tersimpan) . " draf soal dibuat dari Notebook \"{$d->judul}\"" . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '')
+            'message' => count($tersimpan) . " draf soal dibuat dari Notebook \"{$judulSumber}\"" . ($gagal ? "; {$gagal} dilewati karena tidak lengkap" : '')
                 . '. Periksa dan edit di Bank Soal sebelum mengajukan.',
             'data' => $tersimpan,
         ]);

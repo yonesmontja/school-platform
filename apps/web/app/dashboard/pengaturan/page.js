@@ -552,7 +552,7 @@ export default function PengaturanSekolahPage() {
             <div className="col-md-6">
               <label className="form-label fw-bold small text-muted">Nomor WA Admin (peringatan keamanan)</label>
               <input type="tel" className="form-control" name="no_wa_admin" placeholder="08xxxxxxxxxx" value={formData.no_wa_admin || ''} onChange={handleInputChange} />
-              <div className="form-text">Menerima pesan otomatis bila satu akun gagal login 10 kali dalam 15 menit (perlu kirim otomatis Fonnte aktif).</div>
+              <div className="form-text">Menerima pesan otomatis bila satu akun gagal login 10 kali dalam 15 menit, dan bila situs tidak bisa dibuka lebih dari 10 menit serta saat pulih (perlu kirim otomatis Fonnte aktif).</div>
             </div>
             <div className="col-md-6">
               <label className="form-label fw-bold small text-muted">ID Grup WA Guru</label>

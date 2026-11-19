@@ -6,11 +6,12 @@ import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { AI_MODES, BENTUK, KESULITAN, LEVEL, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 
-const LABEL = { RINGKAS: "Ringkasan", RINCI: "Per bagian", POIN: "Poin penting", ISTILAH: "Istilah", EKSTRAK: "Data & tabel", FAQ: "Tanya-jawab umum", TANYA: "Tanya dokumen" };
+const LABEL = { RINGKAS: "Ringkasan", RINCI: "Per bagian", POIN: "Poin penting", ISTILAH: "Istilah", EKSTRAK: "Data & tabel", FAQ: "Tanya-jawab umum", TANYA: "Tanya dokumen", CATATAN: "Catatan Notebook" };
 // Bentuk yang cocok untuk tiap jenis bahan (pilihan awal)
 const BENTUK_AWAL = { ISTILAH: "MENJODOHKAN", EKSTRAK: "ISIAN", FAQ: "PG", TANYA: "PG" };
 
-export default function JadikanSoal({ riset, dokumen, onTutup }) {
+// catatan: catatan notebook beberapa dokumen (dikirim sebagai id_catatan) menggantikan hasil riset satu dokumen
+export default function JadikanSoal({ riset, catatan = null, dokumen, onTutup }) {
   const [ref, setRef] = useState(null);
   const [f, setF] = useState(() => ({ id_mapel: dokumen.id_mapel || "", id_kelas: "", id_materi: "", id_indikator: "", bentuk: BENTUK_AWAL[riset.jenis] || "PG",
     level_kognitif: "C2", tingkat_kesulitan: "SEDANG", jumlah: 5, catatan: "", ai_mode: bacaAiMode() }));
@@ -38,7 +39,7 @@ export default function JadikanSoal({ riset, dokumen, onTutup }) {
     simpanAiMode(f.ai_mode);
     setProses(true);
     try {
-      const r = await minta("POST", "/bank-soal/ai/dari-riset", { ...f, id_riset: riset.id, id_kelas: f.id_kelas || null, id_materi: f.id_materi || null,
+      const r = await minta("POST", "/bank-soal/ai/dari-riset", { ...f, ...(catatan ? { id_catatan: catatan.id } : { id_riset: riset.id }), id_kelas: f.id_kelas || null, id_materi: f.id_materi || null,
         id_indikator: f.id_indikator || null, catatan: f.catatan || null, jumlah: Number(f.jumlah) });
       const ok = await Swal.fire({ icon: "success", title: "Draf soal siap", text: r.message, showCancelButton: true, confirmButtonText: "Buka Bank Soal", cancelButtonText: "Tetap di Notebook" });
       if (ok.isConfirmed) window.open("/dashboard/bank-soal", "_blank", "noopener");
@@ -47,7 +48,7 @@ export default function JadikanSoal({ riset, dokumen, onTutup }) {
     finally { setProses(false); }
   };
 
-  const ringkas = riset.jenis === "TANYA" ? riset.pertanyaan : LABEL[riset.jenis];
+  const ringkas = ["TANYA", "CATATAN"].includes(riset.jenis) ? riset.pertanyaan : LABEL[riset.jenis];
   return (
     <>
       <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-label="Jadikan soal" style={{ zIndex: 1056 }}>
@@ -55,7 +56,7 @@ export default function JadikanSoal({ riset, dokumen, onTutup }) {
           <form className="modal-content border-0 shadow" onSubmit={kirim}>
             <div className="modal-header">
               <div className="min-w-0"><h5 className="modal-title fw-bold"><i className="bi bi-patch-question text-success me-2"></i>Jadikan soal</h5>
-                <div className="small text-body-secondary text-truncate">Bahan: {LABEL[riset.jenis]}{riset.jenis === "TANYA" ? ` · "${ringkas}"` : ""} · {dokumen.judul}</div></div>
+                <div className="small text-body-secondary text-truncate">Bahan: {LABEL[riset.jenis]}{["TANYA", "CATATAN"].includes(riset.jenis) ? ` · "${ringkas}"` : ""} · {dokumen.judul}</div></div>
               <button type="button" className="btn-close" onClick={onTutup} disabled={proses} aria-label="Tutup"></button>
             </div>
             <div className="modal-body">

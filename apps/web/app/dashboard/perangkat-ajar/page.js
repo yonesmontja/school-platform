@@ -8,6 +8,9 @@ import TabCp from "@/components/perangkatajar/TabCp";
 import TabAtp from "@/components/perangkatajar/TabAtp";
 import TabModul from "@/components/perangkatajar/TabModul";
 import TabPetaTema from "@/components/perangkatajar/TabPetaTema";
+import { muatCatatanNotebook } from "@/components/pustaka/bahanNotebook";
+
+const SASARAN = { atp: "ATP", modul: "modul ajar", tema: "peta tema" };
 
 const TAB = [
   { id: "atp", label: "ATP", icon: "bi-diagram-3" },
@@ -24,6 +27,13 @@ function PerangkatAjar() {
   const [atpModul, setAtpModul] = useState(null); // ATP yang dipilih untuk modul baru
   const [referensi, setReferensi] = useState(null);
   const [galat, setGalat] = useState(null);
+  // Datang dari tombol Jadikan… di Notebook: catatan ini terpilih di dialog Susun dengan AI
+  const [bahanNb, setBahanNb] = useState(null);
+  const idNb = cari.get("notebook");
+  useEffect(() => {
+    if (!idNb) return;
+    muatCatatanNotebook().then((d) => setBahanNb(d.find((c) => String(c.id) === idNb) || null));
+  }, [idNb]);
 
   useEffect(() => { minta("GET", "/perangkat-ajar/referensi").then(setReferensi).catch((err) => setGalat(err.message)); }, []);
 
@@ -38,6 +48,14 @@ function PerangkatAjar() {
           </li>
         ))}
       </ul>
+      {bahanNb && (
+        <div className="alert alert-info d-flex flex-wrap align-items-center gap-2 py-2" data-bahan-notebook>
+          <i className="bi bi-journal-richtext"></i>
+          <span className="me-auto">Bahan dari Notebook: <b>{bahanNb.judul}</b> <span className="text-body-secondary">({bahanNb.notebook?.judul})</span>.
+            Buka atau buat {SASARAN[tab] || "perangkat ajar"}, lalu tekan <b>Susun dengan AI</b>: catatan ini sudah terpilih sebagai bahan.</span>
+          <button type="button" className="btn-close" aria-label="Lepas bahan Notebook" onClick={() => { setBahanNb(null); const u = new URL(window.location.href); u.searchParams.delete("notebook"); window.history.replaceState(null, "", u); }}></button>
+        </div>
+      )}
       {galat ? <div className="alert alert-warning">{galat}</div>
         : !referensi || !akses.user ? <div className="text-muted small"><span className="spinner-border spinner-border-sm me-2"></span>Memuat…</div>
         : tab === "cp" ? <TabCp referensi={referensi} />

@@ -86,6 +86,23 @@ class RisetDokumenAIService extends SoalAIService
         return collect($baris)->sortBy('urutan')->map(fn($b) => ['no' => (int) $b->urutan + 1, 'teks' => (string) $b->teks])->values()->all();
     }
 
+    /**
+     * Bagian relevan dari beberapa dokumen, dinomori ulang [B1..] lintas dokumen (paling banyak 12 bagian, dibagi rata).
+     * @param \Illuminate\Support\Collection<int, DokumenRujukan> $dokumen
+     * @return array<int, array{no: int, id_dokumen: string, judul: string, bagian: int, teks: string}>
+     */
+    public static function bagianLintas($dokumen, string $pertanyaan): array
+    {
+        $jatah = max(2, intdiv(12, max(1, $dokumen->count())));
+        $hasil = [];
+        foreach ($dokumen as $d) {
+            foreach (array_slice(self::bagianRelevan($d->id_dokumen, $pertanyaan), 0, $jatah) as $b) {
+                $hasil[] = ['no' => count($hasil) + 1, 'id_dokumen' => $d->id_dokumen, 'judul' => $d->judul, 'bagian' => $b['no'], 'teks' => $b['teks']];
+            }
+        }
+        return $hasil;
+    }
+
     /** Hasil riset/tanya Notebook sebagai teks polos, untuk dijadikan bahan AI lain (mis. draf soal). */
     public static function keTeks(\App\Models\DokumenRiset $r, int $maks = 12000): string
     {
@@ -161,9 +178,12 @@ class RisetDokumenAIService extends SoalAIService
      * @param array<int, array{no: int, teks: string}> $bagian
      * @return array{jawaban: string, rujukan: int[], cukup: bool}|null
      */
-    public function tanya(string $judul, string $pertanyaan, array $bagian, string $mode): ?array
+    public function tanya(string $judul, string $pertanyaan, array $bagian, string $mode, bool $banyak = false): ?array
     {
-        $system = "Anda menjawab pertanyaan guru tentang satu dokumen resmi pendidikan, hanya dari bagian dokumen yang diberikan.\n"
+        $system = ($banyak
+            ? "Anda menjawab pertanyaan guru dari beberapa dokumen resmi pendidikan sekaligus, hanya dari bagian dokumen yang diberikan. "
+              . "Tiap bagian diberi nama dokumennya; bila dokumen berbeda saling melengkapi atau berbeda pendapat, sebutkan dokumennya.\n"
+            : "Anda menjawab pertanyaan guru tentang satu dokumen resmi pendidikan, hanya dari bagian dokumen yang diberikan.\n")
             . 'Bentuk JSON: {"jawaban": "jawaban jelas 1-3 paragraf, sebut nomor bagian seperti [B12] di kalimat yang memakainya", '
             . '"rujukan": [nomor bagian yang dipakai], "cukup": true bila bagian yang diberikan cukup untuk menjawab, false bila tidak}' . "\n"
             . 'Bila bagian dokumen tidak memuat jawabannya, katakan terus terang bahwa dokumen tidak membahasnya; jangan menjawab dari pengetahuan umum. '
@@ -171,7 +191,7 @@ class RisetDokumenAIService extends SoalAIService
         $teks = implode("\n\n", array_map(fn($b) => "[B{$b['no']}]\n{$b['teks']}", $bagian));
         $this->suhu = 0.2;
         try {
-            $data = $this->json($this->minta($mode, $system, "Judul dokumen: {$judul}\nPertanyaan: {$pertanyaan}\n\nBagian dokumen:\n{$teks}", null));
+            $data = $this->json($this->minta($mode, $system, ($banyak ? "Notebook: " : "Judul dokumen: ") . "{$judul}\nPertanyaan: {$pertanyaan}\n\nBagian dokumen:\n{$teks}", null));
         } finally {
             $this->suhu = 0.6;
         }

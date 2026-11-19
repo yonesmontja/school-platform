@@ -225,6 +225,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "notebook-riset", kelompok: "guru", judul: "Notebook riset beberapa dokumen", icon: "bi-journals",
+    href: "/dashboard/pustaka-dokumen",
+    langkah: [
+      "Buka Pustaka Dokumen, lalu di kartu Notebook riset tekan Notebook baru. Beri judul dan centang dokumen yang mau digabung (paling banyak 8), mis. CP, panduan asesmen, dan buku guru.",
+      "Tulis pertanyaan di Tanya semua dokumen. AI mencari bagian yang relevan di setiap dokumen; jawabannya menyebut nomor bagian (B1, B2, …) beserta nama dokumennya dan tersimpan sebagai catatan.",
+      "Tekan Catatan baru untuk menulis temuan atau rencana sendiri. Semua catatan bisa diubah, disalin, atau dihapus.",
+      "Tekan Jadikan… di sebuah catatan: Soal di Bank Soal membuat draf soal dari catatan itu; ATP, Modul ajar, atau Peta tema membuka Perangkat Ajar dengan catatan itu sudah terpilih.",
+      "Di Perangkat Ajar, buka atau buat ATP/modul/peta tema, lalu tekan Susun dengan AI. Pilihan Bahan dari Notebook sudah terisi; AI menyusun draf dengan catatan itu sebagai bahan utama.",
+    ],
+    tips: [
+      "Notebook bersifat pribadi: hanya Anda yang melihat isinya.",
+      "Pilihan Bahan dari Notebook juga tersedia setiap kali Anda menekan Susun dengan AI di ATP, modul ajar, atau peta tema.",
+      "Hasil Jadikan… tetap draf: periksa, ubah, lalu ajukan seperti biasa.",
+    ],
+  },
+  {
     id: "video-belajar", kelompok: "guru", judul: "Video belajar", icon: "bi-play-btn",
     href: "/dashboard/video-belajar",
     langkah: [
@@ -497,7 +513,7 @@ export const BAGIAN = [
       "Buka Akun & Sistem → Pengaturan Sekolah.",
       "Lengkapi profil sekolah, nama dan tanda tangan kepala sekolah (dipakai di rapor).",
       "Atur batas KKTP (bawaan 70/80/90), kebijakan nilai remedial di rapor, dan skala predikat kokurikuler.",
-      "Isi nomor WA kepala sekolah dan Nomor WA Admin (penerima peringatan login gagal). Aktifkan Fonnte bila ingin WhatsApp terkirim otomatis.",
+      "Isi nomor WA kepala sekolah dan Nomor WA Admin (penerima peringatan login gagal dan pemberitahuan bila situs tidak bisa dibuka lebih dari 10 menit, lalu saat pulih). Aktifkan Fonnte bila ingin WhatsApp terkirim otomatis.",
       "Isi API key AI bila ingin memakai analisis AI. Kunci tersimpan terenkripsi.",
     ],
   },

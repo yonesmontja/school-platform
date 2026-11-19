@@ -9,6 +9,7 @@ import { minta } from "@/components/banksoal/api";
 import { AI_MODES, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import NotebookDokumen from "@/components/pustaka/NotebookDokumen";
+import { DaftarNotebook } from "@/components/pustaka/NotebookRiset";
 
 const JENIS = [
   { value: "CP", label: "Capaian Pembelajaran" },
@@ -167,6 +168,8 @@ function PustakaDokumen() {
       )}
       {!izin.unggah && data && <div className="alert alert-light border small"><i className="bi bi-info-circle me-1"></i>Unggah dokumen saat ini hanya untuk admin dan kepala sekolah. Admin bisa mengizinkan guru mengunggah.</div>}
       {izin.unggah && izin.baca_pdf_server === false && <div className="alert alert-light border small py-2"><i className="bi bi-info-circle me-1"></i>Teks PDF dibaca di browser Anda saat diunggah; tautan PDF perlu diunduh lalu diunggah sebagai berkas.</div>}
+
+      {data && <DaftarNotebook dokumen={data} />}
 
       <div className="card shadow-sm">
         <div className="card-header d-flex flex-wrap gap-2 align-items-center">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\NotebookCatatan;
 use App\Http\Controllers\Controller;
 use App\Models\CapaianPembelajaran;
 use App\Models\Classes;
@@ -203,6 +204,7 @@ class PetaTemaController extends Controller
             'judul' => 'nullable|string|max:200',
             'konteks_lokal' => 'nullable|string|max:2000',
             'catatan' => 'nullable|string|max:1500',
+            'id_catatan_notebook' => 'nullable|integer',
         ]);
         $jaring = PetaTema::normalJaring($request->input('jaring', $peta->jaring));
         $idMapel = collect($request->input('mapel', []))->merge(collect($jaring['mapel'])->pluck('id_mapel'))->filter()->unique()->values();
@@ -233,6 +235,7 @@ class PetaTemaController extends Controller
             'high_level_tersedia' => MasterKategoriPenilaian::whereNull('id_mapel')->orderBy('nama_kategori')->pluck('nama_kategori')->all(),
         ], fn($v) => $v !== null && $v !== '' && $v !== []);
 
+        $dariNotebook = NotebookCatatan::pasang($ai, $request->id_catatan_notebook, $request->user());
         $mentah = $ai->susunPetaTema($konteks, $request->bagian, $request->ai_mode);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
 
@@ -262,9 +265,9 @@ class PetaTemaController extends Controller
         $cocok = $saran !== '' ? MasterKategoriPenilaian::whereNull('id_mapel')->get(['id_kategori', 'nama_kategori'])
             ->first(fn($k) => mb_strtolower(trim($k->nama_kategori)) === mb_strtolower($saran)) : null;
         $hasil += ['id_kategori' => $cocok?->id_kategori, 'kategori_saran' => $cocok ? null : ($saran ?: null)];
-        return response()->json(['success' => true, 'message' => $request->bagian === 'kalibrasi'
+        return response()->json(['success' => true, 'message' => ($request->bagian === 'kalibrasi'
             ? 'Kalibrasi tiap mata pelajaran siap. Periksa, ubah bila perlu, lalu Simpan.'
-            : 'Draf peta tema siap. Periksa jaring, konsep, dan peta mingguan, ubah bila perlu, lalu Simpan.'] + $hasil);
+            : 'Draf peta tema siap. Periksa jaring, konsep, dan peta mingguan, ubah bila perlu, lalu Simpan.') . $dariNotebook] + $hasil);
     }
 
     /**

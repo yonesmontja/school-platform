@@ -32,8 +32,11 @@ class HariLiburTest extends TestCase
         $this->assertCount(25, $r->json('data'));
         $this->assertContains('Proklamasi Kemerdekaan', array_column($r->json('data'), 'nama'));
         $this->assertSame([2026, 2027], $r->json('tahun'));
-        // 2027 belum dicocokkan dengan dokumen resmi
-        $this->assertTrue($this->getJson('/api/hari-libur?tahun=2027')->json('data.0.perlu_cek'));
+        // 2027 sudah dicocokkan dengan SKB 1205/3/2 Tahun 2026: 18 libur nasional + 8 cuti bersama, semuanya tanpa tanda perlu dicek
+        $libur2027 = $this->getJson('/api/hari-libur?tahun=2027')->json('data');
+        $this->assertCount(26, $libur2027);
+        $this->assertNotContains(true, array_column($libur2027, 'perlu_cek'));
+        $this->assertSame(8, collect($libur2027)->where('jenis', 'CUTI_BERSAMA')->count());
 
         $this->assertStringContainsString('Proklamasi', BukanHariMinggu::alasan(Carbon::parse('2026-08-17')));
         $this->assertStringContainsString('Minggu', BukanHariMinggu::alasan(Carbon::parse('2026-08-16')));

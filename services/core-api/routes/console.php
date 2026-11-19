@@ -31,3 +31,6 @@ Artisan::command('jadwal:status-otomatis', function () {
     if ($n) $this->info("{$n} status sesi diperbarui.");
 })->purpose('Selaraskan status sesi jadwal dengan waktu sekarang');
 Schedule::command('jadwal:status-otomatis')->everyMinute()->withoutOverlapping();
+
+// Pemantau uptime (Fase 11): situs publik diperiksa tiap 5 menit; WA ke admin bila mati > ± 10 menit dan saat pulih
+Schedule::command('situs:pantau')->everyFiveMinutes()->withoutOverlapping();

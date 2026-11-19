@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { AI_MODES, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
+import { bacaPilihanNotebook, muatCatatanNotebook, pilihanNotebookHtml } from "@/components/pustaka/bahanNotebook";
 import { minta } from "@/components/banksoal/api";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
 import { hapusDariKartu, tombolKartu } from "@/components/dashboard/aksiKartu";
@@ -294,6 +295,7 @@ function EditorTema({ id, referensi, akses, onKembali }) {
     finally { setProses(null); }
   };
   const susunAi = async () => {
+    const notebook = await muatCatatanNotebook();
     const terpilih = new Set(p.jaring.mapel.map((c) => c.id_mapel).filter(Boolean));
     const r = await Swal.fire({
       title: "Susun peta tema dengan AI",
@@ -303,12 +305,12 @@ function EditorTema({ id, referensi, akses, onKembali }) {
         + `<div class="text-start fw-semibold small mt-3 mb-1">Mata pelajaran yang menjadi cabang</div><div class="text-start d-flex flex-wrap gap-2" id="aiMapel">`
         + mapelRef.map((m) => `<label class="form-check-label small border rounded px-2 py-1"><input type="checkbox" class="form-check-input me-1" value="${m.id_mapel}"${terpilih.has(m.id_mapel) ? " checked" : ""}>${m.nama_mapel.replace(/</g, "&lt;")}</label>`).join("")
         + `</div><textarea id="aiKonteks" class="form-control mt-3" rows="2" placeholder="Konteks lokal (opsional), mis. anak dari suku Dani dan Mee, kampung dekat kebun sagu">${(p.konteks_lokal || "").replace(/</g, "&lt;")}</textarea>`
-        + `<textarea id="aiCatatan" class="form-control mt-2" rows="2" placeholder="Catatan untuk AI (opsional), mis. tonjolkan kerja sama dan bahasa ibu"></textarea>${pilihMode()}`,
+        + `<textarea id="aiCatatan" class="form-control mt-2" rows="2" placeholder="Catatan untuk AI (opsional), mis. tonjolkan kerja sama dan bahasa ibu"></textarea>${pilihMode()}` + pilihanNotebookHtml(notebook),
       showCancelButton: true, confirmButtonText: "Susun", cancelButtonText: "Batal",
       preConfirm: () => {
         const mapel = [...document.querySelectorAll("#aiMapel input:checked")].map((x) => x.value);
         if (!mapel.length) { Swal.showValidationMessage("Centang minimal satu mata pelajaran."); return false; }
-        return { mapel, konteks: document.getElementById("aiKonteks").value, catatan: document.getElementById("aiCatatan").value, mode: document.getElementById("aiMode").value };
+        return { mapel, konteks: document.getElementById("aiKonteks").value, catatan: document.getElementById("aiCatatan").value, mode: document.getElementById("aiMode").value, notebook: bacaPilihanNotebook() };
       },
     });
     if (!r.isConfirmed) return;
@@ -316,7 +318,7 @@ function EditorTema({ id, referensi, akses, onKembali }) {
     // Cabang yang dicentang tapi belum ada ikut dikirim agar AI mengisinya
     const nama = Object.fromEntries(mapelRef.map((m) => [m.id_mapel, m.nama_mapel]));
     const jaring = { ...p.jaring, mapel: r.value.mapel.map((idm) => p.jaring.mapel.find((c) => c.id_mapel === idm) || { id: idAcak(), id_mapel: idm, nama: nama[idm], kalibrasi: "", tp: [] }) };
-    jalankanAi("semua", { ai_mode: r.value.mode, mapel: r.value.mapel, catatan: r.value.catatan || null, konteks_lokal: r.value.konteks || null, jaring }, "AI sedang menyusun peta tema…");
+    jalankanAi("semua", { ai_mode: r.value.mode, mapel: r.value.mapel, catatan: r.value.catatan || null, konteks_lokal: r.value.konteks || null, jaring, id_catatan_notebook: r.value.notebook }, "AI sedang menyusun peta tema…");
   };
   const kalibrasiAi = async () => {
     if (!p.jaring.mapel.length) return Swal.fire("Belum ada cabang", "Tambahkan cabang mata pelajaran dulu, lalu kalibrasi.", "info");

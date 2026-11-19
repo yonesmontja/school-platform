@@ -86,6 +86,14 @@ TXT;
         return $this;
     }
 
+    /** Tambahkan bahan rujukan di depan rujukan yang sudah dipasang (mis. catatan Notebook + pustaka). */
+    public function tambahRujukan(?string $teks): static
+    {
+        if (trim((string) $teks) === '') return $this;
+        $this->rujukan = $this->rujukan ? $teks . "\n\n" . $this->rujukan : $teks;
+        return $this;
+    }
+
     /**
      * Draf soal dari konteks kisi-kisi/TP.
      * @param array $konteks mapel, kelas, materi, deskripsi_kompetensi, tp, bentuk, level_kognitif, tingkat_kesulitan, dimensi, jumlah, catatan, gambar

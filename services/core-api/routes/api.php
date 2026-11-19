@@ -597,6 +597,19 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/{id}/riset/{idRiset}', [\App\Http\Controllers\Api\RisetDokumenController::class, 'hapus'])->whereNumber('idRiset');
             Route::delete('/{id}', [DokumenRujukanController::class, 'destroy']);
         });
+        // Notebook riset beberapa dokumen (Fase 23 Tahap B): pribadi per akun; catatan menjadi bahan Jadikan…
+        Route::prefix('notebook')->controller(\App\Http\Controllers\Api\NotebookController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store');
+            Route::get('/catatan', 'semuaCatatan');
+            Route::get('/{id}', 'show')->whereNumber('id');
+            Route::put('/{id}', 'update')->whereNumber('id');
+            Route::delete('/{id}', 'destroy')->whereNumber('id');
+            Route::post('/{id}/tanya', 'tanya')->whereNumber('id')->middleware('throttle:20,1');
+            Route::post('/{id}/catatan', 'simpanCatatan')->whereNumber('id');
+            Route::put('/{id}/catatan/{idCatatan}', 'simpanCatatan')->whereNumber(['id', 'idCatatan']);
+            Route::delete('/{id}/catatan/{idCatatan}', 'hapusCatatan')->whereNumber(['id', 'idCatatan']);
+        });
         // Prota & Promes (Fase 20): rencana dari ATP, realisasi dari jadwal
         Route::prefix('program-ajar')->group(function () {
             Route::get('/referensi', [ProgramAjarController::class, 'referensi']);

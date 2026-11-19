@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { AI_MODES, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
+import { bacaPilihanNotebook, muatCatatanNotebook, pilihanNotebookHtml } from "@/components/pustaka/bahanNotebook";
 import { minta } from "@/components/banksoal/api";
 import { BAGIAN_RPM, LANGKAH_RPM, isiKosong } from "./rpm";
 import { cetakModul, unduhWord } from "./cetakModul";
@@ -255,20 +256,21 @@ function EditorModul({ id, referensi, akses, onKembali }) {
   };
 
   const susunAi = async () => {
+    const notebook = await muatCatatanNotebook();
     const pilihan = await Swal.fire({
       title: "Susun modul dengan AI",
       html: `AI menyusun modul RPM untuk <b>${(m.tp || []).length} TP</b> dalam <b>${m.jumlah_pertemuan} pertemuan</b>, memakai CP dan data kelas (gaya belajar, minat, capaian TP, siswa yang perlu pendampingan; tanpa nama siswa).${kotor || isi.desain?.tujuan ? "<br><b>Isi sekarang akan diganti</b> (belum tersimpan sampai Anda menekan Simpan)." : ""}`
         + `<select id="aiMode" class="form-select mt-3">${AI_MODES.map((x) => `<option value="${x.value}"${x.value === bacaAiMode() ? " selected" : ""}>${x.label}</option>`).join("")}</select>`
-        + `<textarea id="aiCatatan" class="form-control mt-2" rows="3" placeholder="Catatan untuk AI (opsional), mis. pakai permainan tradisional atau kebun sekolah"></textarea>`,
+        + `<textarea id="aiCatatan" class="form-control mt-2" rows="3" placeholder="Catatan untuk AI (opsional), mis. pakai permainan tradisional atau kebun sekolah"></textarea>` + pilihanNotebookHtml(notebook),
       showCancelButton: true, confirmButtonText: "Susun", cancelButtonText: "Batal",
-      preConfirm: () => ({ mode: document.getElementById("aiMode").value, catatan: document.getElementById("aiCatatan").value }),
+      preConfirm: () => ({ mode: document.getElementById("aiMode").value, catatan: document.getElementById("aiCatatan").value, notebook: bacaPilihanNotebook() }),
     });
     if (!pilihan.isConfirmed) return;
     simpanAiMode(pilihan.value.mode);
     setProses("ai");
     Swal.fire({ title: "AI sedang menyusun modul…", html: "Biasanya 30–120 detik.", allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
     try {
-      const r = await minta("POST", `/perangkat-ajar/modul/${id}/ai`, { ai_mode: pilihan.value.mode, catatan: pilihan.value.catatan || null });
+      const r = await minta("POST", `/perangkat-ajar/modul/${id}/ai`, { ai_mode: pilihan.value.mode, catatan: pilihan.value.catatan || null, id_catatan_notebook: pilihan.value.notebook });
       setIsi(r.isi); setKotor(true); setPakaiAi(pilihan.value.mode);
       Swal.fire({ icon: "success", title: "Draf modul siap", text: r.message });
     } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }

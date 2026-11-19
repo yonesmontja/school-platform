@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\NotebookCatatan;
 use App\Http\Controllers\Controller;
 use App\Models\Atp;
 use App\Models\CapaianPembelajaran;
@@ -109,7 +110,7 @@ class ModulAjarController extends Controller
     {
         $modul = ModulAjar::with(['mapel', 'kelas', 'materi', 'paket'])->findOrFail($id);
         $this->cekPengubah($request, $modul);
-        $request->validate(['ai_mode' => ['required', Rule::in(SoalAIService::MODES)], 'catatan' => 'nullable|string|max:1500']);
+        $request->validate(['ai_mode' => ['required', Rule::in(SoalAIService::MODES)], 'catatan' => 'nullable|string|max:1500', 'id_catatan_notebook' => 'nullable|integer']);
         $tp = MasterIndikator::with('materi:id_materi,nama_materi,deskripsi_kompetensi')->whereIn('id_indikator', $modul->tp ?? [])->get();
         if ($tp->isEmpty()) return response()->json(['message' => 'Pilih dulu TP yang dicakup modul ini.'], 422);
 
@@ -136,13 +137,14 @@ class ModulAjarController extends Controller
 
         $sumber = app(\App\Services\PustakaDokumenService::class)->pasang($ai, 'modul ajar pembelajaran mendalam ' . ($modul->mapel?->nama_mapel ?? '')
             . " fase {$modul->fase} " . $tp->pluck('deskripsi')->implode(' ') . ' ' . $cp->pluck('elemen')->implode(' '), $modul->id_mapel, $modul->fase);
+        $dariNotebook = NotebookCatatan::pasang($ai, $request->id_catatan_notebook, $request->user());
         $mentah = $ai->susunModul($konteks, $request->ai_mode);
         if ($mentah === null) return response()->json(['message' => $ai->galat()], 422);
         $isi = ModulAjar::normalisasi($mentah, $modul->jumlah_pertemuan);
         foreach ($isi['pertemuan'] as &$p) $p['jp'] ??= $modul->jp_per_pertemuan;
         unset($p);
         return response()->json(['success' => true, 'message' => 'Draf modul ajar siap. Periksa setiap bagian, ubah bila perlu, lalu Simpan.'
-            . \App\Services\PustakaDokumenService::catatanSumber($sumber), 'isi' => $isi, 'rujukan' => $sumber]);
+            . \App\Services\PustakaDokumenService::catatanSumber($sumber) . $dariNotebook, 'isi' => $isi, 'rujukan' => $sumber]);
     }
 
     public function ajukan(Request $request, string $id)

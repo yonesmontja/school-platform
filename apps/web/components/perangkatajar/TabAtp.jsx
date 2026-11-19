@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { AI_MODES, DIMENSI, STATUS, bacaAiMode, simpanAiMode } from "@/components/banksoal/konstanta";
+import { bacaPilihanNotebook, muatCatatanNotebook, pilihanNotebookHtml } from "@/components/pustaka/bahanNotebook";
 import { minta } from "@/components/banksoal/api";
 import { cetakAtp } from "./cetakAtp";
 import { MenuAksi, aksiHapus } from "@/components/dashboard/menuAksi";
@@ -207,19 +208,20 @@ function EditorAtp({ id, referensi, akses, onBuatModul, onKembali }) {
   };
 
   const susunAi = async () => {
+    const notebook = await muatCatatanNotebook();
     const pilihan = await Swal.fire({
       title: "Susun ATP dengan AI",
       html: `AI menurunkan TP dari <b>${cp.length} elemen CP</b>${atp.fase ? ` fase ${atp.fase}` : ""}, memakai TP sekolah yang sudah ada, dan menyesuaikan alokasi dengan capaian siswa.${baris.length ? "<br><b>Baris yang ada sekarang akan diganti</b> (belum tersimpan sampai Anda menekan Simpan)." : ""}`
         + `<select id="aiMode" class="form-select mt-3">${AI_MODES.map((m) => `<option value="${m.value}"${m.value === bacaAiMode() ? " selected" : ""}>${m.label}</option>`).join("")}</select>`
-        + `<textarea id="aiCatatan" class="form-control mt-2" rows="3" placeholder="Catatan untuk AI (opsional), mis. awali dengan pengukuran karena dekat dengan kehidupan siswa"></textarea>`,
+        + `<textarea id="aiCatatan" class="form-control mt-2" rows="3" placeholder="Catatan untuk AI (opsional), mis. awali dengan pengukuran karena dekat dengan kehidupan siswa"></textarea>` + pilihanNotebookHtml(notebook),
       showCancelButton: true, confirmButtonText: "Susun", cancelButtonText: "Batal",
-      preConfirm: () => ({ mode: document.getElementById("aiMode").value, catatan: document.getElementById("aiCatatan").value }),
+      preConfirm: () => ({ mode: document.getElementById("aiMode").value, catatan: document.getElementById("aiCatatan").value, notebook: bacaPilihanNotebook() }),
     });
     if (!pilihan.isConfirmed) return;
     simpanAiMode(pilihan.value.mode);
     setProses("ai");
     try {
-      const r = await minta("POST", `/perangkat-ajar/atp/${id}/ai`, { ai_mode: pilihan.value.mode, catatan: pilihan.value.catatan || null });
+      const r = await minta("POST", `/perangkat-ajar/atp/${id}/ai`, { ai_mode: pilihan.value.mode, catatan: pilihan.value.catatan || null, id_catatan_notebook: pilihan.value.notebook });
       setBaris(r.baris.map(keEditor)); setKotor(true);
       Swal.fire({ icon: "success", title: "Draf ATP siap", text: r.message });
     } catch (err) { Swal.fire("AI belum berhasil", err.message, "warning"); }
