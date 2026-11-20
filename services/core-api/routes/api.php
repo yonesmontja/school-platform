@@ -318,6 +318,12 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/tagihan', [KeuanganController::class, 'portal']);
     });
     // Data portal juga dibuka sebagai "dashboard pribadi siswa" untuk admin, kepsek, dan wali kelas (lihat User::siswaDashboard)
+    // Rekam jejak (buku induk) siswa lintas semester: pengelola, wali kelas sekarang, siswa/orang tua sendiri
+    Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('siswa/{id}/rekam-jejak')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\RekamJejakController::class, 'show']);
+        Route::get('/nilai', [\App\Http\Controllers\Api\RekamJejakController::class, 'nilai']);
+        Route::get('/jurnal', [\App\Http\Controllers\Api\RekamJejakController::class, 'jurnal']);
+    });
     Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/rapor', [PortalController::class, 'rapor']);

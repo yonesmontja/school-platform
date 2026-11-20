@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
 import { ATAS_ISI, gayaTabelResmi, kopPdf, muatSekolah, selesaikanPdf, teksPdf, ttdPdf } from "@/utils/pdfResmi";
@@ -456,6 +457,11 @@ function PortalPage() {
                   <i className="bi bi-download me-1"></i>Unduh pas foto
                 </button>
               )}
+              <div>
+                <Link href={`/dashboard/rekam-jejak?siswa=${encodeURIComponent(siswa.id_siswa)}`} className="btn btn-link btn-sm p-0">
+                  <i className="bi bi-clock-history me-1" aria-hidden="true"></i>Rekam jejak semua semester
+                </Link>
+              </div>
             </div>
           )}
         </div>

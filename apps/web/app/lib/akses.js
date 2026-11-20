@@ -44,6 +44,8 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/disposisi", peran: [...STAF, OPERATOR] },
   // Staf membuka portal sebagai "dashboard pribadi siswa" (?siswa=...); server membatasi ke admin, kepsek, wali kelasnya
   { awalan: "/dashboard/portal", peran: [...PORTAL, ...STAF] },
+  // Rekam jejak lintas semester: server membatasi ke admin, kepsek, wali kelasnya, dan siswa/orang tuanya
+  { awalan: "/dashboard/rekam-jejak", peran: [...PORTAL, ...STAF] },
   { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/dokumentasi-api", peran: ["admin"] },

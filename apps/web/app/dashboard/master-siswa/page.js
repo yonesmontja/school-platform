@@ -159,6 +159,8 @@ export default function MasterSiswaPage() {
         { label: r.foto_url ? "Edit pas foto" : "Tambah pas foto", ikon: "bi-person-bounding-box", onClick: () => setFotoSiswa(r), tampil: bolehSiswa(r) },
         { label: "Unduh pas foto", ikon: "bi-download", onClick: () => unduh(r), tampil: Boolean(r.foto_url) },
         { label: "Dashboard pribadi siswa", ikon: "bi-person-vcard", onClick: () => bukaDashboard(r), tampil: bolehSiswa(r) },
+        // Rekam jejak lintas semester; siswa lulus/mutasi (tanpa kelas) hanya untuk admin & kepala sekolah
+        { label: "Rekam jejak (buku induk)", ikon: "bi-clock-history", onClick: () => window.open(`/dashboard/rekam-jejak?siswa=${encodeURIComponent(r.id_siswa)}`, "_blank", "noopener"), tampil: bolehSiswa(r) },
         { label: "Cetak kartu pelajar", ikon: "bi-person-vcard-fill", onClick: () => cetakKartuPelajar({ id_siswa: [r.id_siswa] }), tampil: bolehSiswa(r) },
         { ...aksiUbah(() => openModal(r), admin), pemisah: true },
         aksiHapus(() => handleDelete(r.id_siswa), admin),

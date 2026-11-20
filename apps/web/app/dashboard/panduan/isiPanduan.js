@@ -591,6 +591,21 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "rekam-jejak", kelompok: "pengelola", judul: "Rekam jejak siswa (buku induk)", icon: "bi-clock-history",
+    href: "/dashboard/master-siswa",
+    langkah: [
+      "Buka Data Sekolah → Siswa, tekan ⋮ pada baris siswa, lalu Rekam jejak (buku induk). Siswa dan orang tua membukanya lewat tautan Rekam jejak semua semester di portal.",
+      "Bagian atas berisi biodata dan status siswa (aktif, lulus, mutasi, keluar). Di bawahnya ada satu kartu per semester, terbaru di atas, dari kelas pertama sampai sekarang.",
+      "Tiap kartu memuat rombel dan wali kelas saat itu, rata-rata nilai per mapel (yang di bawah KKM ditandai), kehadiran, jumlah jurnal, pembinaan, proyek P5, catatan wali, dan keputusan kenaikan.",
+      "Tekan Nilai harian atau Jurnal untuk melihat rinciannya, atau Rapor semester ini untuk membuka rapor semester tersebut.",
+      "Tekan Cetak buku induk untuk mencetak atau menyimpan sebagai PDF.",
+    ],
+    tips: [
+      "Admin dan kepala sekolah bisa membuka rekam jejak semua siswa, termasuk alumni (pilih Semua status di saringan). Wali kelas membuka rekam jejak siswa kelas binaannya, termasuk semester di kelas sebelumnya.",
+      "Narasi jurnal bertanda sensitif tidak ditampilkan, sama seperti di rapor dan portal.",
+    ],
+  },
+  {
     id: "pengampu", kelompok: "pengelola", judul: "Pembagian mengajar per semester", icon: "bi-person-workspace",
     href: "/dashboard/pengampu",
     langkah: [
