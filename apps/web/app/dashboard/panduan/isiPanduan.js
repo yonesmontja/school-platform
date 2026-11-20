@@ -74,7 +74,7 @@ export const BAGIAN = [
     id: "cari-menu", kelompok: "mulai", judul: "Menemukan menu dengan cepat", icon: "bi-search",
     langkah: [
       "Di HP, tekan ikon garis tiga di kiri atas untuk membuka menu.",
-      "Ketik nama menu di kotak Cari menu (di laptop: tekan Ctrl+K), lalu tekan Enter.",
+      "Ketik nama menu di kotak Cari menu, lalu tekan Enter. Untuk mencari menu sekaligus data sekolah, pakai Pencarian cepat (Ctrl+K).",
       "Menu yang tampil menyesuaikan peran Anda. Menu yang tidak ada berarti memang bukan tugas peran Anda.",
     ],
   },
@@ -906,12 +906,13 @@ export const BAGIAN = [
       "Tindak Lanjut: jadwal dan hasil remedial beserta tips mendampingi anak di rumah.",
       "Jadwal, Kehadiran, dan Catatan Positif dari guru.",
       "Rapor: pratinjau dan cetak rapor setelah dibagikan sekolah.",
+      "Rapor berjalan di Ringkasan merangkum pekan ini (kehadiran, nilai baru, tindak lanjut, catatan baik); tombol panah membuka pekan sebelumnya. Buka tab Pesan untuk menulis ke wali kelas dan membaca balasannya; balasan baru juga muncul di Perlu Tindakan.",
     ],
     tips: [
       "Tombol Buka di Perlu Tindakan (ikon lonceng) langsung membuka remedial atau kehadiran anak yang dimaksud.",
       "Capaian TP, Tindak Lanjut, dan Riwayat penilaian bisa dicari, difilter, dan diunduh sebagai PDF.",
       "Bingung membaca deskripsi di rapor? Buka Cara membaca deskripsi capaian di tab Capaian TP atau Rapor.",
-      "Portal hanya untuk melihat. Hubungi wali kelas bila ada data yang perlu diperbaiki.",
+      "Data di portal hanya untuk dilihat. Bila ada yang perlu diperbaiki, kirim pesan ke wali kelas lewat tab Pesan.",
     ],
   },
 ];
