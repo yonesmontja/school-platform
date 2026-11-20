@@ -78,6 +78,11 @@ school-platform/
 - **Pas foto siswa** — editor foto (potong, filter, latar di peramban, atau AI) di Master Siswa; foto tampil di biodata rapor dan Portal lewat tautan bertanda tangan. Wali kelas membuka Master Siswa untuk kelas binaannya dan melihat **dashboard pribadi siswa** (data portal) bersama admin dan kepsek
 - **Notebook riset multi-dokumen** — Pustaka Dokumen: notebook pribadi per akun yang menggabungkan beberapa dokumen, tanya-jawab lintas dokumen, dan catatan yang bisa dijadikan bahan ATP, modul ajar, atau Peta Tema (*Jadikan…*)
 - **Aplikasi Android (TWA)** — halaman publik `/android` untuk mengunduh APK langsung (`apps/web/public/unduh`, dibuat dengan `apps/android/buat-apk.sh`)
+- **Peringatan Dini** — menu Laporan → Peringatan Dini (pengelola & wali kelas): skor risiko per siswa dari alpa 30 hari dan tren kehadiran, mapel di bawah KKM, nilai menurun, tes online terlewat, catatan karakter negatif di jurnal (isi narasi tidak ditampilkan), dan pembinaan berjalan → Risiko tinggi / sedang / Perlu perhatian / Aman, beserta alasan dan tautan ke halaman terkait. Tindak lanjut dicatat (`trans_peringatan_tindak`) dan berlaku sampai muncul alasan jenis baru; siswa berisiko tinggi yang belum ditangani muncul di Perlu Tindakan, dan kartunya tampil di dashboard pribadi siswa
+- **Mode HP "Hari Ini"** — halaman `/dashboard/hari-ini` untuk guru dan pengelola: sesi mengajar hari ini (presensi, jurnal, nilai sekali ketuk), presensi cepat kelas binaan (semua Hadir, ketuk S/I/A untuk yang tidak hadir) yang masuk antrean HP saat offline, dan Perlu Tindakan teratas; pintasan di beranda versi HP
+- **Pencarian global (Ctrl+K)** — palet pencarian lewat Ctrl+K, tombol `/`, atau ikon di bilah atas: menu serta siswa, guru, kelas, materi, soal, modul ajar, dokumen pustaka, dan surat, disaring sesuai hak akses akun
+- **Kartu pelajar & kartu peserta ujian** — kartu ukuran KTP (85,6 × 54 mm, 10 per A4) dengan pas foto dan QR, dicetak dari Master Siswa (admin, kepsek, wali kelas) dan Sesi Ujian. QR kartu pelajar membuka halaman verifikasi publik `/verifikasi/siswa/{kode}` (kode HMAC, tanpa kolom baru); QR kartu ujian membuka halaman masuk dengan NISN sudah terisi
+- **Pesan orang tua & rapor berjalan** — utas pesan per siswa antara wali kelas (juga admin/kepsek) dan orang tua: menu Pesan Orang Tua untuk staf dan tab Pesan di Portal, tanda belum dibaca, pesan baru di Perlu Tindakan; isi pesan tidak masuk log. **Rapor berjalan** pekanan di Portal dan dashboard pribadi (kehadiran per hari, nilai baru dengan tanda tuntas, tindak lanjut, catatan baik); staf mendapat tombol **Kirim lewat WhatsApp** dengan teks siap kirim
 - **Pemantau uptime mandiri** — perintah terjadwal `situs:pantau` tiap 5 menit memeriksa beranda dan `/api/health` lewat alamat publik; bila gagal 2 kali berturut-turut admin dikabari lewat WA (Fonnte) dan dikabari lagi saat pulih
 - **Variasi Bank Soal** — dari soal yang sudah ada, AI membuat **varian** (`ModalVarianAI`), soal kembar/duplikat dideteksi (`/bank-soal/kembar`), dan panel **Cakupan** per TP menunjukkan TP yang belum punya soal atau kurang variasi; draf soal juga bisa dibuat dari hasil riset Notebook (`Jadikan soal`)
 - **Peta Tema → Jadwal kelas** — kepala sekolah menetapkan Peta Tema (slot, tetapkan, buka kunci) lalu pratinjau dan membuat sesi Jadwal kelas darinya, dengan pengecekan konflik (`/perangkat-ajar/tema/{id}/cek`); komponen `PolaJadwalTema`. Sesi modul ditautkan dihitung penuh per TP, dan Panduan memuat alur perencanaan serta urutan peta kerja
@@ -425,6 +430,15 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/siswa/{id}/foto/asli` | Foto asli sebelum disunting | staf | ✔ |
 | POST | `/siswa/{id}/foto/ai` | Pas foto dengan latar rapi oleh AI (throttle 10/menit) | staf | ✔ |
 | GET | `/siswa/{id}/foto` | Tampilkan pas foto lewat tautan bertanda tangan (throttle 240/menit; dipakai gambar & cetak rapor) | – | – |
+| GET | `/peringatan-dini` | Peringatan dini siswa berisiko (`id_kelas`, `id_siswa`): skor, tingkat, alasan, tindak lanjut | admin, kepsek, guru (wali kelas) | ✔ |
+| GET/POST | `/peringatan-dini/{id}/riwayat`, `/peringatan-dini/{id}/tindak` | Riwayat / catat tindak lanjut peringatan dini | admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/hari-ini` | Ringkasan hari ini untuk mode HP: sesi, presensi kelas binaan, pengingat | staf | ✔ |
+| GET | `/cari` | Pencarian global (`q` min. 2 huruf; throttle 120/menit), hasil sesuai hak akses | staf | ✔ |
+| GET | `/kartu-pelajar` | Data kartu pelajar berfoto + kode QR (`id_kelas`, `id_siswa[]`) | admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/verifikasi-siswa/{kode}` | Verifikasi kartu pelajar dari QR (throttle 30/menit) | – | – |
+| GET | `/pesan` | Daftar utas pesan per siswa + jumlah belum dibaca | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
+| GET/POST | `/pesan/{id}` | Buka utas (menandai dibaca) / kirim pesan (throttle 30/menit) | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/portal/pekan` | Rapor berjalan pekanan (`minggu` 0 s.d. −26) + teks ringkas; staf mendapat tautan WhatsApp | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
 | GET/POST | `/notebook`, `/notebook/catatan` | Notebook riset beberapa dokumen (pribadi per akun): daftar & buat; semua catatan sebagai bahan *Jadikan…* | staf | ✔ |
 | GET/PUT/DELETE | `/notebook/{id}` | Detail, ubah, hapus notebook | staf | ✔ |
 | POST | `/notebook/{id}/tanya` | Tanya-jawab lintas dokumen notebook (throttle 20/menit) | staf | ✔ |
@@ -551,9 +565,13 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/`                       | Beranda publik (pilih peran untuk masuk, info SPMB) |
 | `/spmb`                   | SPMB publik: formulir pendaftaran, cek status, daftar ulang (tanpa login) |
 | `/verifikasi/{kode}`      | Verifikasi keaslian surat keluar (tanpa login) |
+| `/verifikasi/siswa/{kode}` | Verifikasi kartu pelajar dari QR (tanpa login) |
 | `/android`                | Unduh aplikasi Android (APK) |
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
+| `/dashboard/hari-ini`     | Hari Ini: mode HP untuk sesi hari ini dan presensi cepat (staf) |
+| `/dashboard/peringatan-dini` | Peringatan Dini siswa berisiko dan tindak lanjutnya (pengelola & wali kelas) |
+| `/dashboard/pesan`        | Pesan Orang Tua: utas per siswa (admin, kepsek, wali kelas) |
 | `/dashboard/master-siswa` | Master Siswa (admin & kepsek; wali kelas untuk kelas binaan; pas foto siswa) |
 | `/dashboard/master-keluarga` | Orang Tua & Wali (admin & kepsek; tampilan Tabler) |
 | `/dashboard/master-guru`  | Master Guru (admin & kepsek)   |
@@ -624,6 +642,11 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [ProduksiTest](services/core-api/tests/Feature/ProduksiTest.php) | Endpoint health, batas laju API, arsip Log Aktivitas ke file, peringatan WA login gagal sekali per jam, nomor WA admin tersembunyi dari peran lain |
 | [PortalTest](services/core-api/tests/Feature/PortalTest.php) | Portal: capaian indikator dengan nama materi, tindak lanjut hanya milik anak, jadwal sepekan tanpa sesi remedial/catatan yang memuat nama siswa lain |
 | [LoginTest](services/core-api/tests/Feature/LoginTest.php)             | Login, batas percobaan per akun/IP, IP asli di balik proxy tepercaya, masa berlaku token      |
+| [PeringatanDiniTest](services/core-api/tests/Feature/PeringatanDiniTest.php) | Peringatan dini: skor & alasan, akses wali kelas, tindak lanjut berlaku sampai alasan berubah |
+| [HariIniTest](services/core-api/tests/Feature/HariIniTest.php) | Hari Ini: sesi guru hari ini dan presensi kelas binaan |
+| [CariTest](services/core-api/tests/Feature/CariTest.php) | Pencarian global disaring sesuai peran |
+| [KartuSiswaTest](services/core-api/tests/Feature/KartuSiswaTest.php) | Kartu pelajar: akses wali kelas, verifikasi kode QR publik |
+| [PesanOrtuTest](services/core-api/tests/Feature/PesanOrtuTest.php) | Pesan wali kelas ↔ orang tua (akses, dibaca, notifikasi, isi tidak masuk log) dan rapor berjalan pekanan |
 
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh
 [MembuatDataSekolah](services/core-api/tests/Concerns/MembuatDataSekolah.php). Jalankan tes sebelum commit,
@@ -653,5 +676,10 @@ npx playwright show-report laporan                    # laporan, termasuk trace 
 | [halaman.spec.js](tests/web/tes/halaman.spec.js) | Semua halaman admin, guru, dan orang tua terbuka tanpa error JavaScript dan tanpa geser ke samping, di desktop & HP; guru tidak bisa membuka halaman admin |
 | [offline.spec.js](tests/web/tes/offline.spec.js) | Sinyal putus: jurnal, nilai, dan presensi masuk antrean HP (lencana awan + pita offline), lalu terkirim otomatis saat online; jurnal dianalisis STNKM saat terkirim |
 | [alur.spec.js](tests/web/tes/alur.spec.js) | Guru menilai 2 indikator (nilai = rata-rata, tersimpan di API) → presensi + panel WA → jurnal muncul di linimasa → tombol remedial nonaktif untuk asesmen diagnostik → rapor memuat nilai & deskripsi capaian → panel WA rapor/presensi/jurnal pulih setelah dimuat ulang → portal orang tua → ganti gaya Klasik |
+| [peringatan-dini.spec.js](tests/web/tes/peringatan-dini.spec.js) | Wali kelas melihat siswa berisiko, mencatat tindak lanjut, dan kartu di dashboard pribadi |
+| [hari-ini.spec.js](tests/web/tes/hari-ini.spec.js) | Mode HP Hari Ini: presensi cepat, juga saat offline (antrean) |
+| [cari-global.spec.js](tests/web/tes/cari-global.spec.js) | Ctrl+K membuka pencarian dan menuju menu/siswa |
+| [kartu.spec.js](tests/web/tes/kartu.spec.js) | Cetak kartu pelajar berfoto + QR, halaman verifikasi publik, QR kartu ujian mengisi halaman masuk |
+| [pesan-ortu.spec.js](tests/web/tes/pesan-ortu.spec.js) | Orang tua mengirim pesan, wali kelas membalas, rapor berjalan dengan tombol WA hanya untuk staf |
 
-`infra/terbitkan.sh` menjalankan tes backend dan tes web (login, alur, offline) sebelum menerbitkan; `--lengkap` menambah semua halaman.
+`infra/terbitkan.sh` menjalankan tes backend dan tes web (login, alur, offline, dan tes per fitur seperti bank soal, administrasi, foto siswa, peringatan dini, Hari Ini, pencarian, kartu, pesan orang tua) sebelum menerbitkan; `--lengkap` menambah semua halaman.
