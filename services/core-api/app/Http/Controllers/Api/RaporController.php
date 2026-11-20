@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\RiwayatRombel;
+
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
 use App\Models\MasterPeriode;
@@ -48,12 +50,14 @@ class RaporController extends Controller
      */
     public static function kumpulkanData(string $idKelas, string $idPeriode, ?array $hanyaSiswa = null): array
     {
-        $students = Student::with(['agama:id_agama,nama_agama', 'ortu', 'wali'])
-            ->where('id_kelas', $idKelas)
+        // Anggota rombel pada semester itu (riwayat), bukan kelas sekarang: rapor semester lama tetap utuh setelah kenaikan kelas
+        $students = RiwayatRombel::anggota($idKelas, $idPeriode)->with(['agama:id_agama,nama_agama', 'ortu', 'wali'])
             ->when($hanyaSiswa !== null, fn($q) => $q->whereIn('id_siswa', $hanyaSiswa))
             ->orderBy('nama_siswa')
             ->get();
         $idSiswa = $students->pluck('id_siswa');
+        $periode = MasterPeriode::find($idPeriode);
+        $rentang = $periode?->rentang();
 
         $proyek = MasterProyek::with(['targets' => fn($q) => $q->orderBy('dimensi')->orderBy('id_target')])
             ->where('id_kelas', $idKelas)
@@ -63,9 +67,9 @@ class RaporController extends Controller
 
         return [
             'kelas' => $kelas = Classes::find($idKelas),
-            // Terpisah dari kelas: relasi waliKelas akan menimpa kolom wali_kelas saat di-serialize
-            'wali_kelas' => $kelas?->waliKelas()->first(['id_guru', 'nama_guru', 'nip_nik']),
-            'periode' => MasterPeriode::find($idPeriode),
+            // Terpisah dari kelas: relasi waliKelas akan menimpa kolom wali_kelas saat di-serialize. Wali pada semester itu.
+            'wali_kelas' => RiwayatRombel::wali($idKelas, $idPeriode),
+            'periode' => $periode,
             'settings' => SchoolSetting::first(),
             'students' => $students,
             'subjects' => Subject::orderBy('kelompok')->orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'kelompok', 'kkm']),
@@ -74,8 +78,9 @@ class RaporController extends Controller
                 ->where('id_periode', $idPeriode)
                 ->whereIn('id_siswa', $idSiswa)
                 ->get(['id_nilai', 'id_siswa', 'id_mapel', 'id_materi', 'tanggal', 'tipe_nilai', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M'])),
-            // Jurnal belum punya kolom periode; seluruh jurnal siswa kelas ini dipakai, sama seperti GAS
+            // Jurnal belum punya kolom periode; dibatasi rentang tanggal semester agar jurnal tahun lain tidak ikut
             'jurnal' => TransJurnal::whereIn('id_siswa', $idSiswa)
+                ->when($periode, fn($q) => $q->whereBetween('tanggal', [$rentang[0]->toDateString(), $rentang[1]->toDateString()]))
                 ->orderBy('tanggal')
                 ->get(['id_jurnal', 'id_siswa', 'tanggal', 'mode_dampak', 'sensitif', 'narasi_kejadian', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M'])
                 // Narasi sensitif tidak pernah ikut dokumen rapor/portal (dibawa pulang ke orang tua); skornya tetap dihitung

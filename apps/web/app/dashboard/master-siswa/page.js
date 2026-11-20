@@ -11,6 +11,9 @@ import EditorFoto, { FotoKecil } from "@/components/siswa/EditorFoto";
 import { cetakKartuPelajar } from "@/components/siswa/cetakKartu";
 import { srcFoto, unduhFoto } from "@/components/siswa/fotoSiswa";
 
+// Status siswa (sama dengan Student::STATUS di backend)
+const STATUS_SISWA = { aktif: "Aktif", lulus: "Lulus (alumni)", mutasi: "Mutasi / pindah sekolah", keluar: "Keluar" };
+
 export default function MasterSiswaPage() {
   const [students, setStudents] = useState([]);
   const [masterData, setMasterData] = useState({
@@ -32,6 +35,7 @@ export default function MasterSiswaPage() {
 
   const [searchQuery, setSearchQuery] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cari") || "")); // ?cari= dari pencarian global
   const [filterKelas, setFilterKelas] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("aktif");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const tableRef = useRef(null);
@@ -109,6 +113,12 @@ export default function MasterSiswaPage() {
       widthGrow: 1,
       hozAlign: "center",
       headerHozAlign: "center",
+      // Siswa lulus/mutasi/keluar tidak punya kelas sekarang; statusnya yang ditampilkan
+      formatter: (cell) => {
+        const d = cell.getRow().getData();
+        if (d.status_siswa && d.status_siswa !== "aktif") return `<span class="badge text-bg-secondary">${STATUS_SISWA[d.status_siswa] || d.status_siswa}</span>`;
+        return cell.getValue() || `<span class="text-muted">–</span>`;
+      },
     },
     {
       title: "L/P",
@@ -179,7 +189,7 @@ export default function MasterSiswaPage() {
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await safeFetch(`${API_URL}/students`, {
+      const data = await safeFetch(`${API_URL}/students?status=${encodeURIComponent(filterStatus)}`, {
         headers: {
           Authorization: `Bearer ${getToken()}`,
           Accept: "application/json",
@@ -191,7 +201,7 @@ export default function MasterSiswaPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterStatus]);
 
   const fetchMasterData = useCallback(async () => {
     try {
@@ -657,7 +667,20 @@ export default function MasterSiswaPage() {
               ))}
             </select>
           </div>
-          <div className="col-12 col-md-9">
+          <div className="col-12 col-md-3">
+            <select
+              className="form-select border-primary form-select-sm"
+              aria-label="Status siswa"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              {Object.entries(STATUS_SISWA).map(([v, l]) => (
+                <option key={v} value={v}>{v === "aktif" ? "Siswa aktif" : l}</option>
+              ))}
+              <option value="ALL">Semua status</option>
+            </select>
+          </div>
+          <div className="col-12 col-md-6">
             <input
               type="text"
               className="form-control border-primary form-control-sm"
@@ -792,11 +815,12 @@ export default function MasterSiswaPage() {
                         </div>
                         <div className="col-md-4">
                           <label className="form-label fw-bold small text-muted">
-                            Kelas *
+                            Kelas{(formData.status_siswa || "aktif") === "aktif" ? " *" : ""}
                           </label>
                           <select
                             className="form-select"
-                            required
+                            required={(formData.status_siswa || "aktif") === "aktif"}
+                            disabled={(formData.status_siswa || "aktif") !== "aktif"}
                             value={formData.id_kelas || ""}
                             onChange={(e) =>
                               handleInputChange("id_kelas", e.target.value)
@@ -825,6 +849,39 @@ export default function MasterSiswaPage() {
                             <option value="P">Perempuan</option>
                           </select>
                         </div>
+                        <div className="col-md-3">
+                          <label className="form-label fw-bold small text-muted" htmlFor="statusSiswa">
+                            Status Siswa
+                          </label>
+                          <select
+                            id="statusSiswa"
+                            className="form-select"
+                            value={formData.status_siswa || "aktif"}
+                            onChange={(e) => handleInputChange("status_siswa", e.target.value)}
+                          >
+                            {Object.entries(STATUS_SISWA).map(([v, l]) => (
+                              <option key={v} value={v}>{l}</option>
+                            ))}
+                          </select>
+                          {(formData.status_siswa || "aktif") !== "aktif" && (
+                            <div className="form-text">Siswa dilepas dari kelas sekarang. Riwayat nilai, rapor, dan jurnalnya tetap tersimpan.</div>
+                          )}
+                        </div>
+                        {(formData.status_siswa || "aktif") !== "aktif" && (
+                          <>
+                            <div className="col-md-3">
+                              <label className="form-label fw-bold small text-muted" htmlFor="tanggalStatus">Tanggal Status</label>
+                              <input id="tanggalStatus" type="date" className="form-control" value={formData.tanggal_status || ""}
+                                onChange={(e) => handleInputChange("tanggal_status", e.target.value)} />
+                            </div>
+                            <div className="col-md-6">
+                              <label className="form-label fw-bold small text-muted" htmlFor="keteranganStatus">Keterangan</label>
+                              <input id="keteranganStatus" type="text" className="form-control" maxLength={255} value={formData.keterangan_status || ""}
+                                placeholder="Contoh: pindah ke SD Negeri 2, atau lulus tahun 2027"
+                                onChange={(e) => handleInputChange("keterangan_status", e.target.value)} />
+                            </div>
+                          </>
+                        )}
                         <div className="col-md-3">
                           <label className="form-label fw-bold small text-muted">
                             Tempat Lahir

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\RiwayatRombel;
+
 use App\Rules\BukanHariMinggu;
 use App\Http\Controllers\Controller;
 use App\Models\Classes;
@@ -118,7 +120,7 @@ class NilaiController extends Controller
         $this->cekMapel($request, $request->id_mapel);
         $meta = $request->only(['id_kelas', 'id_mapel', 'id_periode']);
         $kkm = (float) (Subject::find($request->id_mapel)?->kkm ?? 75);
-        $siswa = Student::where('id_kelas', $request->id_kelas)->orderBy('nama_siswa')->get(['id_siswa', 'nama_siswa']);
+        $siswa = RiwayatRombel::anggota($request->id_kelas, $request->id_periode)->orderBy('nama_siswa')->get(['id_siswa', 'nama_siswa']);
         $jumlahSiswa = $siswa->count();
         $diagnostik = TransNilai::jenisDiagnostik();
 
@@ -251,7 +253,7 @@ class NilaiController extends Controller
         $this->cekMapel($request, $request->id_mapel);
         $meta = $request->only(self::META);
 
-        $students = Student::where('id_kelas', $request->id_kelas)
+        $students = RiwayatRombel::anggota($request->id_kelas, $request->id_periode)
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 
@@ -372,7 +374,7 @@ class NilaiController extends Controller
         [$remedial, $normal] = $records->partition(fn($r) => $r['tipe_nilai'] === 'REMEDIAL');
 
         $idSiswa = $records->pluck('id_siswa')->unique();
-        $bukanAnggota = $idSiswa->diff(Student::where('id_kelas', $meta['id_kelas'])->whereIn('id_siswa', $idSiswa)->pluck('id_siswa'));
+        $bukanAnggota = $idSiswa->diff(RiwayatRombel::anggota($meta['id_kelas'], $meta['id_periode'] ?? null)->whereIn('id_siswa', $idSiswa)->pluck('id_siswa'));
         if ($bukanAnggota->isNotEmpty()) {
             return response()->json(['message' => 'Ada siswa yang bukan anggota kelas ini.'], 422);
         }

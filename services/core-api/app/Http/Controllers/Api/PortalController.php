@@ -49,11 +49,13 @@ class PortalController extends Controller
         ]);
         $siswa = Student::find($request->id_siswa);
         abort_unless($siswa && $request->user()->bolehDashboardSiswa($siswa), 403, 'Data siswa ini tidak dapat diakses dari akun Anda.');
-        if (!$siswa?->id_kelas) {
-            return response()->json(['message' => 'Siswa belum terdaftar di kelas mana pun.'], 422);
+        // Rombel siswa pada semester yang dipilih (bisa berbeda dari kelas sekarang setelah naik kelas)
+        $idKelas = \App\Services\RiwayatRombel::kelasSiswa($siswa->id_siswa, $request->id_periode);
+        if (!$idKelas) {
+            return response()->json(['message' => 'Siswa belum terdaftar di kelas mana pun pada semester ini.'], 422);
         }
 
-        $data = RaporController::kumpulkanData($siswa->id_kelas, $request->id_periode, [$siswa->id_siswa]);
+        $data = RaporController::kumpulkanData($idKelas, $request->id_periode, [$siswa->id_siswa]);
         $data['jurnal'] = $data['jurnal']->map(function ($j) {
             $total = $j->val_S + $j->val_T + $j->val_N + $j->val_K + $j->val_M;
             $item = $j->toArray();

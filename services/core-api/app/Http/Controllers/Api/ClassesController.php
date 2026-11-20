@@ -17,7 +17,12 @@ class ClassesController extends Controller {
             'periode_aktif' => $periode ? ['id_periode' => $periode->id_periode, 'nama' => "{$periode->tahun_ajaran} ({$periode->semester})"] : null,
         ]);
     }
+    private function validasiTingkat(Request $request): void {
+        if ($request->input('tingkat') === '') $request->merge(['tingkat' => null]);
+        $request->validate(['tingkat' => 'nullable|integer|min:1|max:12']);
+    }
     public function store(Request $request) {
+        $this->validasiTingkat($request);
         $data = $request->all();
         if(empty($data['id_kelas'])) $data['id_kelas'] = 'KLS-' . time();
         $class = Classes::create($data);
@@ -26,6 +31,7 @@ class ClassesController extends Controller {
     }
     public function update(Request $request, $id) {
         $class = Classes::findOrFail($id);
+        $this->validasiTingkat($request);
         $class->update($request->all());
         $this->simpanAktif($request, $class);
         return response()->json(['message' => 'Kelas diperbarui', 'data' => $class]);

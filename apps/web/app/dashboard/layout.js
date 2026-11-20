@@ -36,6 +36,8 @@ const DISPOSISI_ITEM = { href: "/dashboard/disposisi", label: "Disposisi Surat",
 // Item ber-"peran" hanya tampil untuk peran tsb. Id grup lama (master, referensi, laporan, pengaturan) dipertahankan
 // agar status buka/tutup yang tersimpan di browser tetap berlaku.
 const PENGELOLA = ["admin", "kepsek"];
+// Label singkat di samping logo, mengikuti peran akun yang sedang masuk
+const PERAN_MEREK = { admin: "Admin", kepsek: "Kepsek", guru: "Guru", siswa: "Siswa", ortu: "Orang Tua", wakakur: "Wakakur", wakasis: "Wakasis", yayasan: "Yayasan", operator: "Operator" };
 const MENU_GROUPS = [
   {
     id: "harian", label: "Kegiatan Harian", icon: "bi-calendar-day",
@@ -44,6 +46,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
       { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
+      { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
       { href: "/dashboard/pesan", label: "Pesan Orang Tua", icon: "bi-chat-dots", syarat: (u) => ["admin", "kepsek"].includes(u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
     ],
   },
@@ -63,7 +66,6 @@ const MENU_GROUPS = [
       { href: "/dashboard/sesi-ujian", label: "Sesi Ujian (CBT)", icon: "bi-pc-display" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
       { href: "/dashboard/p5", label: "Proyek (P5)", icon: "bi-stars" },
-      { href: "/dashboard/import-excel", label: "Import Excel", icon: "bi-file-earmark-arrow-up" },
     ],
   },
   {
@@ -477,7 +479,7 @@ export default function DashboardLayout({ children }) {
       <aside className={`app-sidebar bg-body-secondary shadow${mini ? " is-mini" : ""}`} data-bs-theme="dark">
         <div className="sidebar-brand">
           <Link href={homeItem.href} className="brand-link">
-            <img src="/api/ikon-aplikasi/icon-192.png" alt="" className="brand-ikon" width="28" height="28" /><span className="brand-text fw-light">SAPrapor{isPortal ? "" : " Admin"}</span>
+            <img src="/api/ikon-aplikasi/icon-192.png" alt="" className="brand-ikon" width="28" height="28" /><span className="brand-text fw-light text-truncate">SAPrapor{PERAN_MEREK[role] ? ` ${PERAN_MEREK[role]}` : ""}</span>
           </Link>
         </div>
         <div className="sidebar-wrapper">

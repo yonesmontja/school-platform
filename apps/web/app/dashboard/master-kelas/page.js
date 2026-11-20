@@ -72,6 +72,14 @@ export default function MasterKelasPage() {
       formatter: (cell) => `<strong>${cell.getValue()}</strong>`,
     },
     {
+      title: "Tingkat",
+      field: "tingkat",
+      width: 100,
+      hozAlign: "center",
+      headerHozAlign: "center",
+      formatter: (cell) => cell.getValue() || `<span class="text-muted">–</span>`,
+    },
+    {
       title: "Wali Kelas",
       field: "wali_kelas.nama_guru",
       width: 250,
@@ -370,6 +378,23 @@ export default function MasterKelasPage() {
                       }
                       placeholder="Contoh: Kelas 1A"
                     />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-bold small text-muted" htmlFor="kelasTingkat">
+                      Tingkat
+                    </label>
+                    <select
+                      id="kelasTingkat"
+                      className="form-select"
+                      value={formData.tingkat || ""}
+                      onChange={(e) => setFormData({ ...formData, tingkat: e.target.value })}
+                    >
+                      <option value="">Otomatis dari nama kelas</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((t) => (
+                        <option key={t} value={t}>Tingkat {t}</option>
+                      ))}
+                    </select>
+                    <div className="form-text">Dipakai untuk kenaikan kelas. Rombel 2A, 2B, dan 2C sama-sama tingkat 2.</div>
                   </div>
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-muted">

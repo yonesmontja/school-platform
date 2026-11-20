@@ -25,7 +25,7 @@ class LaporanController extends Controller
             'id_periode' => 'required|exists:master_periode,id_periode',
         ]);
 
-        $students = Student::where('id_kelas', $request->id_kelas)
+        $students = \App\Services\RiwayatRombel::anggota($request->id_kelas, $request->id_periode)
             ->orderBy('nama_siswa')
             ->get(['id_siswa', 'nisn', 'nama_siswa']);
 

@@ -18,8 +18,22 @@ class Classes extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id_kelas', 'nama_kelas', 'wali_kelas'
+        'id_kelas', 'nama_kelas', 'tingkat', 'wali_kelas'
     ];
+
+    protected $casts = ['tingkat' => 'integer'];
+
+    protected static function booted(): void
+    {
+        // Tingkat diisi dari nama kelas bila admin tidak mengisinya ("Kelas 2A" → 2)
+        static::saving(function (self $k) {
+            if (!$k->tingkat && $k->nama_kelas) $k->tingkat = \App\Services\RiwayatRombel::tingkatDariNama($k->nama_kelas);
+        });
+        // Wali kelas sekarang langsung tercatat di riwayat semester aktif
+        static::saved(function (self $k) {
+            if ($k->wasRecentlyCreated || $k->wasChanged('wali_kelas')) \App\Services\RiwayatRombel::catatWali($k);
+        });
+    }
 
     public function waliKelas(): BelongsTo
     {

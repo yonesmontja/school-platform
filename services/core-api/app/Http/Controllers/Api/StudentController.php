@@ -26,6 +26,10 @@ class StudentController extends Controller
             $query->where('id_kelas', $request->id_kelas);
         }
 
+        // Bawaan hanya siswa aktif; status=ALL menampilkan semua, termasuk lulus/mutasi/keluar
+        $status = $request->input('status', 'aktif');
+        if ($status !== 'ALL') $query->where('status_siswa', $status);
+
         // Menggunakan get() agar data dikirim semua dan paginasi diurus oleh Tabulator (Next.js)
         return response()->json(['data' => $query->orderBy('nama_siswa')->get()]);
     }
@@ -37,6 +41,9 @@ class StudentController extends Controller
             'nama_siswa' => 'required|string|max:255',
             'nisn' => 'nullable|string|max:20|unique:students,nisn',
             'jenis_kelamin' => 'required|in:L,P',
+            'status_siswa' => 'nullable|in:' . implode(',', Student::STATUS),
+            'tanggal_status' => 'nullable|date_format:Y-m-d',
+            'keterangan_status' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -63,6 +70,9 @@ class StudentController extends Controller
             'nama_siswa' => 'sometimes|required|string|max:255',
             'nisn' => 'nullable|string|max:20|unique:students,nisn,' . $id . ',id_siswa',
             'jenis_kelamin' => 'sometimes|required|in:L,P',
+            'status_siswa' => 'nullable|in:' . implode(',', Student::STATUS),
+            'tanggal_status' => 'nullable|date_format:Y-m-d',
+            'keterangan_status' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {

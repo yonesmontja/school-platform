@@ -38,6 +38,7 @@ class PeriodeController extends Controller
         try {
             // Jika periode baru di-set AKTIF, matikan semua periode lain
             if ($request->status_aktif === 'AKTIF') {
+                $this->potretAktif();
                 MasterPeriode::where('status_aktif', 'AKTIF')->update(['status_aktif' => 'TUTUP']);
             }
 
@@ -77,7 +78,11 @@ class PeriodeController extends Controller
         DB::beginTransaction();
         try {
             // Jika di-set AKTIF, matikan yang lain
+            if ($periode->status_aktif === 'AKTIF' && $request->status_aktif !== 'AKTIF') {
+                $this->potretAktif();
+            }
             if ($request->status_aktif === 'AKTIF' && $periode->status_aktif !== 'AKTIF') {
+                $this->potretAktif();
                 MasterPeriode::where('status_aktif', 'AKTIF')
                     ->where('id_periode', '!=', $id)
                     ->update(['status_aktif' => 'TUTUP']);
@@ -97,6 +102,16 @@ class PeriodeController extends Controller
             DB::rollBack();
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Sebelum semester aktif berganti, rombel & wali kelas sekarang dipotret ke riwayat semester itu,
+     * agar rapor dan laporan semester tersebut tetap memuat siswa & wali yang benar setelah kenaikan kelas.
+     */
+    private function potretAktif(): void
+    {
+        $aktif = \App\Services\RiwayatRombel::periodeAktif();
+        if ($aktif) \App\Services\RiwayatRombel::potret($aktif);
     }
 
     public function destroy($id)

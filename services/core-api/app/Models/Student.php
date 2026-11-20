@@ -21,12 +21,30 @@ class Student extends Model
         'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'id_suku',
         'id_agama', 'id_sekolah_asal', 'status_tempat_tinggal',
         'jalan_siswa', 'id_wilayah_siswa', 'id_ortu', 'id_wali', 'no_wa',
+        'status_siswa', 'tanggal_status', 'keterangan_status',
     ];
+
+    public const STATUS = ['aktif', 'lulus', 'mutasi', 'keluar'];
 
     // Lokasi berkas foto tidak pernah dikirim; yang dikirim tautan bertanda tangan (foto_url)
     protected $hidden = ['foto_path', 'foto_asli_path'];
     protected $appends = ['foto_url'];
-    protected $casts = ['foto_diperbarui' => 'datetime'];
+    protected $casts = ['foto_diperbarui' => 'datetime', 'tanggal_status' => 'date:Y-m-d'];
+
+    protected static function booted(): void
+    {
+        // Siswa yang tidak aktif lagi (lulus/mutasi/keluar) dilepas dari rombel sekarang; riwayatnya tetap di siswa_rombel
+        static::saving(function (self $s) {
+            if ($s->isDirty('status_siswa') && $s->status_siswa && $s->status_siswa !== 'aktif') {
+                $s->id_kelas = null;
+                $s->tanggal_status ??= now()->toDateString();
+            }
+        });
+        // Rombel sekarang langsung tercatat di riwayat semester aktif
+        static::saved(function (self $s) {
+            if ($s->wasRecentlyCreated || $s->wasChanged('id_kelas')) \App\Services\RiwayatRombel::catatSiswa($s);
+        });
+    }
 
     /**
      * Tautan pas foto bertanda tangan (relatif terhadap asal API), berlaku sampai akhir besok.
