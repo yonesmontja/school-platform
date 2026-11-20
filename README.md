@@ -83,6 +83,11 @@ school-platform/
 - **Pencarian global (Ctrl+K)** — palet pencarian lewat Ctrl+K, tombol `/`, atau ikon di bilah atas: menu serta siswa, guru, kelas, materi, soal, modul ajar, dokumen pustaka, dan surat, disaring sesuai hak akses akun
 - **Kartu pelajar & kartu peserta ujian** — kartu ukuran KTP (85,6 × 54 mm, 10 per A4) dengan pas foto dan QR, dicetak dari Master Siswa (admin, kepsek, wali kelas) dan Sesi Ujian. QR kartu pelajar membuka halaman verifikasi publik `/verifikasi/siswa/{kode}` (kode HMAC, tanpa kolom baru); QR kartu ujian membuka halaman masuk dengan NISN sudah terisi
 - **Pesan orang tua & rapor berjalan** — utas pesan per siswa antara wali kelas (juga admin/kepsek) dan orang tua: menu Pesan Orang Tua untuk staf dan tab Pesan di Portal, tanda belum dibaca, pesan baru di Perlu Tindakan; isi pesan tidak masuk log. **Rapor berjalan** pekanan di Portal dan dashboard pribadi (kehadiran per hari, nilai baru dengan tanda tuntas, tindak lanjut, catatan baik); staf mendapat tombol **Kirim lewat WhatsApp** dengan teks siap kirim
+- **Riwayat rombel per semester** — rombel tiap siswa (`siswa_rombel`) dan wali kelas tiap rombel (`wali_kelas_periode`) dicatat per semester; rapor, portal, laporan STNKM, dan lembar nilai semester lama membaca riwayat ini (semester aktif membaca data sekarang), sehingga tetap utuh setelah siswa naik kelas atau wali berganti. Kelas punya **tingkat** (otomatis dari nama, mis. 2A → 2); siswa punya **status** aktif/lulus/mutasi/keluar (yang tidak aktif dilepas dari rombel, riwayatnya tetap)
+- **Tutup Semester & kunci semester** — wizard admin (`/dashboard/tutup-semester`): periksa kelengkapan (catatan wali, mapel tanpa nilai, remedial, sesi jadwal, keputusan kenaikan), pilih semester berikutnya, salin status rombel, pembagian mengajar, dan pola jadwal mingguan (Ganjil → Genap, melewati hari libur), lalu kunci semester lama. Semester terkunci hanya bisa dibaca (nilai, presensi, jurnal, catatan wali, P5, pembinaan, diagnostik, kenaikan); admin tetap bisa memperbaiki dan membuka kunci di menu Semester
+- **Pembagian Mengajar** — guru pengampu per rombel × mapel per semester (`pengampu_mapel`); sel kosong memakai guru bawaan di Mata Pelajaran. Guru hanya bisa menilai mapel di rombel yang diampunya. Saat semester ditutup, pengampu dibekukan sehingga ATP, modul ajar, paket soal, dan kisi-kisi semester lama tetap menampilkan guru saat itu
+- **Kenaikan kelas** — usulan otomatis dari data setahun (3 mapel atau lebih di bawah KKM → tidak naik; tingkat tertinggi → lulus), keputusan wali kelas, pengesahan kepala sekolah, dan bagian **D. Keputusan** di rapor Genap. Tutup Semester ke tahun ajaran baru menerapkan keputusan: naik ke tingkat berikutnya (langsung bila rombelnya satu, selain itu menunggu **Pemetaan Rombel** dengan tombol bagi rata L/P), tinggal kelas, atau lulus menjadi alumni; pengingat di Perlu Tindakan
+- **Rekam jejak (buku induk)** — halaman `/dashboard/rekam-jejak?siswa=` berisi biodata dan satu kartu per semester (rombel & wali saat itu, rata-rata per mapel, kehadiran, jurnal, pembinaan, P5, catatan wali, keputusan kenaikan), rincian nilai harian dan jurnal per semester (narasi sensitif disembunyikan), tautan ke rapor, dan cetak buku induk; dibuka dari Master Siswa dan portal
 - **Pemantau uptime mandiri** — perintah terjadwal `situs:pantau` tiap 5 menit memeriksa beranda dan `/api/health` lewat alamat publik; bila gagal 2 kali berturut-turut admin dikabari lewat WA (Fonnte) dan dikabari lagi saat pulih
 - **Variasi Bank Soal** — dari soal yang sudah ada, AI membuat **varian** (`ModalVarianAI`), soal kembar/duplikat dideteksi (`/bank-soal/kembar`), dan panel **Cakupan** per TP menunjukkan TP yang belum punya soal atau kurang variasi; draf soal juga bisa dibuat dari hasil riset Notebook (`Jadikan soal`)
 - **Peta Tema → Jadwal kelas** — kepala sekolah menetapkan Peta Tema (slot, tetapkan, buka kunci) lalu pratinjau dan membuat sesi Jadwal kelas darinya, dengan pengecekan konflik (`/perangkat-ajar/tema/{id}/cek`); komponen `PolaJadwalTema`. Sesi modul ditautkan dihitung penuh per TP, dan Panduan memuat alur perencanaan serta urutan peta kerja
@@ -395,6 +400,15 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | POST | `/materi/rujukan-tp` | Daftar TP dari bahan ajar yang ada (tanpa AI) untuk form Materi | admin, guru | ✔ |
 | POST | `/materi/asisten-ai` | Asisten Materi AI: usulan TP, IKTP, dan bobot STNKM (throttle 20/menit) | admin, guru | ✔ |
 | PUT | `/classes/{id}/aktif-semester` | Tandai rombel aktif/nonaktif untuk semester aktif | admin | ✔ |
+| PUT | `/periodes/{id}/kunci` | Kunci/buka kunci semester (semester aktif tidak bisa dikunci) | admin | ✔ |
+| GET/POST | `/semester/tutup` | Tutup Semester: periksa kelengkapan / pindah semester, salin, terapkan kenaikan, kunci | admin | ✔ |
+| GET | `/pengampu` | Pembagian mengajar per semester (`id_periode`) | admin, kepsek | ✔ |
+| PUT | `/pengampu` | Simpan pembagian mengajar (sel kosong = guru bawaan mapel) | admin | ✔ |
+| GET | `/pengampu/saya` | Mapel & rombel yang diampu guru akun ini | staf | ✔ |
+| GET/PUT | `/kenaikan` | Usulan & keputusan kenaikan kelas satu rombel (semester Genap) | admin, kepsek, guru (wali kelas) | ✔ |
+| POST | `/kenaikan/sahkan` | Sahkan / batalkan pengesahan keputusan satu rombel | admin, kepsek | ✔ |
+| GET/PUT | `/pemetaan-rombel` | Siswa yang menunggu rombel per tingkat / tempatkan ke rombel | admin, kepsek | ✔ |
+| GET | `/siswa/{id}/rekam-jejak` | Rekam jejak lintas semester (+ `/nilai`, `/jurnal` per `id_periode`) | admin, kepsek, wali kelas, siswa/ortu sendiri | ✔ |
 | GET | `/panduan/kerja` | Peta kerja guru: progres alur kerja semester (admin/kepsek memilih guru) | semua peran | ✔ |
 | POST | `/perangkat-ajar/tema/{id}/pola-ai` | Rekomendasi AI untuk hari kosong pola mingguan Peta Tema | staf | ✔ |
 | POST | `/perangkat-ajar/tema/{id}/slot` | Atur slot pola jadwal Peta Tema | staf | ✔ |
@@ -577,7 +591,12 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/master-guru`  | Master Guru (admin & kepsek)   |
 | `/dashboard/master-kelas` | Master Kelas (admin & kepsek; rombel aktif/nonaktif per semester) |
 | `/dashboard/master-mapel` | Master Mata Pelajaran (admin & kepsek) |
-| `/dashboard/master-periode`  | Semester (admin & kepsek) |
+| `/dashboard/master-periode`  | Semester (admin & kepsek): kunci/buka kunci, tautan Tutup Semester |
+| `/dashboard/tutup-semester` | Wizard Tutup Semester (admin) |
+| `/dashboard/pengampu`     | Pembagian Mengajar per semester (admin & kepsek) |
+| `/dashboard/kenaikan`     | Kenaikan Kelas: keputusan & pengesahan (pengelola & wali kelas) |
+| `/dashboard/pemetaan-rombel` | Pemetaan Rombel siswa yang naik kelas (admin & kepsek) |
+| `/dashboard/rekam-jejak`  | Rekam jejak / buku induk siswa (pengelola, wali kelas, siswa/ortu) |
 | `/dashboard/master-kategori` | High Level (kategori penilaian) |
 | `/dashboard/master-mbk`   | Aktivitas (MBK)      |
 | `/dashboard/master-materi`| Materi (admin & guru tambah/ubah, guru hanya mapel diampu; kepsek lihat; hapus khusus admin) |
@@ -647,6 +666,10 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [CariTest](services/core-api/tests/Feature/CariTest.php) | Pencarian global disaring sesuai peran |
 | [KartuSiswaTest](services/core-api/tests/Feature/KartuSiswaTest.php) | Kartu pelajar: akses wali kelas, verifikasi kode QR publik |
 | [PesanOrtuTest](services/core-api/tests/Feature/PesanOrtuTest.php) | Pesan wali kelas ↔ orang tua (akses, dibaca, notifikasi, isi tidak masuk log) dan rapor berjalan pekanan |
+| [RiwayatRombelTest](services/core-api/tests/Feature/RiwayatRombelTest.php) | Rapor semester lama tetap utuh setelah naik kelas & wali berganti; status lulus melepas rombel; tingkat kelas |
+| [TutupSemesterTest](services/core-api/tests/Feature/TutupSemesterTest.php) | Tutup Semester (salin rombel, pengampu, pola jadwal), kunci semester, pembagian mengajar per rombel, pengampu dibekukan |
+| [KenaikanTest](services/core-api/tests/Feature/KenaikanTest.php) | Usulan kenaikan, pengesahan, rapor Genap, penerapan saat tahun ajaran baru, pemetaan rombel |
+| [RekamJejakTest](services/core-api/tests/Feature/RekamJejakTest.php) | Rekam jejak lintas semester, rincian nilai & jurnal, akses |
 
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh
 [MembuatDataSekolah](services/core-api/tests/Concerns/MembuatDataSekolah.php). Jalankan tes sebelum commit,
