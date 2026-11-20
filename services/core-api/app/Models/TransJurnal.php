@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TransJurnal extends Model
 {
+    // Data semester yang sudah ditutup & dikunci hanya bisa dibaca (kecuali admin)
+    use \App\Models\Concerns\TerkunciPeriode;
+
     protected $table = 'trans_jurnal';
     protected $primaryKey = 'id_jurnal';
     public $incrementing = false;

@@ -517,7 +517,9 @@ class NilaiController extends Controller
 
     private function cekMapel(Request $request, ?string $idMapel): void
     {
-        abort_unless($request->user()->bolehNilaiMapel($idMapel), 403, 'Anda hanya dapat mengelola nilai mata pelajaran yang Anda ampu.');
+        $idKelas = $request->input('id_kelas');
+        abort_unless($request->user()->bolehNilaiMapel($idMapel, is_string($idKelas) ? $idKelas : null), 403,
+            'Anda hanya dapat mengelola nilai mata pelajaran dan rombel yang Anda ampu.');
     }
 
     // Nilai reguler satu kombinasi penilaian, opsional dibatasi satu tanggal

@@ -97,7 +97,8 @@ class User extends Authenticatable
     public function mapelDiampu(): array
     {
         if (!$this->id_guru) return [];
-        return $this->cacheMapelDiampu ??= Subject::where('id_guru', $this->id_guru)->pluck('id_mapel')->all();
+        // Pembagian mengajar semester aktif; tanpa pembagian khusus, guru bawaan di Mata Pelajaran
+        return $this->cacheMapelDiampu ??= \App\Services\Pengampu::mapelGuru($this->id_guru);
     }
 
     /** Siswa yang datanya boleh dilihat akun portal: dirinya sendiri (siswa) atau anaknya (ortu/wali) */
@@ -132,9 +133,12 @@ class User extends Authenticatable
     }
 
     /** Boleh menginput nilai mapel ini (pengelola atau guru pengampunya) */
-    public function bolehNilaiMapel(?string $idMapel): bool
+    public function bolehNilaiMapel(?string $idMapel, ?string $idKelas = null): bool
     {
-        return $this->isPengelola() || ($this->isGuru() && $idMapel && in_array($idMapel, $this->mapelDiampu(), true));
+        if ($this->isPengelola()) return true;
+        if (!$this->isGuru() || !$idMapel || !in_array($idMapel, $this->mapelDiampu(), true)) return false;
+        // Bila rombel diketahui, guru harus pengampu mapel itu di rombel tersebut (pembagian mengajar per semester)
+        return !$idKelas || \App\Services\Pengampu::mengampu($this->id_guru, $idMapel, $idKelas);
     }
 
     /** Ringkasan akses yang dikirim ke frontend untuk menyusun menu & tombol */

@@ -9,8 +9,8 @@ class MasterPeriode extends Model {
     protected $primaryKey = 'id_periode';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $fillable = ['id_periode', 'tahun_ajaran', 'semester', 'status_aktif', 'tanggal_mulai', 'tanggal_selesai', 'minggu_tidak_efektif'];
-    protected $casts = ['tanggal_mulai' => 'date:Y-m-d', 'tanggal_selesai' => 'date:Y-m-d', 'minggu_tidak_efektif' => 'array'];
+    protected $fillable = ['id_periode', 'tahun_ajaran', 'semester', 'status_aktif', 'tanggal_mulai', 'tanggal_selesai', 'minggu_tidak_efektif', 'terkunci', 'dikunci_pada'];
+    protected $casts = ['tanggal_mulai' => 'date:Y-m-d', 'tanggal_selesai' => 'date:Y-m-d', 'minggu_tidak_efektif' => 'array', 'terkunci' => 'boolean', 'dikunci_pada' => 'datetime'];
 
     /**
      * Rentang tanggal semester. Bila belum diisi admin, dipakai kalender pendidikan umum:

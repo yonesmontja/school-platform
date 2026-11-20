@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Presensi per mapel oleh guru mapel. Rapor tetap memakai presensi harian (TransPresensi). */
 class TransPresensiMapel extends Model
 {
+    // Data semester yang sudah ditutup & dikunci hanya bisa dibaca (kecuali admin)
+    use \App\Models\Concerns\TerkunciPeriode;
+
     protected $table = 'trans_presensi_mapel';
     protected $primaryKey = 'id_presensi_mapel';
     public $incrementing = false;

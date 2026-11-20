@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Hasil asesmen diagnostik non-kognitif satu siswa pada satu semester. */
 class TransDiagnostikNonkognitif extends Model
 {
+    // Data semester yang sudah ditutup & dikunci hanya bisa dibaca (kecuali admin)
+    use \App\Models\Concerns\TerkunciPeriode;
+
     protected $table = 'trans_diagnostik_nonkognitif';
 
     public const GAYA_BELAJAR = ['VISUAL', 'AUDITORI', 'KINESTETIK'];

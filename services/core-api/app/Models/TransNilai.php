@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TransNilai extends Model
 {
+    // Data semester yang sudah ditutup & dikunci hanya bisa dibaca (kecuali admin)
+    use \App\Models\Concerns\TerkunciPeriode;
+
     protected $table = 'trans_nilai';
     protected $primaryKey = 'id_nilai';
     public $incrementing = false;

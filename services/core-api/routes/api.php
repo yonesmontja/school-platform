@@ -165,6 +165,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::get('/hari-libur', [HariLiburController::class, 'index']);
     Route::middleware('role:admin,kepsek')->group(function () {
         Route::post('/hari-libur', [HariLiburController::class, 'store']);
+        Route::get('/pengampu', [\App\Http\Controllers\Api\PengampuController::class, 'index']);
         Route::post('/hari-libur/tandai-cek', [HariLiburController::class, 'tandaiCek']);
         Route::put('/hari-libur/{id}', [HariLiburController::class, 'update'])->whereNumber('id');
         Route::delete('/hari-libur/{id}', [HariLiburController::class, 'destroy'])->whereNumber('id');
@@ -364,6 +365,11 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::put('/classes/{id}/aktif-semester', [ClassesController::class, 'aktifSemester']);
         Route::apiResource('/subjects', SubjectController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/periodes', PeriodeController::class)->only(['store', 'update', 'destroy']);
+        // Tutup Semester & kunci semester, pembagian mengajar (admin)
+        Route::put('/periodes/{id}/kunci', [\App\Http\Controllers\Api\TutupSemesterController::class, 'kunci']);
+        Route::get('/semester/tutup', [\App\Http\Controllers\Api\TutupSemesterController::class, 'periksa']);
+        Route::post('/semester/tutup', [\App\Http\Controllers\Api\TutupSemesterController::class, 'jalankan']);
+        Route::put('/pengampu', [\App\Http\Controllers\Api\PengampuController::class, 'simpan']);
         Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['store', 'update', 'destroy']);
         Route::apiResource('/mbk', MBKController::class)->only(['update', 'destroy']);
         Route::delete('/indikator/{indikator}', [IndikatorController::class, 'destroy']);
@@ -405,6 +411,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::apiResource('/classes', ClassesController::class)->only(['index']);
         Route::apiResource('/subjects', SubjectController::class)->only(['index']);
         Route::apiResource('/periodes', PeriodeController::class)->only(['index']);
+        Route::get('/pengampu/saya', [\App\Http\Controllers\Api\PengampuController::class, 'saya']);
         Route::apiResource('/kategori-penilaian', KategoriPenilaianController::class)->only(['index']);
         Route::get('/mbk', [MBKController::class, 'index']);
         Route::get('/materi/by-context', [MateriController::class, 'byContext']);

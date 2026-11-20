@@ -92,6 +92,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/master-guru", label: "Guru", icon: "bi-person-video3", peran: PENGELOLA },
       { href: "/dashboard/master-kelas", label: "Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
       { href: "/dashboard/master-mapel", label: "Mata Pelajaran", icon: "bi-book-half", peran: PENGELOLA },
+      { href: "/dashboard/pengampu", label: "Pembagian Mengajar", icon: "bi-person-workspace", peran: PENGELOLA },
     ],
   },
   {

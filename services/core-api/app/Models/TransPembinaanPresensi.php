@@ -14,6 +14,9 @@ use Illuminate\Support\Collection;
  */
 class TransPembinaanPresensi extends Model
 {
+    // Data semester yang sudah ditutup & dikunci hanya bisa dibaca (kecuali admin)
+    use \App\Models\Concerns\TerkunciPeriode;
+
     protected $table = 'trans_pembinaan_presensi';
     protected $primaryKey = 'id_pembinaan';
     public $incrementing = false;

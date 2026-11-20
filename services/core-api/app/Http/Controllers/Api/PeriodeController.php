@@ -88,6 +88,8 @@ class PeriodeController extends Controller
                     ->update(['status_aktif' => 'TUTUP']);
             }
 
+            // Semester yang diaktifkan selalu terbuka untuk diisi
+            if ($request->status_aktif === 'AKTIF') $periode->forceFill(['terkunci' => false, 'dikunci_pada' => null]);
             $periode->update([
                 'tahun_ajaran' => $request->tahun_ajaran,
                 'semester' => $request->semester,

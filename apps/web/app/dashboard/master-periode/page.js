@@ -7,6 +7,8 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import Link from "next/link";
+import { bacaUser } from "@/app/lib/akses";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -35,6 +37,27 @@ export default function MasterPeriodePage() {
     return resPeriode.data || [];
   }, []);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => { setIsAdmin(bacaUser()?.role === "admin"); }, []);
+
+  const ubahKunci = async (r) => {
+    const kunci = !r.terkunci;
+    const ok = await Swal.fire({
+      title: kunci ? `Kunci ${r.tahun_ajaran} ${r.semester}?` : `Buka kunci ${r.tahun_ajaran} ${r.semester}?`,
+      text: kunci ? "Guru tidak bisa lagi mengubah nilai, presensi, jurnal, dan catatan semester ini." : "Guru bisa mengubah lagi data semester ini. Kunci kembali setelah perbaikan selesai.",
+      icon: "question", showCancelButton: true, confirmButtonText: kunci ? "Kunci" : "Buka kunci", cancelButtonText: "Batal",
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      const res = await safeFetch(`${API_URL}/periodes/${r.id_periode}/kunci`, {
+        method: "PUT", headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ terkunci: kunci }),
+      });
+      Swal.fire({ toast: true, position: "top-end", icon: "success", title: res.message, showConfirmButton: false, timer: 2500 });
+      refresh();
+    } catch (err) { Swal.fire("Gagal", err.message, "error"); }
+  };
+
   const COLUMNS_DEF = [
     { title: "ID Periode", field: "id_periode", width: 130, headerHozAlign: "center", hozAlign: "center", formatter: (cell) => `<span class="text-muted small">${cell.getValue()}</span>` },
     { title: "Tahun Ajaran", field: "tahun_ajaran", minWidth: 150, widthGrow: 2, headerHozAlign: "center", formatter: (cell) => `<strong class="text-dark">${cell.getValue()}</strong>` },
@@ -43,12 +66,17 @@ export default function MasterPeriodePage() {
       title: "Status", field: "status_aktif", width: 120, headerHozAlign: "center", hozAlign: "center",
       formatter: (cell) => {
         const val = cell.getValue();
-        return val === 'AKTIF' 
+        const kunci = cell.getRow().getData().terkunci ? ` <span class="badge text-bg-dark" title="Data semester ini hanya bisa dibaca"><i class="bi bi-lock-fill me-1"></i>Terkunci</span>` : "";
+        return (val === 'AKTIF' 
           ? `<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>AKTIF</span>` 
-          : `<span class="badge bg-secondary">TUTUP</span>`;
+          : `<span class="badge bg-secondary">TUTUP</span>`) + kunci;
       }
     },
-    kolomAksi((r) => [aksiUbah(() => openModal(r)), aksiHapus(() => handleDelete(r.id_periode))]),
+    kolomAksi((r) => [
+      aksiUbah(() => openModal(r)),
+      { label: r.terkunci ? "Buka kunci untuk perbaikan" : "Kunci semester", ikon: r.terkunci ? "bi-unlock" : "bi-lock", onClick: () => ubahKunci(r), tampil: bacaUser()?.role === "admin" && (r.terkunci || r.status_aktif !== "AKTIF") },
+      aksiHapus(() => handleDelete(r.id_periode)),
+    ]),
   ];
 
   const { tableRef, loading, searchQuery, setSearchQuery, visibleColumns, toggleColumn, getFilteredData, refresh } = 
@@ -125,6 +153,13 @@ export default function MasterPeriodePage() {
 
   return (
     <>
+      {isAdmin && (
+        <div className="alert alert-primary d-flex flex-wrap align-items-center gap-2 py-2">
+          <i className="bi bi-arrow-right-circle-fill" aria-hidden="true"></i>
+          <span className="me-auto small">Akhir semester? Pakai <b>Tutup Semester</b>: periksa kelengkapan, pindah ke semester berikutnya, salin rombel, pembagian mengajar, dan pola jadwal, lalu kunci semester lama.</span>
+          <Link href="/dashboard/tutup-semester" className="btn btn-sm btn-primary"><i className="bi bi-calendar2-check me-1"></i>Tutup Semester</Link>
+        </div>
+      )}
       <TableWrapper
         title="Semester"
         icon="bi-calendar-week"

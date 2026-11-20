@@ -555,7 +555,8 @@ export const BAGIAN = [
     id: "awal-semester", kelompok: "pengelola", judul: "Persiapan awal semester", icon: "bi-calendar-week",
     href: "/dashboard/master-periode",
     langkah: [
-      "Referensi → Semester: tambahkan semester baru dan atur statusnya Aktif.",
+      "Akhir semester (admin): buka Referensi → Semester, tekan Tutup Semester. Periksa daftar kelengkapan (catatan wali, mapel tanpa nilai, remedial, sesi jadwal), pilih semester berikutnya dan tanggalnya, lalu pilih yang disalin: status rombel, pembagian mengajar, dan pola jadwal mingguan (Ganjil → Genap). Semester lama dikunci sehingga hanya bisa dibaca.",
+      "Semester terkunci: guru tidak bisa lagi mengubah nilai, presensi, jurnal, dan catatan semester itu. Bila perlu perbaikan, admin membuka kuncinya lewat ⋮ → Buka kunci untuk perbaikan di menu Semester, lalu menguncinya kembali.",
       "Referensi → Hari Libur: cocokkan libur nasional dan cuti bersama tahun ini dengan SKB 3 Menteri, lalu tambahkan libur sekolah sendiri (mis. HUT sekolah). Tanggal libur tidak bisa dipakai untuk jadwal, presensi, nilai, dan jurnal; jadwal berulang otomatis melewatinya.",
       "Akun & Sistem → API Render (admin): buat kunci API untuk aplikasi luar yang membuat video lewat API (mis. asisten AI Muse), pantau riwayat render, dan tambahkan tempat terverifikasi untuk adegan peta. Kunci hanya tampil sekali; simpan di tempat aman. Isi kunci Azure Speech di Pengaturan bila ingin suara Azure.",
       "Data Sekolah: periksa Kelas (wali kelas dan tingkat), Siswa (siswa baru dan kenaikan kelas), Guru, dan Mata Pelajaran (KKM per mapel).",
@@ -565,6 +566,17 @@ export const BAGIAN = [
       "Pastikan setiap guru punya akun yang terhubung ke data Guru di Data Sekolah (Manajemen Pengguna).",
     ],
     tips: ["Guru juga bisa menambah indikator dan aktivitas untuk mapel yang ia ampu; kepala sekolah hanya melihat."],
+  },
+  {
+    id: "pengampu", kelompok: "pengelola", judul: "Pembagian mengajar per semester", icon: "bi-person-workspace",
+    href: "/dashboard/pengampu",
+    langkah: [
+      "Buka Data Sekolah → Pembagian Mengajar dan pilih semesternya (bawaan: semester aktif).",
+      "Setiap baris adalah mata pelajaran, setiap kolom adalah rombel. Pilih guru yang mengampu mapel itu di rombel tersebut. Sel kosong berarti guru bawaan di Data Sekolah → Mata Pelajaran.",
+      "Untuk satu guru di semua rombel, pakai Isi semua rombel di bawah nama mapel. Sel yang diubah berwarna kuning sampai Anda menekan Simpan.",
+      "Guru hanya bisa mengisi nilai mapel di rombel yang diampunya. Pembagian ikut disalin saat Tutup Semester dari Ganjil ke Genap.",
+    ],
+    tips: ["Sekolah yang belum mengatur pembagian apa pun tetap memakai guru bawaan tiap mapel, sama seperti sebelumnya.", "Kepala sekolah bisa melihat pembagian; yang mengubah adalah admin."],
   },
   {
     id: "pengguna", kelompok: "pengelola", judul: "Membuat akun guru, siswa, dan orang tua", icon: "bi-people",

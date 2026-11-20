@@ -61,6 +61,8 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/master-kelas", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-mapel", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-periode", peran: ["admin", "kepsek"] },
+  { awalan: "/dashboard/pengampu", peran: ["admin", "kepsek"] },
+  { awalan: "/dashboard/tutup-semester", peran: ["admin"] },
 ];
 
 export const halamanAwal = (user) =>
