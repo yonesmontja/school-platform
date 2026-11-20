@@ -13,11 +13,14 @@ import Swal from "sweetalert2";
 import { API_URL, AKSES_EVENT, PENINJAU, ROLE_LABEL, ROLE_WARNA, bacaUser, simpanUser, keluar, bolehBuka, halamanAwal, peranBoleh } from "@/app/lib/akses";
 import { catatAktivitas, pasangPelacakOutput } from "@/app/lib/logAktivitas";
 import { hapusSalinanOffline, jumlahAntrean, kirimAntrean } from "@/app/lib/antrean";
+import PencarianGlobal from "@/components/PencarianGlobal";
 
 const DASHBOARD_ITEM = { href: "/dashboard", label: "Dashboard", icon: "bi-speedometer2" };
 const PORTAL_ITEM = { href: "/dashboard/portal", label: "Portal Siswa", icon: "bi-house-heart" };
 const UJIAN_ITEM = { href: "/dashboard/ujian", label: "Tes Online", icon: "bi-pencil-square", peran: ["siswa"] };
 const AKUN_ITEM = { href: "/dashboard/akun", label: "Akun Saya", icon: "bi-person-gear" };
+// Mode HP guru: jadwal hari ini, presensi cepat, pengingat
+const HARI_INI_ITEM = { href: "/dashboard/hari-ini", label: "Hari Ini", icon: "bi-sun" };
 const NOTIF_ITEM = { href: "/dashboard/notifikasi", label: "Perlu Tindakan", icon: "bi-bell" };
 const PANDUAN_ITEM = { href: "/dashboard/panduan", label: "Panduan", icon: "bi-question-circle" };
 // Administrasi Sekolah (Fase 26): tampil bila akun punya minimal satu submodul (admin/kepsek/peninjau semua; guru & operator yang ditunjuk)
@@ -41,6 +44,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/presensi", label: "Presensi", icon: "bi-calendar-check" },
       { href: "/dashboard/jurnal", label: "Jurnal", icon: "bi-journal-text" },
       { href: "/dashboard/nilai", label: "Input Nilai", icon: "bi-pencil-square" },
+      { href: "/dashboard/pesan", label: "Pesan Orang Tua", icon: "bi-chat-dots", syarat: (u) => ["admin", "kepsek"].includes(u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
     ],
   },
   {
@@ -72,6 +76,7 @@ const MENU_GROUPS = [
   {
     id: "laporan", label: "Laporan", icon: "bi-bar-chart-line",
     items: [
+      { href: "/dashboard/peringatan-dini", label: "Peringatan Dini", icon: "bi-activity", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/laporan-stnkm", label: "STNKM", icon: "bi-graph-up-arrow" },
       { href: "/dashboard/rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
       { href: "/dashboard/pemakaian", label: "Pemakaian Aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"] },
@@ -192,8 +197,15 @@ export default function DashboardLayout({ children }) {
   const isOperator = role === "operator";
   const homeItem = isPortal ? PORTAL_ITEM : isOperator ? ADMINISTRASI_ITEM : DASHBOARD_ITEM;
   // Item teratas di luar grup: beranda, dan untuk staf juga "Perlu Tindakan"
-  const itemAtas = useMemo(() => (isPortal ? [PORTAL_ITEM] : isOperator ? [NOTIF_ITEM] : [DASHBOARD_ITEM, NOTIF_ITEM]), [isPortal, isOperator]);
+  const itemAtas = useMemo(() => (isPortal ? [PORTAL_ITEM] : isOperator ? [NOTIF_ITEM] : ["admin", "kepsek", "guru"].includes(role) ? [DASHBOARD_ITEM, HARI_INI_ITEM, NOTIF_ITEM] : [DASHBOARD_ITEM, NOTIF_ITEM]), [isPortal, isOperator, role]);
   const menuGroups = useMemo(() => menuUntuk(role, user), [role, user]);
+  // Pencarian global (Ctrl+K): menu + data sekolah sesuai hak akses
+  const [cariBuka, setCariBuka] = useState(false);
+  const menuDatar = useMemo(() => [
+    ...itemAtas.map((it) => ({ ...it, grup: "" })),
+    ...menuGroups.flatMap((g) => g.items.map((it) => ({ ...it, grup: g.label }))),
+  ], [itemAtas, menuGroups]);
+  const bolehCariData = ["admin", "kepsek", "guru", "wakakur", "wakasis", "yayasan"].includes(role);
 
   // Audit trail: catat setiap halaman yang dibuka dan setiap output (unduh, cetak, chat WA, salin)
   const pathRef = useRef(pathname);
@@ -311,13 +323,15 @@ export default function DashboardLayout({ children }) {
     setTimeout(() => searchRef.current?.focus(), 60);
   };
 
-  // Ctrl/Cmd+K atau "/" di luar kolom isian membuka pencarian menu
+  // Ctrl/Cmd+K atau "/" di luar kolom isian membuka pencarian global
   useEffect(() => {
     const onKey = (e) => {
       const mengetik = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
       if ((e.key === "k" && (e.ctrlKey || e.metaKey)) || (e.key === "/" && !mengetik)) {
         e.preventDefault();
-        fokusCari();
+        setFlyout(null);
+        setMobileOpen(false);
+        setCariBuka(true);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -407,6 +421,14 @@ export default function DashboardLayout({ children }) {
             </li>
           </ul>
           <ul className="navbar-nav ms-auto align-items-center">
+            {/* PENCARIAN GLOBAL */}
+            {user && (
+              <li className="nav-item">
+                <button type="button" className="nav-link btn btn-link px-2" onClick={() => setCariBuka(true)} title="Cari (Ctrl+K)" aria-label="Cari" data-tombol-cari>
+                  <i className="bi bi-search"></i>
+                </button>
+              </li>
+            )}
             {/* PWA: PASANG APLIKASI (tampil bila bisa dipasang) */}
             <li className="nav-item">
               <PasangAplikasi />
@@ -598,6 +620,7 @@ export default function DashboardLayout({ children }) {
         </div>
       </main>
       <KunciAi />
+      <PencarianGlobal buka={cariBuka} onTutup={() => setCariBuka(false)} menu={menuDatar} bolehData={bolehCariData} />
     </div>
   );
 }

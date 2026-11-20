@@ -52,6 +52,10 @@ const ATURAN_HALAMAN = [
   // Master data & semester hanya untuk pengelola; guru tetap membacanya lewat dropdown di halaman lain
   // Wali kelas: siswa kelas binaannya (pas foto & dashboard pribadi siswa)
   { awalan: "/dashboard/master-siswa", peran: ["admin", "kepsek", "guru"] },
+  // Peringatan dini: pengelola & wali kelas (server menyaring ke kelas binaan)
+  { awalan: "/dashboard/peringatan-dini", peran: ["admin", "kepsek", "guru"] },
+  // Pesan orang tua: admin, kepala sekolah, wali kelas (server menyaring utas)
+  { awalan: "/dashboard/pesan", peran: ["admin", "kepsek", "guru"] },
   { awalan: "/dashboard/master-keluarga", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-guru", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/master-kelas", peran: ["admin", "kepsek"] },

@@ -14,6 +14,9 @@ import {
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
 import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
 import { FotoKecil } from "@/components/siswa/EditorFoto";
+import { KartuPeringatanSiswa } from "@/components/siswa/PeringatanDini";
+import UtasPesan from "@/components/siswa/UtasPesan";
+import RaporBerjalan from "@/components/siswa/RaporBerjalan";
 import { unduhFoto } from "@/components/siswa/fotoSiswa";
 import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
@@ -31,6 +34,7 @@ const TAB = [
   { id: "presensi", label: "Kehadiran", icon: "bi-calendar-check" },
   { id: "jurnal", label: "Catatan Positif", icon: "bi-stars" },
   { id: "rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
+  { id: "pesan", label: "Pesan", icon: "bi-chat-dots" },
 ];
 const STATUS_WARNA = { HADIR: "success", SAKIT: "warning", IZIN: "info", ALPA: "danger" };
 const PALET = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#64748b"];
@@ -457,6 +461,8 @@ function PortalPage() {
         </div>
       </div>
 
+      {staf && idSiswa && <KartuPeringatanSiswa idSiswa={idSiswa} />}
+
       <ul ref={tabRef} className="nav nav-pills mb-3 gap-1 flex-nowrap overflow-auto">
         {TAB.map((t) => (
           <li className="nav-item" key={t.id}>
@@ -478,6 +484,7 @@ function PortalPage() {
           {tab === "ringkasan" && (
             <div className="row g-3">
               <div className="col-12">
+                <RaporBerjalan idSiswa={idSiswa} staf={staf} />
                 <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={(t, rencana) => { gantiTab(t); setSorot(rencana || null); }} sebutan={role === "ortu" ? "Ananda" : staf ? "Siswa" : "Anda"} />
               </div>
               <div className="col-6 col-lg-3"><Stat label="Rata-rata nilai" nilai={rapor.rataUmum} icon="bi-graph-up" warna="primary" /></div>
@@ -742,6 +749,12 @@ function PortalPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {tab === "pesan" && (
+            <div className="card shadow-sm border-0"><div className="card-body">
+              <UtasPesan idSiswa={idSiswa} tinggi={380} />
+            </div></div>
           )}
 
           {tab === "rapor" && (

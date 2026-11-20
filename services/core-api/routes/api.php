@@ -128,6 +128,7 @@ Route::prefix('spmb')->group(function () {
 // Verifikasi keaslian surat keluar dari kode yang tercetak di surat (Fase 26 Tahap D)
 // Pas foto siswa lewat tautan bertanda tangan (dibuat untuk akun yang boleh melihat siswa itu; dipakai <img> & cetak rapor)
 Route::get('/siswa/{id}/foto', [FotoSiswaController::class, 'tampil'])->name('siswa.foto')->middleware(['signed:relative', 'throttle:240,1']);
+Route::get('/verifikasi-siswa/{kode}', [\App\Http\Controllers\Api\KartuSiswaController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{12}')->middleware('throttle:30,1');
 Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
@@ -316,6 +317,13 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/rapor', [PortalController::class, 'rapor']);
+        Route::get('/pekan', [PortalController::class, 'pekan']);
+    });
+    // Pesan wali kelas - orang tua/siswa (akses per utas dicek di PesanService)
+    Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('pesan')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\PesanController::class, 'utas']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\PesanController::class, 'show']);
+        Route::post('/{id}', [\App\Http\Controllers\Api\PesanController::class, 'kirim'])->middleware('throttle:30,1');
     });
 
     // ===== TES ONLINE SISWA (Fase 16 Tahap C) =====
@@ -379,6 +387,18 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::delete('/', 'hapus');
             Route::get('/asli', 'asli');
             Route::post('/ai', 'ai')->middleware('throttle:10,1');
+        });
+        // Kartu pelajar berfoto & ber-QR (admin, kepsek, wali kelas)
+        Route::get('/kartu-pelajar', [\App\Http\Controllers\Api\KartuSiswaController::class, 'index']);
+        // Pencarian global (Ctrl+K)
+        Route::get('/cari', [\App\Http\Controllers\Api\CariController::class, 'index'])->middleware('throttle:120,1');
+        // Mode "Hari ini" untuk guru di HP: sesi, presensi kelas binaan, pengingat
+        Route::get('/hari-ini', [\App\Http\Controllers\Api\HariIniController::class, 'index']);
+        // Peringatan dini siswa: pengelola & wali kelas (dicek di controller)
+        Route::prefix('peringatan-dini')->controller(\App\Http\Controllers\Api\PeringatanDiniController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::get('/{id}/riwayat', 'riwayat');
+            Route::post('/{id}/tindak', 'tindak');
         });
         Route::apiResource('/students', StudentController::class)->only(['index']);
         Route::apiResource('/teachers', TeacherController::class)->only(['index']);

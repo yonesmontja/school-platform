@@ -16,6 +16,7 @@ use App\Models\TransNilai;
 use App\Models\TransPresensi;
 use App\Models\TransRencanaRemedial;
 use App\Models\User;
+use App\Services\PesanService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -50,6 +51,7 @@ class NotifikasiService
 
         if ($u->isPortal()) {
             $item = $item->merge($this->untukPortal());
+            $item = $item->merge($this->pesanBaru());
         } else {
             $mapel = $u->isPengelola() ? null : $u->mapelDiampu(); // null = semua mapel
             if ($u->isPengelola() || $mapel) {
@@ -62,6 +64,8 @@ class NotifikasiService
             $item = $item->merge($this->bankSoal());
             $item = $item->merge($this->atp());
             $item = $item->merge($this->pembinaanPresensi());
+            if ($u->isPengelola() || $u->kelasBinaan()) $item = $item->merge($this->peringatanDini());
+            if ($u->isAdmin() || $u->isKepsek() || $u->kelasBinaan()) $item = $item->merge($this->pesanBaru());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('SPMB')) $item = $item->merge($this->spmb());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('KEUANGAN')) $item = $item->merge($this->keuangan());
             if (!$u->isPeninjau() && $u->bolehAdministrasi('SURAT')) $item = $item->merge($this->surat($u));
@@ -271,6 +275,40 @@ class NotifikasiService
             'jumlah' => $perlu->count(),
             'tautan' => '/dashboard/presensi?' . http_build_query(array_filter(['kelas' => $kelas->count() === 1 ? $kelas->first() : null, 'pembinaan' => 1])),
             'waktu' => $perlu->first()->tanggal_tindak_lanjut->toDateString() . 'T00:00:00',
+        ])];
+    }
+
+    /** Siswa berisiko TINGGI menurut peringatan dini yang belum ditindaklanjuti untuk alasan saat ini. */
+    private function peringatanDini(): array
+    {
+        $data = (new PeringatanDiniService())->hitung(PeringatanDiniService::siswaUntuk($this->user))
+            ->filter(fn($s) => $s['tingkat'] === 'TINGGI' && !($s['tindak_lanjut']['masih_berlaku'] ?? false));
+        if ($data->isEmpty()) return [];
+        return [$this->buat('peringatan-dini', $data->map(fn($s) => $s['id_siswa'] . $s['kunci'])->sort()->values()->all(), [
+            'tingkat' => 'danger', 'kategori' => 'Peringatan Dini', 'ikon' => 'bi-activity',
+            'judul' => "{$data->count()} siswa berisiko tinggi belum ditindaklanjuti",
+            'pesan' => self::daftarNama($data->map(fn($s) => "{$s['nama_siswa']} ({$s['alasan'][0]['label']})"), 3) . '. Lihat alasannya dan catat tindak lanjut.',
+            'jumlah' => $data->count(), 'tautan' => '/dashboard/peringatan-dini?tingkat=TINGGI',
+            'waktu' => $this->hariIni . 'T00:00:03',
+        ])];
+    }
+
+    /** Pesan dari orang tua/wali kelas yang belum dibaca akun ini. */
+    private function pesanBaru(): array
+    {
+        $u = $this->user;
+        $belum = PesanService::belumDibaca($u, PesanService::siswaUtas($u))->filter();
+        if ($belum->isEmpty()) return [];
+        $nama = Student::whereIn('id_siswa', $belum->keys())->pluck('nama_siswa', 'id_siswa');
+        $satu = $belum->count() === 1 ? $belum->keys()->first() : null;
+        $tautan = $u->isPortal()
+            ? self::tautanPortal('pesan', $satu ?? $belum->keys()->first())
+            : '/dashboard/pesan' . ($satu ? '?siswa=' . rawurlencode($satu) : '');
+        return [$this->buat('pesan-baru', $belum->all(), [
+            'tingkat' => 'warning', 'kategori' => 'Pesan', 'ikon' => 'bi-chat-dots',
+            'judul' => $belum->sum() . ' pesan baru' . ($u->isPortal() ? ' dari sekolah' : ' dari orang tua'),
+            'pesan' => ($u->isPortal() ? 'Tentang ' : 'Utas ') . self::daftarNama($belum->keys()->map(fn($id) => $nama[$id] ?? $id)) . '. Buka untuk membaca dan membalas.',
+            'jumlah' => (int) $belum->sum(), 'tautan' => $tautan,
         ])];
     }
 

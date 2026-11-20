@@ -84,7 +84,7 @@ function PustakaDokumen() {
   const [mapel, setMapel] = useState([]);
   const [status, setStatus] = useState(params.get("status") || "");
   const [jenis, setJenis] = useState("");
-  const [cari, setCari] = useState("");
+  const [cari, setCari] = useState(() => params.get("cari") || ""); // ?cari= dari pencarian global
   const [form, setForm] = useState(null); // {mode: baru|perbarui|ubah, dokumen?}
   const [detail, setDetail] = useState(null);
   const [notebook, setNotebook] = useState(null);

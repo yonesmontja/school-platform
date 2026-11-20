@@ -41,6 +41,17 @@ class Student extends Model
         ], absolute: false);
     }
 
+    /** Kode verifikasi kartu pelajar (QR): turunan HMAC dari id siswa, tidak bisa ditebak dan tidak perlu disimpan. */
+    public function kodeKartu(): string
+    {
+        return self::kodeKartuDari($this->id_siswa);
+    }
+
+    public static function kodeKartuDari(string $idSiswa): string
+    {
+        return strtoupper(substr(hash_hmac('sha256', "kartu-siswa|{$idSiswa}", (string) config('app.key')), 0, 12));
+    }
+
     // Relasi ke Kelas
     public function kelas(): BelongsTo
     {

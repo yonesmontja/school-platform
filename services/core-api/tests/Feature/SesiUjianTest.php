@@ -117,6 +117,7 @@ class SesiUjianTest extends TestCase
         $kartu = $this->sebagai($s->kepsek)->getJson("/api/sesi-ujian/{$id}/kartu")->assertOk()->assertJsonCount(4, 'peserta')->json();
         $this->assertSame($this->siswaB->username, collect($kartu['peserta'])->firstWhere('nama_siswa', 'Dodi')['username']);
         $this->assertStringNotContainsString('password', json_encode($kartu));
+        $this->assertArrayHasKey('foto_url', $kartu['peserta'][0]);
 
         // Sesi yang sudah dikerjakan tidak bisa dihapus
         $this->deleteJson("/api/sesi-ujian/{$id}")->assertStatus(422);

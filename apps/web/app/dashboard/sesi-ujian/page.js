@@ -1,10 +1,11 @@
 "use client";
+import { cetakKartuUjian } from "@/components/siswa/cetakKartu";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { minta } from "@/components/banksoal/api";
 import { useAkses } from "@/app/lib/akses";
-import { esc, kopHtml, muatSekolah, siapkanJendela, tulisJendela } from "@/app/lib/dokumenResmi";
+import { esc } from "@/app/lib/dokumenResmi";
 
 // <input type="datetime-local"> memakai waktu lokal tanpa zona; server menerima ISO dengan zona
 const keLokal = (iso) => {
@@ -279,27 +280,8 @@ function DetailSesi({ id, akses, onKembali, onUbah, formEl }) {
     if (!ok.isConfirmed) return;
     try { await minta("DELETE", `/sesi-ujian/${id}`); onKembali(); } catch (err) { Swal.fire("Belum bisa", err.message, "warning"); }
   };
-  const kartu = async () => {
-    const w = siapkanJendela();
-    try {
-      const [r, sek] = await Promise.all([minta("GET", `/sesi-ujian/${id}/kartu`), muatSekolah(null)]);
-      const s = r.sesi;
-      const isi = r.peserta.map((p) => `<div class="kartu">${kopHtml(sek)}<div class="kartu-judul">KARTU PESERTA UJIAN</div>
-        <table><tr><td>Nama</td><td>: <b>${esc(p.nama_siswa)}</b></td></tr><tr><td>NISN</td><td>: ${esc(p.nisn || "-")}</td></tr><tr><td>Kelas</td><td>: ${esc(p.kelas)}</td></tr>
-        <tr><td>Username</td><td>: <b class="mono">${esc(p.username || "(belum punya akun)")}</b></td></tr><tr><td>Kata sandi</td><td>: sandi akun siswa</td></tr>
-        <tr><td>Ujian</td><td>: ${esc(s.nama)}</td></tr><tr><td>Mapel</td><td>: ${esc(s.mapel || "-")}</td></tr>
-        <tr><td>Waktu</td><td>: ${esc(waktu(s.mulai))} – ${esc(jam(s.selesai))}</td></tr><tr><td>Ruang</td><td>: ${esc(s.ruang || "-")}</td></tr>
-        <tr><td>Pengawas</td><td>: ${esc(s.pengawas || "-")}</td></tr></table>
-        <div class="kartu-no">No. ${p.no}</div></div>`).join("");
-      const gaya = `@page{size:A4;margin:10mm}body{margin:0}.lembar{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
-        .kartu{border:1px solid #333;border-radius:4px;padding:3mm 4mm;break-inside:avoid;font-size:9pt;position:relative}
-        .kartu .kop-resmi{transform:scale(.72);transform-origin:top left;width:139%;margin-bottom:-6mm}
-        .kartu-judul{text-align:center;font-weight:700;letter-spacing:.06em;border-top:1px solid #333;border-bottom:1px solid #333;padding:1mm 0;margin:1mm 0 2mm}
-        .kartu table{width:100%;border-collapse:collapse}.kartu td{padding:.4mm 1mm;vertical-align:top;border:0}.kartu td:first-child{width:22mm;color:#444}
-        .mono{font-family:monospace;font-size:10pt}.kartu-no{position:absolute;right:4mm;bottom:2mm;color:#888;font-size:8pt}`;
-      if (!tulisJendela(w, `Kartu Peserta - ${s.nama}`, gaya, `<div class="lembar">${isi}</div>`)) Swal.fire("Jendela cetak diblokir", "Izinkan pop-up untuk situs ini.", "info");
-    } catch (err) { w?.close(); Swal.fire("Gagal", err.message, "error"); }
-  };
+  // Kartu peserta berfoto & ber-QR (QR membuka halaman masuk dengan NISN terisi)
+  const kartu = () => cetakKartuUjian(id, { waktu, jam });
 
   const [labelSesi, warnaSesi] = STATUS_SESI[sesi.status];
   const r = pantau?.ringkasan || {};

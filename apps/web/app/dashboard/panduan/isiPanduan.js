@@ -259,6 +259,74 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "hari-ini", kelompok: "guru", judul: "Mode HP: Hari Ini", icon: "bi-sun",
+    href: "/dashboard/hari-ini",
+    langkah: [
+      "Buka menu Hari Ini (di bawah Dashboard), atau tekan tombol Mode HP: Hari Ini di beranda saat memakai HP.",
+      "Wali kelas: tekan Isi presensi cepat. Semua siswa terisi Hadir; cukup ketuk S (sakit), I (izin), atau A (alpa) untuk yang tidak hadir, tambahkan keterangan bila perlu, lalu Simpan presensi.",
+      "Tanpa sinyal? Presensi tetap tersimpan di HP dan terkirim otomatis begitu tersambung lagi. Halaman Hari Ini juga menampilkan data terakhir yang dimuat.",
+      "Di bagian Mengajar hari ini, setiap sesi punya tombol besar Presensi, Jurnal, dan Nilai yang langsung membuka kelas dan mapel sesi itu. Tanda centang hijau berarti sudah diisi.",
+      "Di bawahnya tampil siswa berisiko (Peringatan Dini) dan empat hal teratas dari Perlu Tindakan.",
+    ],
+    tips: ["Pasang SAPrapor sebagai aplikasi (Android atau Tambahkan ke layar utama) agar Hari Ini terbuka dengan satu ketukan setiap pagi."],
+  },
+  {
+    id: "peringatan-dini", kelompok: "guru", judul: "Peringatan dini siswa", icon: "bi-activity",
+    href: "/dashboard/peringatan-dini",
+    langkah: [
+      "Buka Laporan → Peringatan Dini. Wali kelas melihat siswa kelas binaannya; kepala sekolah, admin, dan peninjau melihat semua kelas.",
+      "Setiap siswa mendapat skor dari data yang sudah ada: alpa 30 hari terakhir, kehadiran yang menurun, mapel dengan rata-rata di bawah KKM, nilai terbaru yang turun, tes online yang tidak dikerjakan, dan pembinaan kehadiran yang masih berjalan.",
+      "Tingkat: Risiko tinggi (skor 6 ke atas), Risiko sedang (3–5), Perlu perhatian (1–2), Aman (0). Tekan kartu ringkasan untuk menyaring per tingkat, atau pilih kelas.",
+      "Baca alasannya di kartu siswa. Tekan ikon panah di samping alasan untuk membuka data terkait (presensi/pembinaan, Input Nilai, Bank Soal).",
+      "Tekan Catat tindak lanjut dan tulis apa yang dilakukan (mis. menelepon orang tua, jadwal remedial). Siswa tertanda Sudah ditangani dan tidak lagi muncul di Perlu Tindakan, sampai muncul alasan jenis baru.",
+      "Kartu peringatan juga tampil di dashboard pribadi siswa.",
+    ],
+    tips: [
+      "Skor ini alat bantu, bukan vonis: angka dihitung dari data yang tercatat, jadi presensi dan nilai yang rutin diisi membuat peringatan lebih tepat.",
+      "Riwayat tindak lanjut tersimpan per siswa, berguna saat rapat kasus atau pertemuan dengan orang tua.",
+    ],
+  },
+  {
+    id: "pesan-ortu", kelompok: "wali", judul: "Pesan orang tua & rapor berjalan", icon: "bi-chat-dots",
+    href: "/dashboard/pesan",
+    langkah: [
+      "Wali kelas, kepala sekolah, dan admin: buka Kegiatan Harian → Pesan Orang Tua. Setiap siswa punya satu utas; angka merah menandai pesan yang belum dibaca.",
+      "Pilih siswa, tulis pesan, lalu tekan kirim (atau Ctrl+Enter). Pesan baru dari orang tua juga muncul di Perlu Tindakan.",
+      "Orang tua/siswa: buka portal → tab Pesan untuk menulis ke wali kelas dan membaca balasannya.",
+      "Rapor berjalan: di portal (tab Ringkasan) dan dashboard pribadi siswa tampil ringkasan pekan ini — kehadiran per hari, nilai baru (merah bila belum tuntas), tindak lanjut, dan catatan baik. Tombol panah membuka pekan sebelumnya.",
+      "Wali kelas dapat menekan Kirim ke orang tua lewat WhatsApp: WhatsApp terbuka dengan teks ringkasan siap kirim ke nomor orang tua di data keluarga. Atau tekan Salin teks.",
+    ],
+    tips: [
+      "Isi pesan tidak dicatat di Log Aktivitas (hanya peristiwa pengirimannya), tetapi tersimpan sebagai arsip sekolah yang bisa dibaca kepala sekolah dan admin.",
+      "Pengiriman WhatsApp otomatis setiap pekan bisa diaktifkan setelah layanan WA sekolah (Fonnte) disiapkan.",
+    ],
+  },
+  {
+    id: "kartu-pelajar", kelompok: "guru", judul: "Kartu pelajar & kartu peserta ujian", icon: "bi-person-vcard",
+    href: "/dashboard/master-siswa",
+    langkah: [
+      "Kartu pelajar: buka Data Sekolah → Siswa, pilih kelas di saringan, lalu tekan Kartu pelajar. Untuk satu siswa: ⋮ → Cetak kartu pelajar.",
+      "Setiap lembar A4 berisi 10 kartu ukuran KTP (85,6 × 54 mm) dengan garis potong: logo dan nama sekolah, pas foto, nama, NISN, kelas, tempat/tanggal lahir, dan kode QR.",
+      "QR kartu pelajar membuka halaman verifikasi publik yang menampilkan nama, kelas, dan foto siswa, sehingga petugas bisa mencocokkan pemegang kartu.",
+      "Kartu peserta ujian: buka Asesmen → Sesi Ujian (CBT), pilih sesi, lalu tekan Kartu peserta. Kartu memuat foto, NISN untuk masuk, waktu, dan ruang ujian.",
+      "QR kartu peserta membuka halaman masuk dengan NISN siswa sudah terisi; siswa tinggal mengetik kata sandi.",
+    ],
+    tips: [
+      "Lengkapi pas foto siswa dulu (⋮ → Tambah pas foto) agar kartu tidak menampilkan inisial.",
+      "Cetak di kertas tebal/art carton, lalu laminasi. Pilih skala 100% (bukan Sesuaikan halaman) di dialog cetak supaya ukurannya tepat.",
+    ],
+  },
+  {
+    id: "cari-global", kelompok: "mulai", judul: "Pencarian cepat (Ctrl+K)", icon: "bi-search",
+    href: "/dashboard",
+    langkah: [
+      "Tekan Ctrl+K (atau tombol / ) dari halaman mana saja, atau ketuk ikon kaca pembesar di bilah atas.",
+      "Ketik minimal 2 huruf: menu yang cocok langsung muncul, lalu siswa, guru, kelas, materi, soal, modul ajar, dokumen pustaka, dan surat dari data sekolah.",
+      "Pilih dengan panah atas/bawah lalu Enter, atau ketuk hasilnya. Siswa membuka dashboard pribadinya (bagi admin, kepala sekolah, dan wali kelasnya).",
+    ],
+    tips: ["Hasil mengikuti hak akses akun: guru hanya melihat siswa kelas yang diajar atau dibinanya dan soal mapel yang diampu."],
+  },
+  {
     id: "video-belajar", kelompok: "guru", judul: "Video belajar", icon: "bi-play-btn",
     href: "/dashboard/video-belajar",
     langkah: [

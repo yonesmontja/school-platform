@@ -8,6 +8,7 @@ import { bacaUser, useAkses } from "@/app/lib/akses";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 import EditorFoto, { FotoKecil } from "@/components/siswa/EditorFoto";
+import { cetakKartuPelajar } from "@/components/siswa/cetakKartu";
 import { srcFoto, unduhFoto } from "@/components/siswa/fotoSiswa";
 
 export default function MasterSiswaPage() {
@@ -29,7 +30,7 @@ export default function MasterSiswaPage() {
   const [formData, setFormData] = useState({});
   const [activeTab, setActiveTab] = useState("identitas");
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cari") || "")); // ?cari= dari pencarian global
   const [filterKelas, setFilterKelas] = useState("ALL");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -148,6 +149,7 @@ export default function MasterSiswaPage() {
         { label: r.foto_url ? "Edit pas foto" : "Tambah pas foto", ikon: "bi-person-bounding-box", onClick: () => setFotoSiswa(r), tampil: bolehSiswa(r) },
         { label: "Unduh pas foto", ikon: "bi-download", onClick: () => unduh(r), tampil: Boolean(r.foto_url) },
         { label: "Dashboard pribadi siswa", ikon: "bi-person-vcard", onClick: () => bukaDashboard(r), tampil: bolehSiswa(r) },
+        { label: "Cetak kartu pelajar", ikon: "bi-person-vcard-fill", onClick: () => cetakKartuPelajar({ id_siswa: [r.id_siswa] }), tampil: bolehSiswa(r) },
         { ...aksiUbah(() => openModal(r), admin), pemisah: true },
         aksiHapus(() => handleDelete(r.id_siswa), admin),
       ];
@@ -577,6 +579,13 @@ export default function MasterSiswaPage() {
           {user && !isAdmin && <span className="badge text-bg-secondary fw-normal fs-6 ms-2 align-middle"><i className={`bi ${isGuru ? "bi-person-badge" : "bi-eye"} me-1`}></i>{isGuru ? "Kelas binaan Anda · pas foto & dashboard pribadi" : "Lihat saja"}</span>}
         </h3>
         <div className="d-flex gap-2 flex-wrap">
+          {(isAdmin || user?.role === "kepsek" || (isGuru && kelasBinaan.length > 0)) && (
+            <button type="button" className="btn btn-outline-primary fw-bold" data-cetak-kartu
+              title={filterKelas !== "ALL" ? "Cetak kartu pelajar kelas yang dipilih" : "Cetak kartu pelajar semua siswa yang tampil"}
+              onClick={() => cetakKartuPelajar(filterKelas !== "ALL" ? { id_kelas: filterKelas } : {})}>
+              <i className="bi bi-person-vcard me-1"></i>Kartu pelajar
+            </button>
+          )}
           <div className="dropdown">
             <button
               className="btn btn-outline-secondary fw-bold dropdown-toggle"

@@ -5,7 +5,7 @@
 // dipanggil halaman, karena salinan dicari berdasarkan alamatnya.
 import { API_URL } from "@/app/lib/config";
 
-const HALAMAN = ["/dashboard", "/dashboard/nilai", "/dashboard/jurnal", "/dashboard/presensi", "/dashboard/akun", "/dashboard/panduan"];
+const HALAMAN = ["/dashboard", "/dashboard/hari-ini", "/dashboard/nilai", "/dashboard/jurnal", "/dashboard/presensi", "/dashboard/akun", "/dashboard/panduan"];
 const KUNCI = "offline_siap";
 const MAKS_PERMINTAAN = 150;
 const MAKS_KELAS = 12;

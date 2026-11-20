@@ -799,6 +799,11 @@ export default function DashboardPage() {
 
   return (
     <div className="container-fluid mb-5 dash-root">
+      {["guru", "admin", "kepsek"].includes(user?.role) && (
+        <Link href="/dashboard/hari-ini" className="d-md-none btn btn-primary btn-lg w-100 mb-3 d-flex align-items-center justify-content-center gap-2" data-pintas-hari-ini>
+          <i className="bi bi-sun"></i>Mode HP: Hari Ini
+        </Link>
+      )}
       {/* HERO */}
       <div className="dash-hero mb-3">
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -1157,7 +1162,8 @@ export default function DashboardPage() {
                   </h3>
                   <div className="dash-card-subtitle">
                     Siswa yang butuh intervensi akademik, presensi, atau
-                    pembinaan karakter
+                    pembinaan karakter ·{" "}
+                    <Link href="/dashboard/peringatan-dini" data-tautan-pd>Lihat alasan &amp; catat tindak lanjut</Link>
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-1">

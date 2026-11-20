@@ -20,8 +20,14 @@ export default function LoginPage() {
   const router = useRouter();
   const [peran, setPeran] = useState(null);
   // Dibaca di klien (bukan useSearchParams) agar halaman tidak perlu batas Suspense saat build
-  useEffect(() => { setPeran(PERAN_MASUK[new URLSearchParams(window.location.search).get('peran')] || null); }, []);
   const [email, setEmail] = useState('');
+  // ?u= dari QR kartu peserta ujian: NISN langsung terisi, tinggal ketik sandi
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    setPeran(PERAN_MASUK[q.get('peran')] || null);
+    const u = q.get('u');
+    if (u) { setEmail(u.slice(0, 100)); setTimeout(() => document.getElementById('masuk-sandi')?.focus(), 50); }
+  }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

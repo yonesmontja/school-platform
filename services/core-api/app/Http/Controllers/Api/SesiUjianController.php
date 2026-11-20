@@ -106,7 +106,7 @@ class SesiUjianController extends Controller
         $this->cekPantau($request, $sesi);
         $paket = $sesi->paket;
         UjianService::tutupKedaluwarsa($paket);
-        $siswa = $sesi->siswa()->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas']);
+        $siswa = $sesi->siswa()->get(['id_siswa', 'nisn', 'nama_siswa', 'id_kelas', 'foto_path', 'foto_diperbarui']);
         $jawaban = PaketSoalJawaban::where('id_paket', $paket->id_paket)->whereIn('id_siswa', $siswa->pluck('id_siswa'))->get()->keyBy('id_siswa');
         $kelas = Classes::whereIn('id_kelas', $sesi->kelas ?: [])->pluck('nama_kelas', 'id_kelas');
         $jumlahSoal = $paket->butir->count();
@@ -193,6 +193,7 @@ class SesiUjianController extends Controller
             'peserta' => $siswa->values()->map(fn($s, $i) => [
                 'no' => $i + 1, 'nama_siswa' => $s->nama_siswa, 'nisn' => $s->nisn,
                 'kelas' => $kelas[$s->id_kelas] ?? $s->id_kelas, 'username' => $akun[$s->id_siswa] ?? null,
+                'id_siswa' => $s->id_siswa, 'foto_url' => $s->foto_url,
             ]),
         ]);
     }

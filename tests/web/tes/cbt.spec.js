@@ -55,6 +55,7 @@ test("sesi ujian lintas kelas: token, kartu peserta, mode ujian terkunci, pengaw
   await jendela.evaluate(() => { window.print = () => {}; });
   await expect(jendela.locator("body")).toContainText("KARTU PESERTA UJIAN", { timeout: 20_000 });
   await expect(jendela.locator("body")).toContainText("siswa.e2e");
+  await expect(jendela.locator("[data-kartu-ujian] .qr svg").first()).toBeVisible(); // QR ke halaman masuk
   await jendela.close();
 
   // Siswa: mulai dengan token, jawab, lalu keluar halaman 2 kali → terkunci

@@ -79,7 +79,7 @@ const sisipanIsian = (pilihan) => pilihan.isian.map((i) => ({ label: i.nama, ket
 // ===================== SURAT KELUAR =====================
 function SuratKeluar({ pilihan, bolehUbah, isKepsek, saringAwal }) {
   const [status, setStatus] = useState(saringAwal || "");
-  const [cari, setCari] = useState("");
+  const [cari, setCari] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cari") || "")); // ?cari= dari pencarian global
   const [daftar, setDaftar] = useState(null);
   const [edit, setEdit] = useState(null); // null | {} (baru) | surat
   const terbaru = useTerbaru();
@@ -223,7 +223,7 @@ function EditorSurat({ surat, pilihan, onTutup, onSimpan }) {
 // ===================== SURAT MASUK =====================
 function SuratMasuk({ pilihan, bolehUbah, saringAwal }) {
   const [status, setStatus] = useState(saringAwal || "");
-  const [cari, setCari] = useState("");
+  const [cari, setCari] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cari") || "")); // ?cari= dari pencarian global
   const [daftar, setDaftar] = useState(null);
   const terbaru = useTerbaru();
   const muat = useCallback(() => {

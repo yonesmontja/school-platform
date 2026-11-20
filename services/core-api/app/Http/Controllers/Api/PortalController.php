@@ -68,6 +68,92 @@ class PortalController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * Rapor berjalan: ringkasan satu pekan (Senin–Minggu) untuk orang tua — kehadiran, nilai baru, catatan positif,
+     * tindak lanjut — beserta teks siap kirim. Staf (admin, kepsek, wali kelas) juga mendapat tautan WhatsApp ke orang tua.
+     */
+    public function pekan(Request $request)
+    {
+        $request->validate(['id_siswa' => 'required|string', 'minggu' => 'nullable|integer|min:-26|max:0']);
+        $u = $request->user();
+        $siswa = Student::with(['kelas:id_kelas,nama_kelas', 'ortu', 'wali'])->find($request->id_siswa);
+        abort_unless($siswa && $u->bolehDashboardSiswa($siswa), 403, 'Data siswa ini tidak dapat diakses dari akun Anda.');
+
+        $zona = config('app.zona_sekolah');
+        $senin = now($zona)->startOfWeek(\Carbon\CarbonInterface::MONDAY)->addWeeks((int) $request->minggu);
+        $minggu = $senin->copy()->addDays(6);
+        $rentang = [$senin->toDateString(), $minggu->toDateString()];
+
+        $presensi = \App\Models\TransPresensi::where('id_siswa', $siswa->id_siswa)->whereBetween('tanggal', $rentang)->orderBy('tanggal')
+            ->get(['tanggal', 'status_kehadiran', 'keterangan']);
+        $nilai = \App\Models\TransNilai::efektif()->with(['mapel:id_mapel,nama_mapel,kkm', 'materi:id_materi,nama_materi'])
+            ->where('id_siswa', $siswa->id_siswa)->whereBetween('tanggal', $rentang)->whereNotNull('nilai')->orderBy('tanggal')
+            ->get(['id_nilai', 'tanggal', 'id_mapel', 'id_materi', 'nilai', 'tipe_nilai']);
+        $jurnal = \App\Models\TransJurnal::where('id_siswa', $siswa->id_siswa)->whereBetween('tanggal', $rentang)->orderBy('tanggal')
+            ->get(['tanggal', 'narasi_kejadian', 'sensitif', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']);
+        $remedial = TransRencanaRemedial::with('mapel:id_mapel,nama_mapel')->where('id_siswa', $siswa->id_siswa)
+            ->where(fn($q) => $q->whereBetween('tanggal_rencana', $rentang)->orWhereBetween('tanggal_selesai', $rentang))
+            ->get(['id_rencana', 'id_mapel', 'opsi_tindakan', 'tanggal_rencana', 'tanggal_selesai', 'status']);
+
+        $hitung = collect(['HADIR', 'SAKIT', 'IZIN', 'ALPA'])->mapWithKeys(fn($k) => [$k => $presensi->where('status_kehadiran', $k)->count()]);
+        $dataNilai = $nilai->map(fn($n) => [
+            'tanggal' => $n->tanggal, 'mapel' => $n->mapel?->nama_mapel, 'materi' => $n->materi?->nama_materi,
+            'nilai' => (float) $n->nilai, 'kkm' => (float) ($n->mapel?->kkm ?? 75), 'tuntas' => (float) $n->nilai >= (float) ($n->mapel?->kkm ?? 75),
+            'remedial' => $n->tipe_nilai === 'REMEDIAL',
+        ])->values();
+        // Hanya catatan positif dan tidak sensitif yang dikutip; catatan lain cukup dihitung
+        $total = fn($j) => $j->val_S + $j->val_T + $j->val_N + $j->val_K + $j->val_M;
+        $positif = $jurnal->filter(fn($j) => !$j->sensitif && $total($j) > 0)
+            ->map(fn($j) => ['tanggal' => $j->tanggal->toDateString(), 'narasi' => \Illuminate\Support\Str::limit($j->narasi_kejadian, 160)])->values();
+        $perluPerhatian = $jurnal->filter(fn($j) => $total($j) < 0)->count();
+        $dataRemedial = $remedial->map(fn($r) => ['mapel' => $r->mapel?->nama_mapel, 'tindakan' => $r->opsi_tindakan, 'status' => $r->status,
+            'tanggal' => ($r->status === 'SELESAI' ? $r->tanggal_selesai : $r->tanggal_rencana)?->toDateString()])->values();
+
+        // Teks ringkasan untuk dikirim/disalin
+        $fmt = fn($t) => \Carbon\Carbon::parse($t)->locale('id')->translatedFormat('j M');
+        $judulPekan = $fmt($senin) . ' – ' . $minggu->locale('id')->translatedFormat('j M Y');
+        $tidakHadir = collect(['SAKIT' => 'sakit', 'IZIN' => 'izin', 'ALPA' => 'tanpa keterangan'])
+            ->filter(fn($l, $k) => $hitung[$k] > 0)->map(fn($l, $k) => "{$hitung[$k]} {$l}")->implode(', ');
+        $baris = ["*Rapor berjalan {$siswa->nama_siswa}* ({$siswa->kelas?->nama_kelas})", "Pekan {$judulPekan}", ''];
+        $baris[] = $presensi->isEmpty() ? 'Kehadiran: belum ada catatan presensi pekan ini.'
+            : "Kehadiran: hadir {$hitung['HADIR']} dari {$presensi->count()} hari" . ($tidakHadir ? " ({$tidakHadir})" : '') . '.';
+        if ($dataNilai->isNotEmpty()) {
+            $baris[] = 'Nilai baru:';
+            foreach ($dataNilai as $n) {
+                $baris[] = "- {$n['mapel']}" . ($n['materi'] ? " ({$n['materi']})" : '') . ": {$n['nilai']}" . ($n['tuntas'] ? ' (tuntas)' : " (KKM {$n['kkm']}, belum tuntas)");
+            }
+        } else {
+            $baris[] = 'Belum ada nilai baru pekan ini.';
+        }
+        if ($dataRemedial->isNotEmpty()) {
+            $baris[] = 'Tindak lanjut: ' . $dataRemedial->map(fn($r) => "{$r['mapel']} ({$r['tindakan']}, "
+                . ($r['status'] === 'SELESAI' ? 'selesai' : 'dijadwalkan ' . ($r['tanggal'] ? $fmt($r['tanggal']) : '-')) . ')')->implode('; ') . '.';
+        }
+        if ($positif->isNotEmpty()) $baris[] = 'Catatan baik: ' . $positif->first()['narasi'];
+        $baris[] = '';
+        $baris[] = 'Detail lengkap ada di portal SAPrapor. Terima kasih atas dukungan Bapak/Ibu.';
+        $teks = implode("\n", $baris);
+
+        $wa = null;
+        if (!$u->isPortal()) {
+            $no = $siswa->ortu?->no_wa ?: ($siswa->wali?->no_wa ?: $siswa->no_wa);
+            $nomor = \App\Services\WhatsAppService::formatNomor($no);
+            $wa = $nomor ? "https://wa.me/{$nomor}?text=" . rawurlencode($teks) : null;
+        }
+
+        return response()->json([
+            'pekan' => ['mulai' => $rentang[0], 'selesai' => $rentang[1], 'judul' => $judulPekan, 'minggu' => (int) $request->minggu],
+            'presensi' => $presensi->map(fn($p) => ['tanggal' => $p->tanggal->toDateString(), 'status' => $p->status_kehadiran, 'keterangan' => $p->keterangan])->values(),
+            'hitung' => $hitung,
+            'nilai' => $dataNilai,
+            'catatan_positif' => $positif,
+            'catatan_perhatian' => $perluPerhatian,
+            'remedial' => $dataRemedial,
+            'teks' => $teks,
+            'tautan_wa' => $wa,
+        ]);
+    }
+
     /** Rencana tindak lanjut (remedial) anak pada periode ini beserta hasilnya. */
     private function remedial(string $idSiswa, string $idPeriode): array
     {
