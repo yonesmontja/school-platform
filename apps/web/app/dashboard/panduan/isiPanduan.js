@@ -542,6 +542,7 @@ export const BAGIAN = [
       "Pilih Tanggal Rapor dan Jenis Dokumen, lalu tekan Cetak PDF. Di jendela cetak, pilih printer atau Simpan sebagai PDF.",
       "Gunakan panah siswa sebelumnya/berikutnya untuk berpindah siswa tanpa memilih ulang.",
       "Bila diminta, tekan e-Rapor untuk mengunduh rekap satu kelas (Excel) yang disalin ke aplikasi e-Rapor Dinas.",
+      "Rapor semester Genap memuat bagian D. Keputusan (naik ke kelas …, tinggal di kelas …, atau lulus) setelah kepala sekolah mengesahkan keputusan di Laporan → Kenaikan Kelas.",
     ],
     tips: [
       "Catatan wali yang belum lengkap muncul di Perlu Tindakan.",
@@ -566,6 +567,28 @@ export const BAGIAN = [
       "Pastikan setiap guru punya akun yang terhubung ke data Guru di Data Sekolah (Manajemen Pengguna).",
     ],
     tips: ["Guru juga bisa menambah indikator dan aktivitas untuk mapel yang ia ampu; kepala sekolah hanya melihat."],
+  },
+  {
+    id: "kenaikan", kelompok: "pengelola", judul: "Kenaikan kelas akhir tahun", icon: "bi-mortarboard",
+    href: "/dashboard/kenaikan",
+    alur: [
+      { label: "Isi keputusan", siapa: "Wali kelas", href: "/dashboard/kenaikan", ikon: "bi-mortarboard" },
+      { label: "Sahkan", siapa: "Kepsek", href: "/dashboard/kenaikan", ikon: "bi-patch-check" },
+      { label: "Tutup Semester", siapa: "Admin", href: "/dashboard/tutup-semester", ikon: "bi-calendar2-check" },
+      { label: "Pemetaan rombel", siapa: "Admin/Kepsek", href: "/dashboard/pemetaan-rombel", ikon: "bi-diagram-3" },
+    ],
+    langkah: [
+      "Menjelang akhir semester Genap, wali kelas membuka Laporan → Kenaikan Kelas. Tiap siswa punya usulan dari data setahun: Tidak naik bila 3 mapel atau lebih rata-ratanya di bawah KKM; kelas tertinggi diusulkan Lulus. Alasan dan persentase kehadiran ditampilkan.",
+      "Pilih keputusan tiap siswa (Naik, Tidak naik, Lulus). Bila berbeda dari usulan, tuliskan pertimbangan Anda di Catatan, lalu tekan Simpan keputusan.",
+      "Kepala sekolah membuka halaman yang sama, memeriksa, lalu menekan Sahkan. Setelah disahkan, keputusan tampil di rapor Genap dan wali kelas tidak bisa mengubahnya kecuali pengesahan dibatalkan.",
+      "Saat admin menutup semester Genap (Tutup Semester), keputusan diterapkan: siswa naik ke tingkat berikutnya, yang tidak naik tetap di rombelnya, dan yang lulus menjadi alumni.",
+      "Bila tingkat berikutnya punya lebih dari satu rombel (mis. 2A, 2B, 2C), siswa menunggu di Data Sekolah → Pemetaan Rombel. Pilih rombel tiap siswa, atau tekan Bagi rata agar jumlah dan komposisi L/P seimbang, lalu Simpan penempatan.",
+    ],
+    tips: [
+      "Isi Tingkat setiap kelas di Data Sekolah → Kelas agar kenaikan tahu tujuan rombelnya.",
+      "Riwayat nilai, rapor, dan jurnal siswa dari kelas sebelumnya tetap tersimpan dan bisa dibuka lagi dengan memilih semester lama.",
+      "Notifikasi Perlu Tindakan mengingatkan wali kelas 6 minggu sebelum Genap berakhir, kepala sekolah saat ada rombel siap disahkan, dan admin saat ada siswa menunggu pemetaan.",
+    ],
   },
   {
     id: "pengampu", kelompok: "pengelola", judul: "Pembagian mengajar per semester", icon: "bi-person-workspace",

@@ -44,7 +44,7 @@ class PanduanKerjaService
     {
         $this->sekarang = now(config('app.zona_sekolah'));
         $this->periode = MasterPeriode::where('status_aktif', 'AKTIF')->first();
-        $this->mapel = Subject::where('id_guru', $guru->id_guru)->orderBy('nama_mapel')->pluck('nama_mapel', 'id_mapel')->all();
+        $this->mapel = Subject::whereIn('id_mapel', \App\Services\Pengampu::mapelGuru($guru->id_guru))->orderBy('nama_mapel')->pluck('nama_mapel', 'id_mapel')->all();
         // Rombel yang dinonaktifkan admin untuk semester aktif tidak masuk peta kerja
         $this->kelasBinaan = Classes::where('wali_kelas', $guru->id_guru)->aktifSemester($this->periode?->id_periode)->pluck('id_kelas')->all();
         $this->unit = $this->unitAjar();

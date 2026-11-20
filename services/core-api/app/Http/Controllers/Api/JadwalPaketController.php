@@ -37,7 +37,7 @@ class JadwalPaketController extends Controller
         return response()->json([
             'atp' => $atp ? $atp->only(['id_atp', 'judul', 'status', 'jp_per_minggu', 'minggu_efektif']) + ['jumlah_tp' => $atp->baris->count(), 'total_jp' => (int) $atp->baris->sum('alokasi_jp')] : null,
             'periode' => ['mulai' => $awal->format('Y-m-d'), 'selesai' => $akhir->format('Y-m-d')],
-            'saran' => $saran + ['id_guru_mapel' => Subject::whereKey($data['id_mapel'])->value('id_guru')],
+            'saran' => $saran + ['id_guru_mapel' => !empty($data['id_kelas']) ? \App\Services\Pengampu::guru($data['id_kelas'], $data['id_mapel']) : Subject::whereKey($data['id_mapel'])->value('id_guru')],
         ]);
     }
 
@@ -126,7 +126,7 @@ class JadwalPaketController extends Controller
         }
         $user = $request->user();
         $info = [
-            'id_guru' => $user->isGuru() ? $user->id_guru : ($data['id_guru'] ?? Subject::whereKey($data['id_mapel'])->value('id_guru')),
+            'id_guru' => $user->isGuru() ? $user->id_guru : ($data['id_guru'] ?? (!empty($data['id_kelas']) ? \App\Services\Pengampu::guru($data['id_kelas'], $data['id_mapel']) : Subject::whereKey($data['id_mapel'])->value('id_guru'))),
             'id_ruangan' => $data['id_ruangan'] ?? null,
             'mulai_dari' => $data['mulai_dari'] ?? null,
         ];

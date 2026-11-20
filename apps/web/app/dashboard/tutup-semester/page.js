@@ -24,7 +24,7 @@ export default function TutupSemesterPage() {
   const [data, setData] = useState(null);
   const [memuat, setMemuat] = useState(true);
   const [langkah, setLangkah] = useState(0);
-  const [form, setForm] = useState({ salin_rombel: true, salin_pengampu: true, salin_jadwal: false, kunci_lama: true });
+  const [form, setForm] = useState({ salin_rombel: true, salin_pengampu: true, salin_jadwal: false, kunci_lama: true, terapkan_kenaikan: true });
   const [proses, setProses] = useState(false);
   const [hasil, setHasil] = useState(null);
 
@@ -103,12 +103,18 @@ export default function TutupSemesterPage() {
               {r.rombel_disalin > 0 && <li>{r.rombel_disalin} status rombel aktif disalin.</li>}
               {r.pengampu_disalin > 0 && <li>{r.pengampu_disalin} pembagian mengajar disalin.</li>}
               {r.jadwal_sesi > 0 && <li>{r.jadwal_seri} pola jadwal mingguan menjadi {r.jadwal_sesi} sesi.</li>}
+              {r.kenaikan && (
+                <li>
+                  Kenaikan kelas diterapkan: {r.kenaikan.naik} naik ({r.kenaikan.langsung} langsung ke rombelnya, {r.kenaikan.menunggu} menunggu pemetaan rombel),
+                  {" "}{r.kenaikan.tinggal} tinggal kelas, {r.kenaikan.lulus} lulus.
+                </li>
+              )}
               {r.dikunci && <li>Semester lama dikunci (hanya bisa dibaca). Admin bisa membukanya di menu Semester.</li>}
             </ul>
             <div className="alert alert-light border small mb-3">
               Langkah berikutnya: periksa <Link href="/dashboard/pengampu">Pembagian Mengajar</Link>, susun ATP/Promes semester ini di Perencanaan Ajar,
               {r.jadwal_sesi > 0 ? " lalu lengkapi materi pada jadwal yang disalin." : " lalu buat jadwal di menu Jadwal."}
-              {r.naik_tahun && " Untuk tahun ajaran baru, atur kenaikan kelas dan rombel siswa di Data Sekolah → Siswa."}
+              {r.kenaikan?.menunggu > 0 && <> Tempatkan siswa yang naik di <Link href="/dashboard/pemetaan-rombel">Pemetaan Rombel</Link>.</>}
             </div>
             <Link href="/dashboard/master-periode" className="btn btn-primary">Kembali ke Semester</Link>
           </div>
@@ -173,8 +179,8 @@ export default function TutupSemesterPage() {
               <h2 className="h6 fw-bold">Semester berikutnya</h2>
               {naikTahun && (
                 <div className="alert alert-warning small">
-                  Ini pergantian <b>tahun ajaran</b>. Siswa tetap di rombel sekarang; kenaikan kelas dan pemetaan rombel baru dilakukan terpisah.
-                  Pembagian mengajar dan jadwal tidak disalin karena rombel tahun baru berbeda.
+                  Ini pergantian <b>tahun ajaran</b>. Keputusan kenaikan yang sudah disahkan diterapkan: siswa naik ke tingkat berikutnya,
+                  yang lulus menjadi alumni. Pembagian mengajar dan jadwal tidak disalin karena rombel tahun baru berbeda.
                 </div>
               )}
               <div className="mb-3">
@@ -235,6 +241,15 @@ export default function TutupSemesterPage() {
                   Pola jadwal mingguan ({salin.jadwal_seri} jadwal berulang). Hari dan jam diulang sepanjang semester baru, melewati hari libur; materi dan perangkat tidak ikut. Jadwal dari Peta Tema dibuat ulang lewat Peta Tema.
                 </label>
               </div>
+              {naikTahun && (
+                <div className="form-check mb-2">
+                  <input id="sKenaikan" className="form-check-input" type="checkbox" checked={form.terapkan_kenaikan} onChange={(e) => ubah("terapkan_kenaikan", e.target.checked)} />
+                  <label className="form-check-label" htmlFor="sKenaikan">
+                    Terapkan keputusan kenaikan kelas ({salin.kenaikan_disahkan} siswa sudah disahkan). Naik ke tingkat berikutnya: langsung ke rombelnya bila hanya ada satu,
+                    selain itu menunggu di <Link href="/dashboard/pemetaan-rombel">Pemetaan Rombel</Link>. Lulus menjadi alumni. Siswa tanpa keputusan yang disahkan tetap di rombelnya.
+                  </label>
+                </div>
+              )}
               <hr />
               <div className="form-check">
                 <input id="kunci" className="form-check-input" type="checkbox" checked={form.kunci_lama} onChange={(e) => ubah("kunci_lama", e.target.checked)} />
@@ -253,7 +268,8 @@ export default function TutupSemesterPage() {
                 <dt className="col-sm-4">Aktif berikutnya</dt><dd className="col-sm-8">{form.tahun_ajaran} {form.semester}{form.tanggal_mulai ? `, ${form.tanggal_mulai} s.d. ${form.tanggal_selesai || "…"}` : ""}</dd>
                 <dt className="col-sm-4">Disalin</dt>
                 <dd className="col-sm-8">
-                  {[form.salin_rombel && "status rombel", form.salin_pengampu && !naikTahun && "pembagian mengajar", form.salin_jadwal && !naikTahun && "pola jadwal"].filter(Boolean).join(", ") || "tidak ada"}
+                  {[form.salin_rombel && "status rombel", form.salin_pengampu && !naikTahun && "pembagian mengajar", form.salin_jadwal && !naikTahun && "pola jadwal",
+                    naikTahun && form.terapkan_kenaikan && `kenaikan kelas (${salin.kenaikan_disahkan} siswa)`].filter(Boolean).join(", ") || "tidak ada"}
                 </dd>
                 {peringatan > 0 && (<><dt className="col-sm-4 text-warning">Perhatian</dt><dd className="col-sm-8">{peringatan} hal di langkah Periksa belum selesai.</dd></>)}
               </dl>

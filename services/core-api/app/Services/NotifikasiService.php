@@ -60,6 +60,7 @@ class NotifikasiService
             if ($u->id_guru) $item = $item->merge($this->jadwalGuru());
             if ($kelas = $u->kelasBinaan()) $item = $item->merge($this->kelasBinaan($kelas));
             if ($u->isPengelola()) $item = $item->merge($this->presensiSekolah());
+            if ($u->isAdmin() || $u->isKepsek() || $u->kelasBinaan()) $item = $item->merge($this->kenaikan($u));
             if ($u->isAdmin()) $item = $item->merge($this->loginGagal());
             $item = $item->merge($this->bankSoal());
             $item = $item->merge($this->atp());
@@ -247,6 +248,49 @@ class NotifikasiService
                     'jumlah' => $kurang, 'tautan' => '/dashboard/rapor', 'waktu' => $this->hariIni . 'T00:00:00',
                 ]);
             }
+        }
+        return $hasil;
+    }
+
+    /**
+     * Kenaikan kelas: wali kelas diingatkan mengisi keputusan menjelang akhir semester Genap; kepala sekolah/admin
+     * diingatkan mengesahkan rombel yang sudah lengkap; admin/kepala sekolah diingatkan memetakan siswa yang naik.
+     */
+    private function kenaikan(User $u): array
+    {
+        $hasil = [];
+        if (($u->isAdmin() || $u->isKepsek()) && ($n = \App\Services\KenaikanService::jumlahMenunggu())) {
+            $hasil[] = $this->buat('pemetaan-rombel', [$n], [
+                'tingkat' => 'warning', 'kategori' => 'Kenaikan kelas', 'ikon' => 'bi-diagram-3',
+                'judul' => "{$n} siswa menunggu pemetaan rombel",
+                'pesan' => 'Siswa ini sudah naik kelas, tetapi rombel tingkatnya lebih dari satu. Tempatkan mereka di Pemetaan Rombel.',
+                'jumlah' => $n, 'tautan' => '/dashboard/pemetaan-rombel', 'waktu' => $this->hariIni . 'T00:00:04',
+            ]);
+        }
+        $p = $this->periode ? \App\Models\MasterPeriode::find($this->periode) : null;
+        if (!$p || $p->semester !== 'Genap') return $hasil;
+        // Mulai 6 minggu sebelum semester Genap berakhir
+        [, $selesai] = $p->rentang();
+        if ($this->sekarang->lt($selesai->copy()->subWeeks(6))) return $hasil;
+
+        $ringkas = \App\Services\KenaikanService::ringkasan($p);
+        foreach ($ringkas->filter(fn($r) => in_array($r['id_kelas'], $u->kelasBinaan(), true)) as $r) {
+            $kurang = $r['siswa'] - $r['terisi'];
+            if ($kurang > 0) $hasil[] = $this->buat('kenaikan-isi', [$p->id_periode, $r['id_kelas'], $kurang], [
+                'tingkat' => 'warning', 'kategori' => 'Kenaikan kelas', 'ikon' => 'bi-mortarboard',
+                'judul' => "Kenaikan kelas {$r['nama_kelas']}: {$kurang} siswa belum diputuskan",
+                'pesan' => 'Isi keputusan naik/tidak naik berdasarkan usulan dari nilai dan kehadiran setahun, lalu kepala sekolah mengesahkan.',
+                'jumlah' => $kurang, 'tautan' => '/dashboard/kenaikan?id_kelas=' . $r['id_kelas'], 'waktu' => $this->hariIni . 'T00:00:04',
+            ]);
+        }
+        if ($u->isAdmin() || $u->isKepsek()) {
+            $siap = $ringkas->filter(fn($r) => $r['siswa'] > 0 && $r['terisi'] === $r['siswa'] && $r['disahkan'] < $r['siswa']);
+            if ($siap->isNotEmpty()) $hasil[] = $this->buat('kenaikan-sahkan', [$p->id_periode, $siap->pluck('id_kelas')->all()], [
+                'tingkat' => 'info', 'kategori' => 'Kenaikan kelas', 'ikon' => 'bi-patch-check',
+                'judul' => "{$siap->count()} rombel menunggu pengesahan kenaikan kelas",
+                'pesan' => self::daftarKelas($siap->pluck('nama_kelas')) . ' sudah lengkap diisi wali kelas.',
+                'jumlah' => $siap->count(), 'tautan' => '/dashboard/kenaikan?id_kelas=' . $siap->first()['id_kelas'], 'waktu' => $this->hariIni . 'T00:00:04',
+            ]);
         }
         return $hasil;
     }

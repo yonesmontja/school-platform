@@ -113,7 +113,10 @@ class PeriodeController extends Controller
     private function potretAktif(): void
     {
         $aktif = \App\Services\RiwayatRombel::periodeAktif();
-        if ($aktif) \App\Services\RiwayatRombel::potret($aktif);
+        if ($aktif) {
+            \App\Services\RiwayatRombel::potret($aktif);
+            \App\Services\Pengampu::bekukan($aktif);
+        }
     }
 
     public function destroy($id)

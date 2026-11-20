@@ -7,6 +7,7 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import Link from "next/link";
 
 // Pindahkan API_URL dan getToken ke luar komponen agar referensinya stabil
 const getToken = () => localStorage.getItem("token");
@@ -91,7 +92,7 @@ export default function MasterMapelPage() {
         `<span class="badge text-bg-secondary">${cell.getValue() ?? 75}</span>`,
     },
     {
-      title: "Guru Pengampu",
+      title: "Guru Pengampu Bawaan",
       field: "guru.nama_guru",
       width: 250,
       headerHozAlign: "center",
@@ -375,7 +376,7 @@ export default function MasterMapelPage() {
                   </div>
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-muted">
-                      Guru Pengampu
+                      Guru Pengampu Bawaan
                     </label>
                     <select
                       className="form-select"
@@ -391,6 +392,10 @@ export default function MasterMapelPage() {
                         </option>
                       ))}
                     </select>
+                    <div className="form-text">
+                      Berlaku untuk rombel yang belum diatur di <Link href="/dashboard/pengampu">Pembagian Mengajar</Link>.
+                      Guru berganti di semester baru? Atur di Pembagian Mengajar setelah Tutup Semester. Semester yang sudah ditutup tetap mencatat guru saat itu.
+                    </div>
                   </div>
                 </div>
                 <div className="modal-footer bg-white border-top">

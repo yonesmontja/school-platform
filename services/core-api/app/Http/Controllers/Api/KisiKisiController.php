@@ -25,6 +25,7 @@ class KisiKisiController extends Controller
             ->when(!$user->isPengelola(), fn($q) => $q->where('dibuat_oleh', $user->id))
             ->when($request->filled('id_mapel'), fn($q) => $q->where('id_mapel', $request->id_mapel))
             ->orderByDesc('updated_at')->get();
+        \App\Services\Pengampu::terapkanPadaMapel($data);
         return response()->json(['data' => $data]);
     }
 
@@ -35,6 +36,7 @@ class KisiKisiController extends Controller
             'baris.materi:id_materi,nama_materi', 'baris.indikator:id_indikator,deskripsi',
         ])->findOrFail($id);
         $this->cekLihat($request, $kisi);
+        \App\Services\Pengampu::terapkanPadaMapel($kisi);
 
         // Soal per baris beserta statusnya, agar guru tahu baris mana yang sudah terisi
         $soal = BankSoal::whereIn('id_kisi_baris', $kisi->baris->pluck('id'))

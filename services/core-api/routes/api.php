@@ -166,6 +166,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::middleware('role:admin,kepsek')->group(function () {
         Route::post('/hari-libur', [HariLiburController::class, 'store']);
         Route::get('/pengampu', [\App\Http\Controllers\Api\PengampuController::class, 'index']);
+        // Pemetaan rombel siswa yang naik kelas
+        Route::get('/pemetaan-rombel', [\App\Http\Controllers\Api\KenaikanController::class, 'pemetaan']);
+        Route::put('/pemetaan-rombel', [\App\Http\Controllers\Api\KenaikanController::class, 'simpanPemetaan']);
         Route::post('/hari-libur/tandai-cek', [HariLiburController::class, 'tandaiCek']);
         Route::put('/hari-libur/{id}', [HariLiburController::class, 'update'])->whereNumber('id');
         Route::delete('/hari-libur/{id}', [HariLiburController::class, 'destroy'])->whereNumber('id');
@@ -385,6 +388,10 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
 
     // ===== STAF (ADMIN, KEPSEK, GURU) =====
     Route::middleware('role:admin,kepsek,guru')->group(function () {
+        // Kenaikan kelas: wali kelas mengisi, kepala sekolah mengesahkan (dicek di controller)
+        Route::get('/kenaikan', [\App\Http\Controllers\Api\KenaikanController::class, 'index']);
+        Route::put('/kenaikan', [\App\Http\Controllers\Api\KenaikanController::class, 'simpan']);
+        Route::post('/kenaikan/sahkan', [\App\Http\Controllers\Api\KenaikanController::class, 'sahkan']);
         // Master data: baca untuk semua staf (dropdown & halaman master kepsek)
         Route::get('/students/master-data', [StudentController::class, 'getMasterData']);
         // Pas foto siswa: admin, kepsek, atau wali kelasnya (dicek di controller)

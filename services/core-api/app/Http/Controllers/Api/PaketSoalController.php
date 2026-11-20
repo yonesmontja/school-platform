@@ -45,6 +45,7 @@ class PaketSoalController extends Controller
             ->when(!$user->isPengelola(), fn($q) => $q->where('dibuat_oleh', $user->id))
             ->when($request->filled('id_mapel'), fn($q) => $q->where('id_mapel', $request->id_mapel))
             ->orderByDesc('updated_at')->get();
+        \App\Services\Pengampu::terapkanPadaMapel($data);
         return response()->json(['data' => $data]);
     }
 
@@ -52,6 +53,7 @@ class PaketSoalController extends Controller
     {
         $paket = PaketSoal::with([...self::RELASI, 'butir'])->findOrFail($id);
         $this->cekAkses($request, $paket);
+        \App\Services\Pengampu::terapkanPadaMapel($paket);
         $paket->setAttribute('sekolah', SchoolSetting::first()?->only(['nama_sekolah', 'kota']));
         return response()->json(['data' => $paket]);
     }

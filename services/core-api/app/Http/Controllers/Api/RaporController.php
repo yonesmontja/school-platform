@@ -101,6 +101,10 @@ class RaporController extends Controller
                     'i.id_materi', 'm.nama_materi'])),
             'catatan_wali' => TransCatatanWali::whereIn('id_siswa', $idSiswa)->where('id_periode', $idPeriode)->get(),
             'proyek' => $proyek,
+            // Keputusan kenaikan kelas (semester Genap) yang sudah disahkan kepala sekolah
+            'kenaikan' => \App\Models\TransKenaikan::where('id_periode', $idPeriode)->whereIn('id_siswa', $idSiswa)->where('disahkan', true)
+                ->get(['id_siswa', 'keputusan', 'ke_tingkat']),
+            'tingkat_akhir' => \App\Services\KenaikanService::tingkatAkhir(),
             'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),
             'catatan_p5' => TransCatatanP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'catatan_proses']),
         ];

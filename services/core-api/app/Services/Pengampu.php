@@ -58,6 +58,48 @@ class Pengampu
             ->filter(fn($k) => ($baris[$k] ?? $bawaan) === $idGuru)->values()->all();
     }
 
+    /**
+     * Bekukan pengampu sebuah semester: setiap rombel × mapel yang belum punya pembagian dicatat dengan guru bawaan
+     * saat ini. Dipanggil saat semester ditutup, agar mengganti guru bawaan di Mata Pelajaran kelak tidak mengubah
+     * keterangan pengampu semester yang sudah lewat.
+     */
+    public static function bekukan(string $idPeriode): int
+    {
+        $now = now();
+        $ada = PengampuMapel::where('id_periode', $idPeriode)->get(['id_kelas', 'id_mapel'])->map(fn($r) => "{$r->id_kelas}|{$r->id_mapel}")->flip();
+        $mapel = Subject::whereNotNull('id_guru')->pluck('id_guru', 'id_mapel');
+        $baru = [];
+        foreach (Classes::aktifSemester($idPeriode)->pluck('id_kelas') as $k) {
+            foreach ($mapel as $m => $g) {
+                if (!$ada->has("$k|$m")) $baru[] = ['id_periode' => $idPeriode, 'id_kelas' => $k, 'id_mapel' => $m, 'id_guru' => $g, 'created_at' => $now, 'updated_at' => $now];
+            }
+        }
+        foreach (array_chunk($baru, 500) as $c) PengampuMapel::insert($c);
+        return count($baru);
+    }
+
+    /**
+     * Ganti relasi mapel.guru pada data berperiode & berombel (ATP, modul ajar, paket soal, kisi-kisi) dengan pengampu
+     * pada semester & rombel data itu, bukan guru bawaan sekarang. Model mapel di-clone agar data lain tidak ikut berubah.
+     */
+    public static function terapkanPadaMapel(iterable|\Illuminate\Database\Eloquent\Model $items): void
+    {
+        $items = collect($items instanceof \Illuminate\Database\Eloquent\Model ? [$items] : $items)
+            // Lewat getAttributes: model tanpa kolom periode/rombel (atau kolom tidak dipilih) dilewati tanpa galat mode ketat
+            ->filter(fn($i) => $i && $i->relationLoaded('mapel') && $i->mapel
+                && !empty($i->getAttributes()['id_kelas']) && !empty($i->getAttributes()['id_periode']) && !empty($i->getAttributes()['id_mapel']));
+        if ($items->isEmpty()) return;
+        $baris = PengampuMapel::with('guru:id_guru,nama_guru')->whereIn('id_periode', $items->pluck('id_periode')->unique())
+            ->whereIn('id_mapel', $items->pluck('id_mapel')->unique())->get()
+            ->keyBy(fn($r) => "{$r->id_periode}|{$r->id_kelas}|{$r->id_mapel}");
+        foreach ($items as $i) {
+            $r = $baris["{$i->id_periode}|{$i->id_kelas}|{$i->id_mapel}"] ?? null;
+            if (!$r) continue;
+            $mapel = (clone $i->mapel)->setAttribute('id_guru', $r->id_guru)->setRelation('guru', $r->guru);
+            $i->setRelation('mapel', $mapel);
+        }
+    }
+
     /** Salin pembagian mengajar dari satu semester ke semester lain (baris yang sudah ada tidak ditimpa). */
     public static function salin(string $dari, string $ke): int
     {

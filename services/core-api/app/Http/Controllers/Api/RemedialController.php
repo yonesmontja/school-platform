@@ -273,7 +273,7 @@ class RemedialController extends Controller
             'id_jadwal' => 'JDW-' . Str::uuid(),
             'id_periode' => $contoh->id_periode,
             'id_kelas' => $contoh->id_kelas,
-            'id_guru' => $user->isGuru() ? $user->id_guru : $contoh->mapel?->id_guru,
+            'id_guru' => $user->isGuru() ? $user->id_guru : \App\Services\Pengampu::guru($contoh->id_kelas, $contoh->id_mapel, $contoh->id_periode),
             'id_mapel' => $contoh->id_mapel,
             'id_materi' => $contoh->id_materi,
             'id_ruangan' => $request->id_ruangan,

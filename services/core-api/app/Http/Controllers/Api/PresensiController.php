@@ -171,7 +171,7 @@ class PresensiController extends Controller
 
         $user = $request->user();
         $namaMapel = Subject::whereKey($request->id_mapel)->value('nama_mapel');
-        $idGuru = $user->isGuru() ? $user->id_guru : Subject::whereKey($request->id_mapel)->value('id_guru');
+        $idGuru = $user->isGuru() ? $user->id_guru : \App\Services\Pengampu::guru($request->id_kelas, $request->id_mapel, $request->id_periode);
         $idSiswa = collect($request->records)->pluck('id_siswa');
         $mapelAda = TransPresensiMapel::where('id_mapel', $request->id_mapel)->whereIn('id_siswa', $idSiswa)->whereDate('tanggal', $request->tanggal)->get()->keyBy('id_siswa');
         $harianAda = TransPresensi::whereIn('id_siswa', $idSiswa)->whereDate('tanggal', $request->tanggal)->get()->keyBy('id_siswa');

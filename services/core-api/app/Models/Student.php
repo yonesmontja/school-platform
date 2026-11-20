@@ -21,7 +21,7 @@ class Student extends Model
         'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'id_suku',
         'id_agama', 'id_sekolah_asal', 'status_tempat_tinggal',
         'jalan_siswa', 'id_wilayah_siswa', 'id_ortu', 'id_wali', 'no_wa',
-        'status_siswa', 'tanggal_status', 'keterangan_status',
+        'status_siswa', 'tanggal_status', 'keterangan_status', 'tingkat_tunggu',
     ];
 
     public const STATUS = ['aktif', 'lulus', 'mutasi', 'keluar'];
@@ -38,7 +38,10 @@ class Student extends Model
             if ($s->isDirty('status_siswa') && $s->status_siswa && $s->status_siswa !== 'aktif') {
                 $s->id_kelas = null;
                 $s->tanggal_status ??= now()->toDateString();
+                $s->tingkat_tunggu = null;
             }
+            // Sudah ditempatkan di rombel → tidak lagi menunggu pemetaan
+            if ($s->id_kelas && $s->tingkat_tunggu) $s->tingkat_tunggu = null;
         });
         // Rombel sekarang langsung tercatat di riwayat semester aktif
         static::saved(function (self $s) {

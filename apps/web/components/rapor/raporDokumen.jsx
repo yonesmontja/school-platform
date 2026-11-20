@@ -240,7 +240,23 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
     catatanTersimpan: !!catatanWali,
     presensi,
     proyek,
+    // Keputusan kenaikan kelas yang sudah disahkan kepala sekolah (hanya semester Genap)
+    kenaikan: (data.kenaikan || []).find((k) => k.id_siswa === idSiswa) || null,
+    tingkat,
   };
+}
+
+const ROMAWI = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const TERBILANG = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas", "Dua Belas"];
+const kelasTeks = (t) => (t >= 1 && t <= 12 ? `${ROMAWI[t]} (${TERBILANG[t]})` : "........");
+
+/** Kalimat keputusan akhir tahun di rapor Genap; null bila belum disahkan. */
+export function teksKenaikan(r) {
+  const k = r?.kenaikan;
+  if (!k) return null;
+  if (k.keputusan === "LULUS") return "LULUS";
+  if (k.keputusan === "NAIK") return `Naik ke kelas ${kelasTeks(k.ke_tingkat || r.tingkat + 1)}`;
+  return `Tinggal di kelas ${kelasTeks(k.ke_tingkat || r.tingkat)}`;
 }
 
 // Pesan WhatsApp ringkasan rapor untuk orang tua dan untuk kepsek/grup guru
@@ -429,6 +445,15 @@ export const Akademik = ({ r, tanggal, pecah }) => (
         <tr><td>Izin</td><td className="rp-c">{r.presensi.izin} hari</td></tr>
         <tr><td>Tanpa Keterangan (Alpa)</td><td className="rp-c">{r.presensi.alpa} hari</td></tr>
       </tbody></table>
+      {r.isGenap && (
+        <>
+          <div className="rp-title">D. KEPUTUSAN</div>
+          <div className="rp-box">
+            Berdasarkan pencapaian seluruh kompetensi, peserta didik ditetapkan:{" "}
+            <strong>{teksKenaikan(r) || "........................................"}</strong>
+          </div>
+        </>
+      )}
     </>
   )}>
     <div className="rp-title" style={{ marginTop: 0 }}>A. CAPAIAN KOMPETENSI AKADEMIK (INTRAKURIKULER)</div>

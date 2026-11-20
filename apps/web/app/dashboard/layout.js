@@ -81,6 +81,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/peringatan-dini", label: "Peringatan Dini", icon: "bi-activity", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/laporan-stnkm", label: "STNKM", icon: "bi-graph-up-arrow" },
       { href: "/dashboard/rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
+      { href: "/dashboard/kenaikan", label: "Kenaikan Kelas", icon: "bi-mortarboard", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/pemakaian", label: "Pemakaian Aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"] },
     ],
   },
@@ -93,6 +94,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/master-kelas", label: "Kelas", icon: "bi-door-open-fill", peran: PENGELOLA },
       { href: "/dashboard/master-mapel", label: "Mata Pelajaran", icon: "bi-book-half", peran: PENGELOLA },
       { href: "/dashboard/pengampu", label: "Pembagian Mengajar", icon: "bi-person-workspace", peran: PENGELOLA },
+      { href: "/dashboard/pemetaan-rombel", label: "Pemetaan Rombel", icon: "bi-diagram-3", peran: PENGELOLA },
     ],
   },
   {

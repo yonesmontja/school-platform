@@ -94,6 +94,29 @@ class TutupSemesterTest extends TestCase
         $this->assertSame(3, $r->json('ringkasan.jadwal_sesi'));
     }
 
+    public function test_pengampu_semester_lama_dibekukan_saat_guru_bawaan_diganti(): void
+    {
+        $s = $this->sekolah;
+        Model::unguarded(fn() => \App\Models\Atp::create([
+            'id_atp' => 'ATP-1', 'judul' => 'ATP Matematika', 'id_mapel' => 'MPL-A', 'id_kelas' => 'KLS-A', 'id_periode' => 'PER-T',
+            'status' => 'DRAF', 'dibuat_oleh' => $s->admin->id,
+        ]));
+        $this->sebagai($s->admin)->postJson('/api/semester/tutup', ['tahun_ajaran' => '2029/2030', 'semester' => 'Genap'])->assertOk();
+        $this->assertDatabaseHas('pengampu_mapel', ['id_periode' => 'PER-T', 'id_kelas' => 'KLS-A', 'id_mapel' => 'MPL-A', 'id_guru' => 'GR-A']);
+        $genap = MasterPeriode::where('status_aktif', 'AKTIF')->value('id_periode');
+        // Pembagian semester baru tidak ikut membeku: masih mengikuti guru bawaan
+        $this->assertDatabaseMissing('pengampu_mapel', ['id_periode' => $genap]);
+
+        // Guru bawaan Matematika diganti ke Guru B untuk semester baru
+        \App\Models\Subject::whereKey('MPL-A')->update(['id_guru' => 'GR-B']);
+        $this->assertSame('GR-B', Pengampu::guru('KLS-A', 'MPL-A'));
+        $this->assertSame('GR-A', Pengampu::guru('KLS-A', 'MPL-A', 'PER-T'));
+
+        // ATP semester lama tetap menampilkan Guru A sebagai pengampu
+        $atp = collect($this->getJson('/api/perangkat-ajar/atp')->assertOk()->json('data'))->firstWhere('id_atp', 'ATP-1');
+        $this->assertSame('Guru A', $atp['mapel']['guru']['nama_guru']);
+    }
+
     public function test_semester_terkunci_hanya_bisa_dibaca_kecuali_admin(): void
     {
         $s = $this->sekolah;

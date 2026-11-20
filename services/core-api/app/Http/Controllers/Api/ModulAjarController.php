@@ -44,6 +44,7 @@ class ModulAjarController extends Controller
             ->selectRaw('id_modul, COUNT(DISTINCT pertemuan_ke) as n')->groupBy('id_modul')->pluck('n', 'id_modul');
         $user = $request->user();
         $data->each(fn($m) => $m->setAttribute('pertemuan_selesai', (int) ($selesai[$m->id_modul] ?? 0))->setAttribute('boleh_ubah', $this->bolehUbah($user, $m)));
+        \App\Services\Pengampu::terapkanPadaMapel($data);
         return response()->json(['data' => $data]);
     }
 
@@ -229,6 +230,7 @@ class ModulAjarController extends Controller
 
     private function muat(ModulAjar $modul): array
     {
+        \App\Services\Pengampu::terapkanPadaMapel($modul);
         $tp = MasterIndikator::with('materi:id_materi,nama_materi')->whereIn('id_indikator', $modul->tp ?? [])->get(['id_indikator', 'id_materi', 'deskripsi']);
         $urut = array_flip($modul->tp ?? []);
         $sesi = \App\Models\TransJadwal::where('id_modul', $modul->id_modul)->where('status_sesi', '!=', 'Batal')->orderBy('mulai')

@@ -231,6 +231,7 @@ class PerangkatAjarController extends Controller
             ->orderByDesc('updated_at')->get();
         $user = $request->user();
         $data->each(fn($a) => $a->setAttribute('boleh_ubah', $this->bolehUbahAtp($user, $a)));
+        \App\Services\Pengampu::terapkanPadaMapel($data);
         return response()->json(['data' => $data]);
     }
 
@@ -452,6 +453,7 @@ class PerangkatAjarController extends Controller
 
     private function muatAtp(Atp $atp): array
     {
+        \App\Services\Pengampu::terapkanPadaMapel($atp);
         $atp->load(['baris.cp:id_cp,fase,elemen', 'baris.materi:id_materi,nama_materi', 'baris.indikator:id_indikator,deskripsi']);
         return $atp->toArray() + ['total_jp' => $atp->baris->sum('alokasi_jp'), 'boleh_ubah' => request()->user() ? $this->bolehUbahAtp(request()->user(), $atp) : false];
     }

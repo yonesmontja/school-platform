@@ -52,6 +52,7 @@ class TutupSemesterController extends Controller
                 'rombel' => $kelas->count(),
                 'pengampu' => PengampuMapel::where('id_periode', $aktif->id_periode)->count(),
                 'jadwal_seri' => $this->seriJadwal($aktif->id_periode)->count(),
+                'kenaikan_disahkan' => $naikTahun ? \App\Models\TransKenaikan::where('id_periode', $aktif->id_periode)->where('disahkan', true)->whereNull('diterapkan_pada')->count() : 0,
             ],
         ]);
     }
@@ -67,6 +68,7 @@ class TutupSemesterController extends Controller
             'salin_rombel' => 'boolean',
             'salin_pengampu' => 'boolean',
             'salin_jadwal' => 'boolean',
+            'terapkan_kenaikan' => 'boolean',
             'kunci_lama' => 'boolean',
         ]);
         $aktif = MasterPeriode::where('status_aktif', 'AKTIF')->first();
@@ -93,6 +95,8 @@ class TutupSemesterController extends Controller
             // 3. Rombel aktif & pembagian mengajar (pembagian hanya dalam tahun ajaran yang sama: siswa & rombelnya sama)
             $rombel = $request->boolean('salin_rombel', true) ? $this->salinRombel($aktif->id_periode, $tujuan->id_periode, $request->user()?->id) : 0;
             $pengampu = !$naikTahun && $request->boolean('salin_pengampu', true) ? Pengampu::salin($aktif->id_periode, $tujuan->id_periode) : 0;
+            // Pengampu semester lama dibekukan: mengganti guru bawaan mapel kelak tidak mengubah keterangan semester ini
+            Pengampu::bekukan($aktif->id_periode);
 
             // 4. Pindah semester aktif
             MasterPeriode::where('status_aktif', 'AKTIF')->update(['status_aktif' => 'TUTUP']);
@@ -104,12 +108,16 @@ class TutupSemesterController extends Controller
             // 5. Pola jadwal mingguan (hanya Ganjil → Genap)
             $jadwal = !$naikTahun && $request->boolean('salin_jadwal') ? $this->salinJadwal($aktif->id_periode, $tujuan, $request->user()?->id) : ['sesi' => 0, 'seri' => 0];
 
+            // 5b. Tahun ajaran baru: terapkan keputusan kenaikan yang sudah disahkan (setelah semester baru aktif,
+            //     agar rombel baru tercatat di riwayat semester baru)
+            $kenaikan = $naikTahun && $request->boolean('terapkan_kenaikan', true) ? \App\Services\KenaikanService::terapkan($aktif) : null;
+
             // 6. Kunci semester lama
             if ($request->boolean('kunci_lama', true)) {
                 $aktif->forceFill(['terkunci' => true, 'dikunci_pada' => now()])->save();
             }
 
-            return compact('tujuan', 'siswa', 'rombel', 'pengampu', 'jadwal');
+            return compact('tujuan', 'siswa', 'rombel', 'pengampu', 'jadwal', 'kenaikan');
         });
 
         $t = $hasil['tujuan'];
@@ -124,6 +132,7 @@ class TutupSemesterController extends Controller
                 'jadwal_sesi' => $hasil['jadwal']['sesi'],
                 'dikunci' => $request->boolean('kunci_lama', true),
                 'naik_tahun' => $naikTahun,
+                'kenaikan' => $hasil['kenaikan'],
             ],
         ]);
     }
@@ -171,6 +180,17 @@ class TutupSemesterController extends Controller
             if ($kosong->isNotEmpty()) $item[] = ['jenis' => 'nilai_kosong', 'tingkat' => 'info',
                 'judul' => "{$k->nama_kelas}: {$kosong->count()} mapel belum punya nilai", 'rincian' => $kosong->take(12)->implode(', ') . ($kosong->count() > 12 ? ', …' : ''),
                 'href' => '/dashboard/nilai'];
+        }
+
+        // Genap: keputusan kenaikan kelas per rombel harus diisi & disahkan sebelum tahun ajaran berganti
+        if ($p->semester === 'Genap') {
+            foreach (\App\Services\KenaikanService::ringkasan($p) as $r) {
+                if ($r['siswa'] === 0) continue;
+                if ($r['terisi'] < $r['siswa']) $item[] = ['jenis' => 'kenaikan', 'tingkat' => 'peringatan',
+                    'judul' => "{$r['nama_kelas']}: keputusan kenaikan " . ($r['siswa'] - $r['terisi']) . ' siswa belum diisi', 'href' => '/dashboard/kenaikan?id_kelas=' . $r['id_kelas']];
+                elseif ($r['disahkan'] < $r['siswa']) $item[] = ['jenis' => 'kenaikan', 'tingkat' => 'peringatan',
+                    'judul' => "{$r['nama_kelas']}: keputusan kenaikan belum disahkan kepala sekolah", 'href' => '/dashboard/kenaikan?id_kelas=' . $r['id_kelas']];
+            }
         }
 
         // Remedial yang masih direncanakan

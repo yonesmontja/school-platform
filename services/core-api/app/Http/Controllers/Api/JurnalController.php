@@ -144,7 +144,8 @@ class JurnalController extends Controller
         $user = $request->user();
         if ($user->isGuru() && $user->id_guru) return $user->id_guru;
         if ($request->id_guru) return $request->id_guru;
-        $pengampu = $idMateri ? Subject::whereKey(MasterMateri::whereKey($idMateri)->value('id_mapel'))->value('id_guru') : null;
+        $idMapel = $idMateri ? MasterMateri::whereKey($idMateri)->value('id_mapel') : null;
+        $pengampu = $idMapel ? ($idKelas ? \App\Services\Pengampu::guru($idKelas, $idMapel) : Subject::whereKey($idMapel)->value('id_guru')) : null;
         return $pengampu ?? ($idKelas ? Classes::whereKey($idKelas)->value('wali_kelas') : null);
     }
 
