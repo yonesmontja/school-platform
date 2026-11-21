@@ -532,6 +532,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "rapor-resmi", kelompok: "wali", judul: "Menerbitkan rapor resmi ber-QR", icon: "bi-patch-check",
+    href: "/dashboard/rapor",
+    langkah: [
+      "Buka Rapor, pilih periode dan kelas. Atur mode kalkulasi, bobot, dan tanggal rapor seperti yang akan dicetak.",
+      "Di panel Rapor resmi, tekan Terbitkan rapor kelas. Setiap rapor mendapat kode QR keaslian dan tanda tangan elektronik Anda sebagai wali kelas.",
+      "Kepala sekolah membuka kelas yang sama lalu menekan Sahkan. Tanda tangan elektronik kepala sekolah ikut tercantum di rapor dan di halaman verifikasi.",
+      "Cetak rapor seperti biasa. Di bawah tanda tangan ada QR; siapa pun bisa memindainya untuk mencocokkan nilai dengan data sekolah.",
+      "Tekan Rincian untuk melihat siapa yang sudah disahkan dan orang tua mana yang sudah menyatakan menerima, beserta tanggapannya.",
+    ],
+    tips: [
+      "Bila nilai, kehadiran, atau catatan berubah setelah terbit, panel menandai \"berubah setelah terbit\". Tekan Terbitkan ulang: versi baru mendapat kode baru, kode lama berstatus diganti, dan pengesahan perlu diulang.",
+      "QR hanya dicetak bila mode, bobot, dan tanggal rapor sama dengan saat terbit. Tekan Pakai pengaturan rapor resmi bila muncul peringatan.",
+      "Setelah semester dikunci, hanya admin yang bisa menerbitkan atau mengesahkan rapor semester itu.",
+    ],
+  },
+  {
     id: "rapor", kelompok: "wali", judul: "Catatan wali dan cetak rapor", icon: "bi-file-earmark-richtext",
     href: "/dashboard/rapor",
     gambar: "/panduan/rapor.jpg",
@@ -964,6 +980,18 @@ export const BAGIAN = [
     tips: [
       "Jawaban tersimpan otomatis. Bila tulisan belum tersimpan muncul, periksa sinyal; HP akan mencoba lagi.",
       "Jangan keluar dari halaman tes saat mengerjakan; guru dapat melihatnya.",
+    ],
+  },
+  {
+    id: "terima-rapor", kelompok: "ortu", judul: "Menerima rapor resmi", icon: "bi-file-earmark-check",
+    href: "/dashboard/portal?tab=rapor",
+    langkah: [
+      "Saat rapor resmi terbit, muncul pemberitahuan di Perlu Tindakan. Tekan Buka, atau buka Portal → tab Rapor.",
+      "Baca rapornya. Tanda centang hijau menandakan rapor resmi yang ditandatangani elektronik oleh wali kelas (dan kepala sekolah bila sudah disahkan).",
+      "Tulis tanggapan atau pertanyaan untuk wali kelas bila perlu, lalu tekan Sudah menerima & membaca.",
+    ],
+    tips: [
+      "Keaslian rapor kertas bisa dicek dengan memindai QR di bawah tanda tangan. Halaman verifikasi menampilkan nilai yang tercatat di sekolah.",
     ],
   },
   {

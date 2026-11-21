@@ -270,7 +270,11 @@ function PortalPage() {
       .finally(() => setLoading(false));
   }, [idSiswa, idPeriode]);
 
-  const rapor = useMemo(() => (data ? hitungRapor(data, idSiswa, MODE_PORTAL, BOBOT_RATA) : null), [data, idSiswa]);
+  // Bila rapor resmi sudah terbit, portal memakai pengaturan saat terbit agar isinya sama dengan rapor bertanda tangan
+  const terbit = useMemo(() => (data?.terbit || []).find((t) => t.id_siswa === idSiswa) || null, [data, idSiswa]);
+  const tanggalRapor = terbit?.tanggal_rapor || todayYmd();
+  const rapor = useMemo(() => (data ? hitungRapor(data, idSiswa, terbit?.mode_kalkulasi || MODE_PORTAL, terbit?.bobot ? { ...BOBOT_RATA, ...terbit.bobot } : BOBOT_RATA) : null), [data, idSiswa, terbit]);
+  const tandaiTerima = (hasil) => setData((d) => ({ ...d, terbit: (d.terbit || []).map((t) => (t.id_siswa === idSiswa ? { ...t, ...hasil } : t)) }));
   const siswa = anak.find((s) => s.id_siswa === idSiswa);
 
   // Rincian per penilaian (terbaru dulu) untuk tab Nilai
@@ -766,20 +770,64 @@ function PortalPage() {
           {tab === "rapor" && (
             <>
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                <div className="small text-muted"><i className="bi bi-info-circle me-1"></i>Pratinjau rapor berdasarkan data terkini. Rapor resmi bertanda tangan dibagikan oleh sekolah.</div>
+                <div className="small text-muted">
+                  {terbit
+                    ? <><i className="bi bi-patch-check-fill text-success me-1"></i>Rapor resmi, ditandatangani elektronik oleh wali kelas{terbit.disahkan_pada ? " dan disahkan kepala sekolah" : ""}. Keasliannya bisa dicek dari kode QR di rapor.</>
+                    : <><i className="bi bi-info-circle me-1"></i>Pratinjau rapor berdasarkan data terkini. Rapor resmi bertanda tangan dibagikan oleh sekolah.</>}
+                </div>
                 <button className="btn btn-primary btn-sm fw-bold" onClick={cetak}><i className="bi bi-printer me-1"></i>Cetak / Simpan PDF</button>
               </div>
+              {terbit && <KonfirmasiRapor terbit={terbit} idSiswa={idSiswa} idPeriode={idPeriode} bolehIsi={!staf} onTerima={tandaiTerima} />}
               <PenjelasanDeskripsi settings={data?.settings} untukOrtu={role === "ortu"} />
               <div className="rapor-preview" ref={previewRef}>
                 <Sampul r={rapor} pecah />
-                <Biodata r={rapor} tanggal={todayYmd()} pecah />
-                <Akademik r={rapor} tanggal={todayYmd()} pecah={rapor.proyek.length > 0} />
-                {rapor.proyek.map((p, i) => <RaporP5 key={p.id_proyek} r={rapor} proyek={p} urutan={i + 1} tanggal={todayYmd()} pecah={i < rapor.proyek.length - 1} />)}
+                <Biodata r={rapor} tanggal={tanggalRapor} pecah />
+                <Akademik r={rapor} tanggal={tanggalRapor} pecah={rapor.proyek.length > 0} />
+                {rapor.proyek.map((p, i) => <RaporP5 key={p.id_proyek} r={rapor} proyek={p} urutan={i + 1} tanggal={tanggalRapor} pecah={i < rapor.proyek.length - 1} />)}
               </div>
             </>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// Tanda terima rapor resmi: orang tua/siswa menyatakan sudah menerima & membaca, dengan tanggapan opsional untuk wali kelas
+function KonfirmasiRapor({ terbit, idSiswa, idPeriode, bolehIsi, onTerima }) {
+  const [tanggapan, setTanggapan] = useState(terbit.tanggapan_ortu || "");
+  const [sibuk, setSibuk] = useState(false);
+  const kirim = async () => {
+    setSibuk(true);
+    try {
+      const res = await fetch(`${API_URL}/portal/rapor/terima`, { method: "POST", headers: authHeaders(true), body: JSON.stringify({ id_siswa: idSiswa, id_periode: idPeriode, tanggapan: tanggapan.trim() || null }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.message || "Gagal menyimpan tanda terima.");
+      onTerima(d.data);
+      Swal.fire({ icon: "success", title: "Terima kasih", text: d.message, timer: 2200, showConfirmButton: false });
+    } catch (e) {
+      Swal.fire("Gagal", e.message, "error");
+    } finally {
+      setSibuk(false);
+    }
+  };
+  const tgl = (v) => new Date(v).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  return (
+    <div className={`card border-0 shadow-sm mb-3 ${terbit.diterima_pada ? "" : "border-start border-4 border-primary"}`}>
+      <div className="card-body py-2">
+        {terbit.diterima_pada ? (
+          <div className="small"><i className="bi bi-check-circle-fill text-success me-1"></i>Rapor sudah dinyatakan diterima & dibaca pada {tgl(terbit.diterima_pada)}.
+            {terbit.tanggapan_ortu && <div className="fst-italic mt-1">Tanggapan: “{terbit.tanggapan_ortu}”</div>}</div>
+        ) : bolehIsi ? (
+          <>
+            <div className="fw-semibold small mb-1"><i className="bi bi-file-earmark-check me-1 text-primary"></i>Sudah membaca rapor ini?</div>
+            <textarea className="form-control form-control-sm mb-2" rows={2} maxLength={1000} placeholder="Tanggapan atau pertanyaan untuk wali kelas (boleh dikosongkan)" aria-label="Tanggapan untuk wali kelas" value={tanggapan} onChange={(e) => setTanggapan(e.target.value)} />
+            <button type="button" className="btn btn-primary btn-sm fw-semibold" disabled={sibuk} onClick={kirim}>
+              {sibuk ? <span className="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> : <i className="bi bi-check2-circle me-1"></i>}Sudah menerima & membaca
+            </button>
+          </>
+        ) : <div className="small text-muted"><i className="bi bi-hourglass me-1"></i>Orang tua/siswa belum menyatakan menerima rapor ini.</div>}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import { useAkses } from "@/app/lib/akses";
@@ -12,6 +12,7 @@ import {
 import { API_URL } from "@/app/lib/config";
 import { eksporErapor } from "@/components/rapor/eksporErapor";
 import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
+import PenerbitanRapor from "@/components/rapor/PenerbitanRapor";
 
 // Modal sederhana berbasis state agar tidak bergantung pada JS Bootstrap
 const Modal = ({ show, title, icon, headerClass = "bg-primary text-white", size = "modal-lg", onClose, children, footer }) => {
@@ -114,8 +115,11 @@ export default function CetakRaporPage() {
         setClasses(res.classes || []);
         setPeriodes(res.periodes || []);
         const aktif = (res.periodes || []).find((p) => p.status_aktif === "AKTIF");
+        // Tautan dari Perlu Tindakan (?id_kelas=&id_periode=) didahulukan
+        const q = new URLSearchParams(window.location.search);
+        if (q.get("id_kelas") && q.get("id_periode")) setFilters((f) => ({ ...f, id_kelas: q.get("id_kelas"), id_periode: q.get("id_periode"), id_siswa: "" }));
         // Periode yang dipulihkan (lihat KUNCI_PULIH) tidak ditimpa periode aktif
-        if (aktif) setFilters((f) => (f.id_periode ? f : { ...f, id_periode: aktif.id_periode }));
+        else if (aktif) setFilters((f) => (f.id_periode ? f : { ...f, id_periode: aktif.id_periode }));
       } catch (err) { Swal.fire("Error", err.message, "error"); }
     })();
   }, []);
@@ -138,10 +142,33 @@ export default function CetakRaporPage() {
     return () => { batal = true; };
   }, [filters.id_kelas, filters.id_periode]);
 
-  const rapor = useMemo(
-    () => (data && filters.id_siswa ? hitungRapor(data, filters.id_siswa, modeKalkulasi, bobot) : null),
-    [data, filters.id_siswa, modeKalkulasi, bobot],
-  );
+  // Status rapor resmi per siswa (dari panel Rapor resmi); QR & tanda tangan elektronik hanya dicetak bila
+  // pengaturan cetak sama dengan saat rapor itu diterbitkan, agar isi cetakan sama dengan yang diverifikasi
+  const [statusTerbit, setStatusTerbit] = useState({});
+  const terimaStatus = useCallback((m) => setStatusTerbit(m), []);
+  const terbitSiswa = filters.id_siswa ? statusTerbit[filters.id_siswa] || null : null;
+  const sesuaiTerbit = (t) => !!t && t.mode_kalkulasi === modeKalkulasi && t.tanggal_rapor === tanggalRapor
+    && (modeKalkulasi !== "3" || DIMENSI.every((d) => Number(t.bobot?.[d.key]) === Number(bobot[d.key])));
+  const rapor = useMemo(() => {
+    if (!data || !filters.id_siswa) return null;
+    const r = hitungRapor(data, filters.id_siswa, modeKalkulasi, bobot);
+    return r && { ...r, terbit: sesuaiTerbit(terbitSiswa) ? terbitSiswa : null };
+  }, [data, filters.id_siswa, modeKalkulasi, bobot, tanggalRapor, terbitSiswa]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pakaiPengaturanTerbit = () => {
+    if (!terbitSiswa) return;
+    setModeKalkulasi(terbitSiswa.mode_kalkulasi);
+    setTanggalRapor(terbitSiswa.tanggal_rapor);
+    if (terbitSiswa.bobot) setBobot((b) => ({ ...b, ...terbitSiswa.bobot }));
+  };
+  // Cuplikan rapor seluruh rombel (nilai per mapel seperti tercetak) untuk diterbitkan
+  const susunKiriman = () => (data?.students || []).map((s) => {
+    const r = hitungRapor(data, s.id_siswa, modeKalkulasi, bobot);
+    return {
+      id_siswa: s.id_siswa,
+      rata_umum: r && r.rataUmum !== "-" ? Number(r.rataUmum) : null,
+      mapel: (r?.mapelRows || []).map((m) => ({ nama: m.nama, kkm: m.kkm, nilai: m.nilai })),
+    };
+  });
   const wa = useMemo(() => (rapor ? susunPesanWA(rapor) : null), [rapor]);
 
   // Rekap satu kelas untuk disalin ke format nilai e-Rapor (lembar per mapel, kehadiran, kokurikuler, catatan wali)
@@ -371,6 +398,18 @@ export default function CetakRaporPage() {
           </div>
         </div>
       </div>
+
+      {filters.id_kelas && filters.id_periode && data && (
+        <PenerbitanRapor idKelas={filters.id_kelas} idPeriode={filters.id_periode} onStatus={terimaStatus} susunKiriman={susunKiriman}
+          pengaturan={{ mode_kalkulasi: modeKalkulasi, bobot, tanggal_rapor: tanggalRapor }} />
+      )}
+      {terbitSiswa && !rapor?.terbit && (
+        <div className="alert alert-warning small d-flex flex-wrap align-items-center gap-2">
+          <i className="bi bi-exclamation-triangle" aria-hidden="true"></i>
+          <span className="me-auto">Rapor resmi siswa ini diterbitkan dengan mode, bobot, atau tanggal yang berbeda. QR keaslian tidak dicetak sampai pengaturannya sama.</span>
+          <button type="button" className="btn btn-sm btn-warning" onClick={pakaiPengaturanTerbit}>Pakai pengaturan rapor resmi</button>
+        </div>
+      )}
 
       {/* RINGKASAN SISWA */}
       {rapor && (

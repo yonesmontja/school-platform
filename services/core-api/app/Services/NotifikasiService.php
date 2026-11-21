@@ -61,6 +61,7 @@ class NotifikasiService
             if ($kelas = $u->kelasBinaan()) $item = $item->merge($this->kelasBinaan($kelas));
             if ($u->isPengelola()) $item = $item->merge($this->presensiSekolah());
             if ($u->isAdmin() || $u->isKepsek() || $u->kelasBinaan()) $item = $item->merge($this->kenaikan($u));
+            if ($u->isAdmin() || $u->isKepsek()) $item = $item->merge($this->raporSahkan());
             if ($u->isAdmin()) $item = $item->merge($this->loginGagal());
             $item = $item->merge($this->bankSoal());
             $item = $item->merge($this->atp());
@@ -299,6 +300,25 @@ class NotifikasiService
      * Pembinaan presensi yang sudah tiba tanggal tindak lanjutnya dan belum selesai/batal: untuk pembuatnya dan wali kelas
      * siswa; admin & kepala sekolah melihat semuanya. Status Otomatis yang sudah pulih tidak ditampilkan.
      */
+    /** Kepala sekolah/admin: rapor resmi yang sudah terbit tetapi belum disahkan, per kelas. */
+    private function raporSahkan(): array
+    {
+        $belum = \App\Models\TransRaporTerbit::berlaku()->whereNull('disahkan_pada')
+            ->when($this->periode, fn($q) => $q->where('id_periode', $this->periode))
+            ->selectRaw('id_kelas, id_periode, count(*) as n')->groupBy('id_kelas', 'id_periode')->get();
+        if ($belum->isEmpty()) return [];
+        $kelas = \App\Models\Classes::whereIn('id_kelas', $belum->pluck('id_kelas'))->pluck('nama_kelas', 'id_kelas');
+        $pertama = $belum->first();
+        $n = (int) $belum->sum('n');
+        return [$this->buat('rapor-sahkan', [$belum->map(fn($b) => "{$b->id_kelas}:{$b->n}")->all()], [
+            'tingkat' => 'info', 'kategori' => 'Rapor', 'ikon' => 'bi-pen',
+            'judul' => "{$n} rapor resmi menunggu pengesahan",
+            'pesan' => 'Kelas ' . self::daftarKelas($belum->map(fn($b) => $kelas[$b->id_kelas] ?? $b->id_kelas)) . '. Periksa lalu sahkan agar tanda tangan elektronik kepala sekolah tercantum.',
+            'jumlah' => $n, 'tautan' => '/dashboard/rapor?id_kelas=' . urlencode((string) $pertama->id_kelas) . '&id_periode=' . urlencode($pertama->id_periode),
+            'waktu' => $this->hariIni . 'T00:00:05',
+        ])];
+    }
+
     private function pembinaanPresensi(): array
     {
         $u = $this->user;
@@ -543,6 +563,18 @@ class NotifikasiService
                     'tautan' => $tautan, 'waktu' => $r->tanggal_selesai?->toDateString() . 'T00:00:00',
                 ]);
             }
+        }
+
+        // Rapor resmi terbit dan belum dikonfirmasi diterima
+        $rapor = \App\Models\TransRaporTerbit::berlaku()->with('siswa:id_siswa,nama_siswa')->whereIn('id_siswa', $siswa)->whereNull('diterima_pada')->get();
+        foreach ($rapor as $t) {
+            $r = $t->ringkasan;
+            $hasil[] = $this->buat('portal-rapor', [$t->id, $t->versi], [
+                'tingkat' => 'info', 'kategori' => 'Rapor', 'ikon' => 'bi-file-earmark-check',
+                'judul' => "{$t->siswa?->nama_siswa}: rapor resmi semester " . ($r['semester'] ?? '') . ' sudah terbit',
+                'pesan' => 'Silakan baca rapornya, lalu tekan "Sudah menerima & membaca". Anda juga bisa menulis tanggapan untuk wali kelas.',
+                'tautan' => self::tautanPortal('rapor', $t->id_siswa, ['periode' => $t->id_periode]), 'waktu' => $t->diterbitkan_pada->toIso8601String(),
+            ]);
         }
 
         $alpa = TransPresensi::with('siswa:id_siswa,nama_siswa')->whereIn('id_siswa', $siswa)->where('status_kehadiran', 'ALPA')

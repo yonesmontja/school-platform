@@ -3,6 +3,7 @@
 import { Fragment } from "react";
 import { srcFoto } from "@/components/siswa/fotoSiswa";
 import { API_URL } from "@/app/lib/config";
+import TandaTerbit from "./TandaTerbit";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { skalaDari, tingkatPredikat, predikatTampil, keteranganSkala, deskripsiKokurikuler, labelBentuk } from "@/app/lib/kokurikuler";
 
@@ -242,6 +243,8 @@ export function hitungRapor(data, idSiswa, modeKalkulasi, bobot) {
     proyek,
     // Keputusan kenaikan kelas yang sudah disahkan kepala sekolah (hanya semester Genap)
     kenaikan: (data.kenaikan || []).find((k) => k.id_siswa === idSiswa) || null,
+    // Rapor resmi yang berlaku (QR keaslian & tanda tangan elektronik); halaman bisa mengosongkannya bila pengaturan cetak berbeda
+    terbit: (data.terbit || []).find((t) => t.id_siswa === idSiswa) || null,
     tingkat,
   };
 }
@@ -322,6 +325,11 @@ export const RAPOR_CSS = `
 .rp-ttd td { padding: 0; vertical-align: top; }
 .rp-ttd-space { height: 70px; display: flex; align-items: center; justify-content: center; }
 .rp-ttd-space img { max-height: 64px; max-width: 160px; }
+.rp-terbit { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 9.5px; line-height: 1.35; color: #333; page-break-inside: avoid; border-top: 1px dashed #999; }
+.rp-terbit td { padding: 6px 4px 0; vertical-align: top; text-align: left; }
+.rp-terbit-qr svg { width: 58px; height: 58px; display: block; }
+.rp-terbit-url { word-break: break-all; }
+.rp-ttd-el { font-size: 10px; font-style: italic; color: #555; border: 1px solid #bbb; border-radius: 4px; padding: 2px 6px; }
 .rp-cover { text-align: center; padding: 30mm 15mm; border: 4px double #000; min-height: 255mm; box-sizing: border-box; }
 .rp-cover-box { border: 2px solid #000; padding: 15px; width: 75%; margin: 25mm auto; border-radius: 6px; }
 .rp-bio { width: 100%; font-size: 13px; line-height: 1.9; border-collapse: collapse; }
@@ -349,6 +357,7 @@ export const TandaTangan = ({ r, tanggal }) => {
   const ttdKepsek = urlTtd(r.sek.ttd_kepsek_url);
   const lebar = r.isGenap ? "33.3%" : "50%";
   return (
+    <>
     <table className="rp-ttd"><tbody><tr>
       <td width={lebar}>Mengetahui,<br />Orang Tua/Wali,<div className="rp-ttd-space"></div>( ............................................ )</td>
       {r.isGenap && (
@@ -359,11 +368,13 @@ export const TandaTangan = ({ r, tanggal }) => {
         </td>
       )}
       <td width={lebar}>
-        {r.sek.kota || "-"}, {tanggalPanjang(tanggal)}<br />Wali Kelas,<div className="rp-ttd-space"></div>
+        {r.sek.kota || "-"}, {tanggalPanjang(tanggal)}<br />Wali Kelas,<div className="rp-ttd-space">{r.terbit && <span className="rp-ttd-el">Ditandatangani secara elektronik</span>}</div>
         <strong>{r.waliKelas?.nama_guru || "...................................."}</strong>
         {r.waliKelas?.nip_nik && <><br />NIP. {r.waliKelas.nip_nik}</>}
       </td>
     </tr></tbody></table>
+    <TandaTerbit terbit={r.terbit} />
+    </>
   );
 };
 

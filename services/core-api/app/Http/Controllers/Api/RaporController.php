@@ -106,6 +106,9 @@ class RaporController extends Controller
                 ->get(['id_siswa', 'keputusan', 'ke_tingkat']),
             'tingkat_akhir' => \App\Services\KenaikanService::tingkatAkhir(),
             'nilai_p5' => TransNilaiP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'id_target', 'predikat']),
+            // Rapor resmi yang berlaku (kode QR, tanda tangan elektronik, pengaturan saat terbit, tanda terima orang tua)
+            'terbit' => \App\Models\TransRaporTerbit::berlaku()->where('id_periode', $idPeriode)->whereIn('id_siswa', $idSiswa)
+                ->get(['id', 'id_siswa', 'versi', 'kode_verifikasi', 'mode_kalkulasi', 'bobot', 'tanggal_rapor', 'nama_wali', 'diterbitkan_pada', 'nama_kepsek', 'disahkan_pada', 'diterima_pada', 'tanggapan_ortu']),
             'catatan_p5' => TransCatatanP5::whereIn('id_proyek', $proyek->pluck('id_proyek'))->whereIn('id_siswa', $idSiswa)->get(['id_proyek', 'id_siswa', 'catatan_proses']),
         ];
     }

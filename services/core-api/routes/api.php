@@ -129,6 +129,7 @@ Route::prefix('spmb')->group(function () {
 // Pas foto siswa lewat tautan bertanda tangan (dibuat untuk akun yang boleh melihat siswa itu; dipakai <img> & cetak rapor)
 Route::get('/siswa/{id}/foto', [FotoSiswaController::class, 'tampil'])->name('siswa.foto')->middleware(['signed:relative', 'throttle:240,1']);
 Route::get('/verifikasi-siswa/{kode}', [\App\Http\Controllers\Api\KartuSiswaController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{12}')->middleware('throttle:30,1');
+Route::get('/verifikasi-rapor/{kode}', [\App\Http\Controllers\Api\RaporTerbitController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 
 // Route Proxy untuk Gambar TTD (Anti CORS)
@@ -327,6 +328,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
     Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);
         Route::get('/rapor', [PortalController::class, 'rapor']);
+        Route::post('/rapor/terima', [\App\Http\Controllers\Api\RaporTerbitController::class, 'terima']);
         Route::get('/pekan', [PortalController::class, 'pekan']);
     });
     // Pesan wali kelas - orang tua/siswa (akses per utas dicek di PesanService)
@@ -513,6 +515,10 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/data', [RaporController::class, 'data']);
             Route::post('/catatan-wali', [RaporController::class, 'simpanCatatanWali']);
             Route::post('/catatan-wali/generate', [RaporController::class, 'generateCatatanWali']);
+            // Rapor resmi: terbit (kode QR + tanda tangan elektronik wali), pengesahan kepala sekolah
+            Route::get('/terbit', [\App\Http\Controllers\Api\RaporTerbitController::class, 'index']);
+            Route::post('/terbit', [\App\Http\Controllers\Api\RaporTerbitController::class, 'terbitkan']);
+            Route::post('/terbit/sahkan', [\App\Http\Controllers\Api\RaporTerbitController::class, 'sahkan']);
         });
 
         // Jadwal: guru membuat & mengubah jadwal miliknya sendiri
