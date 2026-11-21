@@ -66,6 +66,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/sesi-ujian", label: "Sesi Ujian (CBT)", icon: "bi-pc-display" },
       { href: "/dashboard/diagnostik", label: "Asesmen Diagnostik", icon: "bi-clipboard2-pulse" },
       { href: "/dashboard/p5", label: "Proyek (P5)", icon: "bi-stars" },
+      { href: "/dashboard/portofolio", label: "Portofolio Siswa", icon: "bi-images", syarat: (u) => ["admin", "kepsek"].includes(u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
     ],
   },
   {

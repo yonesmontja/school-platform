@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_URL } from "@/app/lib/config";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
+import PortofolioSiswa from "@/components/siswa/Portofolio";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -103,6 +104,7 @@ function KartuSemester({ s, idSiswa }) {
               <dt className="col-6">Jurnal</dt><dd className="col-6">{s.jurnal.jumlah} ({s.jurnal.positif} positif, {s.jurnal.perlu_perhatian} perlu perhatian)</dd>
               <dt className="col-6">Pembinaan kehadiran</dt><dd className="col-6">{s.pembinaan}</dd>
               <dt className="col-6">Proyek P5</dt><dd className="col-6">{s.p5}</dd>
+              {s.portofolio > 0 && (<><dt className="col-6">Karya portofolio</dt><dd className="col-6">{s.portofolio}</dd></>)}
               {s.kenaikan && (<><dt className="col-6">Keputusan</dt><dd className="col-6 fw-semibold">{KEPUTUSAN[s.kenaikan.keputusan]}{s.kenaikan.ke_tingkat && s.kenaikan.keputusan !== "LULUS" ? ` (ke tingkat ${s.kenaikan.ke_tingkat})` : ""}</dd></>)}
             </dl>
             {s.catatan_wali && <blockquote className="border-start border-3 ps-2 mt-2 mb-0 text-muted">{s.catatan_wali}</blockquote>}
@@ -200,6 +202,8 @@ function RekamJejakIsi() {
       </section>
 
       <Lintasan data={data.lintasan} />
+
+      <PortofolioSiswa idSiswa={idSiswa} namaSiswa={s.nama_siswa} cetak />
 
       {data.semester.length === 0 ? (
         <div className="alert alert-light border">Belum ada riwayat semester untuk siswa ini.</div>

@@ -128,6 +128,8 @@ Route::prefix('spmb')->group(function () {
 // Verifikasi keaslian surat keluar dari kode yang tercetak di surat (Fase 26 Tahap D)
 // Pas foto siswa lewat tautan bertanda tangan (dibuat untuk akun yang boleh melihat siswa itu; dipakai <img> & cetak rapor)
 Route::get('/siswa/{id}/foto', [FotoSiswaController::class, 'tampil'])->name('siswa.foto')->middleware(['signed:relative', 'throttle:240,1']);
+// Berkas e-portofolio siswa lewat tautan bertanda tangan (diberikan hanya kepada akun yang boleh melihat siswa itu)
+Route::get('/portofolio/{id}/berkas', [\App\Http\Controllers\Api\PortofolioController::class, 'berkas'])->whereNumber('id')->name('portofolio.berkas')->middleware(['signed:relative', 'throttle:600,1']);
 Route::get('/verifikasi-siswa/{kode}', [\App\Http\Controllers\Api\KartuSiswaController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{12}')->middleware('throttle:30,1');
 Route::get('/verifikasi-rapor/{kode}', [\App\Http\Controllers\Api\RaporTerbitController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
@@ -324,6 +326,15 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\RekamJejakController::class, 'show']);
         Route::get('/nilai', [\App\Http\Controllers\Api\RekamJejakController::class, 'nilai']);
         Route::get('/jurnal', [\App\Http\Controllers\Api\RekamJejakController::class, 'jurnal']);
+    });
+    // E-portofolio siswa: staf (wali kelas/pengelola) langsung disetujui; siswa/orang tua menunggu tinjauan wali kelas
+    Route::middleware('role:siswa,ortu,admin,kepsek,guru')->group(function () {
+        Route::get('/siswa/{id}/portofolio', [\App\Http\Controllers\Api\PortofolioController::class, 'siswa']);
+        Route::get('/portofolio/kelas', [\App\Http\Controllers\Api\PortofolioController::class, 'kelas']);
+        Route::post('/portofolio', [\App\Http\Controllers\Api\PortofolioController::class, 'store'])->middleware('throttle:40,1');
+        Route::put('/portofolio/{id}', [\App\Http\Controllers\Api\PortofolioController::class, 'update'])->whereNumber('id');
+        Route::post('/portofolio/{id}/tinjau', [\App\Http\Controllers\Api\PortofolioController::class, 'tinjau'])->whereNumber('id');
+        Route::delete('/portofolio/{id}', [\App\Http\Controllers\Api\PortofolioController::class, 'destroy'])->whereNumber('id');
     });
     Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('portal')->group(function () {
         Route::get('/anak', [PortalController::class, 'anak']);

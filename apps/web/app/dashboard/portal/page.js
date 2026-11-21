@@ -19,6 +19,7 @@ import { KartuPeringatanSiswa } from "@/components/siswa/PeringatanDini";
 import UtasPesan from "@/components/siswa/UtasPesan";
 import RaporBerjalan from "@/components/siswa/RaporBerjalan";
 import PantauanKenaikanPortal from "@/components/siswa/PantauanKenaikanPortal";
+import PortofolioSiswa from "@/components/siswa/Portofolio";
 import { unduhFoto } from "@/components/siswa/fotoSiswa";
 import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
@@ -36,6 +37,7 @@ const TAB = [
   { id: "presensi", label: "Kehadiran", icon: "bi-calendar-check" },
   { id: "jurnal", label: "Catatan Positif", icon: "bi-stars" },
   { id: "rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
+  { id: "portofolio", label: "Portofolio", icon: "bi-images" },
   { id: "pesan", label: "Pesan", icon: "bi-chat-dots" },
 ];
 const STATUS_WARNA = { HADIR: "success", SAKIT: "warning", IZIN: "info", ALPA: "danger" };
@@ -762,6 +764,8 @@ function PortalPage() {
               )}
             </div>
           )}
+
+          {tab === "portofolio" && <PortofolioSiswa idSiswa={idSiswa} portal={!staf} idPengguna={user?.id ?? null} />}
 
           {tab === "pesan" && (
             <div className="card shadow-sm border-0"><div className="card-body">

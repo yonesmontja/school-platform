@@ -58,7 +58,7 @@ class NotifikasiService
                 $item = $item->merge($this->remedial($mapel))->merge($this->belumTindakLanjut($mapel));
             }
             if ($u->id_guru) $item = $item->merge($this->jadwalGuru());
-            if ($kelas = $u->kelasBinaan()) $item = $item->merge($this->kelasBinaan($kelas));
+            if ($kelas = $u->kelasBinaan()) $item = $item->merge($this->kelasBinaan($kelas))->merge($this->portofolio($kelas));
             if ($u->isPengelola()) $item = $item->merge($this->presensiSekolah());
             if ($u->isAdmin() || $u->isKepsek() || $u->kelasBinaan()) $item = $item->merge($this->kenaikan($u));
             if ($u->isAdmin() || $u->isKepsek()) $item = $item->merge($this->raporSahkan());
@@ -207,6 +207,25 @@ class NotifikasiService
             ->when($kelas, fn($q) => $q->whereIn('id_kelas', $kelas))->whereNotNull('id_kelas')
             ->when(Classes::idNonaktif(), fn($q, $nonaktif) => $q->whereNotIn('id_kelas', $nonaktif))
             ->distinct()->pluck('id_kelas');
+    }
+
+    /** Wali kelas: karya e-portofolio kiriman siswa/orang tua yang menunggu ditinjau, per rombel binaan. */
+    private function portofolio(array $kelas): array
+    {
+        $hasil = [];
+        $menunggu = \App\Models\TransPortofolio::with('siswa:id_siswa,nama_siswa,id_kelas')->where('status', 'MENUNGGU')
+            ->whereHas('siswa', fn($q) => $q->whereIn('id_kelas', $kelas))->get(['id', 'id_siswa', 'created_at'])->groupBy(fn($x) => $x->siswa->id_kelas);
+        $nama = Classes::whereIn('id_kelas', $menunggu->keys())->pluck('nama_kelas', 'id_kelas');
+        foreach ($menunggu as $idKelas => $g) {
+            $hasil[] = $this->buat('portofolio-menunggu', [$idKelas, $g->pluck('id')->all()], [
+                'tingkat' => 'info', 'kategori' => 'Portofolio', 'ikon' => 'bi-images',
+                'judul' => "{$g->count()} karya portofolio menunggu tinjauan",
+                'pesan' => ($nama[$idKelas] ?? $idKelas) . ': kiriman ' . self::daftarNama($g->pluck('siswa.nama_siswa')) . '. Setujui atau kembalikan dengan catatan.',
+                'jumlah' => $g->count(), 'tautan' => '/dashboard/portofolio?id_kelas=' . urlencode($idKelas) . '&status=MENUNGGU',
+                'waktu' => $g->max('created_at')->toIso8601String(),
+            ]);
+        }
+        return $hasil;
     }
 
     private function kelasBinaan(array $kelas): array
@@ -596,6 +615,19 @@ class NotifikasiService
                 'judul' => "{$x->siswa?->nama_siswa}: pesan wali kelas tentang ketuntasan belajar",
                 'pesan' => \Illuminate\Support\Str::limit($x->catatan, 160),
                 'tautan' => self::tautanPortal('ringkasan', $x->id_siswa), 'waktu' => $x->created_at->toIso8601String(),
+            ]);
+        }
+
+        // Karya portofolio kiriman akun ini yang baru ditinjau wali kelas (14 hari)
+        $karya = \App\Models\TransPortofolio::with('siswa:id_siswa,nama_siswa')->whereIn('id_siswa', $siswa)->where('dibuat_oleh', $this->user->id)
+            ->whereIn('status', ['DISETUJUI', 'DITOLAK'])->where('ditinjau_pada', '>=', $this->sekarang->copy()->subDays(14))->get();
+        foreach ($karya as $x) {
+            $setuju = $x->status === 'DISETUJUI';
+            $hasil[] = $this->buat('portofolio-tinjau', [$x->id, $x->status, $x->ditinjau_pada->timestamp], [
+                'tingkat' => $setuju ? 'success' : 'warning', 'kategori' => 'Portofolio', 'ikon' => $setuju ? 'bi-images' : 'bi-arrow-return-left',
+                'judul' => "{$x->siswa?->nama_siswa}: karya \"{$x->judul}\" " . ($setuju ? 'masuk portofolio' : 'dikembalikan wali kelas'),
+                'pesan' => $x->tanggapan ? \Illuminate\Support\Str::limit($x->tanggapan, 160) : ($setuju ? 'Wali kelas menyetujui karya ini.' : 'Perbaiki lalu kirim ulang.'),
+                'tautan' => self::tautanPortal('portofolio', $x->id_siswa), 'waktu' => $x->ditinjau_pada->toIso8601String(),
             ]);
         }
 

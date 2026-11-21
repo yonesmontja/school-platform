@@ -548,6 +548,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "portofolio", kelompok: "wali", judul: "E-portofolio karya siswa", icon: "bi-images",
+    href: "/dashboard/portofolio",
+    langkah: [
+      "Buka Asesmen → Portofolio Siswa dan pilih rombel. Tekan Tambah karya, ambil foto atau pilih foto/video (foto ≤ 10 MB, video ≤ 45 MB).",
+      "Isi judul, kategori (Karya, Projek P5/kokurikuler, Prestasi & lomba, Kegiatan), tanggal, dan cerita singkat. Untuk projek P5, pilih projeknya.",
+      "Pilih satu atau beberapa siswa. Karya kelompok cukup diunggah sekali dan masuk ke portofolio setiap anggota.",
+      "Siswa dan orang tua juga bisa mengirim karya dari portal. Kirimannya muncul di Perlu Tindakan; buka, tulis tanggapan, lalu Setujui atau Kembalikan dengan alasan.",
+      "Tandai karya terbaik sebagai Unggulan. Di Rekam Jejak, Cetak buku induk menyertakan karya unggulan sebagai lampiran.",
+    ],
+    tips: [
+      "Foto diperkecil otomatis sebelum diunggah agar hemat kuota.",
+      "Berkas tersimpan privat: hanya wali kelas, kepala sekolah, admin, serta siswa dan orang tuanya yang bisa melihat.",
+      "Tanggapan Anda tampil untuk siswa dan orang tua, jadi bisa dipakai sebagai apresiasi.",
+    ],
+  },
+  {
     id: "pantauan-kenaikan", kelompok: "wali", judul: "Memantau risiko tidak naik kelas sejak awal", icon: "bi-signpost-split",
     href: "/dashboard/pantauan-kenaikan",
     langkah: [
@@ -1008,6 +1024,18 @@ export const BAGIAN = [
     ],
     tips: [
       "Keaslian rapor kertas bisa dicek dengan memindai QR di bawah tanda tangan. Halaman verifikasi menampilkan nilai yang tercatat di sekolah.",
+    ],
+  },
+  {
+    id: "portofolio-ortu", kelompok: "ortu", judul: "Mengirim karya ke portofolio", icon: "bi-images",
+    href: "/dashboard/portal",
+    langkah: [
+      "Buka Portal → Portofolio, lalu tekan Tambah karya.",
+      "Ambil foto atau pilih video karya (gambar, prakarya, hasil projek, piagam lomba), beri judul dan cerita singkat, lalu Unggah.",
+      "Wali kelas meninjau kiriman. Bila disetujui, karya masuk portofolio dan rekam jejak; bila dikembalikan, baca catatannya, perbaiki, lalu simpan untuk dikirim ulang.",
+    ],
+    tips: [
+      "Karya yang ditandai Unggulan oleh wali kelas ikut dicetak sebagai lampiran buku induk.",
     ],
   },
   {

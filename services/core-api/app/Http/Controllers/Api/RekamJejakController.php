@@ -50,9 +50,11 @@ class RekamJejakController extends Controller
         $p5 = TransNilaiP5::where('id_siswa', $id)->whereIn('id_periode', $periode)
             ->selectRaw('id_periode, count(distinct id_proyek) as n')->groupBy('id_periode')->pluck('n', 'id_periode');
         $jurnal = TransJurnal::where('id_siswa', $id)->get(['tanggal', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']);
+        $karya = \App\Models\TransPortofolio::where('id_siswa', $id)->where('status', 'DISETUJUI')->whereIn('id_periode', $periode)
+            ->selectRaw('id_periode, count(*) as n')->groupBy('id_periode')->pluck('n', 'id_periode');
         $rentang = MasterPeriode::whereIn('id_periode', $periode)->get()->mapWithKeys(fn($p) => [$p->id_periode => $p->rentang()]);
 
-        $semester = $riwayat->map(function ($r) use ($nilai, $mapel, $presensi, $catatan, $kenaikan, $pembinaan, $p5, $jurnal, $rentang) {
+        $semester = $riwayat->map(function ($r) use ($nilai, $mapel, $presensi, $catatan, $kenaikan, $pembinaan, $p5, $karya, $jurnal, $rentang) {
             $perMapel = collect($nilai->get($r['id_periode'], []))->groupBy('id_mapel')->map(fn($g, $m) => [
                 'id_mapel' => $m, 'nama_mapel' => $mapel[$m]->nama_mapel ?? $m, 'kelompok' => $mapel[$m]->kelompok ?? null,
                 'kkm' => (float) ($mapel[$m]->kkm ?? 75), 'rata' => round($g->avg(fn($n) => (float) $n->nilai), 1), 'jumlah' => $g->count(),
@@ -71,6 +73,7 @@ class RekamJejakController extends Controller
                 'jurnal' => ['jumlah' => $j->count(), 'positif' => $j->filter(fn($x) => $total($x) >= 0)->count(), 'perlu_perhatian' => $j->filter(fn($x) => $total($x) < 0)->count()],
                 'pembinaan' => (int) ($pembinaan[$r['id_periode']] ?? 0),
                 'p5' => (int) ($p5[$r['id_periode']] ?? 0),
+                'portofolio' => (int) ($karya[$r['id_periode']] ?? 0),
                 'catatan_wali' => $catatan[$r['id_periode']] ?? null,
                 'kenaikan' => ($k = $kenaikan->get($r['id_periode'])) && $k->disahkan ? $k->only(['keputusan', 'ke_tingkat']) : null,
             ];
