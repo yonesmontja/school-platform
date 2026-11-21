@@ -1,7 +1,10 @@
 "use client";
-// Antrean kiriman offline: nilai, jurnal & presensi yang disimpan saat tidak ada sinyal ditaruh di IndexedDB HP,
-// lalu dikirim otomatis begitu tersambung lagi (event "online", saat aplikasi dibuka, dan tiap menit).
+// Antrean kiriman offline: nilai, jurnal, presensi (harian & per mapel) dan karya portofolio (berkas foto/video)
+// yang disimpan saat tidak ada sinyal ditaruh di IndexedDB HP, lalu dikirim otomatis begitu tersambung lagi
+// (event "online", saat aplikasi dibuka, dan tiap menit).
 // Kiriman yang ditolak server (mis. validasi) tidak dihapus: ditandai gagal agar pengguna bisa memutuskan.
+// Nilai yang bentrok (sudah diubah orang lain sejak lembar dibuka, status 409) ditahan sampai pengguna memilih
+// "Timpa" atau "Buang"; tidak dicoba ulang otomatis.
 import { useSyncExternalStore } from "react";
 import { API_URL } from "@/app/lib/config";
 import { AKSES_EVENT } from "@/app/lib/akses";
@@ -49,10 +52,23 @@ async function segarkan() {
   beritahu();
 }
 
-/** Simpan kiriman ke antrean. jenis: "nilai" | "jurnal" | "presensi"; label: teks singkat untuk daftar antrean. */
-export async function tambahAntrean({ jenis, label, url, method = "POST", body, aiMode = null }) {
-  await transaksi("readwrite", (s) => s.add({ jenis, label, url, method, body, aiMode, pemilik: pemilikSaatIni(), dibuat: new Date().toISOString(), galat: null }));
+/**
+ * Simpan kiriman ke antrean. jenis: "nilai" | "jurnal" | "presensi" | "portofolio"; label: teks singkat untuk daftar.
+ * body dikirim sebagai JSON; formulir ({ isian: [[nama, nilai], …], berkas: Blob, namaBerkas }) dikirim sebagai
+ * multipart (berkas disimpan utuh di IndexedDB).
+ */
+export async function tambahAntrean({ jenis, label, url, method = "POST", body = null, formulir = null, aiMode = null }) {
+  await transaksi("readwrite", (s) => s.add({ jenis, label, url, method, body, formulir, aiMode, pemilik: pemilikSaatIni(), dibuat: new Date().toISOString(), galat: null, bentrok: null }));
   await segarkan();
+}
+
+/** Kiriman yang bentrok dikirim ulang dengan paksa (menimpa nilai di server). */
+export async function timpaAntrean(id) {
+  const item = (await semua()).find((x) => x.id === id);
+  if (!item) return { terkirim: 0, gagal: 0 };
+  await ubah({ ...item, body: { ...item.body, paksa: true }, bentrok: null, galat: null });
+  await segarkan();
+  return kirimAntrean();
 }
 
 export async function hapusAntrean(id) {
@@ -77,18 +93,25 @@ export const swalGagalMuat = (err) => (galatJaringan(err) || sedangOffline()
 
 export const sedangOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 
-async function kirimJson(url, method, body) {
+async function kirimJson(url, method, body, formulir = null) {
   const token = localStorage.getItem("token");
+  let isi;
+  if (formulir) {
+    isi = new FormData();
+    for (const [k, v] of formulir.isian || []) isi.append(k, v);
+    if (formulir.berkas) isi.append("berkas", formulir.berkas, formulir.namaBerkas || "berkas");
+  }
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
+    headers: { ...(formulir ? {} : { "Content-Type": "application/json" }), Accept: "application/json", Authorization: `Bearer ${token}` },
+    body: formulir ? isi : JSON.stringify(body),
     kunciAi: false, // terkirim di latar: jangan kunci layar
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const e = new Error((data.errors && Object.values(data.errors)[0]?.[0]) || data.message || `Ditolak server (${res.status})`);
     e.status = res.status;
+    e.bentrok = data.bentrok || null;
     throw e;
   }
   return data;
@@ -110,15 +133,16 @@ export async function kirimAntrean() {
   let terkirim = 0, gagal = 0;
   try {
     for (const item of await semua()) {
+      if (item.bentrok) continue; // menunggu keputusan pengguna (Timpa / Buang)
       try {
-        const body = await siapkanBody(item);
-        await kirimJson(item.url, item.method, body);
+        const body = item.formulir ? null : await siapkanBody(item);
+        await kirimJson(item.url, item.method, body, item.formulir);
         await transaksi("readwrite", (s) => s.delete(item.id));
         terkirim++;
       } catch (err) {
         if (galatJaringan(err)) break; // sinyal putus lagi: coba nanti, urutan tetap
         if (err.status === 401) break; // sesi berakhir: tunggu login ulang
-        await ubah({ ...item, galat: err.message });
+        await ubah({ ...item, galat: err.message, bentrok: err.status === 409 ? err.bentrok || [] : null });
         gagal++;
       }
     }
@@ -135,7 +159,7 @@ export function mulaiAntrean(onTerkirim) {
   if (dimulai || typeof indexedDB === "undefined") return;
   dimulai = true;
   const coba = async () => {
-    if (!ringkas.jumlah) return;
+    if (!ringkas.jumlah || ringkas.daftar.every((x) => x.bentrok)) return;
     const hasil = await kirimAntrean();
     if (hasil.terkirim) onTerkirim?.(hasil);
   };

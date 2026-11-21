@@ -7,6 +7,7 @@ import { minta } from "@/components/banksoal/api";
 import { FotoKecil } from "@/components/siswa/EditorFoto";
 import { galatJaringan, sedangOffline, tambahAntrean, useOnline } from "@/app/lib/antrean";
 import { TINGKAT } from "@/app/lib/notifikasi";
+import SiapOffline from "@/components/SiapOffline";
 
 // Status presensi dengan tombol besar untuk jempol
 const STATUS = [
@@ -149,6 +150,8 @@ export default function HariIniPage() {
         {dariSimpanan && <div className="small text-warning mt-1"><i className="bi bi-wifi-off me-1"></i>Offline: menampilkan data terakhir yang dimuat.</div>}
         {data.libur && <div className="alert alert-info py-2 small mt-2 mb-0"><i className="bi bi-calendar-heart me-1"></i>Hari libur: {data.libur}</div>}
       </div>
+
+      <SiapOffline ringkas />
 
       {/* PRESENSI KELAS BINAAN */}
       {data.kelas_binaan.map((k) => {

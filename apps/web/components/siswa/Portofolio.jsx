@@ -4,6 +4,8 @@ import { API_URL, authHeaders } from "@/app/lib/akses";
 import { API_ORIGIN } from "@/app/lib/config";
 import { minta } from "@/components/banksoal/api";
 import { kecilkanFoto } from "@/app/lib/foto";
+import { sedangOffline, tambahAntrean } from "@/app/lib/antrean";
+import Swal from "sweetalert2";
 import Pengisi from "@/components/dashboard/Pengisi";
 
 export const KATEGORI = {
@@ -36,7 +38,7 @@ function kirimBerkas(form, onProgres) {
       if (xhr.status >= 200 && xhr.status < 300) ok(d);
       else gagal(new Error((d.errors && Object.values(d.errors)[0]?.[0]) || d.message || `Gagal mengunggah (status ${xhr.status}).`));
     };
-    xhr.onerror = () => gagal(new Error("Koneksi terputus saat mengunggah. Coba lagi."));
+    xhr.onerror = () => { const e = new Error("Koneksi terputus saat mengunggah. Coba lagi."); e.jaringan = true; gagal(e); };
     xhr.send(form);
   });
 }
@@ -66,15 +68,31 @@ export function FormUnggah({ idSiswa, pilihanSiswa, proyek = [], portal = false,
     e.preventDefault();
     if (!berkas) { setGalat("Pilih foto atau video karya lebih dulu."); return; }
     if (!dipilih.length) { setGalat("Pilih minimal satu siswa."); return; }
+    const isian = [...dipilih.map((id) => ["id_siswa[]", id]), ...Object.entries(isi).filter(([k, v]) => v && (k !== "id_proyek" || isi.kategori === "P5"))];
+    // Tanpa sinyal: foto/video disimpan utuh di HP lalu diunggah otomatis saat tersambung (app/lib/antrean.js)
+    const simpanOffline = async () => {
+      await tambahAntrean({
+        jenis: "portofolio", url: `${API_URL}/portofolio`,
+        formulir: { isian, berkas, namaBerkas: berkas.name || (berkas.type?.startsWith("video/") ? "video.mp4" : "foto.jpg") },
+        label: `Karya "${isi.judul}" · ${dipilih.length} siswa`,
+      });
+      setProgres(null);
+      Swal.fire({ icon: "info", title: "Karya disimpan di HP", html: "Anda sedang offline. Foto/video <b>diunggah otomatis</b> saat tersambung lagi. Lihat ikon <i class=\"bi bi-cloud-upload\"></i> di atas.", confirmButtonText: "Mengerti" });
+      onSelesai?.({ message: `"${isi.judul}" disimpan di HP dan akan diunggah saat ada sinyal.`, data: [] });
+    };
+    setGalat("");
+    if (sedangOffline()) { await simpanOffline(); return; }
     const f = new FormData();
     f.append("berkas", berkas);
-    dipilih.forEach((id) => f.append("id_siswa[]", id));
-    Object.entries(isi).forEach(([k, v]) => { if (v && (k !== "id_proyek" || isi.kategori === "P5")) f.append(k, v); });
-    setProgres(0); setGalat("");
+    isian.forEach(([k, v]) => f.append(k, v));
+    setProgres(0);
     try {
       const r = await kirimBerkas(f, setProgres);
       onSelesai?.(r);
-    } catch (err) { setGalat(err.message); setProgres(null); }
+    } catch (err) {
+      if (err.jaringan) { await simpanOffline(); return; }
+      setGalat(err.message); setProgres(null);
+    }
   };
 
   const video = berkas?.type?.startsWith("video/");

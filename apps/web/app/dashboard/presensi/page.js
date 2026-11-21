@@ -259,10 +259,21 @@ export default function PresensiPage() {
   // --- SIMPAN PER MAPEL (guru mapel) ---
   const simpanMapel = async () => {
     if (!idMapel) return Swal.fire("Perhatian", "Pilih mata pelajaran.", "warning");
+    const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR", keterangan: (ketLembar[s.id_siswa] || "").trim() }));
+    const body = { ...filters, id_mapel: idMapel, id_jadwal: idJadwal || null, records };
+    // Tanpa sinyal: presensi mapel disimpan di HP dan dikirim otomatis saat tersambung (app/lib/antrean.js)
+    const simpanOffline = async () => {
+      const namaMapel = mapelPilihan.find((m) => m.id_mapel === idMapel)?.nama_mapel || "mapel";
+      const tidakHadir = records.filter((r) => r.status_kehadiran !== "HADIR").length;
+      await tambahAntrean({ jenis: "presensi", url: `${API_URL}/presensi/mapel`, body, label: `Presensi ${namaMapel} ${namaKelas} ${tanggalPanjang(filters.tanggal)} · ${tidakHadir} tidak hadir` });
+      Swal.fire({ icon: "info", title: "Presensi mapel disimpan di HP", html: "Anda sedang offline. Presensi <b>dikirim otomatis</b> saat tersambung lagi.", confirmButtonText: "Mengerti" });
+    };
+    if (sedangOffline()) return simpanOffline();
     setSaving(true);
     try {
-      const records = data.students.map((s) => ({ id_siswa: s.id_siswa, status_kehadiran: lembar[s.id_siswa] || "HADIR", keterangan: (ketLembar[s.id_siswa] || "").trim() }));
-      const res = await sendJSON(`${API_URL}/presensi/mapel`, "POST", { ...filters, id_mapel: idMapel, id_jadwal: idJadwal || null, records });
+      let res;
+      try { res = await sendJSON(`${API_URL}/presensi/mapel`, "POST", body); }
+      catch (err) { if (galatJaringan(err)) return await simpanOffline(); throw err; }
       await muatData(filters.id_kelas, filters.id_periode);
       const r = await safeFetch(`${API_URL}/presensi/mapel?${new URLSearchParams({ id_kelas: filters.id_kelas, id_mapel: idMapel, tanggal: filters.tanggal })}`);
       setDataMapel(r);

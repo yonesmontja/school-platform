@@ -47,14 +47,17 @@ export const BAGIAN = [
   {
     id: "offline", kelompok: "mulai", judul: "Mengisi saat sinyal putus (offline)", icon: "bi-wifi-off", peran: ["admin", "kepsek", "guru", "siswa", "ortu"],
     langkah: [
-      "Saat aplikasi dibuka dengan sinyal, SAPrapor otomatis menyiapkan halaman Input Nilai, Jurnal, dan Presensi beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
-      "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, atau presensi seperti biasa lalu tekan Simpan.",
+      "Saat aplikasi dibuka dengan sinyal, SAPrapor otomatis menyiapkan halaman Input Nilai, Jurnal, Presensi, dan Portofolio beserta data kelas Anda di HP (sekali sehari, di latar belakang). Bila memakai aplikasi terpasang, buka sekali saat ada sinyal setiap pagi.",
+      "Cek kesiapannya di kartu Siap dipakai offline (halaman Hari Ini) atau Mode Offline (Akun Saya). Sebelum ke kelas yang sinyalnya lemah, tekan Siapkan sekarang, terutama setelah menambah materi baru.",
+      "Bila sinyal putus, pita kuning Anda sedang offline muncul. Isi nilai, jurnal, presensi (harian atau per mapel), atau unggah karya portofolio seperti biasa lalu tekan Simpan / Unggah.",
       "Muncul pesan Disimpan di HP, dan ikon awan dengan angka di bagian atas menunjukkan jumlah kiriman yang menunggu.",
       "Begitu tersambung lagi, kiriman terkirim otomatis dan muncul pesan berhasil dikirim. Tekan ikon awan untuk melihat daftarnya atau Kirim sekarang.",
     ],
     tips: [
       "Jangan keluar (logout) sebelum kiriman terkirim. Kiriman tersimpan per akun di HP itu.",
-      "Bila kiriman ditolak server (misalnya data sudah diubah orang lain), tandanya merah di daftar. Periksa lalu isi ulang atau buang.",
+      "Bila nilai yang Anda isi offline ternyata sudah diubah orang lain sementara itu, kiriman tidak menimpa diam-diam: daftar menampilkan nilai di server dan nilai Anda. Tekan Timpa bila yakin, atau buang kirimannya.",
+      "Bila kiriman ditolak server karena alasan lain, tandanya merah di daftar. Periksa lalu isi ulang atau buang.",
+      "Foto dan video karya disimpan utuh di HP sampai terunggah; video besar memakan ruang HP, jadi unggah segera saat ada sinyal.",
       "Jurnal yang ditulis offline dianalisis STNKM saat terkirim. Kabar WhatsApp dikirim setelah tersambung, dari linimasa atau lembar presensi.",
     ],
   },

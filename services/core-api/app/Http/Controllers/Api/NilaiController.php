@@ -18,6 +18,8 @@ use App\Models\TransJadwal;
 use App\Models\TransNilai;
 use App\Models\TransNilaiIndikator;
 use App\Models\TransRencanaRemedial;
+use App\Models\User;
+use Illuminate\Support\Carbon;
 use App\Services\LampiranJadwalService;
 use App\Services\RemedialService;
 use Illuminate\Http\Request;
@@ -286,6 +288,8 @@ class NilaiController extends Controller
                     'id_nilai' => $n?->id_nilai,
                     'nilai' => $n ? (float) $n->nilai : null,
                     'tanggal' => $n?->tanggal,
+                    // Dasar pembanding kiriman offline: nilai yang diubah orang lain sesudahnya dianggap bentrok
+                    'diperbarui' => $n?->updated_at?->toISOString(),
                     'rencana' => $n?->rencana,
                     'nilai_indikator' => $n ? $n->nilaiIndikator->mapWithKeys(fn($i) => [$i->id_indikator => (float) $i->nilai]) : (object) [],
                     // Poin STNKM tersimpan; metode MANUAL berarti diisi guru sendiri (bukan dihitung dari bobot)
@@ -347,6 +351,10 @@ class NilaiController extends Controller
             'records.*.poin_N' => 'nullable|numeric',
             'records.*.poin_K' => 'nullable|numeric',
             'records.*.poin_M' => 'nullable|numeric',
+            // Kiriman offline: {id_siswa: updated_at saat lembar dibuka | null bila belum ada nilai}
+            'dasar' => 'nullable|array',
+            'dasar.*' => 'nullable|date',
+            'paksa' => 'nullable|boolean',
         ]);
 
         $this->cekMapel($request, $request->id_mapel);
@@ -406,6 +414,17 @@ class NilaiController extends Controller
         $guruPengampu = Subject::find($meta['id_mapel'])?->id_guru;
 
         $existing = $this->queryPenilaian($meta, $request->tanggal)->whereIn('id_siswa', $normal->pluck('id_siswa'))->get()->keyBy('id_siswa');
+
+        // Kiriman offline yang terlambat: jangan menimpa diam-diam nilai yang sudah diubah orang lain sesudah lembar dibuka
+        if (is_array($request->input('dasar')) && !$request->boolean('paksa')) {
+            $bentrok = $this->cariBentrok($request->input('dasar'), $normal, $existing, $request->user()->id);
+            if ($bentrok) {
+                return response()->json([
+                    'message' => count($bentrok) . ' nilai sudah diubah di perangkat lain sejak lembar ini dibuka. Pilih timpa atau buang kiriman ini.',
+                    'bentrok' => $bentrok,
+                ], 409);
+            }
+        }
         $saved = 0; $updated = 0;
 
         DB::transaction(function () use ($request, $meta, $metode, $mbk, $materi, $user, $guruAkun, $guruPengampu, $existing, $normal, $remedial, &$saved, &$updated) {
@@ -469,6 +488,31 @@ class NilaiController extends Controller
             'updated' => $updated,
             'perlu_tindak_lanjut' => $perluTindakLanjut,
         ]);
+    }
+
+    /** Siswa yang nilainya di server diubah akun lain setelah waktu dasar kiriman dan berbeda dari nilai kiriman. */
+    private function cariBentrok(array $dasar, $normal, $existing, int $idPengguna): array
+    {
+        $pengisi = User::whereIn('id', $existing->pluck('diisi_oleh')->filter())->pluck('name', 'id');
+        $nama = Student::whereIn('id_siswa', $normal->pluck('id_siswa'))->pluck('nama_siswa', 'id_siswa');
+        $hasil = [];
+        foreach ($normal as $rec) {
+            $row = $existing[$rec['id_siswa']] ?? null;
+            // Perubahan oleh akun yang sama (mis. dua kiriman offline berurutan) bukan bentrok
+            if (!$row || !array_key_exists($rec['id_siswa'], $dasar) || (int) $row->diisi_oleh === $idPengguna) continue;
+            $basis = $dasar[$rec['id_siswa']];
+            $berubah = $basis === null || ($row->updated_at && $row->updated_at->gt(Carbon::parse($basis)));
+            if (!$berubah || abs((float) $row->nilai - (float) $rec['nilai']) < 0.005) continue;
+            $hasil[] = [
+                'id_siswa' => $rec['id_siswa'],
+                'nama_siswa' => $nama[$rec['id_siswa']] ?? $rec['id_siswa'],
+                'nilai_server' => (float) $row->nilai,
+                'nilai_kiriman' => (float) $rec['nilai'],
+                'diubah_oleh' => $pengisi[$row->diisi_oleh] ?? null,
+                'diubah_pada' => $row->updated_at?->toISOString(),
+            ];
+        }
+        return $hasil;
     }
 
     /**

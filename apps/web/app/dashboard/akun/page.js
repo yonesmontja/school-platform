@@ -6,6 +6,7 @@ import Swal from "sweetalert2";
 import { API_URL, ROLE_LABEL, ROLE_WARNA, authHeaders, simpanUser, halamanAwal, useAkses } from "@/app/lib/akses";
 import { ACCENTS, GAYA, THEME_MODES, setAccent, setGaya, setThemeMode, useAppTheme } from "@/app/lib/themePrefs";
 import { bacaAccordion, simpanAccordion } from "@/app/lib/sidebarPrefs";
+import SiapOffline from "@/components/SiapOffline";
 
 const SYARAT = [
   { uji: (p) => p.length >= 8, label: "Minimal 8 karakter" },
@@ -168,6 +169,13 @@ export default function AkunSayaPage() {
             </div>
           </div>
         </div>
+
+        {/* MODE OFFLINE: kesiapan HP ini untuk input tanpa sinyal */}
+        {!isPortal && (
+          <div className="col-12">
+            <SiapOffline />
+          </div>
+        )}
 
         {/* PREFERENSI TAMPILAN */}
         <div className="col-12">

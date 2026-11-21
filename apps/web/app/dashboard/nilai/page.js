@@ -576,8 +576,10 @@ function InputNilaiPage() {
     };
     // Tanpa sinyal: simpan di HP, dikirim otomatis saat tersambung (app/lib/antrean.js)
     const simpanOffline = async () => {
+      // Dasar pembanding: waktu nilai tiap siswa saat lembar dibuka, agar server menolak bila sudah diubah orang lain
+      const dasar = modeRemedial ? null : Object.fromEntries(records.map((r) => [r.id_siswa, students.find((s) => s.id_siswa === r.id_siswa)?.diperbarui ?? null]));
       await tambahAntrean({
-        jenis: "nilai", url: `${API_URL}/nilai/batch`, body,
+        jenis: "nilai", url: `${API_URL}/nilai/batch`, body: dasar ? { ...body, dasar } : body,
         label: `Nilai ${modeRemedial ? "remedial " : ""}${mapelTerpilih?.nama_mapel || ""} ${kelasTerpilih?.nama_kelas || ""} · ${records.length} siswa`,
       });
       // Isian yang sudah diantrekan dianggap tersimpan agar tidak diperingatkan sebagai perubahan
