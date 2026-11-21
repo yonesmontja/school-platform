@@ -87,7 +87,10 @@ school-platform/
 - **Tutup Semester & kunci semester** — wizard admin (`/dashboard/tutup-semester`): periksa kelengkapan (catatan wali, mapel tanpa nilai, remedial, sesi jadwal, keputusan kenaikan), pilih semester berikutnya, salin status rombel, pembagian mengajar, dan pola jadwal mingguan (Ganjil → Genap, melewati hari libur), lalu kunci semester lama. Semester terkunci hanya bisa dibaca (nilai, presensi, jurnal, catatan wali, P5, pembinaan, diagnostik, kenaikan); admin tetap bisa memperbaiki dan membuka kunci di menu Semester
 - **Pembagian Mengajar** — guru pengampu per rombel × mapel per semester (`pengampu_mapel`); sel kosong memakai guru bawaan di Mata Pelajaran. Guru hanya bisa menilai mapel di rombel yang diampunya. Saat semester ditutup, pengampu dibekukan sehingga ATP, modul ajar, paket soal, dan kisi-kisi semester lama tetap menampilkan guru saat itu
 - **Kenaikan kelas** — usulan otomatis dari data setahun (3 mapel atau lebih di bawah KKM → tidak naik; tingkat tertinggi → lulus), keputusan wali kelas, pengesahan kepala sekolah, dan bagian **D. Keputusan** di rapor Genap. Tutup Semester ke tahun ajaran baru menerapkan keputusan: naik ke tingkat berikutnya (langsung bila rombelnya satu, selain itu menunggu **Pemetaan Rombel** dengan tombol bagi rata L/P), tinggal kelas, atau lulus menjadi alumni; pengingat di Perlu Tindakan
+- **Pantauan Kenaikan** — menu Laporan → Pantauan Kenaikan (pengelola & wali kelas): aturan usulan kenaikan dihitung terus sepanjang tahun ajaran dari nilai yang sudah masuk, dengan tingkat risiko (Tinggi, Waspada, Pantau, Aman), perkiraan nilai target yang dibutuhkan, dan catatan tindak lanjut wali kelas. Orang tua/siswa melihat ringkasannya di Portal, peringatan dini semester Genap ikut memakainya, dan notifikasi dikirim ke pihak terkait
 - **Rekam jejak (buku induk)** — halaman `/dashboard/rekam-jejak?siswa=` berisi biodata dan satu kartu per semester (rombel & wali saat itu, rata-rata per mapel, kehadiran, jurnal, pembinaan, P5, catatan wali, keputusan kenaikan), rincian nilai harian dan jurnal per semester (narasi sensitif disembunyikan), tautan ke rapor, dan cetak buku induk; dibuka dari Master Siswa dan portal
+- **Analitik Lintas Semester** — halaman `/dashboard/analitik` (pengelola & guru, guru dibatasi mapel yang diampu): TP yang lemah di beberapa angkatan, kesenjangan antarkelas, siswa dengan nilai menurun, dan saran pembelajaran ulang dari AI (provider dan API key diatur di halaman Pengaturan, tersimpan terenkripsi); rekam jejak siswa juga menampilkan grafik lintasan nilai
+- **Rapor digital terverifikasi** — wali kelas menerbitkan rapor resmi satu kelas (cuplikan nilai + kode QR), kepala sekolah mengesahkan dengan tanda tangan elektronik, orang tua menyatakan sudah menerima di Portal, dan siapa pun bisa memeriksa keaslian rapor dari QR di halaman publik `/verifikasi/rapor/{kode}`
 - **Pemantau uptime mandiri** — perintah terjadwal `situs:pantau` tiap 5 menit memeriksa beranda dan `/api/health` lewat alamat publik; bila gagal 2 kali berturut-turut admin dikabari lewat WA (Fonnte) dan dikabari lagi saat pulih
 - **Variasi Bank Soal** — dari soal yang sudah ada, AI membuat **varian** (`ModalVarianAI`), soal kembar/duplikat dideteksi (`/bank-soal/kembar`), dan panel **Cakupan** per TP menunjukkan TP yang belum punya soal atau kurang variasi; draf soal juga bisa dibuat dari hasil riset Notebook (`Jadikan soal`)
 - **Peta Tema → Jadwal kelas** — kepala sekolah menetapkan Peta Tema (slot, tetapkan, buka kunci) lalu pratinjau dan membuat sesi Jadwal kelas darinya, dengan pengecekan konflik (`/perangkat-ajar/tema/{id}/cek`); komponen `PolaJadwalTema`. Sesi modul ditautkan dihitung penuh per TP, dan Panduan memuat alur perencanaan serta urutan peta kerja
@@ -355,6 +358,7 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/spmb/info` | SPMB publik: info gelombang yang dibuka | – | – |
 | POST | `/spmb/daftar`, `/spmb/status`, `/spmb/berkas`, `/spmb/ajukan-ulang`, `/spmb/daftar-ulang` · PUT `/spmb/data` | SPMB publik: daftar, cek status, perbaiki data, unggah berkas, ajukan ulang, daftar ulang (nomor + kode akses; throttle) | – | – |
 | GET | `/verifikasi-surat/{kode}` | Verifikasi keaslian surat keluar dari kode tercetak (throttle 30/menit) | – | – |
+| GET | `/verifikasi-rapor/{kode}` | Verifikasi keaslian rapor resmi dari kode QR tercetak (throttle 30/menit) | – | – |
 | GET | `/administrasi` | Ringkasan submodul Administrasi untuk akun ini | staf, operator (yang punya submodul) | ✔ |
 | GET | `/administrasi/operator`, `/administrasi/kandidat` | Daftar operator submodul / kandidat yang bisa ditunjuk | admin, kepsek | ✔ |
 | POST/PUT/DELETE | `/administrasi/operator[/{id}]` | Tunjuk, ubah, cabut operator submodul | kepsek | ✔ |
@@ -407,6 +411,10 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/pengampu/saya` | Mapel & rombel yang diampu guru akun ini | staf | ✔ |
 | GET/PUT | `/kenaikan` | Usulan & keputusan kenaikan kelas satu rombel (semester Genap) | admin, kepsek, guru (wali kelas) | ✔ |
 | POST | `/kenaikan/sahkan` | Sahkan / batalkan pengesahan keputusan satu rombel | admin, kepsek | ✔ |
+| GET | `/pantauan-kenaikan` | Pantauan kenaikan sepanjang tahun: tingkat risiko, perkiraan target, tindak lanjut | admin, kepsek, guru (wali kelas) | ✔ |
+| POST | `/pantauan-kenaikan/tindak` | Catat tindak lanjut pantauan kenaikan | admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/analitik/lintas-semester` | Analitik lintas semester: TP lemah antarangkatan, kesenjangan kelas, siswa menurun | admin, kepsek, guru (mapel diampu) | ✔ |
+| POST | `/analitik/saran-tp` | Saran pembelajaran ulang dari AI untuk TP lemah (throttle 10/menit) | admin, kepsek, guru | ✔ |
 | GET/PUT | `/pemetaan-rombel` | Siswa yang menunggu rombel per tingkat / tempatkan ke rombel | admin, kepsek | ✔ |
 | GET | `/siswa/{id}/rekam-jejak` | Rekam jejak lintas semester (+ `/nilai`, `/jurnal` per `id_periode`) | admin, kepsek, wali kelas, siswa/ortu sendiri | ✔ |
 | GET | `/panduan/kerja` | Peta kerja guru: progres alur kerja semester (admin/kepsek memilih guru) | semua peran | ✔ |
@@ -453,6 +461,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/pesan` | Daftar utas pesan per siswa + jumlah belum dibaca | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
 | GET/POST | `/pesan/{id}` | Buka utas (menandai dibaca) / kirim pesan (throttle 30/menit) | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
 | GET | `/portal/pekan` | Rapor berjalan pekanan (`minggu` 0 s.d. −26) + teks ringkas; staf mendapat tautan WhatsApp | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
+| POST | `/portal/rapor/terima` | Orang tua/siswa menyatakan sudah menerima rapor terbit | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
+| GET | `/portal/pantauan-kenaikan` | Ringkasan pantauan kenaikan anak (portal) | siswa, ortu, admin, kepsek, guru (wali kelas) | ✔ |
 | GET/POST | `/notebook`, `/notebook/catatan` | Notebook riset beberapa dokumen (pribadi per akun): daftar & buat; semua catatan sebagai bahan *Jadikan…* | staf | ✔ |
 | GET/PUT/DELETE | `/notebook/{id}` | Detail, ubah, hapus notebook | staf | ✔ |
 | POST | `/notebook/{id}/tanya` | Tanya-jawab lintas dokumen notebook (throttle 20/menit) | staf | ✔ |
@@ -560,6 +570,8 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET | `/rapor/data` | Data rapor siswa | staf | ✔ |
 | POST | `/rapor/catatan-wali` | Simpan catatan wali kelas | staf | ✔ |
 | POST | `/rapor/catatan-wali/generate` | Buat catatan wali dengan AI | staf | ✔ |
+| GET/POST | `/rapor/terbit` | Status penerbitan / terbitkan rapor resmi satu kelas (kode QR) | admin, kepsek, guru (wali kelas) | ✔ |
+| POST | `/rapor/terbit/sahkan` | Pengesahan rapor terbit (tanda tangan elektronik kepala sekolah) | admin, kepsek | ✔ |
 | GET | `/laporan/stnkm` | Data laporan STNKM | staf | ✔ |
 | POST | `/whatsapp` | Kirim WhatsApp (Fonnte) | staf | ✔ |
 | GET | `/jadwal, /jadwal/referensi` | Daftar jadwal & data referensi | staf | ✔ |
@@ -580,6 +592,7 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/spmb`                   | SPMB publik: formulir pendaftaran, cek status, daftar ulang (tanpa login) |
 | `/verifikasi/{kode}`      | Verifikasi keaslian surat keluar (tanpa login) |
 | `/verifikasi/siswa/{kode}` | Verifikasi kartu pelajar dari QR (tanpa login) |
+| `/verifikasi/rapor/{kode}` | Verifikasi keaslian rapor resmi dari QR (tanpa login) |
 | `/android`                | Unduh aplikasi Android (APK) |
 | `/login`                  | Login                |
 | `/dashboard`              | Dashboard            |
@@ -595,6 +608,8 @@ Endpoint bertanda ✔ memerlukan header `Authorization: Bearer <token>`. Kolom P
 | `/dashboard/tutup-semester` | Wizard Tutup Semester (admin) |
 | `/dashboard/pengampu`     | Pembagian Mengajar per semester (admin & kepsek) |
 | `/dashboard/kenaikan`     | Kenaikan Kelas: keputusan & pengesahan (pengelola & wali kelas) |
+| `/dashboard/pantauan-kenaikan` | Pantauan Kenaikan sepanjang tahun (pengelola & wali kelas) |
+| `/dashboard/analitik`     | Analitik Lintas Semester (pengelola & guru) |
 | `/dashboard/pemetaan-rombel` | Pemetaan Rombel siswa yang naik kelas (admin & kepsek) |
 | `/dashboard/rekam-jejak`  | Rekam jejak / buku induk siswa (pengelola, wali kelas, siswa/ortu) |
 | `/dashboard/master-kategori` | High Level (kategori penilaian) |
