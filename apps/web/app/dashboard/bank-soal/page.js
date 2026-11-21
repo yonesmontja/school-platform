@@ -52,7 +52,8 @@ function BankSoalPage() {
   const [tab, setTab] = useState("soal");
   const [referensi, setReferensi] = useState(null);
   // Filter dari tautan Perlu Tindakan (?status=&milik=) dipakai sejak pemuatan pertama
-  const filterTautan = () => ({ ...FILTER_AWAL, status: params.get("status") || "", milik: params.get("milik") === "1" });
+  // Tautan dari Analitik membawa ?id_mapel=&cari= (TP yang lemah)
+  const filterTautan = () => ({ ...FILTER_AWAL, status: params.get("status") || "", milik: params.get("milik") === "1", id_mapel: params.get("id_mapel") || "", cari: params.get("cari") || "" });
   const [filter, setFilter] = useState(filterTautan);
   const permintaan = useRef(0);
   const [halaman, setHalaman] = useState(1);

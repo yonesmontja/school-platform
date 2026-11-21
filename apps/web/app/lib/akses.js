@@ -56,6 +56,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/master-siswa", peran: ["admin", "kepsek", "guru"] },
   // Peringatan dini: pengelola & wali kelas (server menyaring ke kelas binaan)
   { awalan: "/dashboard/peringatan-dini", peran: ["admin", "kepsek", "guru"] },
+  { awalan: "/dashboard/analitik", peran: ["admin", "kepsek", "guru"] },
   // Pesan orang tua: admin, kepala sekolah, wali kelas (server menyaring utas)
   { awalan: "/dashboard/pesan", peran: ["admin", "kepsek", "guru"] },
   { awalan: "/dashboard/master-keluarga", peran: ["admin", "kepsek"] },

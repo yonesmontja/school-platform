@@ -591,6 +591,24 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "analitik", kelompok: "pengelola", judul: "Analitik lintas semester", icon: "bi-graph-up",
+    href: "/dashboard/analitik",
+    langkah: [
+      "Buka Laporan → Analitik Lintas Semester. Saring per mata pelajaran atau tingkat bila perlu.",
+      "Kartu di atas merangkum TP yang lemah lintas angkatan, TP yang lemah di semester terakhir, kesenjangan antarrombel, dan siswa yang menurun.",
+      "Grafik menampilkan rata-rata dan ketuntasan per mapel. Setelah ada dua semester atau lebih, grafik berubah menjadi tren antarsemester.",
+      "Di tabel Ketercapaian TP, pilih Perlu perhatian atau Semua, lalu tekan nama TP untuk melihat rincian per rombel.",
+      "Di rincian TP, tekan Minta saran AI (atau Tanpa AI) untuk mendapat diagnosis, strategi mengajar ulang, ide kegiatan, dan asesmen formatif. Tombol Soal di Bank Soal membuka soal untuk TP itu.",
+      "Bagian Siswa yang menurun menampilkan siswa yang rata-ratanya turun dua semester berturut-turut, dengan tautan ke Rekam jejak.",
+    ],
+    tips: [
+      "TP yang sama dicocokkan lintas angkatan dari mapel, tingkat, semester (Ganjil/Genap), dan nama TP. Pakai nama TP yang sama tiap tahun agar polanya terbaca.",
+      "TP yang lemah di dua angkatan atau lebih biasanya tanda cara penyajiannya yang perlu ditinjau, bukan kemampuan satu angkatan.",
+      "Guru hanya melihat mapel yang diampunya, dan daftar siswa menurun hanya untuk kelas binaannya. AI hanya menerima angka agregat, tanpa nama siswa.",
+      "Rekam jejak siswa kini juga punya grafik lintasan nilai dan kehadiran per semester.",
+    ],
+  },
+  {
     id: "rekam-jejak", kelompok: "pengelola", judul: "Rekam jejak siswa (buku induk)", icon: "bi-clock-history",
     href: "/dashboard/master-siswa",
     langkah: [

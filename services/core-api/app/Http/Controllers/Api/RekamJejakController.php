@@ -79,6 +79,7 @@ class RekamJejakController extends Controller
         return response()->json([
             'siswa' => $siswa,
             'semester' => $semester,
+            'lintasan' => \App\Services\AnalitikLintasSemester::lintasan($semester->all()),
             'sekolah' => \App\Models\SchoolSetting::first()?->only(['nama_sekolah', 'npsn', 'alamat_sekolah', 'kota', 'nama_kepsek', 'nip_kepsek']),
         ]);
     }

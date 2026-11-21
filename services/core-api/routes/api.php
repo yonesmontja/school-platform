@@ -413,6 +413,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/cari', [\App\Http\Controllers\Api\CariController::class, 'index'])->middleware('throttle:120,1');
         // Mode "Hari ini" untuk guru di HP: sesi, presensi kelas binaan, pengingat
         Route::get('/hari-ini', [\App\Http\Controllers\Api\HariIniController::class, 'index']);
+        // Analitik lintas semester: pengelola & guru (dibatasi mapel diampu, dicek di controller)
+        Route::get('/analitik/lintas-semester', [\App\Http\Controllers\Api\AnalitikController::class, 'index']);
+        Route::post('/analitik/saran-tp', [\App\Http\Controllers\Api\AnalitikController::class, 'saranTp'])->middleware('throttle:10,1');
         // Peringatan dini siswa: pengelola & wali kelas (dicek di controller)
         Route::prefix('peringatan-dini')->controller(\App\Http\Controllers\Api\PeringatanDiniController::class)->group(function () {
             Route::get('/', 'index');

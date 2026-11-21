@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_URL } from "@/app/lib/config";
+import { ChartCanvas } from "@/components/dashboard/ChartCard";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -124,6 +125,31 @@ function KartuSemester({ s, idSiswa }) {
   );
 }
 
+function Lintasan({ data }) {
+  const d = data?.deret || [];
+  if (d.filter((x) => x.rata !== null || x.kehadiran !== null).length < 2) return null;
+  const config = {
+    type: "line",
+    data: {
+      labels: d.map((x) => [x.label, x.nama_kelas || ""]),
+      datasets: [
+        { label: "Rata-rata nilai", data: d.map((x) => x.rata), borderColor: "#3b82f6", backgroundColor: "#3b82f6", tension: 0.25, spanGaps: true },
+        { label: "Kehadiran (%)", data: d.map((x) => x.kehadiran), borderColor: "#10b981", backgroundColor: "#10b981", borderDash: [5, 3], tension: 0.25, spanGaps: true },
+      ],
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { suggestedMin: 50, max: 100 } } },
+  };
+  return (
+    <section className="card border-0 shadow-sm mb-3 kartu-semester" aria-labelledby="judul-lintasan">
+      <div className="card-header bg-white d-flex flex-wrap align-items-center gap-2">
+        <h2 id="judul-lintasan" className="h6 fw-bold mb-0 me-auto">Lintasan nilai & kehadiran</h2>
+        {data.turun_berturut && <span className="badge text-bg-danger"><i className="bi bi-graph-down-arrow me-1" aria-hidden="true"></i>Turun 2 semester berturut-turut</span>}
+      </div>
+      <div className="card-body"><ChartCanvas config={config} height={220} /></div>
+    </section>
+  );
+}
+
 function RekamJejakIsi() {
   const params = useSearchParams();
   const idSiswa = params.get("siswa") || "";
@@ -172,6 +198,8 @@ function RekamJejakIsi() {
           </dl>
         </div>
       </section>
+
+      <Lintasan data={data.lintasan} />
 
       {data.semester.length === 0 ? (
         <div className="alert alert-light border">Belum ada riwayat semester untuk siswa ini.</div>
