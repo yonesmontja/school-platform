@@ -18,6 +18,7 @@ import { FotoKecil } from "@/components/siswa/EditorFoto";
 import { KartuPeringatanSiswa } from "@/components/siswa/PeringatanDini";
 import UtasPesan from "@/components/siswa/UtasPesan";
 import RaporBerjalan from "@/components/siswa/RaporBerjalan";
+import PantauanKenaikanPortal from "@/components/siswa/PantauanKenaikanPortal";
 import { unduhFoto } from "@/components/siswa/fotoSiswa";
 import { OPSI_TINDAK_LANJUT } from "@/components/nilai/ModalTindakLanjut";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
@@ -494,6 +495,7 @@ function PortalPage() {
           {tab === "ringkasan" && (
             <div className="row g-3">
               <div className="col-12">
+                <PantauanKenaikanPortal idSiswa={idSiswa} sebutan={role === "ortu" ? "Ananda" : staf ? "Siswa" : "Anda"} />
                 <RaporBerjalan idSiswa={idSiswa} staf={staf} />
                 <PerluPerhatian rapor={rapor} capaian={capaian} remedialAktif={remedialAktif} keTab={(t, rencana) => { gantiTab(t); setSorot(rencana || null); }} sebutan={role === "ortu" ? "Ananda" : staf ? "Siswa" : "Anda"} />
               </div>

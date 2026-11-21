@@ -82,6 +82,7 @@ const MENU_GROUPS = [
       { href: "/dashboard/analitik", label: "Analitik Lintas Semester", icon: "bi-graph-up", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || u?.role === "guru" },
       { href: "/dashboard/laporan-stnkm", label: "STNKM", icon: "bi-graph-up-arrow" },
       { href: "/dashboard/rapor", label: "Rapor", icon: "bi-file-earmark-richtext" },
+      { href: "/dashboard/pantauan-kenaikan", label: "Pantauan Kenaikan", icon: "bi-signpost-split", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/kenaikan", label: "Kenaikan Kelas", icon: "bi-mortarboard", syarat: (u) => peranBoleh(PENGELOLA, u?.role) || (u?.role === "guru" && (u?.kelas_binaan || []).length > 0) },
       { href: "/dashboard/pemakaian", label: "Pemakaian Aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"] },
     ],

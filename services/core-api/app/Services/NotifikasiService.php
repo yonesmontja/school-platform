@@ -270,6 +270,17 @@ class NotifikasiService
         }
         $p = $this->periode ? \App\Models\MasterPeriode::find($this->periode) : null;
         if (!$p || $p->semester !== 'Genap') return $hasil;
+        // Sepanjang semester Genap: siswa berisiko tinggi tidak naik yang belum punya tindak lanjut dalam 30 hari
+        foreach (Classes::whereIn('id_kelas', $u->kelasBinaan())->orderBy('nama_kelas')->get(['id_kelas', 'nama_kelas']) as $k) {
+            $perlu = \App\Services\PantauanKenaikan::kelas($k, $p)->filter(fn($s) => $s['perlu_tindak'] && $s['tingkat'] === 'TINGGI');
+            if ($perlu->isEmpty()) continue;
+            $hasil[] = $this->buat('kenaikan-risiko', [$p->id_periode, $k->id_kelas, $perlu->pluck('id_siswa')->all()], [
+                'tingkat' => 'warning', 'kategori' => 'Kenaikan kelas', 'ikon' => 'bi-signpost-split',
+                'judul' => "{$k->nama_kelas}: {$perlu->count()} siswa berisiko tidak naik kelas",
+                'pesan' => self::daftarNama($perlu->pluck('nama_siswa')) . ' belum punya tindak lanjut 30 hari terakhir. Catat remedial atau pembinaan, atau kabari orang tua.',
+                'jumlah' => $perlu->count(), 'tautan' => '/dashboard/pantauan-kenaikan?id_kelas=' . $k->id_kelas, 'waktu' => $this->hariIni . 'T00:00:03',
+            ]);
+        }
         // Mulai 6 minggu sebelum semester Genap berakhir
         [, $selesai] = $p->rentang();
         if ($this->sekarang->lt($selesai->copy()->subWeeks(6))) return $hasil;
@@ -574,6 +585,17 @@ class NotifikasiService
                 'judul' => "{$t->siswa?->nama_siswa}: rapor resmi semester " . ($r['semester'] ?? '') . ' sudah terbit',
                 'pesan' => 'Silakan baca rapornya, lalu tekan "Sudah menerima & membaca". Anda juga bisa menulis tanggapan untuk wali kelas.',
                 'tautan' => self::tautanPortal('rapor', $t->id_siswa, ['periode' => $t->id_periode]), 'waktu' => $t->diterbitkan_pada->toIso8601String(),
+            ]);
+        }
+
+        $kabar = \App\Models\TransKenaikanPantau::with('siswa:id_siswa,nama_siswa')->whereIn('id_siswa', $siswa)->where('jenis', 'KABARI_ORTU')
+            ->where('created_at', '>=', $this->sekarang->copy()->subDays(14))->get();
+        foreach ($kabar as $x) {
+            $hasil[] = $this->buat('portal-pantauan', [$x->id], [
+                'tingkat' => 'info', 'kategori' => 'Kenaikan kelas', 'ikon' => 'bi-signpost-split',
+                'judul' => "{$x->siswa?->nama_siswa}: pesan wali kelas tentang ketuntasan belajar",
+                'pesan' => \Illuminate\Support\Str::limit($x->catatan, 160),
+                'tautan' => self::tautanPortal('ringkasan', $x->id_siswa), 'waktu' => $x->created_at->toIso8601String(),
             ]);
         }
 

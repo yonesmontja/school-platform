@@ -548,6 +548,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "pantauan-kenaikan", kelompok: "wali", judul: "Memantau risiko tidak naik kelas sejak awal", icon: "bi-signpost-split",
+    href: "/dashboard/pantauan-kenaikan",
+    langkah: [
+      "Buka Laporan → Pantauan Kenaikan dan pilih rombel. Siswa terurut dari risiko tertinggi: Berisiko tinggi, Waspada, Pantau, Aman.",
+      "Statusnya memakai aturan usulan kenaikan: mapel dengan rata-rata setahun di bawah KKM. Berisiko tinggi berarti, bila tahun ajaran berakhir hari ini, usulannya Tidak naik.",
+      "Tekan Rincian untuk melihat nilai Ganjil, Genap, dan setahun per mapel, serta perkiraan rata-rata yang dibutuhkan pada penilaian berikutnya agar tuntas.",
+      "Catat tindak lanjut: remedial, pembinaan, atau pertemuan dengan orang tua. Siswa berisiko tanpa tindak lanjut 30 hari diingatkan di Perlu Tindakan.",
+      "Pilih Kabari orang tua bila ingin orang tua tahu. Ringkasan mapel yang perlu perhatian dan pesan Anda tampil di portal mereka.",
+    ],
+    tips: [
+      "Di semester Ganjil angkanya masih sementara; pantauan paling berguna sejak awal semester Genap.",
+      "Orang tua tidak melihat pantauan sebelum Anda memilih Kabari orang tua.",
+      "Kepala sekolah dan admin melihat ringkasan semua rombel di bagian atas halaman.",
+    ],
+  },
+  {
     id: "rapor", kelompok: "wali", judul: "Catatan wali dan cetak rapor", icon: "bi-file-earmark-richtext",
     href: "/dashboard/rapor",
     gambar: "/panduan/rapor.jpg",
@@ -992,6 +1008,18 @@ export const BAGIAN = [
     ],
     tips: [
       "Keaslian rapor kertas bisa dicek dengan memindai QR di bawah tanda tangan. Halaman verifikasi menampilkan nilai yang tercatat di sekolah.",
+    ],
+  },
+  {
+    id: "pantauan-ortu", kelompok: "ortu", judul: "Pantauan ketuntasan dari wali kelas", icon: "bi-signpost-split",
+    href: "/dashboard/portal",
+    langkah: [
+      "Bila wali kelas membagikan pantauan, muncul pemberitahuan di Perlu Tindakan dan kartu Pantauan ketuntasan belajar di Portal → Ringkasan.",
+      "Kartu menampilkan mapel yang belum tuntas (rata-rata setahun di bawah KKM), perkiraan nilai yang dibutuhkan, dan pesan wali kelas.",
+      "Dampingi anak belajar di rumah dan balas atau tanyakan lewat menu Pesan bila perlu.",
+    ],
+    tips: [
+      "Siswa yang pada akhir tahun masih belum tuntas di beberapa mapel bisa tidak naik kelas. Pantauan ini dibagikan lebih awal agar masih ada waktu memperbaikinya.",
     ],
   },
   {

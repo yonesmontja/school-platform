@@ -330,6 +330,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/rapor', [PortalController::class, 'rapor']);
         Route::post('/rapor/terima', [\App\Http\Controllers\Api\RaporTerbitController::class, 'terima']);
         Route::get('/pekan', [PortalController::class, 'pekan']);
+        Route::get('/pantauan-kenaikan', [\App\Http\Controllers\Api\PantauanKenaikanController::class, 'portal']);
     });
     // Pesan wali kelas - orang tua/siswa (akses per utas dicek di PesanService)
     Route::middleware('role:siswa,ortu,admin,kepsek,guru')->prefix('pesan')->group(function () {
@@ -400,6 +401,9 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::get('/kenaikan', [\App\Http\Controllers\Api\KenaikanController::class, 'index']);
         Route::put('/kenaikan', [\App\Http\Controllers\Api\KenaikanController::class, 'simpan']);
         Route::post('/kenaikan/sahkan', [\App\Http\Controllers\Api\KenaikanController::class, 'sahkan']);
+        // Pantauan kenaikan sepanjang tahun: wali kelas, kepala sekolah, admin (dicek di controller)
+        Route::get('/pantauan-kenaikan', [\App\Http\Controllers\Api\PantauanKenaikanController::class, 'index']);
+        Route::post('/pantauan-kenaikan/tindak', [\App\Http\Controllers\Api\PantauanKenaikanController::class, 'tindak']);
         // Master data: baca untuk semua staf (dropdown & halaman master kepsek)
         Route::get('/students/master-data', [StudentController::class, 'getMasterData']);
         // Pas foto siswa: admin, kepsek, atau wali kelasnya (dicek di controller)

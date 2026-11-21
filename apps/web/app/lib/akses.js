@@ -68,6 +68,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/tutup-semester", peran: ["admin"] },
   { awalan: "/dashboard/pemetaan-rombel", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/kenaikan", peran: ["admin", "kepsek", "guru"] },
+  { awalan: "/dashboard/pantauan-kenaikan", peran: ["admin", "kepsek", "guru"] },
 ];
 
 export const halamanAwal = (user) =>

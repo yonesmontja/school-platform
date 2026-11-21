@@ -108,6 +108,7 @@ function KenaikanIsi() {
           onChange={(e) => { if (adaUbahan && Object.keys(isian).length && !confirm("Perubahan belum disimpan. Lanjut?")) return; muat(e.target.value); }}>
           {data.pilihan_kelas.map((k) => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
         </select>
+        <Link href={`/dashboard/pantauan-kenaikan?id_kelas=${encodeURIComponent(idKelas)}`} className="btn btn-sm btn-outline-secondary"><i className="bi bi-signpost-split me-1" aria-hidden="true"></i>Pantauan sepanjang tahun</Link>
       </div>
       <p className="small text-muted mb-3">
         Semester {data.periode.tahun_ajaran} {data.periode.semester}. Usulan dihitung dari rata-rata nilai setahun per mapel dan kehadiran:

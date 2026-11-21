@@ -62,18 +62,20 @@ class PeringatanDiniService
         $tes = $this->tesTerlewat($siswa);
         $pembinaan = $this->pembinaan($id);
         $karakter = $this->karakter($id);
+        $kenaikan = $this->kenaikan($siswa);
         $tindak = $this->periode
             ? TransPeringatanTindak::with('pembuat:id,name')->where('id_periode', $this->periode)->whereIn('id_siswa', $id)
                 ->orderByDesc('created_at')->get()->groupBy('id_siswa')
             : collect();
 
-        return $siswa->map(function (Student $s) use ($presensi, $nilai, $tes, $pembinaan, $karakter, $tindak) {
+        return $siswa->map(function (Student $s) use ($presensi, $nilai, $tes, $pembinaan, $karakter, $kenaikan, $tindak) {
             $alasan = array_merge(
                 $presensi[$s->id_siswa]['alasan'] ?? [],
                 $nilai[$s->id_siswa]['alasan'] ?? [],
                 $tes[$s->id_siswa]['alasan'] ?? [],
                 $pembinaan[$s->id_siswa]['alasan'] ?? [],
                 $karakter[$s->id_siswa] ?? [],
+                $kenaikan[$s->id_siswa] ?? [],
             );
             usort($alasan, fn($a, $b) => $b['bobot'] <=> $a['bobot']);
             $skor = array_sum(array_column($alasan, 'bobot'));
@@ -257,6 +259,21 @@ class PeringatanDiniService
             $n = $baris->count();
             $hasil[$idSiswa] = [self::alasan($n >= 2 ? 'karakter-berulang' : 'karakter', 'Karakter', $n >= 2 ? 3 : 2,
                 "{$n} catatan perilaku negatif", self::HARI_PRESENSI . ' hari terakhir di jurnal; perlu pembinaan atau konseling.', '/dashboard/jurnal')];
+        }
+        return $hasil;
+    }
+
+    /** Semester Genap: rata-rata setahun di bawah KKM pada batas mapel kenaikan atau lebih → berisiko tidak naik kelas. */
+    private function kenaikan(Collection $siswa): array
+    {
+        $p = $this->periode ? MasterPeriode::find($this->periode) : null;
+        if (!$p || $p->semester !== 'Genap') return [];
+        $hasil = [];
+        foreach (PantauanKenaikan::hitungSiswa($siswa->pluck('id_siswa')->all(), $p) as $id => $h) {
+            if ($h['tingkat'] !== 'TINGGI') continue;
+            $hasil[$id] = [self::alasan('risiko-kenaikan', 'Kenaikan', 3, 'Berisiko tidak naik kelas',
+                "{$h['mapel_bawah']} mapel di bawah KKM (rata-rata setahun): " . collect($h['mapel'])->where('status', 'BAWAH')->pluck('nama')->take(4)->implode(', ') . '.',
+                '/dashboard/pantauan-kenaikan?' . http_build_query(['id_kelas' => $siswa->firstWhere('id_siswa', $id)?->id_kelas, 'siswa' => $id]))];
         }
         return $hasil;
     }

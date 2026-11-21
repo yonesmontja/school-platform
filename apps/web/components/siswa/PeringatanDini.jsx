@@ -10,7 +10,7 @@ export const TINGKAT_PD = {
   PERHATIAN: { label: "Perlu perhatian", warna: "info", ikon: "bi-eye" },
   AMAN: { label: "Aman", warna: "success", ikon: "bi-check-circle" },
 };
-export const IKON_KATEGORI = { Presensi: "bi-calendar-x", Nilai: "bi-graph-down-arrow", Tes: "bi-pc-display", Pembinaan: "bi-person-heart", Karakter: "bi-emoji-frown" };
+export const IKON_KATEGORI = { Presensi: "bi-calendar-x", Nilai: "bi-graph-down-arrow", Tes: "bi-pc-display", Pembinaan: "bi-person-heart", Karakter: "bi-emoji-frown", Kenaikan: "bi-signpost-split" };
 
 /** Kartu ringkas peringatan dini satu siswa untuk dashboard pribadi (staf). Diam bila tidak berhak atau gagal. */
 export function KartuPeringatanSiswa({ idSiswa }) {
