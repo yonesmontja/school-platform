@@ -750,6 +750,22 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "laporan-stnkm", kelompok: "guru", judul: "Membaca Laporan STNKM", icon: "bi-graph-up-arrow",
+    href: "/dashboard/laporan-stnkm",
+    langkah: [
+      "Buka Laporan → Laporan STNKM, lalu pilih kelas dan periode.",
+      "Pilih Sumber STNKM: Akademik (poin S–M dari nilai, skala 0–100; bawaan), Jurnal (skor jurnal anekdotal, skala −5 sampai +5), atau Lengkap (keduanya).",
+      "Pada Lengkap, pilih tampilannya: Dua sumbu (akademik di sumbu kiri, jurnal di sumbu kanan, tidak dicampur) atau Konversi 0–100 (skor jurnal diubah ke 0–100 lalu dirata-rata bersama nilai).",
+      "Atur Mode Waktu (harian, mingguan, bulanan), rentang minggu, mapel, dan siswa. Grafik hanya menampilkan nilai yang ada; nilai nol atau kosong tidak dihitung.",
+      "Klik baris siswa di tabel Rekapitulasi untuk membuka rinciannya: tab Hari berisi setiap hari penilaian, tab Entri berisi setiap nilai dan jurnal lengkap dengan narasinya.",
+      "Unduh rincian sebagai Excel (ringkasan, hari, dan entri), CSV, atau PDF. CSV dan PDF mengikuti tab yang sedang dibuka.",
+    ],
+    tips: [
+      "Jumlah Hari dan Entri di rincian selalu sama dengan angka di tabel, karena filter yang sedang aktif ikut terbawa.",
+      "Narasi jurnal yang ditandai sensitif hanya tampil bagi guru penulis, wali kelas, dan pimpinan sekolah. Skornya tetap dihitung.",
+    ],
+  },
+  {
     id: "pemakaian", kelompok: "pengelola", judul: "Memantau pemakaian aplikasi", icon: "bi-activity", peran: ["admin", "kepsek"],
     href: "/dashboard/pemakaian",
     langkah: [

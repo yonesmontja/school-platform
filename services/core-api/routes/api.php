@@ -754,6 +754,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
 
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/laporan/stnkm', [LaporanController::class, 'stnkm']);
+        Route::get('/laporan/stnkm/siswa', [LaporanController::class, 'stnkmSiswa']);
         Route::post('/whatsapp', [WhatsAppController::class, 'kirim']);
     });
 

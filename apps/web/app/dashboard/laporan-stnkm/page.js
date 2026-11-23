@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -8,40 +9,20 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
 import { renderGrafikStatis } from "@/components/dashboard/chartExport";
 import { API_URL } from "@/app/lib/config";
+import {
+  DIMENSI, MAPEL_KHUSUS, DIMENSI_JURNAL, KUNCI_JURNAL, SUMBER, CARA_LENGKAP, sumberValid, caraValid, labelSumber, skalaJurnal, pakaiDuaSumbu,
+  parseYmd, toYmd, seninDari, tanggalMulaiDefault, rataKunci, rataGabungan, rataJurnal, normalisasi, saring, bangunHarian, rekapSiswa,
+  kolomTampil, fmt, angkaEkspor,
+} from "@/components/laporan/stnkmHitung";
 
 const getToken = () => localStorage.getItem("token");
 
-const DIMENSI = [
-  { key: "S", label: "Skill", color: "#0d6efd" },
-  { key: "T", label: "Teori", color: "#198754" },
-  { key: "N", label: "Nalar", color: "#0dcaf0" },
-  { key: "K", label: "Karakter", color: "#fd7e14" },
-  { key: "M", label: "Minat", color: "#dc3545" },
-];
-// Garis mapel khusus = rata-rata poin aspek Teori (poin_T) dari nilai mapel tersebut
-const MAPEL_KHUSUS = [
-  { key: "BIndo", label: "B.Ind", nama: "Teori B. Indonesia", color: "#6f42c1", cocok: (n) => n.includes("indonesia") },
-  { key: "Math", label: "Math", nama: "Teori Matematika", color: "#495057", cocok: (n) => n.includes("matematika") || n.includes("math") },
-];
 const JUDUL_GRAFIK = "Progres STNKM-B.Ind-Math";
 const PALET_SISWA = ["#0d6efd", "#dc3545", "#198754", "#fd7e14", "#6f42c1", "#20c997", "#d63384", "#0dcaf0", "#6c757d", "#ffc107"];
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
 const ROWS_PER_PAGE = 10;
 const MAX_SISWA_INDIVIDU = 10;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
-// --- UTIL TANGGAL (semua tanggal lokal, tanpa jam) ---
-const parseYmd = (str) => {
-  const [y, m, d] = String(str).slice(0, 10).split("-").map(Number);
-  return new Date(y, m - 1, d);
-};
-const toYmd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const seninDari = (d) => {
-  const hari = d.getDay();
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (hari === 0 ? 6 : hari - 1));
-};
-// Selisih hari dihitung dari tanggal kalender agar tidak terganggu pergantian jam musim panas
-const selisihHari = (a, b) => Math.round((Date.UTC(b.getFullYear(), b.getMonth(), b.getDate()) - Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())) / DAY_MS);
 // Label bulan diambil dari hari Kamis minggu tersebut (acuan ISO 8601), seperti di GAS
 const labelBulanMinggu = (senin, wk) => {
   const kamis = new Date(senin.getFullYear(), senin.getMonth(), senin.getDate() + (wk - 1) * 7 + 3);
@@ -53,15 +34,6 @@ const rentangMinggu = (senin, wk) => {
   const f = (d) => d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
   return `${f(awal)} – ${f(akhir)}`;
 };
-
-// Tanggal mulai semester bawaan: Ganjil pertengahan Juli tahun pertama, Genap awal Januari tahun kedua
-const tanggalMulaiDefault = (periode) => {
-  const tahun = parseInt(String(periode?.tahun_ajaran || "").split("/")[0], 10) || new Date().getFullYear();
-  return /genap/i.test(periode?.semester || "") ? `${tahun + 1}-01-05` : `${tahun}-07-13`;
-};
-
-const num = (v) => parseFloat(v) || 0;
-const fmt = (v, d = 1) => (v === null || v === undefined || Number.isNaN(v) ? "–" : Number(v).toFixed(d));
 
 // Ruang di bawah label minggu: pita label bulan, lalu jarak sebelum legend
 const MONTH_BAND_H = 20;
@@ -128,16 +100,14 @@ const Grafik = ({ config, height }) => {
   return <ChartCanvas config={tampil} height={height} />;
 };
 
-// Tujuh nilai yang dirata-rata: S, T, N, K, M, B.Ind, Math
-const KUNCI = [...DIMENSI.map((d) => d.key), ...MAPEL_KHUSUS.map((k) => k.key)];
-const SERI = [...DIMENSI.map((d) => ({ ...d, nama: d.label, label: d.key, dash: [] })), ...MAPEL_KHUSUS.map((k) => ({ ...k, dash: [6, 4] }))];
-const rataDari = (vals) => {
-  const ada = vals.filter((v) => v !== null && v !== undefined);
-  return ada.length ? ada.reduce((a, b) => a + b, 0) / ada.length : null;
+// Garis grafik menurut sumber STNKM: S–M (+ B.Ind & Math putus-putus bila akademik), jurnal titik-titik di sumbu kanan
+const seriUntuk = (sumber, cara) => {
+  const dim = DIMENSI.map((d) => ({ ...d, nama: d.label, label: d.key, dash: [], sumbu: "y" }));
+  if (sumber === "JURNAL") return dim;
+  const khusus = MAPEL_KHUSUS.map((k) => ({ ...k, dash: [6, 4], sumbu: "y" }));
+  const jurnal = pakaiDuaSumbu(sumber, cara) ? DIMENSI_JURNAL.map((d) => ({ ...d, dash: [2, 3], sumbu: "y1" })) : [];
+  return [...dim, ...khusus, ...jurnal];
 };
-const rataKunci = (rows) => Object.fromEntries(KUNCI.map((k) => [k, rataDari(rows.map((r) => r[k]))]));
-// Rata-rata gabungan STNKM-B.Ind-Math dari nilai yang tersedia
-const rataGabungan = (t) => rataDari(KUNCI.map((k) => t[k]));
 const r1 = (v) => (v === null || v === undefined ? null : Math.round(v * 10) / 10);
 const jeda = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -157,6 +127,12 @@ const InfoBox = ({ icon, color, label, value, sub }) => (
 const LABEL_MODE = { HARIAN: "Harian", MINGGUAN: "Mingguan", BULANAN: "Bulanan" };
 
 export default function LaporanStnkmPage() {
+  return <Suspense fallback={null}><LaporanStnkm /></Suspense>;
+}
+
+function LaporanStnkm() {
+  const router = useRouter();
+  const params = useSearchParams();
   // --- REFERENSI ---
   const [classes, setClasses] = useState([]);
   const [periodes, setPeriodes] = useState([]);
@@ -174,6 +150,11 @@ export default function LaporanStnkmPage() {
   const [siswaTerpilih, setSiswaTerpilih] = useState([]);
   const [cariSiswa, setCariSiswa] = useState("");
   const [dimensiIndividu, setDimensiIndividu] = useState("RATA");
+  // Sumber STNKM: akademik (bawaan), jurnal, atau lengkap (dua sumbu / konversi 0–100)
+  const [sumber, setSumber] = useState(() => sumberValid(params.get("sumber")));
+  const [caraLengkap, setCaraLengkap] = useState(() => caraValid(params.get("cara")));
+  // Kembali dari halaman rincian siswa: pulihkan filter tampilan setelah data kelas termuat
+  const pulih = useRef(params.get("id_kelas") ? { mapel: params.get("mapel") || "", dari: +params.get("dari") || 0, sampai: +params.get("sampai") || 0 } : null);
 
   // --- TABEL ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -207,7 +188,10 @@ export default function LaporanStnkmPage() {
         setPeriodes(resF.periodes || []);
         setSettings(resS || null);
         const aktif = (resF.periodes || []).find((p) => p.status_aktif === "AKTIF");
-        if (aktif) setFilters((f) => ({ ...f, id_periode: aktif.id_periode, tanggal_mulai: tanggalMulaiDefault(aktif) }));
+        const dariTautan = (resF.periodes || []).find((p) => p.id_periode === params.get("id_periode"));
+        if (dariTautan) {
+          setFilters({ id_kelas: params.get("id_kelas") || "", id_periode: dariTautan.id_periode, tanggal_mulai: params.get("mulai") || tanggalMulaiDefault(dariTautan) });
+        } else if (aktif) setFilters((f) => ({ ...f, id_periode: aktif.id_periode, tanggal_mulai: tanggalMulaiDefault(aktif) }));
       } catch (err) { Swal.fire("Error", err.message, "error"); }
     })();
   }, []);
@@ -229,7 +213,7 @@ export default function LaporanStnkmPage() {
         const data = await safeFetch(`${API_URL}/laporan/stnkm?${params}`, { headers: authHeader() });
         if (batal) return;
         setLaporan(data);
-        setMapelFilter("");
+        setMapelFilter(pulih.current?.mapel || "");
         setSiswaTerpilih([]);
         setPage(1);
       } catch (err) { if (!batal) Swal.fire("Error", err.message, "error"); }
@@ -241,57 +225,34 @@ export default function LaporanStnkmPage() {
   // --- NORMALISASI ENTRI KE MINGGU ---
   const senin = useMemo(() => (filters.tanggal_mulai ? seninDari(parseYmd(filters.tanggal_mulai)) : null), [filters.tanggal_mulai]);
 
-  const basis = useMemo(() => {
-    if (!laporan || !senin) return null;
-    const mapelKhusus = {};
-    (laporan.mapels || []).forEach((m) => {
-      const nama = m.nama_mapel.toLowerCase();
-      MAPEL_KHUSUS.forEach((k) => { if (!mapelKhusus[k.key] && k.cocok(nama)) mapelKhusus[k.key] = m.id_mapel; });
-    });
-    const mingguKe = (tanggal) => Math.floor(selisihHari(senin, parseYmd(tanggal)) / 7) + 1;
-
-    let sebelumMulai = 0;
-    const nilai = [], jurnal = [];
-    (laporan.nilai || []).forEach((r) => {
-      const wk = mingguKe(r.tanggal);
-      if (wk < 1) { sebelumMulai++; return; }
-      const poin = Object.fromEntries(DIMENSI.map((d) => [d.key, num(r[`poin_${d.key}`])]));
-      nilai.push({
-        ...poin, wk, id_siswa: r.id_siswa, id_mapel: r.id_mapel, tanggal: r.tanggal, nilai: num(r.nilai),
-        materi: r.materi?.nama_materi || r.id_materi, jenis: r.jenis?.kategori_penilaian || r.id_jenis, metode: r.metode_stnkm, tipe: r.tipe_nilai,
-        isStnkm: DIMENSI.some((d) => poin[d.key] !== 0),
-        ...Object.fromEntries(MAPEL_KHUSUS.map((k) => [`is${k.key}`, r.id_mapel === mapelKhusus[k.key]])),
-      });
-    });
-    (laporan.jurnal || []).forEach((j) => {
-      const wk = mingguKe(j.tanggal);
-      if (wk < 1) { sebelumMulai++; return; }
-      jurnal.push({ wk, id_siswa: j.id_siswa, tanggal: j.tanggal, ...Object.fromEntries(DIMENSI.map((d) => [d.key, num(j[`val_${d.key}`])])) });
-    });
-
-    // Kerangka minggu utuh sampai minggu data terakhir atau minggu berjalan
-    const maxWk = Math.max(1, mingguKe(toYmd(new Date())), ...nilai.map((n) => n.wk), ...jurnal.map((j) => j.wk));
-    return { nilai, jurnal, maxWk, sebelumMulai, mapelKhusus };
-  }, [laporan, senin]);
+  const basis = useMemo(() => (laporan && senin ? normalisasi(laporan, senin) : null), [laporan, senin]);
 
   // Rentang minggu di-reset saat kerangka berubah
-  useEffect(() => { if (basis) setWkRange({ dari: 1, sampai: basis.maxWk }); }, [basis?.maxWk, filters.tanggal_mulai, laporan]);
+  useEffect(() => {
+    if (!basis) return;
+    const p = pulih.current;
+    pulih.current = null;
+    const batas = (v, cadangan) => (v >= 1 && v <= basis.maxWk ? v : cadangan);
+    setWkRange(p ? { dari: batas(p.dari, 1), sampai: Math.max(batas(p.dari, 1), batas(p.sampai, basis.maxWk)) } : { dari: 1, sampai: basis.maxWk });
+  }, [basis?.maxWk, filters.tanggal_mulai, laporan]);
+  // Pilihan dimensi grafik perbandingan bisa tidak berlaku lagi setelah sumber berganti
+  useEffect(() => { setDimensiIndividu("RATA"); }, [sumber, caraLengkap]);
 
   // --- FILTER TAMPILAN ---
-  const terfilter = useMemo(() => {
-    if (!basis) return null;
-    const dalam = (e) => e.wk >= wkRange.dari && e.wk <= wkRange.sampai;
-    const nilai = basis.nilai.filter((n) => dalam(n) && (!mapelFilter || n.id_mapel === mapelFilter));
-    const jurnal = basis.jurnal.filter(dalam);
-    return { nilai, jurnal };
-  }, [basis, wkRange, mapelFilter]);
+  const terfilter = useMemo(() => (basis ? saring(basis, { dari: wkRange.dari, sampai: wkRange.sampai, mapel: mapelFilter }) : null), [basis, wkRange, mapelFilter]);
+
+  // Record rata-rata harian per siswa menurut sumber STNKM (nol/kosong diabaikan per dimensi)
+  const { harian, entri: entriDipakai } = useMemo(
+    () => (terfilter ? bangunHarian(terfilter, sumber, caraLengkap) : { harian: [], entri: [] }),
+    [terfilter, sumber, caraLengkap],
+  );
 
   // Ember waktu: per minggu, atau per bulan (dari label bulan tiap minggu)
   const ember = useMemo(() => {
     if (!basis || !senin) return [];
     if (modeWaktu === "HARIAN") {
-      // Satu titik per hari yang punya data (nilai atau jurnal) pada rentang terpilih
-      const tgl = [...new Set([...(terfilter?.nilai || []), ...(terfilter?.jurnal || [])].map((e) => String(e.tanggal).slice(0, 10)))].sort();
+      // Satu titik per hari yang punya nilai pada sumber terpilih
+      const tgl = [...new Set(harian.map((h) => h.tanggal))].sort();
       return tgl.map((t) => {
         const d = new Date(`${t}T00:00:00`);
         return { key: t, label: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }), bulan: d.toLocaleDateString("id-ID", { month: "long" }),
@@ -309,7 +270,7 @@ export default function LaporanStnkmPage() {
       }
     }
     return list;
-  }, [basis, senin, wkRange, modeWaktu, terfilter]);
+  }, [basis, senin, wkRange, modeWaktu, harian]);
 
   // Kunci ember sebuah record harian: tanggalnya (mode harian) atau minggunya
   const emberIndex = useMemo(() => {
@@ -318,33 +279,6 @@ export default function LaporanStnkmPage() {
     return map;
   }, [ember]);
   const kunciEmber = (h) => (modeWaktu === "HARIAN" ? h.tanggal : h.wk);
-
-  // --- RECORD RATA-RATA HARIAN PER SISWA ---
-  // Semua entri satu siswa pada tanggal yang sama dirata-rata menjadi satu record harian.
-  // S–M dari nilai ber-poin STNKM + skor jurnal; B.Ind & Math dari poin Teori mapelnya.
-  const harian = useMemo(() => {
-    if (!terfilter) return [];
-    const map = new Map();
-    const ambil = (e) => {
-      const tanggal = String(e.tanggal).slice(0, 10);
-      const kunci = `${e.id_siswa}|${tanggal}`;
-      if (!map.has(kunci)) map.set(kunci, { id_siswa: e.id_siswa, tanggal, wk: e.wk, jumlah: {}, cacah: {} });
-      return map.get(kunci);
-    };
-    const tambah = (a, k, v) => { a.jumlah[k] = (a.jumlah[k] || 0) + v; a.cacah[k] = (a.cacah[k] || 0) + 1; };
-    terfilter.nilai.forEach((n) => {
-      const a = ambil(n);
-      if (n.isStnkm) DIMENSI.forEach((d) => tambah(a, d.key, n[d.key]));
-      MAPEL_KHUSUS.forEach((k) => { if (n[`is${k.key}`]) tambah(a, k.key, n.T); });
-    });
-    terfilter.jurnal.forEach((j) => {
-      const a = ambil(j);
-      DIMENSI.forEach((d) => tambah(a, d.key, j[d.key]));
-    });
-    return [...map.values()]
-      .map((a) => ({ id_siswa: a.id_siswa, tanggal: a.tanggal, wk: a.wk, ...Object.fromEntries(KUNCI.map((k) => [k, a.cacah[k] ? a.jumlah[k] / a.cacah[k] : null])) }))
-      .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
-  }, [terfilter]);
 
   // Rata-rata mingguan/bulanan tiap siswa = rata-rata record hariannya di ember tersebut
   const trenPerSiswa = useMemo(() => {
@@ -369,7 +303,13 @@ export default function LaporanStnkmPage() {
   }), [trenPerSiswa, ember]);
 
   // --- KONFIGURASI GRAFIK ---
-  const configGaris = (datasets) => ({
+  const jurnalUtama = skalaJurnal(sumber);
+  const duaSumbu = pakaiDuaSumbu(sumber, caraLengkap);
+  const seri = useMemo(() => seriUntuk(sumber, caraLengkap), [sumber, caraLengkap]);
+  const sumbuY = (jurnal) => (jurnal
+    ? { suggestedMin: -5, suggestedMax: 5, grid: { color: "rgba(0,0,0,.05)" }, title: { display: true, text: "Skor jurnal (−5..+5)" } }
+    : { suggestedMin: 0, suggestedMax: 100, grid: { color: "rgba(0,0,0,.05)" }, title: { display: duaSumbu, text: "Akademik (0–100)" } });
+  const configGaris = (datasets, { jurnal = jurnalUtama, kanan = false } = {}) => ({
     type: "line",
     data: { labels: ember.map((e) => e.label), datasets },
     options: {
@@ -385,7 +325,11 @@ export default function LaporanStnkmPage() {
         },
         monthBand: { labels: modeWaktu !== "BULANAN" ? ember.map((e) => e.bulan) : [] },
       },
-      scales: { y: { grid: { color: "rgba(0,0,0,.05)" } }, x: sumbuX(modeWaktu !== "BULANAN") },
+      scales: {
+        y: sumbuY(jurnal),
+        ...(kanan ? { y1: { ...sumbuY(true), position: "right", grid: { drawOnChartArea: false } } } : {}),
+        x: sumbuX(modeWaktu !== "BULANAN"),
+      },
     },
     plugins: [monthBandPlugin, whiteBgPlugin],
   });
@@ -394,11 +338,12 @@ export default function LaporanStnkmPage() {
     tension: 0.3, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
   });
   // Tujuh garis S-T-N-K-M-B.Ind-Math dari satu deret tren (kelas atau satu siswa)
-  const configStnkm = (tren) => configGaris(SERI.map((s) => ({
-    label: s.label, nama: s.nama, data: tren.map((t) => r1(t[s.key])), ...gayaGaris(s.color, s.dash),
-  })));
+  const configStnkm = (tren) => configGaris(seri.map((s) => ({
+    label: s.label, nama: s.nama, data: tren.map((t) => r1(t[s.key])), yAxisID: s.sumbu,
+    ...gayaGaris(s.color, s.dash), ...(s.sumbu === "y1" ? { borderWidth: 1.5, pointRadius: 2 } : {}),
+  })), { kanan: duaSumbu });
 
-  const configKelas = useMemo(() => (terfilter && ember.length ? configStnkm(trenKelas) : null), [terfilter, ember, trenKelas, modeWaktu]);
+  const configKelas = useMemo(() => (terfilter && ember.length ? configStnkm(trenKelas) : null), [terfilter, ember, trenKelas, modeWaktu, seri]);
 
   // --- GRAFIK INDIVIDU ---
   const siswaGrafik = useMemo(() => {
@@ -407,7 +352,7 @@ export default function LaporanStnkmPage() {
     return siswaTerpilih.slice(0, MAX_SISWA_INDIVIDU).map((id) => daftar.get(id)).filter(Boolean);
   }, [siswaTerpilih, laporan]);
 
-  const labelDimensi = (key) => (key === "RATA" ? "Rata-rata STNKM-B.Ind-Math" : SERI.find((s) => s.key === key)?.nama);
+  const labelDimensi = (key) => (key === "RATA" ? (jurnalUtama ? "Rata-rata skor jurnal" : "Rata-rata STNKM-B.Ind-Math") : seri.find((s) => s.key === key)?.nama);
 
   // Perbandingan: satu garis per siswa dalam satu plot
   const configPerbandingan = useMemo(() => {
@@ -415,31 +360,23 @@ export default function LaporanStnkmPage() {
     const nilaiDari = (t) => r1(dimensiIndividu === "RATA" ? rataGabungan(t) : t[dimensiIndividu]);
     return configGaris(siswaGrafik.map((s, i) => ({
       label: s.nama_siswa, data: trenSiswa(s.id_siswa).map(nilaiDari), ...gayaGaris(PALET_SISWA[i % PALET_SISWA.length]),
-    })));
-  }, [terfilter, siswaGrafik, trenPerSiswa, ember, dimensiIndividu, modeWaktu]);
+    })), { jurnal: jurnalUtama || KUNCI_JURNAL.includes(dimensiIndividu) });
+  }, [terfilter, siswaGrafik, trenPerSiswa, ember, dimensiIndividu, modeWaktu, seri]);
 
   // Detail: satu grafik S-T-N-K-M-B.Ind-Math untuk tiap siswa
   const configDetail = useMemo(() => {
     if (!terfilter || ember.length === 0) return [];
     return siswaGrafik.map((s) => ({ siswa: s, config: configStnkm(trenSiswa(s.id_siswa)) }));
-  }, [terfilter, siswaGrafik, trenPerSiswa, ember, modeWaktu]);
+  }, [terfilter, siswaGrafik, trenPerSiswa, ember, modeWaktu, seri]);
 
   // --- REKAP PER SISWA: rata-rata seluruh record harian pada rentang terpilih ---
   const rekap = useMemo(() => {
     if (!terfilter || !laporan) return [];
     const perSiswa = new Map();
     harian.forEach((h) => { if (!perSiswa.has(h.id_siswa)) perSiswa.set(h.id_siswa, []); perSiswa.get(h.id_siswa).push(h); });
-    const entri = new Map();
-    [...terfilter.nilai, ...terfilter.jurnal].forEach((e) => entri.set(e.id_siswa, (entri.get(e.id_siswa) || 0) + 1));
-    return (laporan.students || []).map((s) => {
-      const rows = perSiswa.get(s.id_siswa) || [];
-      const avg = rataKunci(rows);
-      return {
-        id_siswa: s.id_siswa, nisn: s.nisn, nama_siswa: s.nama_siswa,
-        ...avg, rata: rataGabungan(avg), hari: rows.length, entri: entri.get(s.id_siswa) || 0,
-      };
-    });
+    return (laporan.students || []).map((s) => ({ id_siswa: s.id_siswa, nisn: s.nisn, nama_siswa: s.nama_siswa, ...rekapSiswa(perSiswa.get(s.id_siswa) || []) }));
   }, [terfilter, laporan, harian]);
+  const kolom = useMemo(() => kolomTampil(sumber, caraLengkap), [sumber, caraLengkap]);
 
   const rekapTampil = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -473,12 +410,13 @@ export default function LaporanStnkmPage() {
   const namaKelas = laporan?.kelas?.nama_kelas || "Kelas";
   const labelPeriode = laporan?.periode ? `${laporan.periode.tahun_ajaran} (${laporan.periode.semester})` : "";
   const labelRentang = `Wk.${wkRange.dari}–Wk.${wkRange.sampai}`;
+  const teksSumber = `STNKM ${labelSumber(sumber, caraLengkap)}`;
   const namaFile = `Laporan_STNKM_${namaKelas.replace(/\s+/g, "_")}_${toYmd(new Date())}`;
 
-  const angka = (v) => (v === null || v === undefined ? "-" : Number(fmt(v)));
+  // Kolom angka ekspor mengikuti sumber STNKM; mode dua sumbu menambah skor jurnal per dimensi
   const kolomRata = (r) => ({
-    ...Object.fromEntries(DIMENSI.map((d) => [d.key, angka(r[d.key])])),
-    "B.Ind (Teori)": angka(r.BIndo), "Math (Teori)": angka(r.Math), "Rata-rata": angka(rataGabungan(r)),
+    ...Object.fromEntries(kolom.filter((c) => c.key !== "rataJurnal").map((c) => [c.ekspor || c.label, angkaEkspor(c.key === "rata" ? rataGabungan(r) : r[c.key])])),
+    ...(duaSumbu ? Object.fromEntries([...DIMENSI_JURNAL.map((d) => [d.label, angkaEkspor(r[d.key])]), ["Rata-rata Jurnal", angkaEkspor(rataJurnal(r))]]) : {}),
   });
 
   const rekapRows = () => rekapTampil.map((r, i) => ({
@@ -519,7 +457,7 @@ export default function LaporanStnkmPage() {
       ...terfilter.jurnal.filter((j) => pilihSiswa(j.id_siswa)).map((j) => ({ Sumber: "Jurnal", Tanggal: j.tanggal, Minggu: j.wk, Siswa: namaSiswa.get(j.id_siswa) || j.id_siswa, Mapel: "-", Materi: "-", Jenis: "Jurnal", Tipe: "-", Nilai: "", ...Object.fromEntries(DIMENSI.map((d) => [d.key, j[d.key]])), "Metode STNKM": "Jurnal" })),
     ].sort((a, b) => String(a.Tanggal).localeCompare(String(b.Tanggal)));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mentah.length ? mentah : [{ Keterangan: "Tidak ada data" }]), "Data Mentah");
-    XLSX.writeFile(wb, `${namaFile}_${LABEL_MODE[modeWaktu]}.xlsx`);
+    XLSX.writeFile(wb, `${namaFile}_${labelSumber(sumber, caraLengkap).replace(/[^\w]+/g, "_")}_${LABEL_MODE[modeWaktu]}.xlsx`);
   };
 
   const handleExportCSV = () => {
@@ -553,14 +491,15 @@ export default function LaporanStnkmPage() {
 
   const handleExportPDF = async () => {
     if (!adaData()) return;
-    await generateProfessionalPDF(rekapRows(), `Laporan STNKM ${namaKelas} - ${labelPeriode} (${labelRentang})`, settings, getBase64ImageFromUrl);
+    await generateProfessionalPDF(rekapRows(), `Laporan STNKM ${namaKelas} - ${labelPeriode} (${labelRentang})`, settings, getBase64ImageFromUrl,
+      { sub: `${teksSumber}${mapelFilter ? ` · ${laporan.mapels.find((m) => m.id_mapel === mapelFilter)?.nama_mapel}` : " · Semua mapel"} · ${rekapTampil.length} siswa` });
   };
 
   // --- EKSPOR GRAFIK: tiap halaman berkop judul resmi, kelas, lalu keterangan isi grafik ---
   const halamanGrafik = (jenis) => {
     const waktu = `${{ HARIAN: "Per hari", MINGGUAN: "Per minggu", BULANAN: "Per bulan" }[modeWaktu]} ${labelRentang}`;
     const mapel = mapelFilter ? laporan.mapels.find((m) => m.id_mapel === mapelFilter)?.nama_mapel : null;
-    const ket = (...bagian) => [...bagian, labelPeriode, waktu, mapel].filter(Boolean).join(" · ");
+    const ket = (...bagian) => [...bagian, teksSumber, labelPeriode, waktu, mapel].filter(Boolean).join(" · ");
     if (jenis === "Kelas") {
       return configKelas ? [{ config: configKelas, keterangan: ket("Rata-rata kelas"), file: "Kelas" }] : [];
     }
@@ -684,6 +623,12 @@ export default function LaporanStnkmPage() {
     </div>
   );
 
+  // --- RINCIAN SISWA: halaman baru dengan filter yang sedang aktif ---
+  const tautanRincian = (idSiswa) => `/dashboard/laporan-stnkm/siswa?${new URLSearchParams({
+    id_kelas: filters.id_kelas, id_periode: filters.id_periode, id_siswa: idSiswa, mulai: filters.tanggal_mulai,
+    dari: wkRange.dari, sampai: wkRange.sampai, ...(mapelFilter && { mapel: mapelFilter }), sumber, ...(sumber === "LENGKAP" && { cara: caraLengkap }),
+  })}`;
+
   // --- RENDER HELPERS ---
   const handleSort = (col) => {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -771,39 +716,68 @@ export default function LaporanStnkmPage() {
           <div className="card shadow-sm mb-3">
             <div className="card-body py-3">
               <div className="row g-3 align-items-end">
-                <div className="col-12 col-md-6 col-xl-3">
-                  <label className="form-label fw-semibold small mb-1">Mode Waktu</label>
-                  <div className="btn-group w-100" role="group">
-                    {[["HARIAN", "Harian", "bi-calendar-day"], ["MINGGUAN", "Mingguan", "bi-calendar-week"], ["BULANAN", "Bulanan", "bi-calendar-month"]].map(([v, l, ic]) => (
-                      <button key={v} type="button" className={`btn btn-sm ${modeWaktu === v ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setModeWaktu(v)}>
-                        <i className={`bi ${ic} me-1`}></i>{l}
+                <div className="col-12 col-xl-6">
+                  <label className="form-label fw-semibold small mb-1">Sumber STNKM</label>
+                  <div className="btn-group w-100" role="group" aria-label="Sumber STNKM" data-sumber-stnkm>
+                    {SUMBER.map((o) => (
+                      <button key={o.value} type="button" title={o.ket} aria-pressed={sumber === o.value}
+                        className={`btn text-nowrap ${sumber === o.value ? "btn-primary" : "btn-outline-primary"}`} onClick={() => { setSumber(o.value); setPage(1); }}>
+                        <i className={`bi ${o.icon} me-1 d-none d-sm-inline`}></i>{o.label}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="col-12 col-md-6 col-xl-3">
+                <div className="col-12 col-xl-6">
+                  <label className="form-label fw-semibold small mb-1">Mode Waktu</label>
+                  <div className="btn-group w-100" role="group" aria-label="Mode waktu">
+                    {[["HARIAN", "Harian", "bi-calendar-day"], ["MINGGUAN", "Mingguan", "bi-calendar-week"], ["BULANAN", "Bulanan", "bi-calendar-month"]].map(([v, l, ic]) => (
+                      <button key={v} type="button" aria-pressed={modeWaktu === v}
+                        className={`btn text-nowrap ${modeWaktu === v ? "btn-primary" : "btn-outline-primary"}`} onClick={() => setModeWaktu(v)}>
+                        <i className={`bi ${ic} me-1 d-none d-sm-inline`}></i>{l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {sumber === "LENGKAP" && (
+                  <div className="col-12">
+                    <div className="d-flex flex-wrap align-items-center gap-2 p-2 rounded border bg-body-tertiary" data-cara-lengkap>
+                      <span className="small fw-semibold text-muted me-1">Tampilan Lengkap:</span>
+                      <div className="btn-group btn-group-sm" role="group" aria-label="Cara menampilkan akademik + jurnal">
+                        {CARA_LENGKAP.map((c) => (
+                          <button key={c.value} type="button" aria-pressed={caraLengkap === c.value}
+                            className={`btn text-nowrap ${caraLengkap === c.value ? "btn-secondary" : "btn-outline-secondary"}`} onClick={() => setCaraLengkap(c.value)}>
+                            <i className={`bi ${c.icon} me-1`}></i>{c.label}
+                          </button>
+                        ))}
+                      </div>
+                      <small className="text-muted flex-grow-1" style={{ minWidth: 220 }}>{CARA_LENGKAP.find((c) => c.value === caraLengkap)?.ket}</small>
+                    </div>
+                  </div>
+                )}
+                <div className="col-12 col-md-4">
                   <label className="form-label fw-semibold small mb-1">Rentang Minggu</label>
-                  <div className="input-group input-group-sm">
-                    <select className="form-select" value={wkRange.dari} onChange={(e) => setWkRange((r) => ({ dari: +e.target.value, sampai: Math.max(+e.target.value, r.sampai) }))}>
+                  <div className="input-group">
+                    <select className="form-select" aria-label="Dari minggu" value={wkRange.dari} onChange={(e) => setWkRange((r) => ({ dari: +e.target.value, sampai: Math.max(+e.target.value, r.sampai) }))}>
                       {opsiMinggu.map((w) => <option key={w} value={w}>Wk.{w}</option>)}
                     </select>
-                    <span className="input-group-text">s/d</span>
-                    <select className="form-select" value={wkRange.sampai} onChange={(e) => setWkRange((r) => ({ sampai: +e.target.value, dari: Math.min(+e.target.value, r.dari) }))}>
+                    <span className="input-group-text px-2">s/d</span>
+                    <select className="form-select" aria-label="Sampai minggu" value={wkRange.sampai} onChange={(e) => setWkRange((r) => ({ sampai: +e.target.value, dari: Math.min(+e.target.value, r.dari) }))}>
                       {opsiMinggu.map((w) => <option key={w} value={w}>Wk.{w}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className="col-12 col-md-6 col-xl-3">
+                <div className="col-12 col-md-4">
                   <label className="form-label fw-semibold small mb-1">Mata Pelajaran (nilai)</label>
-                  <select className="form-select form-select-sm" value={mapelFilter} onChange={(e) => setMapelFilter(e.target.value)}>
+                  <select className="form-select" value={mapelFilter} onChange={(e) => setMapelFilter(e.target.value)} disabled={sumber === "JURNAL"}
+                    title={sumber === "JURNAL" ? "Jurnal tidak terikat mapel" : undefined}>
                     <option value="">Semua Mapel</option>
                     {laporan.mapels.map((m) => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
                   </select>
                 </div>
-                <div className="col-12 col-md-6 col-xl-3">
+                <div className="col-12 col-md-4">
                   <label className="form-label fw-semibold small mb-1">Siswa</label>
                   <div className="dropdown">
-                    <button className="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button"
+                    <button className="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center" type="button"
                       data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                       <span className="text-truncate">{siswaTerpilih.length === 0 ? "Semua siswa" : `${siswaTerpilih.length} siswa dipilih`}</span>
                     </button>
@@ -847,10 +821,14 @@ export default function LaporanStnkmPage() {
               {adaDataTren ? (
                 <Grafik config={configKelas} height={380} />
               ) : (
-                <div className="text-center text-muted py-5"><i className="bi bi-inbox fs-1 d-block mb-2"></i>Belum ada nilai atau jurnal pada rentang ini.</div>
+                <div className="text-center text-muted py-5"><i className="bi bi-inbox fs-1 d-block mb-2"></i>Belum ada data {teksSumber} pada rentang ini.</div>
               )}
               <small className="text-muted d-block mt-2">
-                <i className="bi bi-info-circle me-1"></i>Semua titik adalah nilai rata-rata: entri satu siswa di hari yang sama dirata-rata menjadi satu record harian, lalu record harian dirata-rata per minggu/bulan, dan rata-rata kelas adalah rata-rata dari siswa yang punya data. S–M dari poin nilai (diisi manual oleh guru, atau dihitung nilai × matriks) dan skor jurnal; garis putus-putus B.Ind dan Math adalah poin aspek Teori mapel Bahasa Indonesia dan Matematika.
+                <i className="bi bi-info-circle me-1"></i>Semua titik adalah nilai rata-rata: entri satu siswa di hari yang sama dirata-rata menjadi satu record harian, lalu record harian dirata-rata per minggu/bulan, dan rata-rata kelas adalah rata-rata dari siswa yang punya data. Nilai nol atau kosong tidak dihitung, sehingga hanya nilai yang ada yang tampil.{" "}
+                {sumber === "AKADEMIK" && "S–M dari poin nilai (diisi manual oleh guru, atau dihitung nilai × matriks), skala 0–100; garis putus-putus B.Ind dan Math adalah poin aspek Teori mapel Bahasa Indonesia dan Matematika."}
+                {sumber === "JURNAL" && "S–M dari skor jurnal anekdotal, skala −5 sampai +5. Skor negatif tetap dihitung."}
+                {sumber === "LENGKAP" && caraLengkap === "DUA_SUMBU" && "Garis tegas: poin akademik (sumbu kiri, 0–100). Garis titik-titik J·S–J·M: skor jurnal (sumbu kanan, −5..+5). Keduanya tidak dicampur karena skalanya berbeda."}
+                {sumber === "LENGKAP" && caraLengkap === "KONVERSI" && "S–M menggabungkan poin akademik dengan skor jurnal yang dikonversi ke 0–100 ((skor + 5) × 10: −5 → 0, 0 → 50, +5 → 100)."}
               </small>
             </div>
           </div>
@@ -870,8 +848,8 @@ export default function LaporanStnkmPage() {
                 <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
                   <h6 className="fw-semibold mb-0 me-auto"><i className="bi bi-people me-1 text-warning"></i>Perbandingan Rata-rata Siswa</h6>
                   <select className="form-select form-select-sm w-auto" value={dimensiIndividu} onChange={(e) => setDimensiIndividu(e.target.value)}>
-                    <option value="RATA">Rata-rata STNKM-B.Ind-Math</option>
-                    {SERI.map((s) => <option key={s.key} value={s.key}>{s.label} · {s.nama}</option>)}
+                    <option value="RATA">{labelDimensi("RATA")}</option>
+                    {seri.map((s) => <option key={s.key} value={s.key}>{s.label} · {s.nama}</option>)}
                   </select>
                 </div>
                 <Grafik config={configPerbandingan} height={330} />
@@ -915,7 +893,8 @@ export default function LaporanStnkmPage() {
                   </div>
                 </div>
                 <div className="col-12 col-md-6 text-md-end align-self-center">
-                  <small className="text-muted">Rata-rata dari record harian {labelRentang}{mapelFilter ? ` · ${laporan.mapels.find((m) => m.id_mapel === mapelFilter)?.nama_mapel}` : ""}</small>
+                  <small className="text-muted">{teksSumber} · rata-rata dari record harian {labelRentang}{mapelFilter && sumber !== "JURNAL" ? ` · ${laporan.mapels.find((m) => m.id_mapel === mapelFilter)?.nama_mapel}` : ""}</small>
+                  <small className="text-muted d-block"><i className="bi bi-hand-index me-1"></i>Klik baris siswa untuk melihat rincian hari dan entri.</small>
                 </div>
               </div>
               <div className="table-responsive">
@@ -924,30 +903,29 @@ export default function LaporanStnkmPage() {
                     <tr>
                       <th className="text-center">No</th>
                       {sortHeader("nama_siswa", "Nama Siswa", "")}
-                      {DIMENSI.map((d) => sortHeader(d.key, d.key))}
-                      {sortHeader("BIndo", "B.Ind")}
-                      {sortHeader("Math", "Math")}
-                      {sortHeader("rata", "Rata-rata")}
+                      {kolom.map((c) => sortHeader(c.key, c.label))}
                       {sortHeader("hari", "Hari")}
                       {sortHeader("entri", "Entri")}
+                      <th aria-hidden="true"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageRows.length === 0 ? (
-                      <tr><td colSpan="12" className="text-center text-muted py-4">Tidak ada data siswa.</td></tr>
+                      <tr><td colSpan={kolom.length + 5} className="text-center text-muted py-4">Tidak ada data siswa.</td></tr>
                     ) : pageRows.map((r, i) => (
-                      <tr key={r.id_siswa}>
+                      <tr key={r.id_siswa} role="link" tabIndex={0} style={{ cursor: "pointer" }} data-rincian-siswa={r.id_siswa}
+                        title={`Lihat rincian ${r.hari} hari dan ${r.entri} entri ${r.nama_siswa}`}
+                        onClick={() => router.push(tautanRincian(r.id_siswa))}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(tautanRincian(r.id_siswa)); } }}>
                         <td className="text-center text-muted">{(currentPage - 1) * ROWS_PER_PAGE + i + 1}</td>
                         <td>
                           <div className="fw-semibold">{r.nama_siswa}</div>
                           <small className="text-muted">{r.nisn || r.id_siswa}</small>
                         </td>
-                        {DIMENSI.map((d) => <td key={d.key} className={`text-center ${warnaSkor(r[d.key])}`}>{fmt(r[d.key])}</td>)}
-                        <td className="text-center">{fmt(r.BIndo)}</td>
-                        <td className="text-center">{fmt(r.Math)}</td>
-                        <td className={`text-center fw-bold ${warnaSkor(r.rata)}`}>{fmt(r.rata)}</td>
+                        {kolom.map((c) => <td key={c.key} className={`text-center ${c.kuat ? "fw-bold" : ""} ${warnaSkor(r[c.key])}`}>{fmt(r[c.key])}</td>)}
                         <td className="text-center text-muted">{r.hari}</td>
                         <td className="text-center"><span className="badge bg-body-secondary text-body-secondary border">{r.entri}</span></td>
+                        <td className="text-end text-muted"><i className="bi bi-chevron-right"></i></td>
                       </tr>
                     ))}
                   </tbody>
