@@ -13,6 +13,7 @@ import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/ap
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
 import RingkasanNilai from "@/components/nilai/RingkasanNilai";
+import ModalPindahLembar from "@/components/nilai/ModalPindahLembar";
 import Pengisi, { pengisiLain as pengisiBerbeda, teksPengisi } from "@/components/dashboard/Pengisi";
 
 const getToken = () => localStorage.getItem("token");
@@ -149,6 +150,8 @@ function InputNilaiPage() {
   const [tanggalTersedia, setTanggalTersedia] = useState([]);
   const [tindakLanjut, setTindakLanjut] = useState(null); // target ModalTindakLanjut
   const [panelWa, setPanelWa] = useState(null); // { jenis, idRencana, catatan } untuk PanelWaOrtu
+  const [pindah, setPindah] = useState(null); // lembar asal untuk ModalPindahLembar
+  const pindahDariTautan = useRef(false); // ?pindah=1 (dari Import Excel): buka dialog setelah lembar termuat
   const [kabariHasil, setKabariHasil] = useState(true);
   // Indikator (IKTP) yang dinilai pada lembar reguler; kosong = nilai diisi langsung
   const [indikatorDipilih, setIndikatorDipilih] = useState([]);
@@ -269,6 +272,15 @@ function InputNilaiPage() {
   const jumlahBerubah = rows.filter((r) => r.berubah).length;
   const adaTidakValid = rows.some((r) => r.parsed === null);
   const jumlahTercatat = rows.filter((s) => s.id_nilai).length;
+  // Datang dari Import Excel lewat "Salah pilih? Pindahkan lembar": buka dialog begitu lembarnya termuat
+  useEffect(() => {
+    if (!pindahDariTautan.current || loadingSheet || modeRemedial || !jumlahTercatat) return;
+    pindahDariTautan.current = false;
+    setPindah({
+      id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
+      id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal,
+    });
+  }, [loadingSheet, jumlahTercatat]); // eslint-disable-line react-hooks/exhaustive-deps
   // Nilai tersimpan di bawah KKM yang belum punya rencana tindak lanjut
   const perluTindakLanjut = modeRemedial || diagnostik ? [] : rows.filter((r) => r.id_nilai && !r.berubah && r.nilai < kkm && !r.rencana);
 
@@ -311,6 +323,7 @@ function InputNilaiPage() {
     // Lembar tunggal: periode boleh dari periode aktif, dan lembar remedial tidak bergantung tanggal
     const lembar = FILTER_FIELDS.every((f) => patch[f.key] || f.key === "id_periode" || (f.key === "tanggal" && patch.tipe === "REMEDIAL"));
     setSorot({ siswa: daftar("siswa"), nilai: daftar("nilai"), lembar, digulir: false });
+    pindahDariTautan.current = params.get("pindah") === "1";
   }, [params, options.periodes.length]);
 
   // Materi bergantung pada kelas + mapel + periode
@@ -641,6 +654,31 @@ function InputNilaiPage() {
     filterCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // --- PINDAHKAN LEMBAR (salah materi/jenis/tanggal setelah tersimpan) ---
+  const lembarSekarang = () => ({
+    id_kelas: filters.id_kelas, id_mapel: filters.id_mapel, id_periode: filters.id_periode,
+    id_jenis: filters.id_jenis, id_materi: filters.id_materi, tanggal: filters.tanggal,
+  });
+  const bukaPindah = async () => {
+    if (!(await konfirmasiBuangPerubahan())) return;
+    setPindah(lembarSekarang());
+  };
+  const pindahDariRiwayat = async (r) => {
+    if (!(await konfirmasiBuangPerubahan())) return;
+    setPindah({
+      id_kelas: r.id_kelas, id_mapel: r.id_mapel, id_periode: r.id_periode,
+      id_jenis: r.id_jenis, id_materi: r.id_materi, tanggal: String(r.tanggal).slice(0, 10),
+    });
+  };
+  const selesaiPindah = (tujuan) => {
+    setPindah(null);
+    setEditId(null);
+    setSorot(null);
+    setFilters((f) => ({ ...f, ...tujuan, tipe: "NORMAL" }));
+    fetchRiwayat();
+    lembarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const handleDelete = async (r) => {
     const res = await Swal.fire({
       title: "Hapus nilai ini?",
@@ -910,8 +948,13 @@ function InputNilaiPage() {
           <div className="card-footer bg-warning-subtle d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span className="fw-semibold text-warning-emphasis small">
               <i className="bi bi-pencil-square me-1"></i>Mode Edit: lembar di bawah memuat penilaian lama. Ubah nilainya, lalu simpan.
-              {!modeRemedial && " Memilih tanggal lain membuka penilaian tanggal tersebut."}
+              {!modeRemedial && " Memilih materi atau tanggal lain membuka lembar lain; untuk membetulkan materi/tanggal yang salah, pakai Pindahkan lembar."}
             </span>
+            {!modeRemedial && jumlahTercatat > 0 && (
+              <button type="button" className="btn btn-sm btn-primary ms-auto" onClick={bukaPindah}>
+                <i className="bi bi-arrow-left-right me-1"></i>Pindahkan lembar
+              </button>
+            )}
             <button type="button" className="btn btn-sm btn-outline-dark" onClick={cancelEdit}>
               <i className="bi bi-x-lg me-1"></i>Batalkan Edit
             </button>
@@ -1030,6 +1073,12 @@ function InputNilaiPage() {
                 <span className="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
                   <i className="bi bi-database-check me-1"></i>{jumlahTercatat} nilai {modeRemedial ? "remedial " : ""}sudah tercatat
                 </span>
+              )}
+              {!modeRemedial && jumlahTercatat > 0 && (
+                <button type="button" className="btn btn-sm btn-outline-primary" onClick={bukaPindah} data-buka-pindah-lembar
+                  title="Salah pilih materi, jenis penilaian, atau tanggal? Pindahkan semua nilai lembar ini sekaligus">
+                  <i className="bi bi-arrow-left-right me-1"></i>Pindahkan lembar
+                </button>
               )}
               {perluTindakLanjut.length > 1 && (
                 <button type="button" className="btn btn-sm btn-danger"
@@ -1358,6 +1407,11 @@ function InputNilaiPage() {
                             <MenuAksi className="ms-1" label={`Aksi nilai ${r.siswa?.nama_siswa || r.id_siswa}`} items={[
                               aksiUbah(() => handleEdit(r)),
                               {
+                                label: "Pindahkan lembar (salah materi/tanggal)", ikon: "bi-arrow-left-right",
+                                tampil: r.tipe_nilai !== "REMEDIAL",
+                                onClick: () => pindahDariRiwayat(r),
+                              },
+                              {
                                 label: r.rencana ? "Lihat / ubah rencana tindak lanjut" : "Atur rencana tindak lanjut", ikon: "bi-life-preserver",
                                 tampil: r.jenis?.jenis_asesmen !== "DIAGNOSTIK" && (!!r.rencana || !tuntas),
                                 onClick: () => (r.rencana
@@ -1401,6 +1455,12 @@ function InputNilaiPage() {
 
       {tindakLanjut && (
         <ModalTindakLanjut target={tindakLanjut} kkm={tindakLanjut.kkm} onTutup={() => setTindakLanjut(null)} onTersimpan={selesaiTindakLanjut} />
+      )}
+      {pindah && (
+        <ModalPindahLembar asal={pindah} jenisList={options.mbks}
+          namaKelas={options.classes.find((k) => k.id_kelas === pindah.id_kelas)?.nama_kelas}
+          namaMapel={options.subjects.find((m) => m.id_mapel === pindah.id_mapel)?.nama_mapel}
+          onTutup={() => setPindah(null)} onSelesai={selesaiPindah} />
       )}
       {panelWa && (
         <PanelWaOrtu jenis={panelWa.jenis} idRencana={panelWa.idRencana} catatan={panelWa.catatan} onTutup={() => setPanelWa(null)} />

@@ -133,6 +133,7 @@ export const BAGIAN = [
       "Guru hanya bisa menilai mapel yang ia ampu. Guru yang mengampu satu mapel langsung mendapati mapelnya terpilih.",
       "Baris kuning berarti nilai sudah diubah tetapi belum disimpan.",
       "Predikat (Cukup/Baik/Sangat Baik) mengikuti batas KKTP sekolah; tuntas atau tidak mengikuti KKM mapel.",
+      "Salah pilih materi, jenis penilaian, atau tanggal padahal nilai sudah tersimpan? Buka lembarnya, tekan Pindahkan lembar, lalu pilih yang benar. Semua nilai pindah sekaligus beserta rencana remedialnya. Bila materinya berganti, nilai akhir tetap tetapi nilai per indikator dihapus. Bila di lembar tujuan sudah ada nilai, Anda diminta memilih timpa atau batal.",
     ],
   },
   {
@@ -462,7 +463,10 @@ export const BAGIAN = [
       "Unggah file. Periksa pratinjau; nyalakan Tampilkan hanya baris bermasalah untuk melihat baris yang salah.",
       "Perbaiki baris bermasalah di Excel bila ada, lalu simpan impor.",
     ],
-    tips: ["Cocok untuk nilai yang dikerjakan di kertas lalu diketik sekaligus."],
+    tips: [
+      "Cocok untuk nilai yang dikerjakan di kertas lalu diketik sekaligus.",
+      "Terlanjur mengimpor ke materi atau tanggal yang salah? Pilih Pindahkan lembar di pesan Import Berhasil (atau tombol yang sama di lembar Input Nilai). Tidak perlu menghapus lalu import ulang.",
+    ],
   },
   {
     id: "jurnal", kelompok: "guru", judul: "Menulis jurnal anekdotal", icon: "bi-journal-text",

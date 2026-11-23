@@ -550,11 +550,17 @@ export default function ImportExcelPage() {
       // Tautan langsung ke lembar nilai yang baru diimpor (didukung halaman Input Nilai)
       const lembar = new URLSearchParams({ id_kelas: meta.id_kelas, id_mapel: meta.id_mapel, id_periode: meta.id_periode, id_jenis: meta.id_jenis, id_materi: meta.id_materi, tanggal: meta.tanggal });
       const n = Number(res.perlu_tindak_lanjut) || 0;
+      // Salah pilih materi/jenis/tanggal: lembar yang baru diimpor bisa langsung dipindahkan di Input Nilai
+      const bisaPindah = isNilai && siap.some((r) => r.tipe !== "REMEDIAL");
       await Swal.fire({
         icon: n ? "info" : "success", title: "Import Berhasil",
-        html: `${res.message}${isNilai && n ? `<br><br><b>${n}</b> siswa di bawah KKM ${kkmMapel} belum punya rencana tindak lanjut. Atur lewat tombol <b>Tindak Lanjut</b> di lembar Input Nilai.` : ""}`,
+        html: `${res.message}${isNilai && n ? `<br><br><b>${n}</b> siswa di bawah KKM ${kkmMapel} belum punya rencana tindak lanjut. Atur lewat tombol <b>Tindak Lanjut</b> di lembar Input Nilai.` : ""}${bisaPindah ? `<div class="small text-muted mt-3">Salah pilih materi, jenis penilaian, atau tanggal? Pilih <b>Pindahkan lembar</b>, tidak perlu import ulang.</div>` : ""}`,
         showCancelButton: true, confirmButtonText: isNilai ? (n ? "Buka lembar & atur tindak lanjut" : "Lihat di Input Nilai") : "Lihat di Jurnal", cancelButtonText: "Import lagi",
-      }).then((r) => { if (r.isConfirmed) window.location.assign(isNilai ? `/dashboard/nilai?${lembar}` : "/dashboard/jurnal"); });
+        showDenyButton: bisaPindah, denyButtonText: "Pindahkan lembar", denyButtonColor: "#6c757d",
+      }).then((r) => {
+        if (r.isConfirmed) window.location.assign(isNilai ? `/dashboard/nilai?${lembar}` : "/dashboard/jurnal");
+        else if (r.isDenied) window.location.assign(`/dashboard/nilai?${lembar}&pindah=1`);
+      });
     } catch (err) { Swal.fire("Gagal Menyimpan", err.message, "error"); }
     finally { setSaving(false); }
   };

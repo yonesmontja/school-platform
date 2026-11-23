@@ -460,6 +460,7 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
             Route::get('/remedial', [NilaiController::class, 'getRemedial']);
             Route::get('/ringkasan', [NilaiController::class, 'ringkasan']);
             Route::post('/batch', [NilaiController::class, 'saveBatch']);
+            Route::post('/pindah-lembar', [NilaiController::class, 'pindahLembar']);
             Route::delete('/{id}', [NilaiController::class, 'destroy']);
         });
 

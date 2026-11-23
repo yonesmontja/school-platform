@@ -546,17 +546,117 @@ class NilaiController extends Controller
         $nilai = TransNilai::with('rencanaAsal')->findOrFail($id);
         $this->cekMapel($request, $nilai->id_mapel);
 
-        DB::transaction(function () use ($nilai) {
-            // Rencana yang dipicu nilai ini ikut terhapus (cascade); sesi jadwalnya dibersihkan bila tak terpakai
-            $rencana = TransRencanaRemedial::where('id_nilai_asal', $nilai->id_nilai)->get(['id_jadwal', 'bukti_url']);
-            $rencanaAsal = $nilai->rencanaAsal;
-            $nilai->delete();
-            if ($rencanaAsal) RemedialService::bukaKembali($rencanaAsal);
-            RemedialService::bersihkanJadwal($rencana->pluck('id_jadwal'));
-            LampiranJadwalService::bersihkan($rencana->pluck('bukti_url'));
-        });
+        DB::transaction(fn() => $this->hapusNilai($nilai));
 
         return response()->json(['success' => true, 'message' => 'Data nilai berhasil dihapus.']);
+    }
+
+    /** Hapus satu nilai beserta rencana tindak lanjut yang dipicunya (cascade); sesi jadwal & bukti dibersihkan bila tak terpakai. */
+    private function hapusNilai(TransNilai $nilai, bool $denganRemedial = false): void
+    {
+        $rencana = TransRencanaRemedial::where('id_nilai_asal', $nilai->id_nilai)->get(['id_rencana', 'id_jadwal', 'bukti_url']);
+        // Nilai remedial dari rencana itu ikut dihapus agar tidak tertinggal tanpa rencana
+        if ($denganRemedial && $rencana->isNotEmpty()) {
+            TransNilai::whereIn('id_rencana', $rencana->pluck('id_rencana'))->get()->each->delete();
+        }
+        $rencanaAsal = $nilai->rencanaAsal;
+        $nilai->delete();
+        if ($rencanaAsal) RemedialService::bukaKembali($rencanaAsal);
+        RemedialService::bersihkanJadwal($rencana->pluck('id_jadwal'));
+        LampiranJadwalService::bersihkan($rencana->pluck('bukti_url'));
+    }
+
+    /**
+     * Pindahkan seluruh lembar nilai reguler (satu kelas × mapel × periode × jenis × materi × tanggal) ke jenis, materi,
+     * dan/atau tanggal lain, untuk membetulkan salah pilih saat input atau import Excel. Rencana tindak lanjut ikut
+     * (tertaut ke nilainya); nilai remedialnya ikut pindah jenis & materi. Nilai per indikator hanya ikut bila materinya
+     * tetap, karena indikator milik materi; nilai akhirnya tidak berubah. Siswa yang sudah punya nilai di lembar tujuan
+     * menghentikan pemindahan (409) kecuali timpa = true. pratinjau = true hanya menghitung tanpa menyimpan.
+     */
+    public function pindahLembar(Request $request)
+    {
+        $request->validate($this->rulesMeta() + [
+            'tanggal' => 'required|date',
+            'tujuan' => 'required|array',
+            'tujuan.id_jenis' => 'required|exists:master_mbk,id_jenis',
+            'tujuan.id_materi' => 'required|exists:master_materi,id_materi',
+            'tujuan.tanggal' => ['required', 'date_format:Y-m-d', new BukanHariMinggu],
+            'timpa' => 'nullable|boolean',
+            'pratinjau' => 'nullable|boolean',
+        ], ['tujuan.id_materi.required' => 'Pilih materi tujuan.', 'tujuan.id_jenis.required' => 'Pilih jenis penilaian tujuan.']);
+        $this->cekMapel($request, $request->id_mapel);
+
+        $asal = $request->only(self::META);
+        $tanggalAsal = Carbon::parse($request->tanggal)->toDateString();
+        $t = $request->input('tujuan');
+        $tujuan = array_merge($asal, ['id_jenis' => $t['id_jenis'], 'id_materi' => $t['id_materi']]);
+        $tanggalTujuan = $t['tanggal'];
+
+        if ($tujuan === $asal && $tanggalTujuan === $tanggalAsal) {
+            return response()->json(['message' => 'Lembar tujuan sama dengan lembar asal. Ubah materi, jenis, atau tanggalnya.'], 422);
+        }
+        // Materi tujuan harus materi mapel ini yang berlaku untuk kelas & periode lembar
+        $materi = MasterMateri::whereKey($tujuan['id_materi'])->where('id_mapel', $asal['id_mapel'])
+            ->where(fn($q) => $q->where('id_kelas', $asal['id_kelas'])->orWhereNull('id_kelas'))
+            ->where(fn($q) => $q->where('id_periode', $asal['id_periode'])->orWhereNull('id_periode'))->first();
+        if (!$materi) return response()->json(['message' => 'Materi tujuan bukan materi mata pelajaran ini untuk kelas dan periode tersebut.'], 422);
+
+        $baris = $this->queryPenilaian($asal, $tanggalAsal)->with(['siswa:id_siswa,nama_siswa', 'nilaiIndikator'])->get();
+        if ($baris->isEmpty()) return response()->json(['message' => 'Lembar asal tidak berisi nilai.'], 422);
+
+        $rencana = TransRencanaRemedial::whereIn('id_nilai_asal', $baris->pluck('id_nilai'))->get(['id_rencana', 'id_nilai_asal']);
+        $remedial = TransNilai::with('nilaiIndikator')->whereIn('id_rencana', $rencana->pluck('id_rencana'))->get();
+        if ($rencana->isNotEmpty() && in_array($tujuan['id_jenis'], TransNilai::jenisDiagnostik(), true)) {
+            return response()->json(['message' => 'Lembar ini punya ' . $rencana->count() . ' rencana tindak lanjut, sedangkan asesmen diagnostik tidak diremedial. Pilih jenis penilaian lain.'], 422);
+        }
+
+        $gantiMateri = $tujuan['id_materi'] !== $asal['id_materi'];
+        $indikatorDibuang = $gantiMateri
+            ? $baris->sum(fn($n) => $n->nilaiIndikator->count()) + $remedial->sum(fn($n) => $n->nilaiIndikator->count())
+            : 0;
+
+        $diTujuan = $this->queryPenilaian($tujuan, $tanggalTujuan)->with('rencana')->whereIn('id_siswa', $baris->pluck('id_siswa'))->get()->keyBy('id_siswa');
+        $bentrok = $baris->filter(fn($n) => isset($diTujuan[$n->id_siswa]))->map(fn($n) => [
+            'id_siswa' => $n->id_siswa,
+            'nama_siswa' => $n->siswa?->nama_siswa ?? $n->id_siswa,
+            'nilai_asal' => (float) $n->nilai,
+            'nilai_tujuan' => (float) $diTujuan[$n->id_siswa]->nilai,
+            'tujuan_punya_rencana' => (bool) $diTujuan[$n->id_siswa]->rencana,
+        ])->sortBy('nama_siswa')->values();
+
+        $ringkas = [
+            'jumlah' => $baris->count(),
+            'remedial' => $remedial->count(),
+            'rencana' => $rencana->count(),
+            'indikator_dibuang' => $indikatorDibuang,
+            'bentrok' => $bentrok,
+        ];
+        if ($request->boolean('pratinjau')) return response()->json($ringkas);
+        if ($bentrok->isNotEmpty() && !$request->boolean('timpa')) {
+            return response()->json(['message' => $bentrok->count() . ' siswa sudah punya nilai di lembar tujuan. Pilih timpa dengan nilai dari lembar asal, atau batalkan.'] + $ringkas, 409);
+        }
+
+        $mbk = MasterMBK::find($tujuan['id_jenis']);
+        DB::transaction(function () use ($baris, $remedial, $diTujuan, $bentrok, $tujuan, $tanggalTujuan, $gantiMateri, $mbk, $materi) {
+            // Timpa: nilai lama di lembar tujuan (beserta rencana & remedialnya) diganti nilai dari lembar asal
+            foreach ($bentrok as $b) $this->hapusNilai($diTujuan[$b['id_siswa']], true);
+
+            $pindah = function (TransNilai $n, array $kolom) use ($gantiMateri, $mbk, $materi) {
+                if ($gantiMateri) TransNilaiIndikator::where('id_nilai', $n->id_nilai)->delete();
+                $n->update($kolom + ($n->metode_stnkm === 'MANUAL' ? [] : $this->hitungStnkm((float) $n->nilai, $mbk, $materi)));
+            };
+            foreach ($baris as $n) $pindah($n, ['id_jenis' => $tujuan['id_jenis'], 'id_materi' => $tujuan['id_materi'], 'tanggal' => $tanggalTujuan]);
+            // Nilai remedial tetap bertanggal pelaksanaannya sendiri
+            foreach ($remedial as $n) $pindah($n, ['id_jenis' => $tujuan['id_jenis'], 'id_materi' => $tujuan['id_materi']]);
+        });
+
+        $pesan = "{$baris->count()} nilai dipindahkan ke {$materi->nama_materi} · {$mbk->kategori_penilaian} · "
+            . Carbon::parse($tanggalTujuan)->locale('id')->translatedFormat('j M Y') . '.';
+        if ($remedial->isNotEmpty()) $pesan .= " {$remedial->count()} nilai remedial ikut pindah.";
+        if ($bentrok->isNotEmpty()) $pesan .= " {$bentrok->count()} nilai lama di lembar tujuan ditimpa.";
+        if ($indikatorDibuang) $pesan .= " Nilai akhir tetap; {$indikatorDibuang} nilai indikator dihapus karena indikatornya milik materi lama.";
+
+        return response()->json(['success' => true, 'message' => $pesan] + $ringkas);
     }
 
     private function cekMapel(Request $request, ?string $idMapel): void
