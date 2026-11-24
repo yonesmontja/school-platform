@@ -316,7 +316,7 @@ function LaporanStnkm() {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8, padding: 14 } },
+        legend: { position: "bottom", labels: legendGaris },
         tooltip: {
           callbacks: {
             title: (items) => `${items[0].label} (${ember[items[0].dataIndex]?.title || ""})`,
@@ -333,6 +333,15 @@ function LaporanStnkm() {
     },
     plugins: [monthBandPlugin, whiteBgPlugin],
   });
+  // Legend berupa potongan garis kecil yang meniru gaya garisnya (penuh / putus-putus), bukan bulatan besar
+  const legendGaris = {
+    usePointStyle: true, pointStyleWidth: 20, boxHeight: 6, padding: 12, font: { size: 11 },
+    generateLabels: (chart) => chart.data.datasets.map((ds, i) => ({
+      text: ds.label, datasetIndex: i, hidden: !chart.isDatasetVisible(i),
+      pointStyle: "line", strokeStyle: ds.borderColor, fillStyle: ds.borderColor,
+      lineWidth: 2.5, lineDash: ds.borderDash || [], fontColor: chart.options.color,
+    })),
+  };
   const gayaGaris = (color, dash = []) => ({
     borderColor: color, backgroundColor: color, borderDash: dash,
     tension: 0.3, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,

@@ -38,6 +38,8 @@ test("rekap STNKM per sumber bisa diklik menuju rincian hari dan entri siswa", a
   await sumber.getByRole("button", { name: "Lengkap" }).click();
   const cara = page.locator("[data-cara-lengkap]");
   await expect(cara).toContainText("Dua sumbu");
+  // Grafik dua sumbu: legend berupa potongan garis (penuh / putus-putus), bukan bulatan besar
+  await page.locator(".card", { hasText: "Tren Rata-rata Kelas" }).first().screenshot({ path: path.join(__dirname, "../hasil/stnkm-legend.png") });
   await cara.getByRole("button", { name: "Konversi 0–100" }).click();
   await expect(page.getByText(/dikonversi ke 0–100/).first()).toBeVisible();
   await page.locator(".card", { has: page.locator("[data-sumber-stnkm]") }).first().screenshot({ path: path.join(__dirname, "../hasil/stnkm-filter.png") });
