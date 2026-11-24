@@ -83,6 +83,8 @@ services:
       QUEUE_CONNECTION: sync
       SESSION_DRIVER: array
       FILESYSTEM_DISK: local
+      # Tes e2e berjalan kapan saja; pesan akses WA di situs asli tetap dibatasi jam efektif
+      AKSES_WA_SELALU_BUKA: "true"
       # artisan serve melayani beberapa permintaan sekaligus (satu halaman memanggil 5–10 API)
       PHP_CLI_SERVER_WORKERS: "6"
     depends_on:

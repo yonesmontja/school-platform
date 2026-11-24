@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\ProgramAjarController;
 use App\Http\Controllers\Api\RuanganController;
 
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\KirimAksesController;
 use App\Http\Controllers\Api\LogAktivitasController;
 use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PanduanKerjaController;
@@ -404,6 +405,11 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update']);
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
         Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
+        // Pesan akses aplikasi lewat WhatsApp (jam efektif 07:30–12:00) beserta riwayatnya
+        Route::get('/users/{id}/akses-wa', [KirimAksesController::class, 'show']);
+        Route::post('/users/{id}/akses-wa', [KirimAksesController::class, 'siapkan']);
+        Route::post('/akses-wa/{id}/tindakan', [KirimAksesController::class, 'tindakan']);
+        Route::get('/akses-wa/riwayat', [KirimAksesController::class, 'riwayat']);
     });
 
     // ===== STAF (ADMIN, KEPSEK, GURU) =====

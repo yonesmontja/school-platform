@@ -5,6 +5,7 @@ import Swal from "sweetalert2";
 import { API_URL, PENINJAU, ROLE_LABEL, ROLE_WARNA, authHeaders, useAkses } from "@/app/lib/akses";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
 import { cetakSuratAkun } from "@/components/pengguna/cetakAkun";
+import { ModalKirimAkses, RiwayatKirimAkses } from "@/components/pengguna/KirimAksesWa";
 
 const ROLES = ["admin", "kepsek", "wakakur", "wakasis", "yayasan", "guru", "operator", "siswa", "ortu"];
 // Kartu ringkasan: tiga peran peninjau digabung dalam satu kartu "Peninjau"
@@ -41,6 +42,9 @@ export default function ManajemenPenggunaPage() {
   const [form, setForm] = useState(null); // null = tertutup; {id?} = tambah/ubah
   const [menyimpan, setMenyimpan] = useState(false);
   const [kredensial, setKredensial] = useState(null); // { judul, daftar: [{nama, role?, login, password}] }
+  const [aksesWa, setAksesWa] = useState(null); // akun yang sedang disiapkan pesan aksesnya
+  const [segarRiwayat, setSegarRiwayat] = useState(0);
+  const tutupAksesWa = useCallback(() => setAksesWa(null), []);
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -212,6 +216,7 @@ export default function ManajemenPenggunaPage() {
                     <MenuAksi label={`Aksi untuk ${u.name || u.username}`} items={[
                       aksiUbah(() => bukaForm(u)),
                       { label: "Reset kata sandi", ikon: "bi-key", onClick: () => resetPassword(u) },
+                      { label: "Kirim akses via WhatsApp", ikon: "bi-whatsapp", onClick: () => setAksesWa(u), tampil: !!u.aktif },
                       { label: u.aktif ? "Nonaktifkan akun" : "Aktifkan akun", ikon: u.aktif ? "bi-person-slash" : "bi-person-check", onClick: () => toggleAktif(u), tampil: u.id !== saya?.id },
                       aksiHapus(() => hapus(u), u.id !== saya?.id),
                     ]} />
@@ -225,6 +230,9 @@ export default function ManajemenPenggunaPage() {
 
       {form && <FormAkun form={form} setF={setF} refData={ref} menyimpan={menyimpan} onSimpan={simpan} onTutup={() => setForm(null)} />}
       {kredensial && <DaftarKredensial {...kredensial} onTutup={() => setKredensial(null)} />}
+      {aksesWa && <ModalKirimAkses user={aksesWa} Modal={Modal} onTutup={tutupAksesWa} onTercatat={() => setSegarRiwayat((n) => n + 1)} />}
+
+      <RiwayatKirimAkses segar={segarRiwayat} />
     </div>
   );
 }

@@ -38,6 +38,7 @@ school-platform/
 - **Surat & Arsip (Tahap D)** — templat surat dan penomoran, surat keluar (draf → diajukan → terbit → ditandatangani) dengan kode verifikasi keaslian (dicetak juga sebagai **kode QR** di surat) di halaman publik `/verifikasi/{kode}`, surat masuk dengan **disposisi** ke staf (halaman Disposisi Surat untuk penerima), dan arsip dokumen berberkas
 - **Inventaris (Tahap E)** — barang (inventaris, pemeriksaan kondisi, peminjaman/pengembalian), stok habis pakai beserta mutasi, dan pengadaan dengan keputusan dan penyelesaian
 - **Manajemen Pengguna** — admin membuat/mengubah/menghapus akun, membuat akun massal (generate), dan reset password
+- **Kirim akses via WhatsApp** — admin menyiapkan pesan akses untuk satu akun (salam hormat, username, kata sandi, alamat https://web.saprapor.com/) hanya pada jam efektif Senin–Jumat 07:30–12:00 WIT (dicek server); nomor WA terisi dari data guru/siswa/orang tua; kata sandi diketik admin dan dicocokkan dengan akun (bila tidak cocok ditolak) atau ditetapkan sebagai kata sandi baru (wajib diganti saat login); pesan disalin atau dibuka di aplikasi WhatsApp, dan setiap pesan tercatat di **Riwayat Kirim Akses** (penerima, nomor, cara kata sandi, disalin/dibuka di WhatsApp, admin pengirim) tanpa menyimpan kata sandi maupun isi pesan, dengan ekspor CSV
 - **Portal Siswa & Orang Tua** — siswa dan orang tua melihat data anak miliknya (read-only): ringkasan dengan kotak **Perlu didampingi** (tindak lanjut terjadwal, mapel di bawah KKM, TP belum dikuasai, alpa) dan grafik perkembangan nilai; **Capaian TP** per mapel → materi → indikator dengan tingkat KKTP, tanda tuntas, dan kalimat deskripsi seperti di rapor; **Tindak Lanjut** (remedial: jadwal, jam, ruang, catatan guru, nilai awal → remedial, serta tips mendampingi di rumah per bentuk tindak lanjut); **Jadwal** kelas 7 hari ke depan (sesi remedial siswa lain tidak ditampilkan); kalender kehadiran per bulan; catatan positif (narasi jurnal negatif tidak ditampilkan); dan pratinjau/cetak rapor
 - **Jadwal Terhubung Perangkat Ajar** — form sesi jadwal punya panel editor untuk menautkan ATP, modul, CP, indikator, materi, bank soal, dan video per mapel (ada keadaan kosong bila belum ada, menu cepat `/`); status sesi mengikuti jam sekolah otomatis (Menunggu → Berlangsung → Selesai, lewat perintah terjadwal `jadwal:status-otomatis` tiap menit), hanya **Batal** yang manual
 - **Prota & Promes** — halaman Prota & Promes (menu Perencanaan Ajar): Gantt dinamis, matriks minggu Promes, kalender minggu efektif per semester (diatur admin/kepsek), rencana dari ATP dan realisasi dari jadwal; ekspor Excel/CSV dan PDF resmi
@@ -398,6 +399,9 @@ Base URL: `/api` di domain web (proxy ke core-api), atau `http://localhost:8000/
 | GET/POST/PUT/DELETE | `/users, /users/{id}` | Kelola akun pengguna | admin | ✔ |
 | POST | `/users/generate` | Buat akun massal | admin | ✔ |
 | POST | `/users/{id}/reset-password` | Reset password pengguna | admin | ✔ |
+| GET/POST | `/users/{id}/akses-wa` | Info / siapkan pesan akses WhatsApp (jam efektif 07:30–12:00 WIT, kata sandi dicocokkan atau `tetapkan`) | admin | ✔ |
+| POST | `/akses-wa/{id}/tindakan` | Catat pesan akses disalin / dibuka di WhatsApp | admin | ✔ |
+| GET | `/akses-wa/riwayat` | Riwayat kirim akses (tanpa kata sandi) beserta status jam kirim | admin | ✔ |
 | GET | `/students/master-data` | Data referensi untuk form siswa | staf | ✔ |
 | GET | `/keluarga` | Orang tua & wali beserta anak, akun portal, daftar pekerjaan dan siswa | admin, kepsek | ✔ |
 | POST/PUT/DELETE | `/keluarga/{ortu\|wali}[/{id}]` | Tambah/ubah/hapus data keluarga dan anaknya (`anak`: daftar `id_siswa`); hapus ditolak bila ada akun portal | admin | ✔ |
@@ -701,6 +705,7 @@ docker compose exec core-api php artisan test --filter RemedialTest
 | [NilaiBentrokOfflineTest](services/core-api/tests/Feature/NilaiBentrokOfflineTest.php) | Kiriman nilai offline yang bentrok ditolak 409, timpa dengan `paksa` |
 | [GladiTutupSemesterTest](services/core-api/tests/Feature/GladiTutupSemesterTest.php) | Gladi Tutup Semester menolak database yang namanya tidak berakhiran `_gladi` |
 | [NilaiPindahLembarTest](services/core-api/tests/Feature/NilaiPindahLembarTest.php) | Pindahkan lembar nilai: pratinjau, poin dihitung ulang, remedial & rencana ikut, bentrok 409 lalu timpa, validasi materi/jenis |
+| [KirimAksesTest](services/core-api/tests/Feature/KirimAksesTest.php) | Pesan akses WA: isi pesan & tautan wa.me, jam efektif WIT (tepi 07:30/12:00, Sabtu), sandi salah ditolak / ditetapkan baru, riwayat & log tanpa kata sandi, khusus admin |
 | [LaporanStnkmSiswaTest](services/core-api/tests/Feature/LaporanStnkmSiswaTest.php) | Rincian STNKM siswa: nilai & jurnal dengan pengisi, narasi sensitif disamarkan, siswa luar kelas ditolak |
 
 Data uji (sekolah mini: 2 guru, 2 kelas, 2 mapel, 4 siswa, akun tiap peran) dibuat oleh
@@ -737,6 +742,7 @@ npx playwright show-report laporan                    # laporan, termasuk trace 
 | [kartu.spec.js](tests/web/tes/kartu.spec.js) | Cetak kartu pelajar berfoto + QR, halaman verifikasi publik, QR kartu ujian mengisi halaman masuk |
 | [pesan-ortu.spec.js](tests/web/tes/pesan-ortu.spec.js) | Orang tua mengirim pesan, wali kelas membalas, rapor berjalan dengan tombol WA hanya untuk staf |
 | [pindahlembar.spec.js](tests/web/tes/pindahlembar.spec.js) | Lembar nilai salah materi dipindah dari Input Nilai, bentrok ditimpa dengan nilai asal |
+| [aksesWa.spec.js](tests/web/tes/aksesWa.spec.js) | Admin menyiapkan pesan akses WhatsApp (sandi salah ditolak), menyalin pesan, dan riwayat mencatatnya tanpa kata sandi |
 | [stnkmrincian.spec.js](tests/web/tes/stnkmrincian.spec.js) | Saklar sumber STNKM (Akademik/Jurnal/Lengkap dua sumbu/konversi), baris rekap menuju rincian Hari & Entri yang angkanya sama, ekspor Excel, kembali dengan filter |
 
-`infra/terbitkan.sh` menjalankan tes backend dan tes web (login, alur, offline, dan tes per fitur seperti bank soal, administrasi, foto siswa, peringatan dini, Hari Ini, pencarian, kartu, pesan orang tua, pindah lembar, rincian STNKM) sebelum menerbitkan; `--lengkap` menambah semua halaman.
+`infra/terbitkan.sh` menjalankan tes backend dan tes web (login, alur, offline, dan tes per fitur seperti bank soal, administrasi, foto siswa, peringatan dini, Hari Ini, pencarian, kartu, pesan orang tua, pindah lembar, rincian STNKM, kirim akses WA) sebelum menerbitkan; `--lengkap` menambah semua halaman.

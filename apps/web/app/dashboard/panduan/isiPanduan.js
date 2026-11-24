@@ -698,8 +698,13 @@ export const BAGIAN = [
       "Sandi awal dibuat acak dan hanya ditampilkan sekali. Salin daftarnya lalu bagikan ke masing-masing pemilik akun.",
       "Untuk satu akun, tekan tambah, isi nama, peran, username, dan hubungkan ke data guru/siswa/orang tua.",
       "Bila ada yang lupa sandi, tekan Reset Password pada akunnya.",
+      "Untuk mengirim akses lewat WhatsApp, buka menu aksi akun → Kirim akses via WhatsApp. Periksa nomornya, ketik kata sandi akun (atau centang Jadikan kata sandi baru), lalu tekan Siapkan pesan.",
+      "Tekan Salin pesan lalu teruskan di aplikasi WhatsApp, atau tekan Buka WhatsApp. Setiap pesan tercatat di Riwayat Kirim Akses di bawah tabel.",
     ],
-    tips: ["Akun baru wajib mengganti sandi saat pertama masuk. Akun yang dinonaktifkan tidak bisa masuk tetapi datanya tetap ada."],
+    tips: [
+      "Akun baru wajib mengganti sandi saat pertama masuk. Akun yang dinonaktifkan tidak bisa masuk tetapi datanya tetap ada.",
+      "Pesan akses hanya bisa disiapkan Senin–Jumat pukul 07:30–12:00 WIT. Kata sandi yang diketik dicocokkan dengan akun dan tidak pernah disimpan di riwayat.",
+    ],
   },
   {
     id: "keluarga", kelompok: "pengelola", judul: "Data orang tua dan wali", icon: "bi-house-heart",

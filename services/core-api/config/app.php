@@ -71,6 +71,8 @@ return [
     'zona_sekolah' => env('ZONA_SEKOLAH', 'Asia/Jayapura'),
     // Alamat publik situs (lewat tunnel) yang diperiksa pemantau uptime (situs:pantau)
     'url_publik' => env('APP_URL_PUBLIK', 'https://web.saprapor.com'),
+    // Pesan akses WhatsApp hanya bisa disiapkan pada jam efektif; true hanya untuk API tes e2e (jamnya tidak bisa dibekukan)
+    'akses_wa_selalu_buka' => (bool) env('AKSES_WA_SELALU_BUKA', false),
 
     // Log Aktivitas lebih tua dari ini dipindah ke file arsip (php artisan log:arsipkan, dijadwalkan harian)
     'log_aktivitas_simpan_bulan' => (int) env('LOG_AKTIVITAS_SIMPAN_BULAN', 12),

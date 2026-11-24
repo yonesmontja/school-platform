@@ -366,6 +366,8 @@ class AuditTrail
         'PUT api/users/{id}' => ['Pengguna', 'UBAH', 'Mengubah akun pengguna'],
         'DELETE api/users/{id}' => ['Pengguna', 'HAPUS', 'Menghapus akun pengguna'],
         'POST api/users/{id}/reset-password' => ['Pengguna', 'RESET_SANDI', 'Mereset kata sandi pengguna', 'AUTH'],
+        'POST api/users/{id}/akses-wa' => ['Pengguna', 'KIRIM_AKSES', 'Menyiapkan pesan akses aplikasi (WhatsApp)', 'AUTH'],
+        'POST api/akses-wa/{id}/tindakan' => ['Pengguna', 'KIRIM_AKSES', 'Menyalin / membuka pesan akses di WhatsApp', 'OUTPUT'],
         'PUT api/diagnostik/nonkognitif' => ['Asesmen Diagnostik', 'SIMPAN', 'Menyimpan diagnostik non-kognitif kelas'],
         'POST api/whatsapp' => ['WhatsApp', 'KIRIM_WA', 'Mengirim WhatsApp otomatis (Fonnte)', 'OUTPUT'],
     ];
