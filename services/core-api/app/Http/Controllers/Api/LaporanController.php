@@ -71,12 +71,12 @@ class LaporanController extends Controller
         $nilai = RemedialService::batasiNilai(TransNilai::efektif()
             ->with(['materi:id_materi,nama_materi', 'jenis:id_jenis,kategori_penilaian', 'mapel:id_mapel,nama_mapel', 'guru:id_guru,nama_guru', 'pengisi:id,name,id_guru'])
             ->where('id_kelas', $request->id_kelas)->where('id_periode', $request->id_periode)->where('id_siswa', $siswa->id_siswa)
-            ->orderBy('tanggal')
+            ->orderBy('tanggal')->orderBy('id_nilai')
             ->get(['id_nilai', 'id_siswa', 'id_mapel', 'id_materi', 'id_jenis', 'id_guru', 'diisi_oleh', 'metode_stnkm', 'tanggal', 'tipe_nilai', 'nilai', 'poin_S', 'poin_T', 'poin_N', 'poin_K', 'poin_M']));
 
         $jurnal = TransJurnal::with(['guru:id_guru,nama_guru', 'pencatat:id,name,id_guru'])
             ->where('id_kelas', $request->id_kelas)->where('id_siswa', $siswa->id_siswa)
-            ->orderBy('tanggal')
+            ->orderBy('tanggal')->orderBy('created_at')->orderBy('id_jurnal') // urutan pasti untuk entri bertanggal sama
             ->get(['id_jurnal', 'id_siswa', 'id_kelas', 'id_guru', 'dicatat_oleh', 'tanggal', 'narasi_kejadian', 'mode_dampak', 'sensitif', 'val_S', 'val_T', 'val_N', 'val_K', 'val_M']);
         TransJurnal::samarkan($jurnal, $request->user());
 
