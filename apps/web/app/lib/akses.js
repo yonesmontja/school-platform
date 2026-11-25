@@ -28,9 +28,12 @@ export const OPERATOR = "operator";
 // Peninjau: melihat semua menu milik admin & kepala sekolah, tanpa bisa mengubah (server menolak perubahan)
 export const PENINJAU = ["wakakur", "wakasis", "yayasan"];
 
-/** Peran boleh membuka sesuatu yang dibatasi ke daftar peran; peninjau ikut hak baca admin/kepala sekolah. */
+// Penanda di daftar peran: hanya peran yang disebut, tanpa hak baca peninjau (mis. Dokumen Teknis khusus Admin)
+export const KHUSUS = "khusus";
+
+/** Peran boleh membuka sesuatu yang dibatasi ke daftar peran; peninjau ikut hak baca admin/kepala sekolah kecuali daftar bertanda KHUSUS. */
 export const peranBoleh = (daftar, role) =>
-  daftar.includes(role) || (PENINJAU.includes(role) && (daftar.includes("admin") || daftar.includes("kepsek")));
+  daftar.includes(role) || (PENINJAU.includes(role) && !daftar.includes(KHUSUS) && (daftar.includes("admin") || daftar.includes("kepsek")));
 
 // Halaman yang dibatasi perannya (dicocokkan dengan awalan path); halaman staf lain terbuka untuk semua staf
 const ATURAN_HALAMAN = [
@@ -49,6 +52,7 @@ const ATURAN_HALAMAN = [
   { awalan: "/dashboard/ujian", peran: ["siswa"] },
   { awalan: "/dashboard/pengguna", peran: ["admin"] },
   { awalan: "/dashboard/dokumentasi-api", peran: ["admin"] },
+  { awalan: "/dashboard/dokumen-teknis", peran: ["admin", KHUSUS] },
   { awalan: "/dashboard/pemakaian", peran: ["admin", "kepsek"] },
   { awalan: "/dashboard/pengaturan", peran: ["admin"] },
   // Master data & semester hanya untuk pengelola; guru tetap membacanya lewat dropdown di halaman lain

@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\ModulAjarController;
 use App\Http\Controllers\Api\PetaTemaController;
 use App\Http\Controllers\Api\DokumenRujukanController;
 use App\Http\Controllers\Api\DokumentasiApiController;
+use App\Http\Controllers\Api\DokumenTeknisController;
 use App\Http\Controllers\Api\PemakaianController;
 use App\Http\Controllers\Api\CanvaController;
 use App\Http\Controllers\Api\VideoBelajarController;
@@ -379,6 +380,8 @@ Route::middleware(['auth:sanctum', 'role'])->group(function () {
         // Dokumentasi API (dibaca dari router; juga OpenAPI 3 untuk Postman/Insomnia)
         Route::get('/dokumentasi', [DokumentasiApiController::class, 'index']);
         Route::get('/dokumentasi/openapi.json', [DokumentasiApiController::class, 'openapi']);
+        // Dokumen Teknis (konsep, analisis, perancangan, implementasi, pengujian) dari resources/dokumen-teknis
+        Route::get('/dokumen-teknis', [DokumenTeknisController::class, 'index']);
 
         Route::apiResource('/students', StudentController::class)->only(['store', 'update', 'destroy']);
         Route::post('/keluarga/{jenis}', [KeluargaController::class, 'store'])->whereIn('jenis', ['ortu', 'wali']);

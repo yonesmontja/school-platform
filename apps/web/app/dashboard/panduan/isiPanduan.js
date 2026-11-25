@@ -801,6 +801,20 @@ export const BAGIAN = [
     ],
   },
   {
+    id: "dokumen-teknis", kelompok: "pengelola", judul: "Dokumen Teknis", icon: "bi-journal-richtext", peran: ["admin", "khusus"],
+    href: "/dashboard/dokumen-teknis",
+    langkah: [
+      "Buka Akun & Sistem → Dokumen Teknis (khusus admin; akun peninjau pun tidak bisa membukanya).",
+      "Baca dari sampul sampai lampiran: konsep dan model STNKM, analisis kebutuhan dengan diagram use case, perancangan (arsitektur, ERD, diagram urutan dan aktivitas), implementasi, pengujian, dan penutup.",
+      "Pakai daftar isi di samping untuk melompat ke bab atau subbab; kotak Cari bagian menyaring daftar isi.",
+      "Tekan Cetak / PDF untuk menyimpan naskah lengkap: sampul di halaman pertama dan setiap bab mulai di halaman baru.",
+    ],
+    tips: [
+      "Isi dokumen berasal dari repo, jadi ikut berubah setiap kali aplikasi diperbarui. Statistik, daftar endpoint, tabel basis data, dan daftar tes dihitung dari sistem yang sedang berjalan.",
+      "Diagram digambar ulang otomatis mengikuti mode terang atau gelap.",
+    ],
+  },
+  {
     id: "backup", kelompok: "pengelola", judul: "Backup dan pemulihan data", icon: "bi-hdd-stack",
     peran: ["admin"],
     langkah: [

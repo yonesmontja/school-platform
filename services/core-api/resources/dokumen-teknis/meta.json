@@ -1,0 +1,10 @@
+{
+  "judul": "Rancang Bangun SAPrapor: Sistem Informasi Asesmen, Pembelajaran, dan Rapor Terintegrasi Berbasis Kurikulum Merdeka",
+  "subjudul": "Studi Kasus Sekolah Dasar di Nabire, Papua Tengah",
+  "jenis": "Dokumen Teknis Sistem",
+  "penyusun": "Tim Pengembang SAPrapor",
+  "kota": "Nabire",
+  "tahun": "2026",
+  "versi": "1.0",
+  "catatan": "Dokumen hidup: isi disusun dari repositori school-platform (README, roadmap, kode, dan riwayat pengembangan). Statistik, daftar endpoint, daftar tabel, dan daftar tes dihitung otomatis dari sistem yang sedang berjalan."
+}

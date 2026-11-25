@@ -58,7 +58,7 @@ class DokumentasiApiController extends Controller
     }
 
     /** Disimpan di cache; kunci berubah bila daftar rute atau berkas keterangan README berubah. */
-    private function endpoint()
+    public function endpoint()
     {
         $rute = collect(Route::getRoutes()->getRoutes())->map(fn(RuteLaravel $r) => implode('|', $r->methods()) . ' ' . $r->uri() . ' ' . $r->getActionName())->implode("
 ");
