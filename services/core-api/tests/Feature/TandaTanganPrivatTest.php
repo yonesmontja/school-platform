@@ -72,6 +72,11 @@ class TandaTanganPrivatTest extends TestCase
         $baru = basename($this->postJson('/api/settings', ['ttd_kepsek_base64' => $this->png()])->assertOk()->json('data.ttd_kepsek_url'));
         Storage::disk('local')->assertMissing("signatures/{$nama}");
         Storage::disk('local')->assertExists("signatures/{$baru}");
+
+        // Menghapus tanda tangan di Pengaturan ikut menghapus berkasnya
+        $this->postJson('/api/settings', ['ttd_kepsek_url' => ''])->assertOk();
+        $this->assertNull(SchoolSetting::first()->ttd_kepsek_url);
+        Storage::disk('local')->assertMissing("signatures/{$baru}");
     }
 
     public function test_data_rapor_portal_tanpa_alamat_tanda_tangan(): void
@@ -91,7 +96,11 @@ class TandaTanganPrivatTest extends TestCase
         // Masa peralihan: berkas lama di disk publik masih dilayani agar cetak tidak putus sebelum dipindahkan
         $this->get('/api/signature/ttd_guru_123.png')->assertOk();
 
-        $this->artisan('ttd:amankan')->expectsOutputToContain('1 berkas')->assertSuccessful();
+        // Berkas privat bernama sama tidak pernah ditimpa salinan publik
+        Storage::disk('local')->put('signatures/ttd_kepsek_9.png', 'asli');
+        Storage::disk('public')->put('signatures/ttd_kepsek_9.png', '');
+        $this->artisan('ttd:amankan')->expectsOutputToContain('2 berkas')->assertSuccessful();
+        $this->assertSame('asli', Storage::disk('local')->get('signatures/ttd_kepsek_9.png'));
         Storage::disk('public')->assertMissing('signatures/ttd_guru_123.png');
         Storage::disk('local')->assertExists('signatures/ttd_guru_123.png');
         $this->getJson('/api/signature/ttd_guru_123.png')->assertUnauthorized();

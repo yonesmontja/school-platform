@@ -73,4 +73,8 @@ test("tanda tangan kepala sekolah: cetak staf, rapor profil siswa elektronik, ve
   await page.getByRole("button", { name: "Tampilkan nilai" }).click();
   await expect(page.locator("[data-tabel-nilai]")).toContainText("Matematika");
   await page.screenshot({ path: path.join(__dirname, "../hasil/verifikasi-rapor.png"), fullPage: true });
+
+  // Bersihkan: API tes berbagi folder penyimpanan dengan API asli, jadi tanda tangan uji dihapus lagi
+  await kirim(admin, "POST", "/settings", { ttd_kepsek_url: "" });
+  expect((await fetch(`${API}/api/signature/${nama}`, { headers: { Authorization: `Bearer ${admin.access_token}`, Accept: "application/json" } })).status).toBe(404);
 });

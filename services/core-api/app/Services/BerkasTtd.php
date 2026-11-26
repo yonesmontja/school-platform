@@ -48,17 +48,26 @@ class BerkasTtd
         return Storage::disk('local')->exists($relatif) ? Storage::disk('local')->path($relatif) : null;
     }
 
-    /** Pindahkan berkas lama dari disk publik ke disk privat; mengembalikan jumlah yang dipindahkan. */
-    public static function amankanBerkasLama(): int
+    /**
+     * Pindahkan berkas lama dari disk publik ke disk privat. Berkas privat yang sudah ada tidak pernah ditimpa;
+     * salinan publik yang tidak bisa dihapus (izin berkas di host) dikosongkan agar gambarnya tidak lagi bisa diunduh.
+     * Mengembalikan [dipindahkan, dikosongkan].
+     */
+    public static function amankanBerkasLama(): array
     {
-        $n = 0;
-        foreach (Storage::disk('public')->files(self::MAP) as $relatif) {
-            $isi = Storage::disk('public')->get($relatif);
-            if ($isi === null) continue;
-            Storage::disk('local')->put(self::MAP . '/' . basename($relatif), $isi);
-            Storage::disk('public')->delete($relatif);
-            $n++;
+        $publik = Storage::disk('public');
+        $privat = Storage::disk('local');
+        $pindah = $kosong = 0;
+        foreach ($publik->files(self::MAP) as $relatif) {
+            $tujuan = self::MAP . '/' . basename($relatif);
+            if (!$privat->exists($tujuan)) {
+                $isi = $publik->get($relatif);
+                if ($isi === null || $isi === '') continue;
+                $privat->put($tujuan, $isi);
+            }
+            if ($publik->delete($relatif) && !$publik->exists($relatif)) { $pindah++; continue; }
+            if ($publik->size($relatif) > 0) { @file_put_contents($publik->path($relatif), ''); $kosong++; }
         }
-        return $n;
+        return [$pindah, $kosong];
     }
 }

@@ -37,6 +37,7 @@ Schedule::command('situs:pantau')->everyFiveMinutes()->withoutOverlapping();
 
 // Pindahkan gambar tanda tangan lama dari /storage publik ke disk privat (sekali, saat menerbitkan pengamanan tanda tangan)
 Artisan::command('ttd:amankan', function () {
-    $n = \App\Services\BerkasTtd::amankanBerkasLama();
+    [$n, $kosong] = \App\Services\BerkasTtd::amankanBerkasLama();
     $this->info("{$n} berkas tanda tangan dipindahkan ke penyimpanan privat.");
+    if ($kosong) $this->warn("{$kosong} salinan publik tidak bisa dihapus (izin berkas di host), isinya dikosongkan.");
 })->purpose('Pindahkan berkas tanda tangan dari disk publik ke disk privat');

@@ -545,7 +545,7 @@ export const BAGIAN = [
       "Buka Rapor, pilih periode dan kelas. Atur mode kalkulasi, bobot, dan tanggal rapor seperti yang akan dicetak.",
       "Di panel Rapor resmi, tekan Terbitkan rapor kelas. Setiap rapor mendapat kode QR keaslian dan tanda tangan elektronik Anda sebagai wali kelas.",
       "Kepala sekolah membuka kelas yang sama lalu menekan Sahkan. Tanda tangan elektronik kepala sekolah ikut tercantum di rapor dan di halaman verifikasi.",
-      "Cetak rapor seperti biasa. Di bawah tanda tangan ada QR; siapa pun bisa memindainya untuk mencocokkan nilai dengan data sekolah.",
+      "Cetak rapor seperti biasa. Di bawah tanda tangan ada QR; siapa pun bisa memindainya untuk memeriksa keaslian. Status hijau \"Rapor sah dan berlaku\" baru tampil setelah kepala sekolah mengesahkan, dan nilai tampil setelah pemindai mengetik dua huruf awal nama siswa.",
       "Tekan Rincian untuk melihat siapa yang sudah disahkan dan orang tua mana yang sudah menyatakan menerima, beserta tanggapannya.",
     ],
     tips: [
@@ -1061,11 +1061,11 @@ export const BAGIAN = [
     href: "/dashboard/portal?tab=rapor",
     langkah: [
       "Saat rapor resmi terbit, muncul pemberitahuan di Perlu Tindakan. Tekan Buka, atau buka Portal → tab Rapor.",
-      "Baca rapornya. Tanda centang hijau menandakan rapor resmi yang ditandatangani elektronik oleh wali kelas (dan kepala sekolah bila sudah disahkan).",
+      "Baca rapornya. Tanda centang hijau menandakan rapor resmi yang ditandatangani elektronik oleh wali kelas. Di rapor portal, tempat tanda tangan kepala sekolah berisi kotak \"Disahkan secara elektronik\" bertanggal dan berkode, bukan gambar tanda tangan.",
       "Tulis tanggapan atau pertanyaan untuk wali kelas bila perlu, lalu tekan Sudah menerima & membaca.",
     ],
     tips: [
-      "Keaslian rapor kertas bisa dicek dengan memindai QR di bawah tanda tangan. Halaman verifikasi menampilkan nilai yang tercatat di sekolah.",
+      "Keaslian rapor kertas bisa dicek dengan memindai QR di bawah tanda tangan. Halaman verifikasi menampilkan status pengesahan, lalu nilai yang tercatat di sekolah setelah Anda mengetik dua huruf awal nama anak.",
     ],
   },
   {

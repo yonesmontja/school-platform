@@ -97,6 +97,9 @@ class SchoolSettingController extends Controller
             $baru = \App\Services\BerkasTtd::simpan($request->ttd_kepsek_base64, 'ttd_kepsek', 'ttd_kepsek_base64');
             \App\Services\BerkasTtd::hapus($setting->ttd_kepsek_url);
             $data['ttd_kepsek_url'] = $baru;
+        } elseif (array_key_exists('ttd_kepsek_url', $data) && !$data['ttd_kepsek_url'] && $setting->ttd_kepsek_url) {
+            \App\Services\BerkasTtd::hapus($setting->ttd_kepsek_url);
+            $data['ttd_kepsek_url'] = null;
         }
 
         $setting->update($data);
