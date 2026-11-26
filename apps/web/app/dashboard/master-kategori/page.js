@@ -7,6 +7,7 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -54,7 +55,7 @@ export default function MasterKategoriPage() {
     if (!imageUrl) return null;
     try {
       const fileName = imageUrl.split("/").pop();
-      const response = await fetch(`${API_URL}/signature/${fileName}`);
+      const response = await ambilTtd(fileName);
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.readAsDataURL(blob); });

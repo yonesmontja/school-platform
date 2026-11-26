@@ -70,7 +70,8 @@ class RaporController extends Controller
             // Terpisah dari kelas: relasi waliKelas akan menimpa kolom wali_kelas saat di-serialize. Wali pada semester itu.
             'wali_kelas' => RiwayatRombel::wali($idKelas, $idPeriode),
             'periode' => $periode,
-            'settings' => SchoolSetting::first(),
+            // Data portal (siswa/orang tua) tanpa alamat gambar tanda tangan kepala sekolah: rapor di profil memakai tanda elektronik
+            'settings' => $hanyaSiswa !== null ? SchoolSetting::first()?->makeHidden(['ttd_kepsek_url', 'no_wa_admin']) : SchoolSetting::first(),
             'students' => $students,
             'subjects' => Subject::orderBy('kelompok')->orderBy('nama_mapel')->get(['id_mapel', 'nama_mapel', 'kelompok', 'kkm']),
             'nilai' => RemedialService::batasiNilai(TransNilai::efektif()->with('materi:id_materi,nama_materi')

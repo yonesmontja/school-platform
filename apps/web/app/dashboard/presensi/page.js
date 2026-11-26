@@ -13,6 +13,7 @@ import PembinaanPresensi from "@/components/presensi/PembinaanPresensi";
 import { TombolLipat, useLipat } from "@/components/presensi/lipat";
 import { muatHariLibur } from "@/app/lib/hariSekolah";
 import Pengisi, { teksPengisi } from "@/components/dashboard/Pengisi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -465,7 +466,7 @@ export default function PresensiPage() {
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
     try {
-      const response = await fetch(`${API_URL}/signature/${imageUrl.split("/").pop()}`);
+      const response = await ambilTtd(imageUrl.split("/").pop());
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result); r.readAsDataURL(blob); });

@@ -7,9 +7,10 @@ import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulih
 
 const getToken = () => localStorage.getItem("token");
 import {
-  DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, urlTtd, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5, TAMPILAN_KOKURIKULER,
+  DIMENSI, FRASA_POSITIF, FRASA_BIMBINGAN, MODE_KALKULASI, JENIS_DOKUMEN, AI_MODES, PREDIKAT, CATATAN_DEFAULT, CATATAN_P5_DEFAULT, num, rata, todayYmd, tanggalPanjang, formatNomorWA, labelKelasResmi, mapelBerlaku, hitungRapor, susunPesanWA, RAPOR_CSS, PREVIEW_CSS, KopIdentitas, TandaTangan, HalamanBerkop, Sampul, Biodata, Akademik, RaporP5, TAMPILAN_KOKURIKULER,
 } from "@/components/rapor/raporDokumen";
 import { API_URL } from "@/app/lib/config";
+import { ttdDataUrl } from "@/app/lib/ttd";
 import { eksporErapor } from "@/components/rapor/eksporErapor";
 import PenjelasanDeskripsi from "@/components/rapor/PenjelasanDeskripsi";
 import PenerbitanRapor from "@/components/rapor/PenerbitanRapor";
@@ -133,8 +134,10 @@ export default function CetakRaporPage() {
       setLoading(true);
       try {
         const res = await safeFetch(`${API_URL}/rapor/data?${new URLSearchParams({ id_kelas, id_periode })}`);
+        // Tanda tangan kepala sekolah dimuat dengan akun staf (berkasnya tidak publik) lalu disisipkan sebagai data URL
+        const ttd = await ttdDataUrl(res.settings?.ttd_kepsek_url);
         if (batal) return;
-        setData(res);
+        setData({ ...res, settings: { ...(res.settings || {}), ttdDataUrl: ttd } });
         setFilters((f) => (res.students.some((s) => s.id_siswa === f.id_siswa) ? f : { ...f, id_siswa: "" }));
       } catch (err) { if (!batal) Swal.fire("Gagal Memuat Data", err.message, "error"); }
       finally { if (!batal) setLoading(false); }

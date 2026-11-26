@@ -12,6 +12,7 @@ import { BOBOT, BantuTp, PilihAI, SaranIktp, TombolBikinAI, kelengkapanMateri } 
 import { bacaAiMode } from "@/components/banksoal/konstanta";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 import { minta } from "@/components/banksoal/api";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Admin & guru menambah dan mengubah materi (guru hanya mapel yang diampu); kepsek melihat saja; hapus khusus admin
 const PENGUBAH = ["admin", "guru"];
@@ -221,9 +222,7 @@ export default function MasterMateriPage() {
     if (!imageUrl) return null;
     try {
       const fileName = imageUrl.split("/").pop();
-      const response = await fetch(
-        `${API_URL}/signature/${fileName}`,
-      );
+      const response = await ambilTtd(fileName);
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

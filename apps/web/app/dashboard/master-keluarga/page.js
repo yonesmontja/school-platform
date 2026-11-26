@@ -7,6 +7,7 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL, authHeaders, useAkses } from "@/app/lib/akses";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Master Orang Tua & Wali bergaya Tabler (lihat tabler.css). Data ini menentukan nomor WA kabar
 // remedial/presensi dan menjadi dasar akun portal orang tua di Manajemen Pengguna.
@@ -42,7 +43,7 @@ async function minta(url, opsi = {}) {
 async function gambarBase64(url) {
   if (!url) return null;
   try {
-    const res = await fetch(`${API_URL}/signature/${url.split("/").pop()}`);
+    const res = await ambilTtd(url.split("/").pop());
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise((r) => { const f = new FileReader(); f.onloadend = () => r(f.result); f.readAsDataURL(blob); });

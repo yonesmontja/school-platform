@@ -10,6 +10,7 @@ import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi"
 import EditorFoto, { FotoKecil } from "@/components/siswa/EditorFoto";
 import { cetakKartuPelajar } from "@/components/siswa/cetakKartu";
 import { srcFoto, unduhFoto } from "@/components/siswa/fotoSiswa";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Status siswa (sama dengan Student::STATUS di backend)
 const STATUS_SISWA = { aktif: "Aktif", lulus: "Lulus (alumni)", mutasi: "Mutasi / pindah sekolah", keluar: "Keluar" };
@@ -367,11 +368,11 @@ export default function MasterSiswaPage() {
       const fileName = imageUrl.split("/").pop();
 
       // Panggil route proxy yang baru kita buat di Laravel
-      const proxyUrl = `${API_URL}/signature/${fileName}`;
+      const proxyUrl = fileName;
 
       console.log("Sedang memuat TTD dari:", proxyUrl); // Untuk debugging
 
-      const response = await fetch(proxyUrl);
+      const response = await ambilTtd(proxyUrl);
 
       if (!response.ok) {
         console.warn(`Gambar TTD gagal dimuat. Status: ${response.status}`);

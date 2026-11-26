@@ -276,7 +276,8 @@ function PortalPage() {
   // Bila rapor resmi sudah terbit, portal memakai pengaturan saat terbit agar isinya sama dengan rapor bertanda tangan
   const terbit = useMemo(() => (data?.terbit || []).find((t) => t.id_siswa === idSiswa) || null, [data, idSiswa]);
   const tanggalRapor = terbit?.tanggal_rapor || todayYmd();
-  const rapor = useMemo(() => (data ? hitungRapor(data, idSiswa, terbit?.mode_kalkulasi || MODE_PORTAL, terbit?.bobot ? { ...BOBOT_RATA, ...terbit.bobot } : BOBOT_RATA) : null), [data, idSiswa, terbit]);
+  // elektronik: rapor di profil siswa memakai tanda pengesahan elektronik, bukan gambar tanda tangan kepala sekolah
+  const rapor = useMemo(() => (data ? { ...hitungRapor(data, idSiswa, terbit?.mode_kalkulasi || MODE_PORTAL, terbit?.bobot ? { ...BOBOT_RATA, ...terbit.bobot } : BOBOT_RATA), elektronik: true } : null), [data, idSiswa, terbit]);
   const tandaiTerima = (hasil) => setData((d) => ({ ...d, terbit: (d.terbit || []).map((t) => (t.id_siswa === idSiswa ? { ...t, ...hasil } : t)) }));
   const siswa = anak.find((s) => s.id_siswa === idSiswa);
 

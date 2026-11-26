@@ -10,6 +10,7 @@ import { galatJaringan, swalGagalMuat, sedangOffline, tambahAntrean } from "@/ap
 import { PESAN_PULIH, bacaPulih, hapusPulih, simpanPulih } from "@/app/lib/pulihHalaman";
 import { RencanaHari } from "@/components/perangkatajar/RencanaSesi";
 import { MenuAksi, aksiHapus, aksiUbah } from "@/components/dashboard/menuAksi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Guru yang tercatat + akun penginput ("diisi …" bila berbeda)
 const pengisiJurnal = (j) => ({ guru: j.guru?.nama_guru, idGuru: j.id_guru, pengisi: j.pencatat?.name, idGuruPengisi: j.pencatat?.id_guru });
@@ -699,7 +700,7 @@ export default function JurnalAnekdotalPage() {
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
     try {
-      const response = await fetch(`${API_URL}/signature/${imageUrl.split("/").pop()}`);
+      const response = await ambilTtd(imageUrl.split("/").pop());
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

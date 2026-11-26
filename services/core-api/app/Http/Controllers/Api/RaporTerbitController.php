@@ -181,22 +181,42 @@ class RaporTerbitController extends Controller
         return response()->json(['message' => 'Terima kasih, tanda terima rapor tercatat.', 'data' => $t->only(['diterima_pada', 'tanggapan_ortu'])]);
     }
 
-    /** Publik: periksa keaslian rapor dari kode QR. Hanya data yang memang tercetak di rapor. */
-    public function verifikasi(string $kode)
+    /**
+     * Publik: periksa keaslian rapor dari kode QR. Hanya data yang memang tercetak di rapor.
+     * Status, identitas, dan pengesahan langsung tampil; nilai & keputusan kenaikan baru dikirim bila
+     * dua huruf awal nama siswa (?inisial=) cocok, agar pemegang kode saja tidak langsung membaca nilai.
+     */
+    public function verifikasi(Request $request, string $kode)
     {
         $t = TransRaporTerbit::where('kode_verifikasi', strtoupper($kode))->first();
         if (!$t) return response()->json(['message' => 'Kode rapor tidak ditemukan. Rapor ini tidak tercatat sebagai rapor resmi sekolah.'], 404);
         $berubah = $t->status === 'BERLAKU' && !hash_equals($t->sidik, RaporTerbit::sidikKelas($t->id_kelas, $t->id_periode, [$t->id_siswa])[$t->id_siswa] ?? '');
         $r = $t->ringkasan;
+        $s = SchoolSetting::first();
+
+        $hurufAwal = fn(?string $v) => mb_substr(preg_replace('/[^\p{L}]/u', '', mb_strtoupper((string) $v)), 0, 2);
+        $inisial = $request->query('inisial');
+        $cocok = is_string($inisial) && mb_strlen($hurufAwal($inisial)) === 2 && $hurufAwal($inisial) === $hurufAwal($r['nama_siswa'] ?? '');
+
         return response()->json(['data' => [
+            'kode' => $t->kode_verifikasi,
             'status' => $t->status, 'versi' => $t->versi, 'berubah' => $berubah,
             'nama_siswa' => $r['nama_siswa'] ?? null, 'nisn' => $r['nisn'] ?? null, 'nama_kelas' => $r['nama_kelas'] ?? null,
             'tahun_ajaran' => $r['tahun_ajaran'] ?? null, 'semester' => $r['semester'] ?? null,
-            'mapel' => $r['mapel'] ?? [], 'rata_umum' => $r['rata_umum'] ?? null, 'kenaikan' => $r['kenaikan'] ?? null,
+            'perlu_inisial' => !$cocok, 'inisial_salah' => is_string($inisial) && $inisial !== '' && !$cocok,
+            'mapel' => $cocok ? ($r['mapel'] ?? []) : [], 'rata_umum' => $cocok ? ($r['rata_umum'] ?? null) : null,
+            'kenaikan' => $cocok ? ($r['kenaikan'] ?? null) : null,
             'tanggal_rapor' => $t->tanggal_rapor?->toDateString(),
             'nama_wali' => $t->nama_wali, 'diterbitkan_pada' => $t->diterbitkan_pada?->toIso8601String(),
             'nama_kepsek' => $t->nama_kepsek, 'disahkan_pada' => $t->disahkan_pada?->toIso8601String(),
-            'sekolah' => SchoolSetting::first()?->nama_sekolah,
-        ]]);
+            // NIP hanya bila kepala sekolah yang mengesahkan masih tercatat di pengaturan
+            'nip_kepsek' => $t->disahkan_pada && $s?->nip_kepsek && $s->nama_kepsek === $t->nama_kepsek ? $s->nip_kepsek : null,
+            'sekolah' => $s?->nama_sekolah,
+            'kop' => [
+                'nama' => $s?->nama_sekolah, 'npsn' => $s?->npsn, 'alamat' => $s?->alamat_sekolah, 'kota' => $s?->kota,
+                'ada_logo' => (bool) ($s?->logo_sekolah_url && \Illuminate\Support\Facades\Storage::disk('public')->exists('logo/' . basename($s->logo_sekolah_url))),
+            ],
+            'diperiksa_pada' => now()->toIso8601String(),
+        ]], 200, ['Cache-Control' => 'no-store']);
     }
 }

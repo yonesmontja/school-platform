@@ -2,7 +2,6 @@
 // Mesin kalkulasi & komponen dokumen rapor, dipakai halaman Cetak Rapor dan Portal Siswa/Orang Tua
 import { Fragment } from "react";
 import { srcFoto } from "@/components/siswa/fotoSiswa";
-import { API_URL } from "@/app/lib/config";
 import TandaTerbit from "./TandaTerbit";
 import { tingkatKktp, tingkatNilai } from "@/app/lib/kktp";
 import { skalaDari, tingkatPredikat, predikatTampil, keteranganSkala, deskripsiKokurikuler, labelBentuk } from "@/app/lib/kokurikuler";
@@ -63,7 +62,21 @@ export const formatNomorWA = (nomor) => {
 };
 // Nama kelas yang sudah diawali "Kelas" tidak diberi awalan lagi
 export const labelKelasResmi = (nama) => (/^kelas\b/i.test(nama) ? nama : `Kelas ${nama}`);
-export const urlTtd = (path) => (path ? `${API_URL}/signature/${path.split("/").pop()}` : null);
+// Rapor di portal (profil siswa) tidak pernah memuat gambar tanda tangan kepala sekolah: diganti tanda pengesahan elektronik
+// yang bisa dicek lewat QR. Cetak resmi oleh staf memakai gambar yang dimuat dengan akun staf (r.sek.ttdDataUrl).
+const tglTte = (v) => (v ? new Date(v).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "");
+export const TtdKepsek = ({ r }) => {
+  if (!r.elektronik) return r.sek.ttdDataUrl ? <img src={r.sek.ttdDataUrl} alt="" /> : null;
+  if (r.terbit?.disahkan_pada) {
+    return (
+      <span className="rp-tte" data-tte-kepsek="disahkan">
+        <span className="rp-tte-judul">✔ Disahkan secara elektronik</span>
+        <span>{tglTte(r.terbit.disahkan_pada)} · Kode {r.terbit.kode_verifikasi}</span>
+      </span>
+    );
+  }
+  return <span className="rp-tte rp-tte-tunggu" data-tte-kepsek="menunggu">{r.terbit ? "Menunggu pengesahan kepala sekolah" : "Rapor sementara, belum disahkan"}</span>;
+};
 
 // Mapel agama hanya ditampilkan sesuai agama siswa; IPA/IPS tidak diajarkan di kelas 1–3 (logika GAS)
 export const mapelBerlaku = (namaMapel, agama, tingkat) => {
@@ -329,6 +342,9 @@ export const RAPOR_CSS = `
 .rp-terbit td { padding: 6px 4px 0; vertical-align: top; text-align: left; }
 .rp-terbit-qr svg { width: 58px; height: 58px; display: block; }
 .rp-terbit-url { word-break: break-all; }
+.rp-tte { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; font-size: 9.5px; line-height: 1.3; color: #14532d; border: 1.5px solid #15803d; border-radius: 5px; padding: 4px 8px; background: #f0fdf4; text-align: left; }
+.rp-tte-judul { font-weight: 700; font-size: 10.5px; }
+.rp-tte-tunggu { color: #6b7280; border-color: #c7cbd1; background: #f9fafb; font-style: italic; }
 .rp-ttd-el { font-size: 10px; font-style: italic; color: #555; border: 1px solid #bbb; border-radius: 4px; padding: 2px 6px; }
 .rp-cover { text-align: center; padding: 30mm 15mm; border: 4px double #000; min-height: 255mm; box-sizing: border-box; }
 .rp-cover-box { border: 2px solid #000; padding: 15px; width: 75%; margin: 25mm auto; border-radius: 6px; }
@@ -354,7 +370,6 @@ export const KopIdentitas = ({ r }) => (
 );
 
 export const TandaTangan = ({ r, tanggal }) => {
-  const ttdKepsek = urlTtd(r.sek.ttd_kepsek_url);
   const lebar = r.isGenap ? "33.3%" : "50%";
   return (
     <>
@@ -363,7 +378,7 @@ export const TandaTangan = ({ r, tanggal }) => {
       {r.isGenap && (
         <td width={lebar}>
           Mengetahui,<br />Kepala Sekolah,
-          <div className="rp-ttd-space">{ttdKepsek && <img src={ttdKepsek} alt="" />}</div>
+          <div className="rp-ttd-space"><TtdKepsek r={r} /></div>
           <strong>{r.sek.nama_kepsek || "-"}</strong><br />NIP. {r.sek.nip_kepsek || "-"}
         </td>
       )}
@@ -409,7 +424,6 @@ export const Sampul = ({ r, pecah }) => (
 
 export const Biodata = ({ r, tanggal, pecah }) => {
   const s = r.siswa;
-  const ttdKepsek = urlTtd(r.sek.ttd_kepsek_url);
   const baris = [
     ["Nama Lengkap Peserta Didik", <strong key="n">{s.nama_siswa}</strong>],
     ["Nomor Induk / NISN", `${s.id_siswa} / ${s.nisn || "-"}`],
@@ -437,7 +451,7 @@ export const Biodata = ({ r, tanggal, pecah }) => {
         </td>
         <td style={{ textAlign: "left", paddingLeft: 20 }}>
           {r.sek.kota || "-"}, {tanggalPanjang(tanggal)}<br />Kepala Sekolah,
-          <div className="rp-ttd-space" style={{ justifyContent: "flex-start" }}>{ttdKepsek && <img src={ttdKepsek} alt="" />}</div>
+          <div className="rp-ttd-space" style={{ justifyContent: "flex-start" }}><TtdKepsek r={r} /></div>
           <strong>{r.sek.nama_kepsek || "-"}</strong><br />NIP. {r.sek.nip_kepsek || "-"}
         </td>
       </tr></tbody></table>

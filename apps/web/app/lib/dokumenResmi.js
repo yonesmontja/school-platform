@@ -11,10 +11,10 @@ const tokenAuth = () => {
 };
 
 /** Gambar dari server sebagai data URL agar pasti ikut tercetak di jendela cetak. */
-async function keDataUrl(url) {
+async function keDataUrl(url, opsi) {
   if (!url) return null;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, opsi);
     if (!res.ok) return null;
     const blob = await res.blob();
     return await new Promise((ok) => { const r = new FileReader(); r.onloadend = () => ok(r.result); r.readAsDataURL(blob); });
@@ -50,7 +50,7 @@ export async function muatSekolah(sekolah) {
   }
   const berkas = s?.ttd_kepsek_url ? String(s.ttd_kepsek_url).split("/").pop() : null;
   const [ttdDataUrl, logoDataUrl] = await Promise.all([
-    s?.ttdDataUrl !== undefined ? s.ttdDataUrl : berkas ? keDataUrl(`${API_URL}/signature/${berkas}`) : null,
+    s?.ttdDataUrl !== undefined ? s.ttdDataUrl : berkas ? keDataUrl(`${API_URL}/signature/${encodeURIComponent(berkas)}`, { headers: { Authorization: `Bearer ${tokenAuth()}` } }) : null,
     s?.logoDataUrl !== undefined ? s.logoDataUrl : muatLogo(s),
   ]);
   const logoRasio = s?.logoRasio ?? (logoDataUrl ? await rasioGambar(logoDataUrl) : 1);

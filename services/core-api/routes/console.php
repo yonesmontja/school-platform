@@ -34,3 +34,9 @@ Schedule::command('jadwal:status-otomatis')->everyMinute()->withoutOverlapping()
 
 // Pemantau uptime (Fase 11): situs publik diperiksa tiap 5 menit; WA ke admin bila mati > ± 10 menit dan saat pulih
 Schedule::command('situs:pantau')->everyFiveMinutes()->withoutOverlapping();
+
+// Pindahkan gambar tanda tangan lama dari /storage publik ke disk privat (sekali, saat menerbitkan pengamanan tanda tangan)
+Artisan::command('ttd:amankan', function () {
+    $n = \App\Services\BerkasTtd::amankanBerkasLama();
+    $this->info("{$n} berkas tanda tangan dipindahkan ke penyimpanan privat.");
+})->purpose('Pindahkan berkas tanda tangan dari disk publik ke disk privat');

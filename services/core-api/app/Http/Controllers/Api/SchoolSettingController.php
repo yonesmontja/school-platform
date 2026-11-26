@@ -18,6 +18,8 @@ class SchoolSettingController extends Controller
         }
         // Nomor peringatan keamanan hanya untuk admin; /settings dibaca semua peran termasuk portal
         if ($request->user()?->role !== 'admin') $setting->makeHidden('no_wa_admin');
+        // Akun portal (siswa/orang tua) tidak pernah menerima alamat gambar tanda tangan kepala sekolah
+        if (in_array($request->user()?->role, ['siswa', 'ortu'], true)) $setting->makeHidden('ttd_kepsek_url');
         return response()->json($setting);
     }
 
@@ -90,20 +92,11 @@ class SchoolSettingController extends Controller
             unset($data['ai_model_name']);
         }
 
-        // Jika ada upload tanda tangan Kepsek (Base64)
+        // Tanda tangan kepala sekolah: disimpan privat (tidak lewat /storage publik); berkas lama dihapus
         if ($request->filled('ttd_kepsek_base64')) {
-            $base64Image = $request->ttd_kepsek_base64;
-            
-            // Bersihkan header base64
-            $image_parts = explode(";base64,", $base64Image);
-            $image_base64 = base64_decode($image_parts[1]);
-            $fileName = 'ttd_kepsek_' . time() . '.png';
-            
-            // Simpan ke storage/app/public/signatures/
-            \Illuminate\Support\Facades\Storage::disk('public')->put('signatures/' . $fileName, $image_base64);
-            
-            // Simpan path ke database
-            $data['ttd_kepsek_url'] = '/storage/signatures/' . $fileName;
+            $baru = \App\Services\BerkasTtd::simpan($request->ttd_kepsek_base64, 'ttd_kepsek', 'ttd_kepsek_base64');
+            \App\Services\BerkasTtd::hapus($setting->ttd_kepsek_url);
+            $data['ttd_kepsek_url'] = $baru;
         }
 
         $setting->update($data);

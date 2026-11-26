@@ -62,14 +62,22 @@ class RaporTerbitTest extends TestCase
         // Verifikasi publik
         $v = $this->getJson("/api/verifikasi-rapor/{$t->kode_verifikasi}")->assertOk();
         $v->assertJsonPath('data.status', 'BERLAKU')->assertJsonPath('data.berubah', false)->assertJsonPath('data.nama_siswa', 'Ani')
-            ->assertJsonPath('data.mapel.0.nilai', 80)->assertJsonPath('data.disahkan_pada', null);
+            ->assertJsonPath('data.disahkan_pada', null)->assertJsonPath('data.kode', $t->kode_verifikasi)->assertJsonPath('data.kop.nama', \App\Models\SchoolSetting::first()?->nama_sekolah)
+            // Nilai disembunyikan sampai dua huruf awal nama siswa cocok
+            ->assertJsonPath('data.perlu_inisial', true)->assertJsonPath('data.mapel', [])->assertJsonPath('data.rata_umum', null)->assertJsonPath('data.inisial_salah', false);
         $this->assertArrayNotHasKey('sidik', $v->json('data'));
+        $this->assertNotNull($v->json('data.diperiksa_pada'));
+        $this->getJson("/api/verifikasi-rapor/{$t->kode_verifikasi}?inisial=BU")->assertJsonPath('data.inisial_salah', true)->assertJsonPath('data.mapel', []);
+        $this->getJson("/api/verifikasi-rapor/{$t->kode_verifikasi}?inisial=a")->assertJsonPath('data.perlu_inisial', true);
+        $this->getJson("/api/verifikasi-rapor/{$t->kode_verifikasi}?inisial=an")->assertJsonPath('data.perlu_inisial', false)
+            ->assertJsonPath('data.mapel.0.nilai', 80)->assertJsonPath('data.nip_kepsek', null);
         $this->getJson('/api/verifikasi-rapor/ZZZZZZZZZZ')->assertNotFound();
 
         // Wali kelas tidak bisa mengesahkan; kepala sekolah bisa
         $this->postJson('/api/rapor/terbit/sahkan', ['id_kelas' => 'KLS-A', 'id_periode' => 'PER-T'])->assertForbidden();
         $this->sebagai($s->kepsek)->postJson('/api/rapor/terbit/sahkan', ['id_kelas' => 'KLS-A', 'id_periode' => 'PER-T'])->assertOk()->assertJsonPath('jumlah', 2);
         $this->assertNotNull($t->fresh()->disahkan_pada);
+        $this->getJson("/api/verifikasi-rapor/{$t->kode_verifikasi}")->assertJsonPath('data.nama_kepsek', $t->fresh()->nama_kepsek)->assertJsonPath('data.mapel', []);
 
         // Nilai berubah setelah terbit → terdeteksi di status kelas & verifikasi
         TransNilai::whereKey('N1')->update(['nilai' => 60]);

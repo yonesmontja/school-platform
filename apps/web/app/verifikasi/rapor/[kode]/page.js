@@ -4,6 +4,7 @@ import "../../../_beranda/beranda.css";
 import "../../../spmb/spmb.css";
 import { muatSekolah } from "../../../_beranda/sekolah";
 import HasilRapor from "./HasilRapor";
+import "./verifikasi.css";
 
 export const metadata = { title: "Verifikasi Rapor", robots: { index: false } };
 
@@ -25,8 +26,8 @@ export default async function HalamanVerifikasiRapor({ params }) {
       <main className="b-wadah spmb-isi" style={{ maxWidth: 560 }}>
         <p className="b-alis b-alis-gelap mb-2">Verifikasi rapor</p>
         <h1 className="spmb-judul">Cek keaslian rapor</h1>
-        <p className="b-sub">Cocokkan identitas dan nilai di bawah dengan rapor yang Anda pegang.</p>
-        <HasilRapor kode={kode} />
+        <p className="b-sub">Hasil di bawah dibaca langsung dari sistem sekolah. Cocokkan dengan rapor yang Anda pegang.</p>
+        <HasilRapor kode={kode} sekolah={{ nama: s.nama_sekolah, npsn: s.npsn, alamat: s.alamat_sekolah, kota: s.kota, ada_logo: s.ada_logo }} />
       </main>
       <footer className="b-kaki">
         <div className="b-wadah b-kaki-isi"><span>{[s.nama_sekolah, s.kota].filter(Boolean).join(" · ")}</span></div>

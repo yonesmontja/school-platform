@@ -7,6 +7,7 @@ import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Jenis asesmen kurikulum nasional; diagnostik memetakan kemampuan awal dan tidak dihitung ke rapor
 const JENIS_ASESMEN = {
@@ -140,9 +141,7 @@ export default function MasterMBKPage() {
     if (!imageUrl) return null;
     try {
       const fileName = imageUrl.split("/").pop();
-      const response = await fetch(
-        `${API_URL}/signature/${fileName}`,
-      );
+      const response = await ambilTtd(fileName);
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

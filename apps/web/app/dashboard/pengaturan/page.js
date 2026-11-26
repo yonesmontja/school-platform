@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Swal from 'sweetalert2';
-import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import { API_URL } from "@/app/lib/config";
+import { ttdDataUrl } from "@/app/lib/ttd";
 import { buatIkonDariLogo } from "@/app/lib/ikonAplikasi";
 
 // Harus sama dengan SchoolSetting::API_KEY_FIELDS di backend
@@ -105,14 +106,8 @@ export default function PengaturanSekolahPage() {
         });
         setFormData(data);
         if (data.logo_sekolah_url) setLogoPreview(`${API_URL}/logo-sekolah?v=${encodeURIComponent(data.logo_sekolah_url.split('/').pop())}`);
-        if (data.ttd_kepsek_url) {
-          // Jika URL dari backend adalah path lokal (misal /storage/...), kita bisa langsung tampilkan
-          // Pastikan API_URL dasar disesuaikan (path relatif /storage/... diberi asal API)
-          const fullUrl = data.ttd_kepsek_url.startsWith('http') 
-            ? data.ttd_kepsek_url 
-            : `${API_ORIGIN}${data.ttd_kepsek_url}`;
-          setTtdPreview(fullUrl);
-        }
+        // Berkas tanda tangan tidak publik: pratinjau dimuat dengan akun yang sedang masuk
+        if (data.ttd_kepsek_url) ttdDataUrl(data.ttd_kepsek_url).then((u) => u && setTtdPreview(u));
       } catch (err) {
         Swal.fire('Error', err.message, 'error');
       } finally {

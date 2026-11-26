@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
+use App\Services\BerkasTtd;
 use Illuminate\Support\Facades\Storage;
 
 class TeacherController extends Controller
@@ -28,11 +29,7 @@ class TeacherController extends Controller
 
         // Handle Upload TTD
         if ($request->filled('ttd_guru_base64')) {
-            $image_parts = explode(";base64,", $request->ttd_guru_base64);
-            $image_base64 = base64_decode($image_parts[1]);
-            $fileName = 'ttd_guru_' . time() . '.png';
-            Storage::disk('public')->put('signatures/' . $fileName, $image_base64);
-            $data['ttd_guru_url'] = '/storage/signatures/' . $fileName;
+            $data['ttd_guru_url'] = BerkasTtd::simpan($request->ttd_guru_base64, 'ttd_guru', 'ttd_guru_base64');
         }
 
         $teacher = Teacher::create($data);
@@ -47,17 +44,9 @@ class TeacherController extends Controller
 
         // Handle Upload TTD Baru
         if ($request->filled('ttd_guru_base64')) {
-            // Hapus TTD lama jika ada
-            if ($teacher->ttd_guru_url) {
-                $oldPath = str_replace('/storage/', '', $teacher->ttd_guru_url);
-                Storage::disk('public')->delete($oldPath);
-            }
-
-            $image_parts = explode(";base64,", $request->ttd_guru_base64);
-            $image_base64 = base64_decode($image_parts[1]);
-            $fileName = 'ttd_guru_' . time() . '.png';
-            Storage::disk('public')->put('signatures/' . $fileName, $image_base64);
-            $data['ttd_guru_url'] = '/storage/signatures/' . $fileName;
+            $baru = BerkasTtd::simpan($request->ttd_guru_base64, 'ttd_guru', 'ttd_guru_base64');
+            BerkasTtd::hapus($teacher->ttd_guru_url);
+            $data['ttd_guru_url'] = $baru;
         }
 
         $teacher->update($data);
@@ -67,10 +56,7 @@ class TeacherController extends Controller
     public function destroy($id)
     {
         $teacher = Teacher::findOrFail($id);
-        if ($teacher->ttd_guru_url) {
-            $oldPath = str_replace('/storage/', '', $teacher->ttd_guru_url);
-            Storage::disk('public')->delete($oldPath);
-        }
+        BerkasTtd::hapus($teacher->ttd_guru_url);
         $teacher->delete();
         return response()->json(['message' => 'Guru dihapus']);
     }

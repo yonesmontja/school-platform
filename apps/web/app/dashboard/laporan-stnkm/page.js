@@ -9,6 +9,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { ChartCanvas } from "@/components/dashboard/ChartCard";
 import { renderGrafikStatis } from "@/components/dashboard/chartExport";
 import { API_URL } from "@/app/lib/config";
+import { ambilTtd } from "@/app/lib/ttd";
 import {
   DIMENSI, MAPEL_KHUSUS, DIMENSI_JURNAL, KUNCI_JURNAL, SUMBER, CARA_LENGKAP, sumberValid, caraValid, labelSumber, skalaJurnal, pakaiDuaSumbu,
   parseYmd, toYmd, seninDari, tanggalMulaiDefault, rataKunci, rataGabungan, rataJurnal, normalisasi, saring, bangunHarian, rekapSiswa,
@@ -487,7 +488,7 @@ function LaporanStnkm() {
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
     try {
-      const response = await fetch(`${API_URL}/signature/${imageUrl.split("/").pop()}`);
+      const response = await ambilTtd(imageUrl.split("/").pop());
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

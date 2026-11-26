@@ -136,20 +136,8 @@ Route::get('/verifikasi-siswa/{kode}', [\App\Http\Controllers\Api\KartuSiswaCont
 Route::get('/verifikasi-rapor/{kode}', [\App\Http\Controllers\Api\RaporTerbitController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 Route::get('/verifikasi-surat/{kode}', [SuratController::class, 'verifikasi'])->where('kode', '[A-Za-z0-9]{6,16}')->middleware('throttle:30,1');
 
-// Route Proxy untuk Gambar TTD (Anti CORS)
-Route::get('/signature/{filename}', function ($filename) {
-    $path = storage_path('app/public/signatures/' . basename($filename));
-
-    if (!File::exists($path)) {
-        abort(404, 'File tanda tangan tidak ditemukan di server.');
-    }
-
-    $file = File::get($path);
-    $type = File::mimeType($path);
-    $response = Response::make($file, 200);
-    $response->header("Content-Type", $type);
-    return $response;
-});
+// Gambar tanda tangan: hanya akun staf yang masuk (berkas lama di disk publik dilayani sampai `php artisan ttd:amankan`)
+Route::get('/signature/{filename}', [\App\Http\Controllers\Api\TandaTanganController::class, 'tampil'])->middleware('throttle:120,1');
 
 Route::middleware(['auth:sanctum', 'role'])->group(function () {
     // ===== SEMUA PERAN =====

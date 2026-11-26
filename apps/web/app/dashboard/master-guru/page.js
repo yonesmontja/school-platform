@@ -5,8 +5,9 @@ import * as XLSX from "xlsx";
 import TableWrapper from "@/components/TableWrapper";
 import { useTableLogic } from "@/hooks/useTableLogic";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
-import { API_ORIGIN, API_URL } from "@/app/lib/config";
+import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
+import { ambilTtd, ttdDataUrl } from "@/app/lib/ttd";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -106,9 +107,7 @@ export default function MasterGuruPage() {
     if (!imageUrl) return null;
     try {
       const fileName = imageUrl.split("/").pop();
-      const response = await fetch(
-        `${API_URL}/signature/${fileName}`,
-      );
+      const response = await ambilTtd(fileName);
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {
@@ -200,11 +199,9 @@ export default function MasterGuruPage() {
   // --- FUNGSI CRUD ---
   const openModal = (teacher = null) => {
     setFormData(teacher || {});
-    setTtdPreview(
-      teacher?.ttd_guru_url
-        ? `${API_ORIGIN}${teacher.ttd_guru_url}`
-        : null,
-    );
+    setTtdPreview(null);
+    // Berkas tanda tangan tidak publik: pratinjau dimuat dengan akun yang sedang masuk
+    if (teacher?.ttd_guru_url) ttdDataUrl(teacher.ttd_guru_url).then((u) => u && setTtdPreview(u));
     setShowModal(true);
   };
 

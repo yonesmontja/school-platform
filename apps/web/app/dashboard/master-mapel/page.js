@@ -8,6 +8,7 @@ import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { aksiHapus, aksiUbah, kolomAksi } from "@/components/dashboard/menuAksi";
 import Link from "next/link";
+import { ambilTtd } from "@/app/lib/ttd";
 
 // Pindahkan API_URL dan getToken ke luar komponen agar referensinya stabil
 const getToken = () => localStorage.getItem("token");
@@ -124,9 +125,7 @@ export default function MasterMapelPage() {
     if (!imageUrl) return null;
     try {
       const fileName = imageUrl.split("/").pop();
-      const response = await fetch(
-        `${API_URL}/signature/${fileName}`,
-      );
+      const response = await ambilTtd(fileName);
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

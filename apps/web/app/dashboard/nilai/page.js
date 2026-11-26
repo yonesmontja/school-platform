@@ -15,6 +15,7 @@ import { useAlasanBukanHariSekolah } from "@/app/lib/hariSekolah";
 import RingkasanNilai from "@/components/nilai/RingkasanNilai";
 import ModalPindahLembar from "@/components/nilai/ModalPindahLembar";
 import Pengisi, { pengisiLain as pengisiBerbeda, teksPengisi } from "@/components/dashboard/Pengisi";
+import { ambilTtd } from "@/app/lib/ttd";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -796,7 +797,7 @@ function InputNilaiPage() {
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
     try {
-      const response = await fetch(`${API_URL}/signature/${imageUrl.split("/").pop()}`);
+      const response = await ambilTtd(imageUrl.split("/").pop());
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => {

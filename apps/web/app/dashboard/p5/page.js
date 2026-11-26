@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { generateProfessionalPDF } from "@/utils/pdfExport";
 import { API_URL } from "@/app/lib/config";
 import { DIMENSI_LULUSAN, BENTUK_KOKURIKULER, labelBentuk, skalaDari, tingkatPredikat, predikatTampil } from "@/app/lib/kokurikuler";
+import { ambilTtd } from "@/app/lib/ttd";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -347,7 +348,7 @@ export default function P5Page() {
   const getBase64ImageFromUrl = async (imageUrl) => {
     if (!imageUrl) return null;
     try {
-      const response = await fetch(`${API_URL}/signature/${imageUrl.split("/").pop()}`);
+      const response = await ambilTtd(imageUrl.split("/").pop());
       if (!response.ok) return null;
       const blob = await response.blob();
       return new Promise((resolve) => { const r = new FileReader(); r.onloadend = () => resolve(r.result); r.readAsDataURL(blob); });
